@@ -1,6 +1,8 @@
 package com.secura.dnft.service;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,10 @@ import com.secura.dnft.request.response.CancelBookingRequest;
 import com.secura.dnft.request.response.CancelBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
+import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GetBookingRequest;
+import com.secura.dnft.request.response.GetBookingResponse;
+import com.secura.dnft.request.response.GetHallsReponse;
 import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.validation.BookingServiceValidation;
 
@@ -92,8 +98,8 @@ public class BookingService {
 			
 			if(available) {
 				bookingServiceValidation.validateBookingRequest(bookingRequest);
-				//RazorPayPaymentServices paymentServices= new RazorPayPaymentServices();
-				//paymentServices.pay(null);
+				RazorPayPaymentServices paymentServices= new RazorPayPaymentServices();
+				paymentServices.pay(null);
 				String bookingid=createBookingID(bookingRequest);
 				Booking bookingEnitity= new Booking(bookingRequest,bookingid);
 				bookingRepository.save(bookingEnitity);
@@ -167,6 +173,36 @@ public class BookingService {
 			 bookingResponse.setMessage(ErrorMessage.ERR_MESSAGE_03 + e.getMessage());
 	         bookingResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_03);
 		}
+		
+		return bookingResponse;
+	}
+	
+	public GetHallsReponse getAllHals() {
+		GetHallsReponse hallsReponse= new GetHallsReponse();
+		hallsReponse.setHalls(hallRepository.findAll());
+		return hallsReponse;
+		
+	}
+	
+	public GetBookingResponse getAllBooking(GetBookingRequest getBookingRequest) {
+		GetBookingResponse bookingResponse = new GetBookingResponse();
+		bookingResponse.setGenericHeader(getBookingRequest.getGenericHeader());
+		List<Booking> bookingList= new ArrayList<>();
+		if(getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN)) {
+			bookingList=bookingRepository.findAll();
+		}
+		else {
+			bookingList=bookingRepository.findByCreatUsrId(getBookingRequest.getGenericHeader().getUserId());
+		}
+		if(null==bookingList || bookingList.isEmpty()) {
+			bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_04);
+			bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_04);
+		}
+		else {
+			bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_05);
+			bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_05);
+		}
+		bookingResponse.setBookingList(bookingList);
 		
 		return bookingResponse;
 	}

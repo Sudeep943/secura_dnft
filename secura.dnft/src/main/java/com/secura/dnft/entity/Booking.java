@@ -242,7 +242,7 @@ public class Booking {
         this.bkngPhnNo = null;
         this.bkngPros = request.getBookingPurpose();
         this.bkngExptGest = request.getExpectedGuest();
-        this.bkngType = request.getBookingyType();
+        this.bkngType = request.getBookingType();
         this.bkngSts = SecuraConstants.BOOKING_CONST_STATUS_REQUEST_RECEIVED;
         this.creatTs = LocalDateTime.now();
         this.lstUpdtTs = LocalDateTime.now();

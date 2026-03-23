@@ -9,7 +9,7 @@ public class BookingRequest {
 	private String flatNo;
 	private  Date eventDate;
 	private String expectedGuest;
-	private String bookingyType;
+	private String bookingType;
 	private String bookingPurpose;
 	private String bookingHallId;
 	private String bookingHallName;
@@ -51,11 +51,11 @@ public class BookingRequest {
 	public void setExpectedGuest(String expectedGuest) {
 		this.expectedGuest = expectedGuest;
 	}
-	public String getBookingyType() {
-		return bookingyType;
+	public String getBookingType() {
+		return bookingType;
 	}
-	public void setBookingyType(String bookingyType) {
-		this.bookingyType = bookingyType;
+	public void setBookingType(String bookingyType) {
+		this.bookingType = bookingyType;
 	}
 	public String getBookingPurpose() {
 		return bookingPurpose;

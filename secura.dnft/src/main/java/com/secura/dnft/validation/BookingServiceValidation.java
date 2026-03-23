@@ -27,7 +27,7 @@ public class BookingServiceValidation {
 	throw new BusinessException(ErrorMessage.ERR_MESSAGE_13, ErrorMessageCode.ERR_MESSAGE_13);
 	}
 	
-	if(bookingRequest.getBookingyType()==null){
+	if(bookingRequest.getBookingType()==null){
 	throw new BusinessException(ErrorMessage.ERR_MESSAGE_14, ErrorMessageCode.ERR_MESSAGE_14);
 	}
 	
@@ -41,7 +41,7 @@ public class BookingServiceValidation {
 	
 //	String userid=bookingRequest.getGenericHeader().getUserId();
 	
-	if(bookingRequest.getBookingyType().equals("Society") && bookingRequest.getGenericHeader().getAccess().equals("Admin"))
+	if(bookingRequest.getBookingType().equals("Society") && bookingRequest.getGenericHeader().getAccess().equals("Admin"))
 	{
 	throw new BusinessException(ErrorMessage.ERR_MESSAGE_17, ErrorMessageCode.ERR_MESSAGE_17);
 	}

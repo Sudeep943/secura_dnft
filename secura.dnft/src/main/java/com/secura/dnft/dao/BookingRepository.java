@@ -23,4 +23,7 @@ public interface BookingRepository extends JpaRepository<Booking, String>{
 		        String status,
 		        LocalDateTime now
 		);
+	 
+	    List<Booking> findByCreatUsrId(String userId);
+
 }

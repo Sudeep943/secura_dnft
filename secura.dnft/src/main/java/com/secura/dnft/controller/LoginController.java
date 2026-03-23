@@ -4,7 +4,9 @@ package com.secura.dnft.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.LoginRequest;
+import com.secura.dnft.request.response.LoginResponse;
 import com.secura.dnft.security.JwtUtil;
 
 @CrossOrigin(origins = "*")
@@ -17,12 +19,26 @@ public class LoginController {
 
     @PostMapping("/login")
     @CrossOrigin(origins = "*")
-    public String login(@RequestBody LoginRequest request) {
-
+    public LoginResponse login(@RequestBody LoginRequest request) {
+    	LoginResponse loginResponse= new LoginResponse();
+    	GenericHeader genericHeader = new GenericHeader();
+    	genericHeader.setUserId(request.getUsername());
+    	genericHeader.setApartmentId("DNAPR01");
+    	genericHeader.setRole("RESIDENT");
+    	
         if(request.getUsername().equals("admin")
                 && request.getPassword().equals("password")) {
-
-            return jwtUtil.generateToken(request.getUsername());
+        	loginResponse.setToken( jwtUtil.generateToken(request.getUsername()));
+        	genericHeader.setAccess("ADMIN");
+        	loginResponse.setHeader(genericHeader);
+            return loginResponse;
+        }
+        else if(request.getUsername().equals("Resident")
+                && request.getPassword().equals("password")){
+        	loginResponse.setToken( jwtUtil.generateToken(request.getUsername()));
+        	genericHeader.setAccess("RESIDENT");
+        	loginResponse.setHeader(genericHeader);
+        	 return loginResponse;
         }
 
         throw new RuntimeException("Invalid credentials");

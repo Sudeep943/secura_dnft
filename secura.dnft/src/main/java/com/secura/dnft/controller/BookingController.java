@@ -2,6 +2,7 @@ package com.secura.dnft.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,9 @@ import com.secura.dnft.request.response.CancelBookingRequest;
 import com.secura.dnft.request.response.CancelBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
+import com.secura.dnft.request.response.GetBookingRequest;
+import com.secura.dnft.request.response.GetBookingResponse;
+import com.secura.dnft.request.response.GetHallsReponse;
 import com.secura.dnft.service.BookingService;
 
 @CrossOrigin(origins = "*")
@@ -31,6 +35,24 @@ public class BookingController {
     	bookingResponse=bookingService.createBooking(request);
     	return bookingResponse;
             }
+    
+    @PostMapping("/getBookings")
+    @CrossOrigin(origins = "*")
+    public GetBookingResponse getYourBooking(@RequestBody GetBookingRequest request) {
+    	GetBookingResponse bookingResponse = new GetBookingResponse();
+    	bookingResponse=bookingService.getAllBooking(request);
+    	return bookingResponse;
+            }
+
+    
+    @GetMapping("/getAllHalls")
+    @CrossOrigin(origins = "*")    
+    public GetHallsReponse getAllHalls() {
+    	GetHallsReponse hetHallsReponse = new GetHallsReponse();
+    	hetHallsReponse=bookingService.getAllHals();
+    	return hetHallsReponse;
+            }
+    
     
     @PostMapping("/checkHallAvailability")
     @CrossOrigin(origins = "*")
