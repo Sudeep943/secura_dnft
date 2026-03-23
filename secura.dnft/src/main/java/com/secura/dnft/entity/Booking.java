@@ -72,15 +72,27 @@ public class Booking {
     @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
 
-//    @ManyToOne
-//    @JoinColumn(name = "bkng_trnsc_id")
-//    private Transaction transaction;
+
+    @Column(name = "tender")
+    private String tender;
+    
+    //@JoinColumn(name = "bkng_trnsc_id")
+    @Column(name = "bkng_trnsc_id")
+    private String transaction;
 
     // Getters and Setters
 
     public Booking() {} 
     
-    public String getBkngId() {
+    public String getTender() {
+		return tender;
+	}
+
+	public void setTender(String tender) {
+		this.tender = tender;
+	}
+
+	public String getBkngId() {
         return bkngId;
     }
 
@@ -215,14 +227,14 @@ public class Booking {
     public void setLstUpdtUsrId(String lstUpdtUsrId) {
         this.lstUpdtUsrId = lstUpdtUsrId;
     }
-//
-//    public Transaction getTransaction() {
-//        return transaction;
-//    }
-//
-//    public void setTransaction(Transaction transaction) {
-//        this.transaction = transaction;
-//    }
+
+    public String getTransaction() {
+        return transaction;
+    }
+
+    public void setTransaction(String transaction) {
+        this.transaction = transaction;
+    }
     
     
     public Booking(BookingRequest request,String bookingId) {
@@ -246,6 +258,8 @@ public class Booking {
         this.bkngSts = SecuraConstants.BOOKING_CONST_STATUS_REQUEST_RECEIVED;
         this.creatTs = LocalDateTime.now();
         this.lstUpdtTs = LocalDateTime.now();
+        this.transaction = request.getBookingTransactionId();
+        this.tender = request.getTender();
     }
 
 	public String getBkng_cncld_reason() {

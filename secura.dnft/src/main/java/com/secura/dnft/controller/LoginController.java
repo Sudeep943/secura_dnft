@@ -25,6 +25,7 @@ public class LoginController {
     	genericHeader.setUserId(request.getUsername());
     	genericHeader.setApartmentId("DNAPR01");
     	genericHeader.setRole("RESIDENT");
+    	genericHeader.setFlatNo("1236");
     	
         if(request.getUsername().equals("admin")
                 && request.getPassword().equals("password")) {

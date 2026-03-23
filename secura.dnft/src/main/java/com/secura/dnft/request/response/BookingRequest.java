@@ -13,6 +13,8 @@ public class BookingRequest {
 	private String bookingPurpose;
 	private String bookingHallId;
 	private String bookingHallName;
+	private String bookingTransactionId;
+	private String tender;
 	
 	
 	public String getBookingHallId() {
@@ -62,6 +64,18 @@ public class BookingRequest {
 	}
 	public void setBookingPurpose(String bookingPurpose) {
 		this.bookingPurpose = bookingPurpose;
+	}
+	public String getBookingTransactionId() {
+		return bookingTransactionId;
+	}
+	public void setBookingTransactionId(String bookingTransactionId) {
+		this.bookingTransactionId = bookingTransactionId;
+	}
+	public String getTender() {
+		return tender;
+	}
+	public void setTender(String tender) {
+		this.tender = tender;
 	}
 	
 	

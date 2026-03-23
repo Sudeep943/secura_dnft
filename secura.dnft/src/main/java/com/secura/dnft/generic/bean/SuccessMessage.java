@@ -7,4 +7,7 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_03="Booking Successfull" ;
 	public final String SUCC_MESSAGE_04="No Bookings Found" ;
 	public final String SUCC_MESSAGE_05="Bookings Found" ;
+	
+	public final String SUCC_MESSAGE_06="Razor Pay Order Created" ;
+	public final String SUCC_MESSAGE_07="Payment Successfull" ;
 }

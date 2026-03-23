@@ -1,0 +1,42 @@
+package com.secura.dnft.controller;
+
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.secura.dnft.request.response.RazorPayPaymentRequest;
+import com.secura.dnft.request.response.RazorPayPaymentResponse;
+import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
+import com.secura.dnft.service.RazorPayPaymentServices;
+
+@CrossOrigin(origins = "*")
+@RestController
+@RequestMapping("/payment")
+public class PaymentController {
+
+
+	@Autowired
+	RazorPayPaymentServices razorPayPaymentServices;
+	
+	 @PostMapping("/razorPayCreateOrder")
+	    @CrossOrigin(origins = "*")
+	    public RazorPayPaymentResponse createOrder(@RequestBody RazorPayPaymentRequest request) {
+		 RazorPayPaymentResponse reazorPayOrder = new RazorPayPaymentResponse();
+		 reazorPayOrder=razorPayPaymentServices.createOrder(request);
+	    	return reazorPayOrder;
+	            }
+	 
+
+	 @PostMapping("/verifyPayment")
+	    @CrossOrigin(origins = "*")
+	    public RazorPayPaymentVerificationResponse verifyPayment(@RequestBody Map<String, String> request) {
+		 RazorPayPaymentVerificationResponse reazorPayOrder = new RazorPayPaymentVerificationResponse();
+		 reazorPayOrder=razorPayPaymentServices.paymentVerification(request);
+	    	return reazorPayOrder;
+	            }
+}

@@ -23,7 +23,6 @@ import com.secura.dnft.request.response.CancelBookingRequest;
 import com.secura.dnft.request.response.CancelBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
-import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetBookingRequest;
 import com.secura.dnft.request.response.GetBookingResponse;
 import com.secura.dnft.request.response.GetHallsReponse;
@@ -98,8 +97,6 @@ public class BookingService {
 			
 			if(available) {
 				bookingServiceValidation.validateBookingRequest(bookingRequest);
-				RazorPayPaymentServices paymentServices= new RazorPayPaymentServices();
-				paymentServices.pay(null);
 				String bookingid=createBookingID(bookingRequest);
 				Booking bookingEnitity= new Booking(bookingRequest,bookingid);
 				bookingRepository.save(bookingEnitity);

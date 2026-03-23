@@ -86,7 +86,6 @@ CREATE TABLE secura_trnsac (
 );
 
 
-drop table secura_bkng
 CREATE TABLE secura_bkng (
     bkng_id VARCHAR PRIMARY KEY,
     bkng_date TIMESTAMP,

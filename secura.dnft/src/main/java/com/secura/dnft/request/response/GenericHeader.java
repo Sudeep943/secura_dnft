@@ -7,6 +7,7 @@ public class GenericHeader {
 	private String apartmentId;
 	private String role;
 	private String access;
+	private String flatNo;
 
 	
 	public String getUserId() {
@@ -32,6 +33,12 @@ public class GenericHeader {
 	}
 	public void setAccess(String access) {
 		this.access = access;
+	}
+	public String getFlatNo() {
+		return flatNo;
+	}
+	public void setFlatNo(String flatNo) {
+		this.flatNo = flatNo;
 	}
 
 
