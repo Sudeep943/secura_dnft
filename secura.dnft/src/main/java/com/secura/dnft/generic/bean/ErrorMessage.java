@@ -26,7 +26,7 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_21="Booking Is Alredy Canceled" ;
 	public final String ERR_MESSAGE_22="Razor Pay Order Couldn't Get Created. Please Connect to Service Administration" ;
 	public final String ERR_MESSAGE_23="Payment Failed. Please Try Again. If The Money is Deducted It will be Returned." ;
-	public final String ERR_MESSAGE_24="" ;
+	public final String ERR_MESSAGE_24="No Bookings Found" ;
 	public final String ERR_MESSAGE_25="" ;
 	
 }

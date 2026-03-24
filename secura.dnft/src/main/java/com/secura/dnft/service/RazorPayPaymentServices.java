@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razorpay.Order;
+import com.razorpay.Payment;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Utils;
@@ -23,6 +24,7 @@ import com.secura.dnft.request.response.RazorPayOrderResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
+import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
 
 @Service
 public class RazorPayPaymentServices {
@@ -123,7 +125,30 @@ public class RazorPayPaymentServices {
 		return receipt.toString();
 	}
 	
+	public RazorPayPaymentDetailsResponse getRazorPayPaymentDetails(String paymentId) {
+		RazorPayPaymentDetailsResponse razorPayPaymentDetailsResponse = new RazorPayPaymentDetailsResponse(); 
+		try {
+	            RazorpayClient razorpay = new RazorpayClient(key, secret);
+
+	            Payment payment = razorpay.payments.fetch(paymentId);
+	            razorPayPaymentDetailsResponse=convertPaymentDetailsJsonToObject(payment.toString());
+	        } catch (Exception e) {
+	            e.printStackTrace();
+	        }
+		
+		return razorPayPaymentDetailsResponse;
+	    
+	}
 	
+	   public RazorPayPaymentDetailsResponse convertPaymentDetailsJsonToObject(String json) {
+	    	ObjectMapper objectMapper = new ObjectMapper();
+	        try {
+	            return objectMapper.readValue(json, RazorPayPaymentDetailsResponse.class);
+	        } catch (Exception e) {
+	            throw new RuntimeException("Failed to parse JSON", e);
+	        }
+	    }
+
 		 
    public RazorPayOrderResponse convertJsonToObject(String json) {
 		    	ObjectMapper objectMapper = new ObjectMapper();

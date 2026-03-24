@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.request.response.BookingRequest;
 import com.secura.dnft.request.response.BookingResponse;
-import com.secura.dnft.request.response.CancelBookingRequest;
-import com.secura.dnft.request.response.CancelBookingResponse;
+import com.secura.dnft.request.response.UpdateBookingRequest;
+import com.secura.dnft.request.response.UpdateBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
 import com.secura.dnft.request.response.GetBookingRequest;
@@ -43,6 +43,14 @@ public class BookingController {
     	bookingResponse=bookingService.getAllBooking(request);
     	return bookingResponse;
             }
+    
+    @PostMapping("/getBooking")
+    @CrossOrigin(origins = "*")
+    public GetBookingResponse getBooking(@RequestBody GetBookingRequest request) {
+    	GetBookingResponse bookingResponse = new GetBookingResponse();
+    	bookingResponse=bookingService.getBooking(request);
+    	return bookingResponse;
+            }
 
     
     @GetMapping("/getAllHalls")
@@ -61,10 +69,10 @@ public class BookingController {
     	return checkHallAvailablityResponse;
             }
     
-    @PostMapping("/cancelBooking")
+    @PostMapping("/updateBooking")
     @CrossOrigin(origins = "*")
-    public CancelBookingResponse cancelkBooking(@RequestBody CancelBookingRequest request) {
-    	CancelBookingResponse response= bookingService.cancelBooking(request);
+    public UpdateBookingResponse updateBooking(@RequestBody UpdateBookingRequest request) {
+    	UpdateBookingResponse response= bookingService.updateBooking(request);
     	return response;
             }
     

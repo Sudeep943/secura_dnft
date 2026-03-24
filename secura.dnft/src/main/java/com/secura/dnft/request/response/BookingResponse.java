@@ -8,6 +8,7 @@ public class BookingResponse {
 	private String bookingId;
 	private String message;
 	private String messageCode;
+	private String workLists;
 	
 	
 	public GenericHeader getGenericHeader() {
@@ -39,6 +40,12 @@ public class BookingResponse {
 	}
 	public void setMessageCode(String message_code) {
 		this.messageCode = message_code;
+	}
+	public String getWorkLists() {
+		return workLists;
+	}
+	public void setWorkLists(String workLists) {
+		this.workLists = workLists;
 	}
 	
 	

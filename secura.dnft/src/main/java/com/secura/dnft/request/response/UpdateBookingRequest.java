@@ -1,10 +1,11 @@
 package com.secura.dnft.request.response;
 
-public class CancelBookingRequest {
+public class UpdateBookingRequest {
 	
 	private GenericHeader genericHeader;
 	private String bookingId;
 	private String reason;
+	private String status;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -23,6 +24,12 @@ public class CancelBookingRequest {
 	}
 	public void setReason(String reason) {
 		this.reason = reason;
+	}
+	public String getStatus() {
+		return status;
+	}
+	public void setStatus(String status) {
+		this.status = status;
 	}
 	
 	

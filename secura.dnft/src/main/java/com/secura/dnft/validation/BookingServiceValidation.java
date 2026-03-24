@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.BookingRequest;
-import com.secura.dnft.request.response.CancelBookingRequest;
+import com.secura.dnft.request.response.UpdateBookingRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.security.BusinessException;
 
@@ -50,7 +50,7 @@ public class BookingServiceValidation {
 	
 	}
 	
-	public void validateCancelBookingRequest(CancelBookingRequest cancelBookingRequest) throws BusinessException {
+	public void validateCancelBookingRequest(UpdateBookingRequest cancelBookingRequest) throws BusinessException {
 	commonValidations.genericHeaderValidation(cancelBookingRequest.getGenericHeader());
 	
 	if(cancelBookingRequest.getBookingId()==null){

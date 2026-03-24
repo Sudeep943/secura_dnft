@@ -15,8 +15,16 @@ public class BookingRequest {
 	private String bookingHallName;
 	private String bookingTransactionId;
 	private String tender;
+	private String hallName;
+	private String amountPaid;
 	
 	
+	public String getHallName() {
+		return hallName;
+	}
+	public void setHallName(String hallName) {
+		this.hallName = hallName;
+	}
 	public String getBookingHallId() {
 		return bookingHallId;
 	}
@@ -76,6 +84,12 @@ public class BookingRequest {
 	}
 	public void setTender(String tender) {
 		this.tender = tender;
+	}
+	public String getAmountPaid() {
+		return amountPaid;
+	}
+	public void setAmountPaid(String amountPaid) {
+		this.amountPaid = amountPaid;
 	}
 	
 	

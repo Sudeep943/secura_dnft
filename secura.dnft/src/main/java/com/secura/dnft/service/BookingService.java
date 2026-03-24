@@ -3,6 +3,7 @@ package com.secura.dnft.service;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import com.secura.dnft.dao.BookingRepository;
 import com.secura.dnft.dao.HallRepository;
 import com.secura.dnft.entity.Booking;
 import com.secura.dnft.entity.Halls;
+import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
@@ -19,8 +21,8 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BookingRequest;
 import com.secura.dnft.request.response.BookingResponse;
-import com.secura.dnft.request.response.CancelBookingRequest;
-import com.secura.dnft.request.response.CancelBookingResponse;
+import com.secura.dnft.request.response.UpdateBookingRequest;
+import com.secura.dnft.request.response.UpdateBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
 import com.secura.dnft.request.response.GetBookingRequest;
@@ -39,6 +41,9 @@ public class BookingService {
 	 
 	 @Autowired
 	 HallRepository hallRepository;
+	 
+	 @Autowired
+	 GenericService genericService;
 	 
 	 @Autowired
 	 BookingServiceValidation bookingServiceValidation;
@@ -98,12 +103,14 @@ public class BookingService {
 			if(available) {
 				bookingServiceValidation.validateBookingRequest(bookingRequest);
 				String bookingid=createBookingID(bookingRequest);
-				Booking bookingEnitity= new Booking(bookingRequest,bookingid);
+				Worklist worklist=genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_BOOKING, bookingRequest.getGenericHeader().getUserId());
+				Booking bookingEnitity= new Booking(bookingRequest,bookingid,worklist.getWorklistTaskId());
 				bookingRepository.save(bookingEnitity);
 				bookingResponse.setBookingId(bookingid);
 				bookingResponse.setBookingStatus(SecuraConstants.BOOKING_CONST_STATUS_REQUEST_RECEIVED);
 				bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_03);
 				bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_03);
+				bookingResponse.setWorkLists(worklist.getWorklistTaskId());
 			}
 			else {
 				throw new BusinessException(ErrorMessage.ERR_MESSAGE_01,ErrorMessageCode.ERR_MESSAGE_01);
@@ -137,29 +144,42 @@ public class BookingService {
 		return bookingId.toString().toUpperCase();
 	}
 	
-	public CancelBookingResponse cancelBooking(CancelBookingRequest cancelBookingRequest) {
-		CancelBookingResponse bookingResponse= new CancelBookingResponse();
-		bookingResponse.setGenericHeader(cancelBookingRequest.getGenericHeader());
+	public UpdateBookingResponse updateBooking(UpdateBookingRequest updateBookingRequest) {
+		UpdateBookingResponse bookingResponse= new UpdateBookingResponse();
+		bookingResponse.setGenericHeader(updateBookingRequest.getGenericHeader());
 		try {
-		bookingServiceValidation.validateCancelBookingRequest(cancelBookingRequest);
-		 Booking booking = bookingRepository.findById(cancelBookingRequest.getBookingId())
+		bookingServiceValidation.validateCancelBookingRequest(updateBookingRequest);
+		 Booking booking = bookingRepository.findById(updateBookingRequest.getBookingId())
 		            .orElseThrow(() -> new EntityNotFoundException("Booking not found"));
-		 if(booking.getBkngSts().equals(SecuraConstants.BOOKING_CONST_STATUS_CANCELED)) {
+		 if(booking.getBkngSts().equals(SecuraConstants.BOOKING_CONST_STATUS_CANCELLED)) {
 			 throw new BusinessException(ErrorMessage.ERR_MESSAGE_21, ErrorMessageCode.ERR_MESSAGE_21); 
 		 }
-		 
-		 booking.setBkng_cncld_reason(cancelBookingRequest.getReason());
-		 booking.setBkngCncldBy(cancelBookingRequest.getGenericHeader().getUserId());
-		 booking.setBkngSts(SecuraConstants.BOOKING_CONST_STATUS_CANCELED);
-		 booking.setLstUpdtUsrId(cancelBookingRequest.getGenericHeader().getUserId());
-		 String requestUserId=cancelBookingRequest.getGenericHeader().getUserId();
-		 if(!booking.getBkngBy().equals(requestUserId) && (cancelBookingRequest.getGenericHeader().getAccess()==null|| !cancelBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN))) {
+		
+		 booking.setBkng_cncld_reason(updateBookingRequest.getReason());
+		 booking.setBkngCncldBy(updateBookingRequest.getGenericHeader().getUserId());
+		 booking.setBkngSts(updateBookingRequest.getStatus());
+		 booking.setLstUpdtUsrId(updateBookingRequest.getGenericHeader().getUserId());
+		 String requestUserId=updateBookingRequest.getGenericHeader().getUserId();
+		 if(!booking.getBkngBy().equals(requestUserId) && (updateBookingRequest.getGenericHeader().getAccess()==null|| !updateBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN))) {
 			 throw new BusinessException(ErrorMessage.ERR_MESSAGE_20, ErrorMessageCode.ERR_MESSAGE_20); 
 		 }
 		 bookingRepository.save(booking);
-		 bookingResponse.setBookingId(cancelBookingRequest.getBookingId());
-         bookingResponse.setBookingStatus("Cancled");
-         bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_02);
+		 if(null!=booking.getWorklist() && !booking.getWorklist().isEmpty()) {
+			 genericService.canelWorklist(booking.getWorklist());
+		 }
+		 
+		 bookingResponse.setBookingId(updateBookingRequest.getBookingId());
+         bookingResponse.setBookingStatus(updateBookingRequest.getStatus());
+         if(updateBookingRequest.getStatus().equals(SecuraConstants.BOOKING_CONST_STATUS_APPROVED)) {
+        	 bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_08);
+         }
+         if(updateBookingRequest.getStatus().equals(SecuraConstants.BOOKING_CONST_STATUS_REJECTED)) {
+        	 bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_04);
+         }
+         if(updateBookingRequest.getStatus().equals(SecuraConstants.BOOKING_CONST_STATUS_CANCELLED)) {
+        	 bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_02);
+         }
+         
          bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_01);
 		}
 		catch (BusinessException be) {
@@ -192,14 +212,36 @@ public class BookingService {
 			bookingList=bookingRepository.findByCreatUsrId(getBookingRequest.getGenericHeader().getUserId());
 		}
 		if(null==bookingList || bookingList.isEmpty()) {
-			bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_04);
-			bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_04);
+			bookingResponse.setMessage(ErrorMessage.ERR_MESSAGE_24);
+			bookingResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_24);
 		}
 		else {
 			bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_05);
 			bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_05);
 		}
 		bookingResponse.setBookingList(bookingList);
+		
+		return bookingResponse;
+	}
+	
+	public GetBookingResponse getBooking(GetBookingRequest getBookingRequest) {
+		GetBookingResponse bookingResponse = new GetBookingResponse();
+		bookingResponse.setGenericHeader(getBookingRequest.getGenericHeader());
+		Optional<Booking> booking= bookingRepository.findById(getBookingRequest.getBookingId());
+		
+		if(booking.isPresent()) {
+			if(getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN) || (getBookingRequest.getGenericHeader().getUserId().equals(booking.get().getCreatUsrId()))) {
+				List<Booking> responseBookingList= new ArrayList<>();
+				responseBookingList.add(booking.get());
+				bookingResponse.setBookingList(responseBookingList);
+				bookingResponse.setMessage(SuccessMessage.SUCC_MESSAGE_05);
+				bookingResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_05);
+			}
+			else {
+				bookingResponse.setMessage(ErrorMessage.ERR_MESSAGE_24);
+				bookingResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_24);
+			}
+		}
 		
 		return bookingResponse;
 	}

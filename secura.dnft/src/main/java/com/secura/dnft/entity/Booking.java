@@ -79,12 +79,37 @@ public class Booking {
     //@JoinColumn(name = "bkng_trnsc_id")
     @Column(name = "bkng_trnsc_id")
     private String transaction;
-
+    
+    @Column(name = "worklist")
+    private String worklist;
+    
+    @Column(name = "hall_name")
+    private String hallName;
+    
+    
+    @Column(name = "amound_paid")
+    private String amountPaid;
     // Getters and Setters
 
     public Booking() {} 
     
-    public String getTender() {
+    public String getHallName() {
+		return hallName;
+	}
+
+	public void setHallName(String hallName) {
+		this.hallName = hallName;
+	}
+
+	public String getWorklist() {
+		return worklist;
+	}
+
+	public void setWorklist(String worklist) {
+		this.worklist = worklist;
+	}
+
+	public String getTender() {
 		return tender;
 	}
 
@@ -237,7 +262,15 @@ public class Booking {
     }
     
     
-    public Booking(BookingRequest request,String bookingId) {
+    public String getAmountPaid() {
+		return amountPaid;
+	}
+
+	public void setAmountPaid(String amountPaid) {
+		this.amountPaid = amountPaid;
+	}
+
+	public Booking(BookingRequest request,String bookingId,String worklist) {
         this.bkngId = bookingId;
         this.bkngDate = LocalDateTime.now();
         if(request.getGenericHeader() != null) {
@@ -260,6 +293,9 @@ public class Booking {
         this.lstUpdtTs = LocalDateTime.now();
         this.transaction = request.getBookingTransactionId();
         this.tender = request.getTender();
+        this.worklist = worklist;
+        this.hallName = request.getHallName();
+        this.amountPaid = request.getAmountPaid();
     }
 
 	public String getBkng_cncld_reason() {

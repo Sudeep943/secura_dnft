@@ -1,6 +1,6 @@
 package com.secura.dnft.request.response;
 
-public class CancelBookingResponse {
+public class UpdateBookingResponse {
 
 	private GenericHeader genericHeader;
 	

@@ -6,6 +6,7 @@ public class GetBookingRequest {
 	
 	private GenericHeader genericHeader;
 	private Filter filter;
+	private String bookingId;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -18,6 +19,12 @@ public class GetBookingRequest {
 	}
 	public void setFilter(Filter filter) {
 		this.filter = filter;
+	}
+	public String getBookingId() {
+		return bookingId;
+	}
+	public void setBookingId(String bookingId) {
+		this.bookingId = bookingId;
 	}
 	
 	

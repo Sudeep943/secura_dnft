@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
@@ -38,5 +39,13 @@ public class PaymentController {
 		 RazorPayPaymentVerificationResponse reazorPayOrder = new RazorPayPaymentVerificationResponse();
 		 reazorPayOrder=razorPayPaymentServices.paymentVerification(request);
 	    	return reazorPayOrder;
+	            }
+	 
+	 @PostMapping("/getPaymentDetails")
+	    @CrossOrigin(origins = "*")
+	    public RazorPayPaymentDetailsResponse getPaymentDetails(@RequestBody String paymentId) {
+		 RazorPayPaymentDetailsResponse reazorPaymentDetails = new RazorPayPaymentDetailsResponse();
+		 reazorPaymentDetails=razorPayPaymentServices.getRazorPayPaymentDetails(paymentId);
+	    	return reazorPaymentDetails;
 	            }
 }

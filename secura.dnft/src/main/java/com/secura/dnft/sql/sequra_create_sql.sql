@@ -110,6 +110,15 @@ CREATE TABLE secura_bkng (
     FOREIGN KEY (bkng_trnsc_id) REFERENCES secura_trnsac(trnsc_id)
 );
 
+ALTER TABLE secura_bkng
+ADD COLUMN tender VARCHAR(50)
+
+ALTER TABLE secura_bkng
+ADD COLUMN hall_name VARCHAR(50)
+
+ALTER TABLE secura_bkng
+ADD COLUMN amound_paid VARCHAR(50)
+
 CREATE TABLE secura_halls (
     hall_id VARCHAR PRIMARY KEY,
     hall_name VARCHAR,
