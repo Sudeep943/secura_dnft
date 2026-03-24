@@ -16,4 +16,4 @@ COPY --from=build /app/target/*.jar app.jar
 ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "export JDBC_DATABASE_URL=\"jdbc:${DATABASE_URL}\" && java -jar app.jar --server.port=$PORT --spring.profiles.active=${SPRING_PROFILES_ACTIVE:-railway}"]
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=$PORT --spring.profiles.active=${SPRING_PROFILES_ACTIVE:-railway}"]
