@@ -67,7 +67,8 @@ public class SecurityConfig {
             "https://securadnftflutterui-production.up.railway.app",
             "http://localhost:3000",
             "http://localhost:5000",
-            "http://localhost:8080"
+            "http://localhost:8080",
+            "http://localhost:62953"
         ));
 
         config.setAllowedMethods(List.of(
