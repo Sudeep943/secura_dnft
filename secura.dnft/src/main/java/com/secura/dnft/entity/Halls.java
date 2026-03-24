@@ -132,6 +132,14 @@ public class Halls {
         this.creatTs = creatTs;
     }
 
+    public String getCreatUsrId() {
+        return creatUsrId;
+    }
+
+    public void setCreatUsrId(String creatUsrId) {
+        this.creatUsrId = creatUsrId;
+    }
+
     public Timestamp getLstUpdtTs() {
         return lstUpdtTs;
     }

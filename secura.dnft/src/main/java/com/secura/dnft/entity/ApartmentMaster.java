@@ -2,7 +2,10 @@ package com.secura.dnft.entity;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.Data;
 
 @Data
@@ -11,7 +14,6 @@ import lombok.Data;
 public class ApartmentMaster {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "aprmnt_id")
     private String aprmntId;
 
