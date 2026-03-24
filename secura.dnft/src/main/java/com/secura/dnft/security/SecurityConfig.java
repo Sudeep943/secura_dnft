@@ -24,7 +24,7 @@ public class SecurityConfig {
 	  Exception {
 	  
 	  http .csrf(csrf -> csrf.disable()) .authorizeHttpRequests(auth -> auth
-	  .requestMatchers("/").permitAll() .anyRequest().authenticated()
+	  .requestMatchers("/", "/auth/**").permitAll() .anyRequest().authenticated()
 	  ).addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);;
 	  
 	  return http.build(); }
