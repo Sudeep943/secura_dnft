@@ -30,23 +30,24 @@ CREATE TABLE secura_profl (
     prfl_id VARCHAR PRIMARY KEY,
     prfl_name VARCHAR,
     prfl_flat_no VARCHAR,
+    prfl_dob TIMESTAMP,
     prfl_phone_no VARCHAR,
     prfl_email_adrss VARCHAR,
-    prfl_othr_adrss VARCHAR,
+    prfl_othr_adrss TEXT,
     prfl_type VARCHAR,
     prfl_age VARCHAR,
     prfl_stus VARCHAR,
     prfl_access VARCHAR,
+    profile_pic TEXT,
     prfl_position VARCHAR,
     aprmnt_id VARCHAR,
+    gender VARCHAR,
+    password VARCHAR,
     creat_ts TIMESTAMP,
     creat_usr_id VARCHAR,
     lst_updt_ts TIMESTAMP,
-    lst_updt_usrId VARCHAR,
-
-    FOREIGN KEY (aprmnt_id) REFERENCES secura_aprmnt(aprmnt_id)
+    lst_updt_usrId VARCHAR
 );
-
 
 
 CREATE TABLE secura_flat (

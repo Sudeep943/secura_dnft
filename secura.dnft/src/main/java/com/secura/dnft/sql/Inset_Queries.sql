@@ -38,6 +38,9 @@ INSERT INTO secura_halls VALUES
 INSERT INTO secura_halls VALUES
 ('DNHALL12','Activity Hall 12','Towewr 12','2000 sqft','500','Standard SOP','D','hall12.jpg','APT001',CURRENT_TIMESTAMP,'admin',CURRENT_TIMESTAMP,'admin');
 
+INSERT INTO secura_halls VALUES
+('DNHALL13','Banquet Hall','Mart','6000 sqft','15000','Standard SOP','a','hall12.jpg','APT001',CURRENT_TIMESTAMP,'admin',CURRENT_TIMESTAMP,'admin');
+
 
 INSERT INTO secura_worklist 
 (worklist_task_id, worklists_type, status, creat_ts, creat_usr_id, lst_updt_ts, lst_updt_usrId)

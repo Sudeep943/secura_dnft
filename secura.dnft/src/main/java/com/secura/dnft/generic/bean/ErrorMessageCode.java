@@ -26,4 +26,6 @@ public interface ErrorMessageCode {
 	public final String ERR_MESSAGE_22="ERR_MESSAGE_22" ;
 	public final String ERR_MESSAGE_23="ERR_MESSAGE_23" ;
 	public final String ERR_MESSAGE_24="ERR_MESSAGE_24" ;
+	public final String ERR_MESSAGE_25="ERR_MESSAGE_25" ;
+	public final String ERR_MESSAGE_26="ERR_MESSAGE_26" ;
 }

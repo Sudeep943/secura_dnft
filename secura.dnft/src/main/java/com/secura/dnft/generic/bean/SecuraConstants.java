@@ -19,4 +19,8 @@ public interface SecuraConstants {
 	
 	public final String WORKLIST_TYPE_BOOKING="BOOKING" ;
 	public final String WORKLIST_TYPE_PAYMENT="PAYMENT" ;
+	
+	public final String PROFILE_ID_PREFIX="PRFL" ;
+	
+	public final String PROFILE_STATUS_ACTIVE="ACTIVE" ;
 }

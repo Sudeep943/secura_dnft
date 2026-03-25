@@ -8,6 +8,7 @@ import java.util.Random;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.BookingRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.Booking;
@@ -15,6 +16,7 @@ import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 
 @Service
@@ -25,6 +27,12 @@ public class GenericService {
 	
 	@Autowired
 	WorklistRepository worklistRepository;
+	
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    static {
+        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    }
 	
 	public DashBordDataResponce getDashBoardData(GenericHeader header) {
 		DashBordDataResponce bordDataResponce= new DashBordDataResponce();
@@ -77,4 +85,19 @@ public class GenericService {
 		return worklistId.toString();
 	}
 	
+    public  <T> String toJson(T object) {
+        try {
+            return objectMapper.writeValueAsString(object);
+        } catch (Exception e) {
+            throw new RuntimeException("Error converting object to JSON", e);
+        }
+    }
+    
+    public  <T> T fromJson(String json, Class<T> clazz) {
+        try {
+            return objectMapper.readValue(json, clazz);
+        } catch (Exception e) {
+            throw new RuntimeException("Error converting JSON to object", e);
+        }
+    }
 }
