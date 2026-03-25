@@ -68,7 +68,7 @@ public class SecurityConfig {
             "http://localhost:3000",
             "http://localhost:5000",
             "http://localhost:8080",
-            "http://localhost:62953"
+            "http://localhost:"
         ));
 
         config.setAllowedMethods(List.of(
