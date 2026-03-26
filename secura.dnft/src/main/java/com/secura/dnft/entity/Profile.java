@@ -33,7 +33,7 @@ public class Profile {
     @Column(name = "prfl_email_adrss")
     private String prflEmailAdrss;
 
-    @Column(name = "prfl_othr_adrss")
+    @Column(name = "prfl_othr_adrss", columnDefinition = "TEXT")
     private String prflOthrAdrss;
 
     @Column(name = "prfl_type")
