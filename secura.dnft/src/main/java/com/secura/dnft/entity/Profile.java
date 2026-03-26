@@ -153,6 +153,10 @@ public class Profile {
         this.prflStus = SecuraConstants.PROFILE_STATUS_ACTIVE;
         this.creatUsrId =request.getHeader().getUserId();
         this.aprmntId=request.getHeader().getApartmentId();
+        if(request.getProfileDob() != null) {
+            this.prflDob = request.getProfileDob()
+            		.toLocalDate().atStartOfDay();
+        }
     }
     
     public Profile(UpdateProfileRequest request, String profileId) {

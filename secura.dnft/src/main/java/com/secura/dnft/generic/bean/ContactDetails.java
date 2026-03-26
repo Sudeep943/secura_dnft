@@ -25,6 +25,12 @@ public class ContactDetails {
 	public void setLandlinenumber(String landlinenumber) {
 		this.landlinenumber = landlinenumber;
 	}
+	public ContactDetails(String mobileNumber, String emailId, String landlinenumber) {
+		super();
+		this.mobileNumber = mobileNumber;
+		this.emailId = emailId;
+		this.landlinenumber = landlinenumber;
+	}
 	
 	
 }

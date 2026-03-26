@@ -29,5 +29,7 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_24="No Bookings Found" ;
 	public final String ERR_MESSAGE_25="Error While Creating Profile" ;
 	public final String ERR_MESSAGE_26="Error While Updating Profile" ;
+	public final String ERR_MESSAGE_27=" No Profile Found" ;
+	public final String ERR_MESSAGE_28=" Error While Fetching Profile" ;
 	
 }

@@ -2,6 +2,7 @@ package com.secura.dnft.service;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Optional;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,13 +10,17 @@ import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.generic.bean.Name;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.CreateProfileRequest;
 import com.secura.dnft.request.response.CreateProfileResponse;
+import com.secura.dnft.request.response.GetProfileRequest;
+import com.secura.dnft.request.response.GetProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 
@@ -90,6 +95,33 @@ public class ProfileServices {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_26);
 		}
 		return response;
+	}
+	
+	public GetProfileResponse getProfileDetail(GetProfileRequest request) {
+		GetProfileResponse getProfileResponse = new GetProfileResponse();
+	
+		try {
+		Optional<Profile> profile=profileRepository.findById(request.getProfileID());
+		
+		if(profile.isPresent()) {
+			getProfileResponse=new GetProfileResponse(profile.get());
+			getProfileResponse.setPrflName(genericService.fromJson(profile.get().getPrflName(),Name.class));
+			getProfileResponse.setPrflOthrAdrss(genericService.fromJson(profile.get().getPrflOthrAdrss(),Address.class));
+			getProfileResponse.setMessage(SuccessMessage.SUCC_MESSAGE_11);
+			getProfileResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_11);
+			
+		}
+		else {
+			getProfileResponse.setMessage(ErrorMessage.ERR_MESSAGE_27);
+			getProfileResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_27);
+		}
+		}
+		catch (Exception e) {
+			getProfileResponse.setMessage(ErrorMessage.ERR_MESSAGE_28);
+			getProfileResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_28);
+		}
+		getProfileResponse.setGenericHeader(request.getGenericHeader());
+		return getProfileResponse;
 	}
 
 }

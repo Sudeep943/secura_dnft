@@ -28,4 +28,6 @@ public interface ErrorMessageCode {
 	public final String ERR_MESSAGE_24="ERR_MESSAGE_24" ;
 	public final String ERR_MESSAGE_25="ERR_MESSAGE_25" ;
 	public final String ERR_MESSAGE_26="ERR_MESSAGE_26" ;
+	public final String ERR_MESSAGE_27="ERR_MESSAGE_27" ;
+	public final String ERR_MESSAGE_28="ERR_MESSAGE_28" ;
 }

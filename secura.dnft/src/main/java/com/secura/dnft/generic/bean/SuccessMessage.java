@@ -10,6 +10,7 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_06="Razor Pay Order Created" ;
 	public final String SUCC_MESSAGE_07="Payment Successfull" ;
 	public final String SUCC_MESSAGE_08="Booking Approved Succefully" ;
-	public final String SUCC_MESSAGE_09="Profile Created" ;
-	public final String SUCC_MESSAGE_10="Profile Updated" ;
+	public final String SUCC_MESSAGE_09="Profile Created Succefully" ;
+	public final String SUCC_MESSAGE_10="Profile Updated Succefully" ;
+	public final String SUCC_MESSAGE_11="Profile Fetched Succefully" ;
 }

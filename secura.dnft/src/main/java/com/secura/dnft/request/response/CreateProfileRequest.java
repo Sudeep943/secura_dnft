@@ -1,5 +1,7 @@
 package com.secura.dnft.request.response;
 
+import java.sql.Date;
+
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ContactDetails;
 import com.secura.dnft.generic.bean.Name;
@@ -14,7 +16,14 @@ public class CreateProfileRequest {
     private String profileType;
     private String profilePosition;
     private String gender;
+    private  Date profileDob;
     
+	public Date getProfileDob() {
+		return profileDob;
+	}
+	public void setProfileDob(Date profileDob) {
+		this.profileDob = profileDob;
+	}
 	public GenericHeader getHeader() {
 		return header;
 	}

@@ -9,7 +9,14 @@ public class DashBordDataResponce {
 	
 	private List<Booking> upcomingBookings;
 	private long pendingWorklistCount;
+	private String profilePic;
 	
+	public String getProfilePic() {
+		return profilePic;
+	}
+	public void setProfilePic(String profilePic) {
+		this.profilePic = profilePic;
+	}
 	public List<Booking> getUpcomingBookings() {
 		return upcomingBookings;
 	}

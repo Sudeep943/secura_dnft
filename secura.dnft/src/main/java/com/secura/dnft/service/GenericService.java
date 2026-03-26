@@ -10,12 +10,16 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.BookingRepository;
+import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.Booking;
+import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GetProfileRequest;
+import com.secura.dnft.request.response.GetProfileResponse;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 
@@ -24,6 +28,9 @@ public class GenericService {
 
 	@Autowired
 	BookingRepository bookingRepository;
+	
+	@Autowired
+	ProfileRepository profileRepository;
 	
 	@Autowired
 	WorklistRepository worklistRepository;
@@ -41,6 +48,14 @@ public class GenericService {
 		bordDataResponce.setHeader(header);
 		bordDataResponce.setPendingWorklistCount(pendingCount);
 		bordDataResponce.setUpcomingBookings(upcomingBookings);
+		GetProfileRequest getProfileRequest= new GetProfileRequest();
+		getProfileRequest.setGenericHeader(header);
+		getProfileRequest.setProfileID(header.getUserId());
+		Optional<Profile> profile =profileRepository.findById(header.getUserId());
+		if(profile.isPresent()) {
+			bordDataResponce.setProfilePic(profile.get().getProfilePic());	
+		}
+		
 		return bordDataResponce;
 	}
 	

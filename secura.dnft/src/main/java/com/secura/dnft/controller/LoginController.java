@@ -22,7 +22,7 @@ public class LoginController {
     public LoginResponse login(@RequestBody LoginRequest request) {
     	LoginResponse loginResponse= new LoginResponse();
     	GenericHeader genericHeader = new GenericHeader();
-    	genericHeader.setUserId(request.getUsername());
+    	genericHeader.setUserId("PRFL260300174587");
     	genericHeader.setApartmentId("DNAPR01");
     	genericHeader.setRole("RESIDENT");
     	genericHeader.setFlatNo("1236");
