@@ -1,6 +1,7 @@
 package com.secura.dnft;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.lang.reflect.Field;
 
@@ -19,9 +20,11 @@ class ApplicationTests {
 	}
 
 	@Test
-	void profileOtherAddressColumnIsText() throws NoSuchFieldException {
+	void shouldHaveTextColumnDefinitionForPrflOthrAdrss() throws NoSuchFieldException {
 		Field field = Profile.class.getDeclaredField("prflOthrAdrss");
 		Column column = field.getAnnotation(Column.class);
+		assertNotNull(column);
+		assertEquals("prfl_othr_adrss", column.name());
 		assertEquals("TEXT", column.columnDefinition());
 	}
 
