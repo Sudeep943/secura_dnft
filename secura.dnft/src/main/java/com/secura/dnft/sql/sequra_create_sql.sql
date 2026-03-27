@@ -69,6 +69,7 @@ CREATE TABLE secura_flat (
 
 
 CREATE TABLE secura_trnsac (
+    aprmnt_id VARCHAR,
     trnsc_id VARCHAR PRIMARY KEY,
     trns_date TIMESTAMP,
     trns_by VARCHAR,
@@ -110,6 +111,9 @@ CREATE TABLE secura_bkng (
 
     FOREIGN KEY (bkng_trnsc_id) REFERENCES secura_trnsac(trnsc_id)
 );
+
+ALTER TABLE secura_bkng
+ADD COLUMN aprmnt_id VARCHAR(50) NOT NULL
 
 ALTER TABLE secura_bkng
 ADD COLUMN tender VARCHAR(50)
@@ -193,26 +197,29 @@ CREATE TABLE secura_pymnt (
     creat_usr_id VARCHAR,
     lst_updt_ts TIMESTAMP,
     lst_updt_usrId VARCHAR,
-
-    FOREIGN KEY (disc_fn_id) REFERENCES secura_dsc_fine(disc_fn_id),
-    FOREIGN KEY (aprmnt_id) REFERENCES secura_aprmnt(aprmnt_id)
-);
+   );
 
 CREATE TABLE secura_tenant (
+    aprmt_id       VARCHAR(100) NOT NULL,
     prfl_id        VARCHAR(100) NOT NULL,
     flat_no        VARCHAR(50)  NOT NULL,
     status         VARCHAR(50)  NOT NULL,
     start_date     TIMESTAMP,
     end_date       TIMESTAMP,
+    document TEXT,
     creat_ts TIMESTAMP,
     creat_usr_id VARCHAR,
     lst_updt_ts TIMESTAMP,
     lst_updt_usrId VARCHAR,
 
-    PRIMARY KEY (prfl_id, flat_no, status)
+    PRIMARY KEY (aprmt_id,prfl_id, flat_no, status)
 );
 
+
+
+
 CREATE TABLE secura_access (
+ aprmt_id       VARCHAR(100) NOT NULL,
     role VARCHAR(50) PRIMARY KEY,
     acces_json JSONB,
     creat_ts TIMESTAMP,
@@ -227,7 +234,9 @@ VALUES (
   '{"canCreate": true, "canUpdate": true, "canDelete": true}'
 );
 
+
 CREATE TABLE secura_worklist (
+ aprmt_id       VARCHAR(100) NOT NULL,
     worklist_task_id   VARCHAR(100) PRIMARY KEY,
     worklists_type     VARCHAR(50),
     status             VARCHAR(50),

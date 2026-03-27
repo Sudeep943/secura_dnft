@@ -8,7 +8,9 @@ import java.util.Random;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ErrorMessage;
@@ -33,6 +35,10 @@ public class ProfileServices {
 	
 	@Autowired
 	ProfileRepository profileRepository;
+	
+	@Autowired
+	ApartmentRepository apartmentRepository;
+	
 	
 	public String createProfileId() {
 		StringBuffer profilId= new StringBuffer();
@@ -109,6 +115,29 @@ public class ProfileServices {
 			getProfileResponse.setPrflOthrAdrss(genericService.fromJson(profile.get().getPrflOthrAdrss(),Address.class));
 			getProfileResponse.setMessage(SuccessMessage.SUCC_MESSAGE_11);
 			getProfileResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_11);
+			Optional<ApartmentMaster> apartmentMaster= apartmentRepository.findById(request.getGenericHeader().getApartmentId());
+			if(apartmentMaster.isPresent()) {
+				getProfileResponse.setApartmentName(apartmentMaster.get().getAprmntName());
+			}
+			
+			
+			if(null!=profile.get().getCreatUsrId()) {
+			Optional<Profile> createprofile=profileRepository.findById(profile.get().getCreatUsrId());
+			if(createprofile.isPresent()) {
+				StringBuffer createuserName= new StringBuffer();
+				Name createuser= genericService.fromJson(createprofile.get().getPrflName(), Name.class);
+				createuserName.append(createuser.getFirstName()).append(" ").append(createuser.getLastName()).append(" ").append("(").append(createprofile.get().getCreatUsrId()).append(")");
+				getProfileResponse.setCreatUsrName(createuserName.toString());
+			}
+			}
+			if(null!=profile.get().getLstUpdtUsrId()) {
+			Optional<Profile> lastUpdateprofile=profileRepository.findById(profile.get().getLstUpdtUsrId());
+			if(lastUpdateprofile.isPresent()) {
+				StringBuffer lastUpdateprofileName= new StringBuffer();
+				Name lastUpdateProfileuser= genericService.fromJson(lastUpdateprofile.get().getPrflName(), Name.class);
+				lastUpdateprofileName.append(lastUpdateProfileuser.getFirstName()).append(" ").append(lastUpdateProfileuser.getLastName()).append(" ").append("(").append(lastUpdateprofile.get().getCreatUsrId()).append(")");
+				getProfileResponse.setLstUpdtUsrName(lastUpdateprofileName.toString());
+			}}
 			
 		}
 		else {

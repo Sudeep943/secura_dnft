@@ -29,7 +29,34 @@ public class GetProfileResponse {
     private String profilePic;
     private String message;
     private String messageCode;
+    private String apartmentName;
+    private String creatUsrName;
+    private String lstUpdtUsrName;
     
+	public String getApartmentName() {
+		return apartmentName;
+	}
+
+	public void setApartmentName(String apartentName) {
+		this.apartmentName = apartentName;
+	}
+
+	public String getCreatUsrName() {
+		return creatUsrName;
+	}
+
+	public void setCreatUsrName(String creatUsrName) {
+		this.creatUsrName = creatUsrName;
+	}
+
+	public String getLstUpdtUsrName() {
+		return lstUpdtUsrName;
+	}
+
+	public void setLstUpdtUsrName(String lstUpdtUsrName) {
+		this.lstUpdtUsrName = lstUpdtUsrName;
+	}
+
 	public GetProfileResponse() {
 		super();
 	}

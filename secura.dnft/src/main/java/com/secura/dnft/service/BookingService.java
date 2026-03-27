@@ -205,7 +205,7 @@ public class BookingService {
 		GetBookingResponse bookingResponse = new GetBookingResponse();
 		bookingResponse.setGenericHeader(getBookingRequest.getGenericHeader());
 		List<Booking> bookingList= new ArrayList<>();
-		if(getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN)) {
+				if(getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN)) {
 			bookingList=bookingRepository.findAll();
 		}
 		else {
