@@ -10,13 +10,26 @@ public class UpdateProfileRequest {
 	private String  profileId;
     private String profileFlatNo;
     private ContactDetails contact;
+    private Address primaryPostalAddress;
     private Address profileOthrAdrss;
     private String profileType;
     private String profilePosition;
     private String profilePic;
-    private String password;
     private String profileStatus;
+    private String role;
     
+	public String getRole() {
+		return role;
+	}
+	public void setRole(String role) {
+		this.role = role;
+	}
+	public Address getPrimaryPostalAddress() {
+		return primaryPostalAddress;
+	}
+	public void setPrimaryPostalAddress(Address primaryPostalAddress) {
+		this.primaryPostalAddress = primaryPostalAddress;
+	}
 	public String getProfileStatus() {
 		return profileStatus;
 	}
@@ -71,12 +84,7 @@ public class UpdateProfileRequest {
 	public void setProfilePic(String profilePic) {
 		this.profilePic = profilePic;
 	}
-	public String getPassword() {
-		return password;
-	}
-	public void setPassword(String password) {
-		this.password = password;
-	}
+
 	public String getProfileId() {
 		return profileId;
 	}

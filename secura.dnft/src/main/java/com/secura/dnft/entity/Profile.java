@@ -4,9 +4,7 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.CreateProfileRequest;
-import com.secura.dnft.request.response.UpdateProfileRequest;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,15 +15,19 @@ import jakarta.persistence.Table;
 @Table(name = "secura_profl")
 public class Profile {
 
-	@Id
-    @Column(name = "prfl_id")
+
+    @Id
+    @Column(name = "prfl_id", nullable = false)
     private String prflId;
 
     @Column(name = "prfl_name")
     private String prflName;
 
-    @Column(name = "prfl_flat_no")
-    private String prflFlatNo;
+    @Column(name = "prfl_acount_details", columnDefinition = "TEXT")
+    private String prflAcountDetails;
+
+    @Column(name = "prfl_dob")
+    private LocalDateTime prflDob;
 
     @Column(name = "prfl_phone_no")
     private String prflPhoneNo;
@@ -33,165 +35,198 @@ public class Profile {
     @Column(name = "prfl_email_adrss")
     private String prflEmailAdrss;
 
-    @Column(name = "prfl_othr_adrss", columnDefinition = "TEXT")
+    @Column(name = "prfl_primary_postal_adrss", columnDefinition = "TEXT")
+    private String prflPrimaryPostalAdrss;
+
+    @Column(name = "prfl_othr_adrss" , columnDefinition = "TEXT")
     private String prflOthrAdrss;
-
-    @Column(name = "prfl_type")
-    private String prflType;
-
-    @Column(name = "prfl_stus")
-    private String prflStus;
-
+    
     @Column(name = "prfl_access")
-    private String prflAccess;
-
-    @Column(name = "prfl_position")
-    private String prflPosition;
-
-    @Column(name = "aprmnt_id")
-    private String aprmntId;
-
-    @CreationTimestamp
-    @Column(name = "creat_ts")
-    private LocalDateTime creatTs;
-
-    @Column(name = "creat_usr_id")
-    private String creatUsrId;
-
-    @UpdateTimestamp
-    @Column(name = "lst_updt_ts")
-    private LocalDateTime lstUpdtTs;
-
-    @Column(name = "lst_updt_usrid")
-    private String lstUpdtUsrId;
+    private String prfl_access;
+    
+    @Column(name = "profile_pic" , columnDefinition = "TEXT")
+    private String profile_pic; 
     
     @Column(name = "gender")
     private String gender;
+    
+    @Column(name = "password" , columnDefinition = "TEXT")
+    private String password; 
 
-    @Column(name = "prfl_dob")
-    private LocalDateTime prflDob;
+    @Column(name = " creat_ts")
+    @CreationTimestamp
+    private LocalDateTime creat_ts; 
+    
+    @Column(name = "creat_usr_id")
+    private String creat_usr_id; 
+    
+    @Column(name = "lst_updt_ts")
+    @UpdateTimestamp
+    private LocalDateTime lst_updt_ts; 
+    
+    @Column(name = "lst_updt_usr_id")
+    private String lst_updt_usrId; 
+    
+    @Column(name = "profile_kind")
+    private String profileKind;
+    
 
-    @Column(name = "profile_pic", columnDefinition = "TEXT")
-    private String profilePic;   
-
-    @Column(name = "password")
-    private String password;   
-
-
-    public Profile() {
-		super();
+    public String getPrfl_access() {
+		return prfl_access;
 	}
-	public String getPrflId() { return prflId; }
-    public String getGender() {
+
+	public void setPrfl_access(String prfl_access) {
+		this.prfl_access = prfl_access;
+	}
+
+	public String getProfile_pic() {
+		return profile_pic;
+	}
+
+	public void setProfile_pic(String profile_pic) {
+		this.profile_pic = profile_pic;
+	}
+
+	public String getGender() {
 		return gender;
 	}
+
+	public String getProfileKind() {
+		return profileKind;
+	}
+
+	public void setProfileKind(String profileKind) {
+		this.profileKind = profileKind;
+	}
+
 	public void setGender(String gender) {
 		this.gender = gender;
 	}
-	public void setPrflId(String prflId) { this.prflId = prflId; }
 
-    public String getPrflName() { return prflName; }
-    public void setPrflName(String prflName) { this.prflName = prflName; }
+	public String getPassword() {
+		return password;
+	}
 
-    public String getPrflFlatNo() { return prflFlatNo; }
-    public void setPrflFlatNo(String prflFlatNo) { this.prflFlatNo = prflFlatNo; }
+	public void setPassword(String password) {
+		this.password = password;
+	}
 
-    public String getPrflPhoneNo() { return prflPhoneNo; }
-    public void setPrflPhoneNo(String prflPhoneNo) { this.prflPhoneNo = prflPhoneNo; }
+	public LocalDateTime getCreat_ts() {
+		return creat_ts;
+	}
 
-    public String getPrflEmailAdrss() { return prflEmailAdrss; }
-    public void setPrflEmailAdrss(String prflEmailAdrss) { this.prflEmailAdrss = prflEmailAdrss; }
+	public void setCreat_ts(LocalDateTime creat_ts) {
+		this.creat_ts = creat_ts;
+	}
 
-    public String getPrflOthrAdrss() { return prflOthrAdrss; }
-    public void setPrflOthrAdrss(String prflOthrAdrss) { this.prflOthrAdrss = prflOthrAdrss; }
+	public String getCreat_usr_id() {
+		return creat_usr_id;
+	}
 
-    public String getPrflType() { return prflType; }
-    public void setPrflType(String prflType) { this.prflType = prflType; }
+	public void setCreat_usr_id(String creat_usr_id) {
+		this.creat_usr_id = creat_usr_id;
+	}
 
-    public String getPrflStus() { return prflStus; }
-    public void setPrflStus(String prflStus) { this.prflStus = prflStus; }
+	public LocalDateTime getLst_updt_ts() {
+		return lst_updt_ts;
+	}
 
-    public String getPrflAccess() { return prflAccess; }
-    public void setPrflAccess(String prflAccess) { this.prflAccess = prflAccess; }
+	public void setLst_updt_ts(LocalDateTime lst_updt_ts) {
+		this.lst_updt_ts = lst_updt_ts;
+	}
 
-    public String getPrflPosition() { return prflPosition; }
-    public void setPrflPosition(String prflPosition) { this.prflPosition = prflPosition; }
+	public String getLst_updt_usrId() {
+		return lst_updt_usrId;
+	}
 
-    public String getAprmntId() { return aprmntId; }
-    public void setAprmntId(String aprmntId) { this.aprmntId = aprmntId; }
+	public void setLst_updt_usrId(String lst_updt_usrId) {
+		this.lst_updt_usrId = lst_updt_usrId;
+	}
 
-    public LocalDateTime getCreatTs() { return creatTs; }
-    public void setCreatTs(LocalDateTime creatTs) { this.creatTs = creatTs; }
+	// Constructors
+    public Profile() {}
 
-    public String getCreatUsrId() { return creatUsrId; }
-    public void setCreatUsrId(String creatUsrId) { this.creatUsrId = creatUsrId; }
+    // Getters and Setters
 
-    public LocalDateTime getLstUpdtTs() { return lstUpdtTs; }
-    public void setLstUpdtTs(LocalDateTime lstUpdtTs) { this.lstUpdtTs = lstUpdtTs; }
+    public String getPrflId() {
+        return prflId;
+    }
 
-    public String getLstUpdtUsrId() { return lstUpdtUsrId; }
-    public void setLstUpdtUsrId(String lstUpdtUsrId) { this.lstUpdtUsrId = lstUpdtUsrId; }
+    public void setPrflId(String prflId) {
+        this.prflId = prflId;
+    }
 
-    public LocalDateTime getPrflDob() { return prflDob; }
-    public void setPrflDob(LocalDateTime prflDob) { this.prflDob = prflDob; }
+    public String getPrflName() {
+        return prflName;
+    }
 
-    public String getProfilePic() { return profilePic; }
-    public void setProfilePic(String profilePic) { this.profilePic = profilePic; }
+    public void setPrflName(String prflName) {
+        this.prflName = prflName;
+    }
 
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
-    
-    
-    public Profile(CreateProfileRequest request, String profileId) {
-        this.prflId =profileId;
-        this.prflFlatNo = request.getProfileFlatNo();
+    public String getPrflAcountDetails() {
+        return prflAcountDetails;
+    }
+
+    public void setPrflAcountDetails(String prflAcountDetails) {
+        this.prflAcountDetails = prflAcountDetails;
+    }
+
+    public LocalDateTime getPrflDob() {
+        return prflDob;
+    }
+
+    public void setPrflDob(LocalDateTime prflDob) {
+        this.prflDob = prflDob;
+    }
+
+    public String getPrflPhoneNo() {
+        return prflPhoneNo;
+    }
+
+    public void setPrflPhoneNo(String prflPhoneNo) {
+        this.prflPhoneNo = prflPhoneNo;
+    }
+
+    public String getPrflEmailAdrss() {
+        return prflEmailAdrss;
+    }
+
+    public void setPrflEmailAdrss(String prflEmailAdrss) {
+        this.prflEmailAdrss = prflEmailAdrss;
+    }
+
+    public String getPrflPrimaryPostalAdrss() {
+        return prflPrimaryPostalAdrss;
+    }
+
+    public void setPrflPrimaryPostalAdrss(String prflPrimaryPostalAdrss) {
+        this.prflPrimaryPostalAdrss = prflPrimaryPostalAdrss;
+    }
+
+    public String getPrflOthrAdrss() {
+        return prflOthrAdrss;
+    }
+
+    public void setPrflOthrAdrss(String prflOthrAdrss) {
+        this.prflOthrAdrss = prflOthrAdrss;
+    }
+
+    public Profile(CreateProfileRequest request, String profileId,String acoountDetails,String primaryAddress,String otherAddress) {
+    	this.prflId =profileId;
+        this.prflAcountDetails=acoountDetails;
+        this.gender=request.getGender();
         this.prflPhoneNo = request.getContact().getMobileNumber();
+        this.prflPrimaryPostalAdrss= primaryAddress;
+        this.prflOthrAdrss= otherAddress;
+        //this.prfl_access
+        this.profileKind=request.getProfileKind();
         this.prflEmailAdrss = request.getContact().getEmailId();
-        this.prflType = request.getProfileType();
-        this.prflPosition = request.getProfilePosition();
-        this.gender = request.getGender();
-        this.prflStus = SecuraConstants.PROFILE_STATUS_ACTIVE;
-        this.creatUsrId =request.getHeader().getUserId();
-        this.aprmntId=request.getHeader().getApartmentId();
+        this.creat_usr_id =request.getHeader().getUserId();
         if(request.getProfileDob() != null) {
             this.prflDob = request.getProfileDob()
             		.toLocalDate().atStartOfDay();
         }
     }
-    
-    public Profile(UpdateProfileRequest request, String profileId) {
-    	if (request == null) {
-            return;
-        }
-        this.prflId = profileId;
-
-        if (request.getProfileFlatNo() != null) {
-            this.prflFlatNo = request.getProfileFlatNo();
-        }
-        if (request.getContact() != null) {
-            if (request.getContact().getMobileNumber() != null) {
-                this.prflPhoneNo = request.getContact().getMobileNumber();
-            }
-            if (request.getContact().getEmailId() != null) {
-                this.prflEmailAdrss = request.getContact().getEmailId();
-            }
-        }
-        if (request.getProfileType() != null) {
-            this.prflType = request.getProfileType();
-        }
-        if (request.getProfilePosition() != null) {
-            this.prflPosition = request.getProfilePosition();
-        }
-        if (request.getProfileStatus() != null) {
-            this.prflStus = request.getProfileStatus();
-        }
-        if (request.getHeader() != null) {
-            if (request.getHeader().getUserId() != null) {
-                this.creatUsrId = request.getHeader().getUserId();
-            }
-            if (request.getHeader().getApartmentId() != null) {
-                this.aprmntId = request.getHeader().getApartmentId();
-            }
-        }
-    }
+   
 }

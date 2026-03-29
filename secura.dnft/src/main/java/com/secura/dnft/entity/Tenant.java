@@ -9,6 +9,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Table(name = "secura_tenant")
 @IdClass(TenantId.class)
 public class Tenant {
+	
+	@Id
+    @Column(name = "aprmt_id")
+    private String aprmt_id;
 
     @Id
     @Column(name = "prfl_id")
@@ -28,6 +32,10 @@ public class Tenant {
     @Column(name = "end_date")
     private LocalDateTime endDate;
 
+    @Column(name = "document" , columnDefinition = "TEXT")
+    private String document;
+    
+    
     @Column(name = "creat_ts")
     private LocalDateTime creatTs;
 
@@ -41,7 +49,23 @@ public class Tenant {
     @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
     
-    public Tenant() {}
+    public String getAprmt_id() {
+		return aprmt_id;
+	}
+
+	public void setAprmt_id(String aprmt_id) {
+		this.aprmt_id = aprmt_id;
+	}
+
+	public String getDocument() {
+		return document;
+	}
+
+	public void setDocument(String document) {
+		this.document = document;
+	}
+
+	public Tenant() {}
 
     // Getters & Setters
 

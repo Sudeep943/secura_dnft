@@ -30,4 +30,9 @@ public interface ErrorMessageCode {
 	public final String ERR_MESSAGE_26="ERR_MESSAGE_26" ;
 	public final String ERR_MESSAGE_27="ERR_MESSAGE_27" ;
 	public final String ERR_MESSAGE_28="ERR_MESSAGE_28" ;
+	public final String ERR_MESSAGE_29="ERR_MESSAGE_29" ;
+	public final String ERR_MESSAGE_30="ERR_MESSAGE_30" ;
+	public final String ERR_MESSAGE_31="ERR_MESSAGE_31" ;
+	public final String ERR_MESSAGE_32="ERR_MESSAGE_32" ;
+	public final String ERR_MESSAGE_33="ERR_MESSAGE_33" ;
 }

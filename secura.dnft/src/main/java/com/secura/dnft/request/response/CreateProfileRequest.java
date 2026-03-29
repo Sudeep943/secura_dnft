@@ -13,11 +13,25 @@ public class CreateProfileRequest {
     private String profileFlatNo;
     private ContactDetails contact;
     private Address profileOthrAdrss;
+    private Address profilePrimaryPostalAdrss;
     private String profileType;
+    private String profileKind;
     private String profilePosition;
     private String gender;
     private  Date profileDob;
     
+	public String getProfileKind() {
+		return profileKind;
+	}
+	public void setProfileKind(String profileKind) {
+		this.profileKind = profileKind;
+	}
+	public Address getProfilePrimaryPostalAdrss() {
+		return profilePrimaryPostalAdrss;
+	}
+	public void setProfilePrimaryPostalAdrss(Address profilePrimaryPostalAdrss) {
+		this.profilePrimaryPostalAdrss = profilePrimaryPostalAdrss;
+	}
 	public Date getProfileDob() {
 		return profileDob;
 	}

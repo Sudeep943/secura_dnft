@@ -1,21 +1,29 @@
 package com.secura.dnft.request.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.Acccess;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ContactDetails;
 import com.secura.dnft.generic.bean.Name;
+import com.secura.dnft.service.GenericService;
 
 public class GetProfileResponse {
 
 	private GenericHeader genericHeader;
 	private String prflId;
     private Name prflName;
-    private String prflFlatNo;
+    private List<String> prflFlatNo;
     private ContactDetails contactDetails;
     private Address prflOthrAdrss;
+    private Address primaryAddress;
     private String prflType;
     private String prflStus;
     private Acccess prflAccess;
@@ -32,6 +40,17 @@ public class GetProfileResponse {
     private String apartmentName;
     private String creatUsrName;
     private String lstUpdtUsrName;
+    
+    
+    public Address getPrimaryAddress() {
+		return primaryAddress;
+	}
+
+	public void setPrimaryAddress(Address primaryAddress) {
+		this.primaryAddress = primaryAddress;
+	}
+
+	GenericService genericService= new GenericService();
     
 	public String getApartmentName() {
 		return apartmentName;
@@ -65,34 +84,33 @@ public class GetProfileResponse {
 		return genericHeader;
 	}
 	
-	public GetProfileResponse(Profile entity) {
+	public GetProfileResponse(Profile entity,String apartmentId) {
 	    this.prflId = entity.getPrflId();
 
-	    // Name mapping (assuming Name is a custom object)
-	  //  this.prflName = new Name(entity.getPrflName());
+	  List<ProfileAccountDetails> details =
+ 		        genericService.fromJson(
+ 		        		entity.getPrflAcountDetails(),
+ 		                new TypeReference<List<ProfileAccountDetails>>() {});
+ 		                
+	    Optional<ProfileAccountDetails> accountDetails =details.stream().filter(ad->ad.getApartmentId().equals(apartmentId)).findFirst();
+	    
+	    if(accountDetails.isPresent()){
+	    	ProfileAccountDetails acDetails=accountDetails.get();
+	    	 this.prflFlatNo = acDetails.getFlatId();
+	    	 this.prflType = acDetails.getProfileType();
+	 	     this.prflStus = acDetails.getStatus();
+	 	    this.prflPosition = acDetails.getPosition();
+		    this.aprmntId = apartmentId;
 
-	    this.prflFlatNo = entity.getPrflFlatNo();
 
-	    // ContactDetails mapping
+	    }
 	    this.contactDetails = new ContactDetails(entity.getPrflPhoneNo(),entity.getPrflEmailAdrss(),null);
-
-	    // Address mapping
-	   // this.prflOthrAdrss = new Address(entity.getPrflOthrAdrss());
-
-	    this.prflType = entity.getPrflType();
-	    this.prflStus = entity.getPrflStus();
-
-	    // Access mapping
-	    //this.prflAccess = new Acccess(entity.getPrflAccess());
-
-	    this.prflPosition = entity.getPrflPosition();
-	    this.aprmntId = entity.getAprmntId();
-	    this.creatTs = entity.getCreatTs();
-	    this.creatUsrId = entity.getCreatUsrId();
-	    this.lstUpdtUsrId = entity.getLstUpdtUsrId();
+	    this.creatTs = entity.getCreat_ts();
+	    this.creatUsrId = entity.getCreat_usr_id();
+	    this.lstUpdtUsrId = entity.getLst_updt_usrId();
 	    this.gender = entity.getGender();
 	    this.prflDob = entity.getPrflDob();
-	    this.profilePic = entity.getProfilePic();
+	    this.profilePic = entity.getProfile_pic();
 	}
 
 	public void setGenericHeader(GenericHeader genericHeader) {
@@ -110,10 +128,10 @@ public class GetProfileResponse {
 	public void setPrflName(Name prflName) {
 		this.prflName = prflName;
 	}
-	public String getPrflFlatNo() {
+	public List<String> getPrflFlatNo() {
 		return prflFlatNo;
 	}
-	public void setPrflFlatNo(String prflFlatNo) {
+	public void setPrflFlatNo(List<String> prflFlatNo) {
 		this.prflFlatNo = prflFlatNo;
 	}
 	public ContactDetails getContactDetails() {

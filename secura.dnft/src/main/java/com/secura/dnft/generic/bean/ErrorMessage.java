@@ -31,5 +31,10 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_26="Error While Updating Profile" ;
 	public final String ERR_MESSAGE_27=" No Profile Found" ;
 	public final String ERR_MESSAGE_28=" Error While Fetching Profile" ;
+	public final String ERR_MESSAGE_29="New Profile Detected. Pleae Enter the 4 digit OTP Sent to Resgitered Mobile No." ;
+	public final String ERR_MESSAGE_30="OTP Verified !! Please Enter New Password" ;
+	public final String ERR_MESSAGE_31="Wrong Credential" ;
+	public final String ERR_MESSAGE_32="Old Password Doesn't Match" ;
+	public final String ERR_MESSAGE_33="Service Exception Occured" ;
 	
 }

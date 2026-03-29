@@ -8,8 +8,36 @@ public class GenericHeader {
 	private String role;
 	private String access;
 	private String flatNo;
+	private String profileName;
+	private String apartmentName;
+	private String position;
+	private String profilepic;
 
 	
+	public String getProfileName() {
+		return profileName;
+	}
+	public void setProfileName(String profileName) {
+		this.profileName = profileName;
+	}
+	public String getApartmentName() {
+		return apartmentName;
+	}
+	public void setApartmentName(String apartmentName) {
+		this.apartmentName = apartmentName;
+	}
+	public String getPosition() {
+		return position;
+	}
+	public void setPosition(String position) {
+		this.position = position;
+	}
+	public String getProfilepic() {
+		return profilepic;
+	}
+	public void setProfilepic(String profilepic) {
+		this.profilepic = profilepic;
+	}
 	public String getUserId() {
 		return userId;
 	}

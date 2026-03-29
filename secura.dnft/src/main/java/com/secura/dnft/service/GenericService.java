@@ -8,6 +8,8 @@ import java.util.Random;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.BookingRepository;
 import com.secura.dnft.dao.ProfileRepository;
@@ -19,8 +21,6 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetProfileRequest;
-import com.secura.dnft.request.response.GetProfileResponse;
-import com.fasterxml.jackson.annotation.JsonInclude;
 
 
 @Service
@@ -53,7 +53,7 @@ public class GenericService {
 		getProfileRequest.setProfileID(header.getUserId());
 		Optional<Profile> profile =profileRepository.findById(header.getUserId());
 		if(profile.isPresent()) {
-			bordDataResponce.setProfilePic(profile.get().getProfilePic());	
+			bordDataResponce.setProfilePic(profile.get().getProfile_pic());	
 		}
 		
 		return bordDataResponce;
@@ -109,8 +109,21 @@ public class GenericService {
     }
     
     public  <T> T fromJson(String json, Class<T> clazz) {
+    	if(null!=json) {
         try {
             return objectMapper.readValue(json, clazz);
+        } catch (Exception e) {
+            throw new RuntimeException("Error converting JSON to object", e);
+        }
+    	}
+    	else {
+    		return null;
+    	}
+    }
+    
+    public <T> T fromJson(String json, TypeReference<T> typeReference) {
+        try {
+            return objectMapper.readValue(json, typeReference);
         } catch (Exception e) {
             throw new RuntimeException("Error converting JSON to object", e);
         }

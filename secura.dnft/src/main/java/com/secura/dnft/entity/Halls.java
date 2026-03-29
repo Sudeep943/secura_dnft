@@ -44,7 +44,7 @@ public class Halls {
     @Column(name = "lst_updt_ts")
     private Timestamp lstUpdtTs;
 
-    @Column(name = "lst_updt_usrId")
+    @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
 
     // Constructors

@@ -13,4 +13,6 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_09="Profile Created Succefully" ;
 	public final String SUCC_MESSAGE_10="Profile Updated Succefully" ;
 	public final String SUCC_MESSAGE_11="Profile Fetched Succefully" ;
+	public final String SUCC_MESSAGE_12="Profile Password Verified" ;
+	public final String SUCC_MESSAGE_13="Profile Password Updated" ;
 }

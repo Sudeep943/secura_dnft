@@ -23,6 +23,15 @@ public class ApartmentMaster {
     @Column(name = "aprmnt_address")
     private String aprmntAddress;
     
+    @Column(name = "aprmnt_bank_acccount_list")
+    private String aprmnt_bank_acccount_list;
+    
+    @Column(name = "aprmnt_executive_role_list")
+    private String aprmnt_executive_role_list;
+    
+    @Column(name = "aprmnt_logo")
+    private String aprmnt_logo;
+    
     @Column(name = "creat_ts")
     private LocalDateTime  creat_ts;
     
@@ -32,7 +41,7 @@ public class ApartmentMaster {
     @Column(name = "creat_usr_id")
     private String creat_usr_id;
     
-    @Column(name = "lst_updt_usrid")
+    @Column(name = "lst_updt_usr_id")
     private String lst_updt_usrid;
 
 	public String getAprmntId() {
@@ -89,6 +98,30 @@ public class ApartmentMaster {
 
 	public void setLst_updt_usrid(String lst_updt_usrid) {
 		this.lst_updt_usrid = lst_updt_usrid;
+	}
+
+	public String getAprmnt_bank_acccount_list() {
+		return aprmnt_bank_acccount_list;
+	}
+
+	public void setAprmnt_bank_acccount_list(String aprmnt_bank_acccount_list) {
+		this.aprmnt_bank_acccount_list = aprmnt_bank_acccount_list;
+	}
+
+	public String getAprmnt_executive_role_list() {
+		return aprmnt_executive_role_list;
+	}
+
+	public void setAprmnt_executive_role_list(String aprmnt_executive_role_list) {
+		this.aprmnt_executive_role_list = aprmnt_executive_role_list;
+	}
+
+	public String getAprmnt_logo() {
+		return aprmnt_logo;
+	}
+
+	public void setAprmnt_logo(String aprmnt_logo) {
+		this.aprmnt_logo = aprmnt_logo;
 	}
     
     
