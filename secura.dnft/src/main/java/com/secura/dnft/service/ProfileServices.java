@@ -168,6 +168,7 @@ public class ProfileServices {
 			existingProfile.setPrflOthrAdrss(genericService.toJson(request.getProfileOthrAdrss()));
 			existingProfile.setPrflPrimaryPostalAdrss((genericService.toJson(request.getPrimaryPostalAddress())));
 			existingProfile.setProfile_pic(request.getProfilePic());
+			existingProfile.setLst_updt_usrId(request.getHeader().getUserId());
 			profileRepository.save(existingProfile);
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_10);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_10);
