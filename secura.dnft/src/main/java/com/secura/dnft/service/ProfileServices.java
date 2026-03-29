@@ -140,7 +140,6 @@ public class ProfileServices {
      		        );
 			if(null!=request.getProfileFlatNo()) {
 				if(null==accountDetails || accountDetails.isEmpty()) {
-					List<ProfileAccountDetails> accountDetailaList= new ArrayList<>();
 					ProfileAccountDetails details= new ProfileAccountDetails();
 					details.setApartmentId(name);
 					List<String> flatIds= new ArrayList<>();
