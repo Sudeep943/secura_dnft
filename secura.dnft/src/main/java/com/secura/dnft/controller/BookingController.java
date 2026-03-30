@@ -3,6 +3,7 @@ package com.secura.dnft.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,11 +54,11 @@ public class BookingController {
             }
 
     
-    @GetMapping("/getAllHalls")
+    @GetMapping("/getAllHalls/{apartmentId}")
     @CrossOrigin(origins = "*")    
-    public GetHallsReponse getAllHalls() {
+    public GetHallsReponse getAllHalls(@PathVariable("apartmentId") String apartmentId) {
     	GetHallsReponse hetHallsReponse = new GetHallsReponse();
-    	hetHallsReponse=bookingService.getAllHals();
+    	hetHallsReponse=bookingService.getAllHals(apartmentId);
     	return hetHallsReponse;
             }
     

@@ -5,14 +5,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.BookingRepository;
 import com.secura.dnft.dao.HallRepository;
+import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.entity.Booking;
 import com.secura.dnft.entity.Halls;
+import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -25,6 +29,7 @@ import com.secura.dnft.request.response.UpdateBookingRequest;
 import com.secura.dnft.request.response.UpdateBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetBookingRequest;
 import com.secura.dnft.request.response.GetBookingResponse;
 import com.secura.dnft.request.response.GetHallsReponse;
@@ -38,6 +43,9 @@ public class BookingService {
 
 	 @Autowired
 	 private BookingRepository bookingRepository;
+	 
+	 @Autowired
+	 private ProfileRepository profileRepository;
 	 
 	 @Autowired
 	 HallRepository hallRepository;
@@ -99,12 +107,18 @@ public class BookingService {
 			checkHallAvailablityRequest.setEventDate(bookingRequest.getEventDate());
 			checkHallAvailablityRequest.setHallId(bookingRequest.getBookingHallId());
 			boolean available=checkAvailabilityOfHall(checkHallAvailablityRequest).isAvailable();
+			Optional<Profile> profile = profileRepository.findById(bookingRequest.getGenericHeader().getUserId());
+			String mobileNumber= null;
+			if(profile.isPresent()) {
+				mobileNumber=profile.get().getPrflPhoneNo();
+			}
 			
 			if(available) {
 				bookingServiceValidation.validateBookingRequest(bookingRequest);
 				String bookingid=createBookingID(bookingRequest);
-				Worklist worklist=genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_BOOKING, bookingRequest.getGenericHeader().getUserId());
+				Worklist worklist=genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_BOOKING, bookingRequest.getGenericHeader().getUserId(),bookingRequest.getGenericHeader().getApartmentId());
 				Booking bookingEnitity= new Booking(bookingRequest,bookingid,worklist.getWorklistTaskId());
+				bookingEnitity.setBkngPhnNo(mobileNumber);
 				bookingRepository.save(bookingEnitity);
 				bookingResponse.setBookingId(bookingid);
 				bookingResponse.setBookingStatus(SecuraConstants.BOOKING_CONST_STATUS_REQUEST_RECEIVED);
@@ -194,9 +208,12 @@ public class BookingService {
 		return bookingResponse;
 	}
 	
-	public GetHallsReponse getAllHals() {
+	public GetHallsReponse getAllHals(String apartmentId) {
 		GetHallsReponse hallsReponse= new GetHallsReponse();
-		hallsReponse.setHalls(hallRepository.findAll());
+		hallsReponse.setHalls(hallRepository.findAll().stream().filter(hl->hl.getAprmntId().equals(apartmentId)).collect(Collectors.toList()));
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId(apartmentId);
+		hallsReponse.setGenericHeader(header);
 		return hallsReponse;
 		
 	}
@@ -205,7 +222,8 @@ public class BookingService {
 		GetBookingResponse bookingResponse = new GetBookingResponse();
 		bookingResponse.setGenericHeader(getBookingRequest.getGenericHeader());
 		List<Booking> bookingList= new ArrayList<>();
-				if(getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN)) {
+		
+	  if((null!=getBookingRequest.getGenericHeader().getAccess() && getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN))) {
 			bookingList=bookingRepository.findAll();
 		}
 		else {
@@ -230,7 +248,7 @@ public class BookingService {
 		Optional<Booking> booking= bookingRepository.findById(getBookingRequest.getBookingId());
 		
 		if(booking.isPresent()) {
-			if(getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN) || (getBookingRequest.getGenericHeader().getUserId().equals(booking.get().getCreatUsrId()))) {
+			if((null!=getBookingRequest.getGenericHeader().getAccess() && getBookingRequest.getGenericHeader().getAccess().equals(SecuraConstants.ACCESS_ADMIN)) || (getBookingRequest.getGenericHeader().getUserId().equals(booking.get().getCreatUsrId()))) {
 				List<Booking> responseBookingList= new ArrayList<>();
 				responseBookingList.add(booking.get());
 				bookingResponse.setBookingList(responseBookingList);
@@ -241,6 +259,10 @@ public class BookingService {
 				bookingResponse.setMessage(ErrorMessage.ERR_MESSAGE_24);
 				bookingResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_24);
 			}
+		}
+		else {
+			bookingResponse.setMessage(ErrorMessage.ERR_MESSAGE_24);
+			bookingResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_24);
 		}
 		
 		return bookingResponse;

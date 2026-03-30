@@ -70,13 +70,14 @@ public class GenericService {
 		return pendingCount;
 	}
 	
-	public Worklist createWorklist(String worklistType,String createdBy) {
+	public Worklist createWorklist(String worklistType,String createdBy, String apartmenId) {
 		Worklist worklist = new Worklist();
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_PENDING);
 		worklist.setWorklistsType(worklistType);
 		worklist.setWorklistTaskId(createWorklistId(worklistType,createdBy));
 		worklist.setCreatUsrId(createdBy);
 		worklist.setCreatTs( LocalDateTime.now());
+		worklist.setAprmtId(apartmenId);
 		worklistRepository.save(worklist);
 		return worklist;
 	}

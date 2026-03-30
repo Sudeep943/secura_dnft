@@ -79,7 +79,7 @@ CREATE TABLE secura_bkng (
     bkng_evnt_dt TIMESTAMP,
     bkng_flt_no VARCHAR,
     bkng_phn_no VARCHAR,
-    bkng_prpos VARCHAR,
+    bkng_pros VARCHAR,
     bkng_expt_gest VARCHAR,
     bkng_type VARCHAR,
     bkng_sts VARCHAR,
@@ -119,6 +119,9 @@ CREATE TABLE secura_halls (
     lst_updt_usr_id VARCHAR
 );
 
+ALTER TABLE secura_halls DROP COLUMN hall_amount;
+
+ALTER TABLE secura_halls ADD COLUMN hall_amount TEXT;
 
 CREATE TABLE secura_tenant (
     aprmt_id       VARCHAR(100) NOT NULL,
@@ -206,3 +209,10 @@ INSERT INTO secura_aprmnt (
     CURRENT_TIMESTAMP,
     'admin_user'
 );
+
+ALTER TABLE secura_bkng 
+ADD COLUMN sec_deposite VARCHAR;
+
+ALTER TABLE secura_bkng DROP COLUMN bkng_date;
+
+ALTER TABLE secura_bkng ADD COLUMN bkng_date TIMESTAMP;

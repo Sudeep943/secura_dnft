@@ -17,8 +17,21 @@ public class BookingRequest {
 	private String tender;
 	private String hallName;
 	private String amountPaid;
+	private String securityDeposit;
+	private String bookingDocument;
 	
-	
+	public String getBookingDocument() {
+		return bookingDocument;
+	}
+	public void setBookingDocument(String bookingDocument) {
+		this.bookingDocument = bookingDocument;
+	}
+	public String getSecurityDeposit() {
+		return securityDeposit;
+	}
+	public void setSecurityDeposit(String securityDeposit) {
+		this.securityDeposit = securityDeposit;
+	}
 	public String getHallName() {
 		return hallName;
 	}

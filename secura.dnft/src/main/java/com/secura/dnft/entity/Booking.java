@@ -1,6 +1,9 @@
 package com.secura.dnft.entity;
 
+import java.sql.Date;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -20,6 +23,10 @@ public class Booking {
     @Column(name = "bkng_id")
     private String bkngId;
 
+    
+    @Column(name = "aprmnt_id")
+    private String aprmntId;
+    
     @Column(name = "bkng_date")
     private LocalDateTime bkngDate;
 
@@ -32,7 +39,8 @@ public class Booking {
     @Column(name = "bkng_evnt_dt")
     private LocalDateTime bkngEvntDt;
 
-    @Column(name = "bkng_flt_no")
+
+	@Column(name = "bkng_flt_no")
     private String bkngFltNo;
 
     @Column(name = "bkng_phn_no")
@@ -71,9 +79,20 @@ public class Booking {
 
     @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
+    
+    @Column(name = "sec_deposite")
+    private String secDeposite;
 
+    
+    public String getSecDeposite() {
+		return secDeposite;
+	}
 
-    @Column(name = "tender")
+	public void setSecDeposite(String secDeposite) {
+		this.secDeposite = secDeposite;
+	}
+
+	@Column(name = "tender")
     private String tender;
     
     //@JoinColumn(name = "bkng_trnsc_id")
@@ -89,8 +108,11 @@ public class Booking {
     
     @Column(name = "amound_paid")
     private String amountPaid;
+    
+    @Column(name = "bkng_documet" , columnDefinition = "TEXT")
+    private String bkngDocumet;
     // Getters and Setters
-
+    
     public Booking() {} 
     
     public String getHallName() {
@@ -173,6 +195,13 @@ public class Booking {
         this.bkngPhnNo = bkngPhnNo;
     }
 
+    public String getAprmntId() {
+		return aprmntId;
+	}
+
+	public void setAprmntId(String aprmntId) {
+		this.aprmntId = aprmntId;
+	}
     public String getBkngPros() {
         return bkngPros;
     }
@@ -270,7 +299,16 @@ public class Booking {
 		this.amountPaid = amountPaid;
 	}
 
+	public String getBkngDocumet() {
+		return bkngDocumet;
+	}
+
+	public void setBkngDocumet(String bkngDocumet) {
+		this.bkngDocumet = bkngDocumet;
+	}
+
 	public Booking(BookingRequest request,String bookingId,String worklist) {
+        this.aprmntId = request.getGenericHeader().getApartmentId();
         this.bkngId = bookingId;
         this.bkngDate = LocalDateTime.now();
         if(request.getGenericHeader() != null) {
@@ -279,9 +317,10 @@ public class Booking {
         }
         this.bkngHallId = request.getBookingHallId();
         if(request.getEventDate() != null) {
-            this.bkngEvntDt = request.getEventDate()
-            		.toLocalDate().atStartOfDay();
-        }
+           	DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        	String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(request.getEventDate());
+        	 this.bkngEvntDt = LocalDateTime.parse(formatted, formatter);
+            }
 
         this.bkngFltNo = request.getFlatNo();
         this.bkngPhnNo = null;
@@ -296,6 +335,8 @@ public class Booking {
         this.worklist = worklist;
         this.hallName = request.getHallName();
         this.amountPaid = request.getAmountPaid();
+        this.secDeposite=request.getSecurityDeposit();
+        this.bkngDocumet=request.getBookingDocument();
     }
 
 	public String getBkng_cncld_reason() {

@@ -11,6 +11,16 @@ public class Halls {
     @Column(name = "hall_id")
     private String hallId;
 
+    
+    @Column(name = "hall_details" , columnDefinition = "TEXT")
+    private String hallDetails;
+    
+    @Column(name = "blocked_flat_list" , columnDefinition = "TEXT")
+    private String blockedFlatList;
+    
+    @Column(name = "hall_config" , columnDefinition = "TEXT")
+    private String hallConfig;
+    
     @Column(name = "hall_name")
     private String hallName;
 
@@ -20,7 +30,7 @@ public class Halls {
     @Column(name = "hall_area")
     private String hallArea;
 
-    @Column(name = "hall_amount")
+    @Column(name = "hall_amount" , columnDefinition = "TEXT")
     private String hallAmount;
 
     @Column(name = "hall_sop")

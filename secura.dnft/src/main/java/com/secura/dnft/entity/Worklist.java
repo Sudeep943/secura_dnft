@@ -14,12 +14,21 @@ public class Worklist {
     @Id
     @Column(name = "worklist_task_id")
     private String worklistTaskId;
-
+        
+    @Column(name = "aprmt_id")
+    private String aprmtId;
+    
     @Column(name = "worklists_type")
     private String worklistsType;
 
     @Column(name = "status")
     private String status;
+    
+    @Column(name = "worklists_assign_flow")
+    private String worklistsAssignFlow;
+    
+    @Column(name = "short_remark")
+    private String shortRemark;
     
     @Column(name = "creat_ts")
     private LocalDateTime creatTs;
@@ -34,10 +43,40 @@ public class Worklist {
     @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
 
-    public Worklist() {}
+    public String getWorklistsAssignFlow() {
+		return worklistsAssignFlow;
+	}
 
 
-    public String getWorklistTaskId() {
+	public void setWorklistsAssignFlow(String worklistsAssignFlow) {
+		this.worklistsAssignFlow = worklistsAssignFlow;
+	}
+
+
+	public String getShortRemark() {
+		return shortRemark;
+	}
+
+
+	public void setShortRemark(String shortRemark) {
+		this.shortRemark = shortRemark;
+	}
+
+
+	public Worklist() {}
+
+
+    public String getAprmtId() {
+		return aprmtId;
+	}
+
+
+	public void setAprmtId(String aprmtId) {
+		this.aprmtId = aprmtId;
+	}
+
+
+	public String getWorklistTaskId() {
         return worklistTaskId;
     }
 
