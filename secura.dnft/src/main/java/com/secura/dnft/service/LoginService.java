@@ -21,6 +21,7 @@ import com.secura.dnft.request.response.LoginRequest;
 import com.secura.dnft.request.response.LoginResponse;
 import com.secura.dnft.request.response.UpdatePasswordRequest;
 import com.secura.dnft.request.response.UpdatePasswordResponse;
+import com.secura.dnft.security.AuthCryptoUtil;
 import com.secura.dnft.security.JwtUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 
@@ -33,8 +34,8 @@ public class LoginService {
 	@Autowired
 	ProfileRepository profileRepository;
 	
-	@Autowired
-	DataPrivacyService dataPrivacyService;
+	//@Autowired
+	//DataPrivacyService dataPrivacyService;
 	
 	@Autowired
 	GenericService genericService;
@@ -42,8 +43,12 @@ public class LoginService {
 	@Autowired
 	ApartmentRepository apartmentRepository;
 	
+	@Autowired
+	AuthCryptoUtil authCryptoUtil;
+	
 	public LoginResponse login(LoginRequest loginRequest) {
 		LoginResponse loginResponse = new LoginResponse();
+		//String passwords=authCryptoUtil.decrypt(loginRequest.getPassword());
 	  Optional<Profile> profile = profileRepository.findById(loginRequest.getUsername());
 	  try{
 	   if(profile.isPresent()) {
@@ -64,7 +69,7 @@ public class LoginService {
 			  }
 		  }
 		  else {
-           if(dataPrivacyService.decrypt(password).equals(loginRequest.getPassword())) {
+           if(authCryptoUtil.decrypt(password).equals(authCryptoUtil.decrypt(loginRequest.getPassword()))) {
        	           	   List<ProfileAccountDetails> accountDetails =
         		        genericService.fromJson(
         		        		profile.get().getPrflAcountDetails(),
@@ -111,16 +116,14 @@ public class LoginService {
 		 try {
 		 if(profile.isPresent()) {
 			 if(profileRequest.isOtpVerified()) {
-				String encryptedPass=dataPrivacyService.encrypt(profileRequest.getNewPassword());
-				 profile.get().setPassword(encryptedPass);
+				 profile.get().setPassword(profileRequest.getNewPassword());
 				 profileRepository.save(profile.get());
 				 response.setMessage(SuccessMessage.SUCC_MESSAGE_13);
 				 response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_13);
 			 }
 			 else {
-				 if(dataPrivacyService.decrypt(profile.get().getPassword()).equals(profileRequest.getOldPassword())) {
-					 String encryptedPass=dataPrivacyService.encrypt(profileRequest.getNewPassword());
-					 profile.get().setPassword(encryptedPass);
+				 if(authCryptoUtil.decrypt(profile.get().getPassword()).equals(profileRequest.getOldPassword())) {
+					 profile.get().setPassword(profileRequest.getNewPassword());
 					 profileRepository.save(profile.get());
 					 response.setMessage(SuccessMessage.SUCC_MESSAGE_13);
 					 response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_13);
@@ -132,7 +135,6 @@ public class LoginService {
 			 }
 		 }
 		 } catch (Exception e) {
-				// TODO Auto-generated catch block
 			 e.printStackTrace();
 			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
