@@ -1,11 +1,11 @@
 package com.secura.dnft.service;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,14 +25,16 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BookingRequest;
 import com.secura.dnft.request.response.BookingResponse;
-import com.secura.dnft.request.response.UpdateBookingRequest;
-import com.secura.dnft.request.response.UpdateBookingResponse;
 import com.secura.dnft.request.response.CheckHallAvailablityRequest;
 import com.secura.dnft.request.response.CheckHallAvailablityResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetBookingRequest;
 import com.secura.dnft.request.response.GetBookingResponse;
 import com.secura.dnft.request.response.GetHallsReponse;
+import com.secura.dnft.request.response.GetUpcomigBookingRequest;
+import com.secura.dnft.request.response.GetUpcomigBookingResponse;
+import com.secura.dnft.request.response.UpdateBookingRequest;
+import com.secura.dnft.request.response.UpdateBookingResponse;
 import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.validation.BookingServiceValidation;
 
@@ -266,6 +268,25 @@ public class BookingService {
 		}
 		
 		return bookingResponse;
+	}
+	
+	public GetUpcomigBookingResponse getUpcomingHallBooking (GetUpcomigBookingRequest request) {
+		GetUpcomigBookingResponse response = new GetUpcomigBookingResponse();
+		try {
+		LocalDateTime now = LocalDateTime.now();	
+		response.setBookingList(bookingRepository.findAll().stream().filter(bk->bk.getCreatUsrId().equals(request.getHeader().getUserId()) && bk.getBkngEvntDt().isAfter(now) && bk.getAprmntId().equals(request.getHeader().getApartmentId())).collect(Collectors.toList()));
+        response.setHeader(request.getHeader());
+        response.setMessage(SuccessMessage.SUCC_MESSAGE_14);
+        response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_14);
+		}
+		catch (Exception e) {
+			  response.setHeader(request.getHeader());
+		        response.setMessage(ErrorMessage.ERR_MESSAGE_34);
+		        response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_34);
+		}
+        
+        return response;
+		
 	}
 
 }

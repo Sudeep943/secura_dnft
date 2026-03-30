@@ -36,5 +36,6 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_31="Wrong Credential" ;
 	public final String ERR_MESSAGE_32="Old Password Doesn't Match" ;
 	public final String ERR_MESSAGE_33="Service Exception Occured" ;
+	public final String ERR_MESSAGE_34="Error In Fetching Upcoming Booking" ;
 	
 }

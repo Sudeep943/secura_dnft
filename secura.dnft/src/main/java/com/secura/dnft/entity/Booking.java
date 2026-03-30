@@ -1,6 +1,5 @@
 package com.secura.dnft.entity;
 
-import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;

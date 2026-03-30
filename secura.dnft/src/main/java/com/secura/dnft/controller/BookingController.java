@@ -18,6 +18,8 @@ import com.secura.dnft.request.response.CheckHallAvailablityResponse;
 import com.secura.dnft.request.response.GetBookingRequest;
 import com.secura.dnft.request.response.GetBookingResponse;
 import com.secura.dnft.request.response.GetHallsReponse;
+import com.secura.dnft.request.response.GetUpcomigBookingRequest;
+import com.secura.dnft.request.response.GetUpcomigBookingResponse;
 import com.secura.dnft.service.BookingService;
 
 @CrossOrigin(origins = "*")
@@ -95,4 +97,9 @@ public class BookingController {
     	return null;
             }
 
+    @PostMapping("/getUpcomingHallBookings")
+    public GetUpcomigBookingResponse getUpcomingHallBooking(@RequestBody GetUpcomigBookingRequest request) {
+    	GetUpcomigBookingResponse bookingResponse=bookingService.getUpcomingHallBooking(request);
+    	return bookingResponse;
+            }
 }
