@@ -6,6 +6,8 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.Random;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,7 @@ import com.secura.dnft.request.response.UpdateProfileResponse;
 
 @Service
 public class ProfileServices {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ProfileServices.class);
 	
 	@Autowired
 	GenericService genericService;
@@ -115,7 +118,7 @@ public class ProfileServices {
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_09);
 		}
 		catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error("Error while creating profile for userId: {}", request.getHeader().getUserId(), e);
 			response.setMessage(ErrorMessage.ERR_MESSAGE_25);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_25);
 		}
@@ -181,6 +184,7 @@ public class ProfileServices {
 		response.setHeader(request.getHeader());
 		}
 		catch (Exception e) {
+			LOGGER.error("Error while updating profileId: {}", request.getProfileId(), e);
 			response.setProfileId(request.getProfileId());
 			response.setMessage(ErrorMessage.ERR_MESSAGE_26);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_26);
@@ -232,7 +236,7 @@ public class ProfileServices {
 		}
 		}
 		catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error("Error while fetching profile detail for profileId: {}", request.getProfileID(), e);
 			getProfileResponse.setMessage(ErrorMessage.ERR_MESSAGE_28);
 			getProfileResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_28);
 		}
