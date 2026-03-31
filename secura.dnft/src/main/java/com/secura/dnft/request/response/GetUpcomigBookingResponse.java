@@ -6,7 +6,8 @@ import com.secura.dnft.entity.Booking;
 
 public class GetUpcomigBookingResponse {
 	private  GenericHeader header;
-	private List<Booking> bookingList;
+	private List<Booking> approvedBookingList;
+	private List<Booking> pendigBookingList;
 	 private String message;
 	 private String messageCode;
 	
@@ -29,12 +30,17 @@ public GenericHeader getHeader() {
 public void setHeader(GenericHeader header) {
 	this.header = header;
 }
-public List<Booking> getBookingList() {
-	return bookingList;
+public List<Booking> getApprovedBookingList() {
+	return approvedBookingList;
 }
-public void setBookingList(List<Booking> bookingList) {
-	this.bookingList = bookingList;
+public void setApprovedBookingList(List<Booking> approvedBookingList) {
+	this.approvedBookingList = approvedBookingList;
 }
-
+public List<Booking> getPendigBookingList() {
+	return pendigBookingList;
+}
+public void setPendigBookingList(List<Booking> pendigBookingList) {
+	this.pendigBookingList = pendigBookingList;
+}
 
 }

@@ -139,6 +139,9 @@ CREATE TABLE secura_tenant (
     PRIMARY KEY (aprmt_id,prfl_id, flat_no, status)
 );
 
+ALTER TABLE secura_tenant 
+ADD COLUMN verified BOOLEAN;
+
 CREATE TABLE secura_owner (
     aprmt_id       VARCHAR(100) NOT NULL,
     prfl_id        TEXT NOT NULL,

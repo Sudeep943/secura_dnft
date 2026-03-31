@@ -11,6 +11,10 @@ import com.secura.dnft.request.response.CreateProfileRequest;
 import com.secura.dnft.request.response.CreateProfileResponse;
 import com.secura.dnft.request.response.GetProfileRequest;
 import com.secura.dnft.request.response.GetProfileResponse;
+import com.secura.dnft.request.response.GetTenantRequest;
+import com.secura.dnft.request.response.GetTenantResponse;
+import com.secura.dnft.request.response.ManageTenantRequest;
+import com.secura.dnft.request.response.ManageTenantResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 import com.secura.dnft.service.ProfileServices;
@@ -45,6 +49,22 @@ public class ProfileController {
    public GetProfileResponse getProfile(@RequestBody GetProfileRequest request) {
 	   GetProfileResponse response = new GetProfileResponse();
 	   response=profileServices.getProfileDetail(request);
+   	return response;
+           }
+   
+   @PostMapping("/updateTenantDetails")
+   @CrossOrigin(origins = "*")
+   public ManageTenantResponse updateTenantDetails(@RequestBody ManageTenantRequest request) {
+	   ManageTenantResponse response = new ManageTenantResponse();
+	   response=profileServices.updateTenantDetails(request);
+   	return response;
+           }
+   
+   @PostMapping("/getTenant")
+   @CrossOrigin(origins = "*")
+   public GetTenantResponse getTenant(@RequestBody GetTenantRequest request) {
+	   GetTenantResponse response = new GetTenantResponse();
+	   response=profileServices.getTenant(request);
    	return response;
            }
 }

@@ -37,5 +37,7 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_32="Old Password Doesn't Match" ;
 	public final String ERR_MESSAGE_33="Service Exception Occured" ;
 	public final String ERR_MESSAGE_34="Error In Fetching Upcoming Booking" ;
+	public final String ERR_MESSAGE_35="No Tenant Profile Found" ;
+	public final String ERR_MESSAGE_36="Tenant Profile Not Updated. Try Again Later" ;
 	
 }

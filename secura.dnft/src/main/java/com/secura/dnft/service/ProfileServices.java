@@ -1,11 +1,15 @@
 package com.secura.dnft.service;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.List;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +23,8 @@ import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TenantRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Owner;
-import com.secura.dnft.entity.Tenant;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.entity.Tenant;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -32,6 +36,10 @@ import com.secura.dnft.request.response.CreateProfileRequest;
 import com.secura.dnft.request.response.CreateProfileResponse;
 import com.secura.dnft.request.response.GetProfileRequest;
 import com.secura.dnft.request.response.GetProfileResponse;
+import com.secura.dnft.request.response.GetTenantRequest;
+import com.secura.dnft.request.response.GetTenantResponse;
+import com.secura.dnft.request.response.ManageTenantRequest;
+import com.secura.dnft.request.response.ManageTenantResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 
@@ -107,6 +115,7 @@ public class ProfileServices {
 			tenant.setAprmt_id(request.getHeader().getApartmentId());
 			tenant.setCreatUsrId(request.getHeader().getUserId());
 			tenant.setFlatNo(request.getProfileFlatNo());
+			tenant.setVerified(false);
 			List<String> profileIds=new ArrayList<>();
 			profileIds.add(profileId);
 			tenant.setPrflId(genericService.toJson(profileIds));
@@ -245,6 +254,82 @@ public class ProfileServices {
 	}
 
 	
+	public ManageTenantResponse updateTenantDetails(ManageTenantRequest request ) {
+		ManageTenantResponse response  = new ManageTenantResponse();
+		response.setHeader(request.getHeader());
+		GetTenantRequest getTenantRequest= new GetTenantRequest();
+		getTenantRequest.setGenericHeader(request.getHeader());
+		getTenantRequest.setFlatId(request.getFlatId());
+		
+		GetTenantResponse getTenantResponse=getTenant(getTenantRequest);
+		if(getTenantResponse.getProfile().size()>0) {
+            Tenant tenant=getTenantResponse.getTenant();
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+			if(null!=request.getEndDate()) {
+				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getEndDate()));
+				tenant.setEndDate(LocalDateTime.parse(formatted, formatter));
+			}
+	         if(null!=request.getStartDate()) {
+	        	 String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getStartDate()));
+	 			tenant.setStartDate(LocalDateTime.parse(formatted, formatter));
+			}
+			tenant.setStatus(request.getStatus());
+			tenant.setVerified(request.isVerified());
+			String douments= genericService.toJson(request.getListOfDocuments());
+			tenant.setDocument(douments);
+			tenant.setLstUpdtUsrId(request.getHeader().getUserId());
+			tenantRepository.save(tenant);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
+		}
+		else {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_36);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_36);
+		}
+		return response;
+	}
 	
+	public GetTenantResponse getTenant(GetTenantRequest request ) {
+		GetTenantResponse getTenantResponse = new GetTenantResponse();
+		getTenantResponse.setGenericHeader(request.getGenericHeader());
+     	Tenant currentTenantData=getCurrentFlatTenant(request.getFlatId());
+     	getTenantResponse.setTenant(currentTenantData);
+     	if(currentTenantData!=null) {
+    	List<String> tenantProfiles =
+ 		        genericService.fromJson(
+ 		        		currentTenantData.getPrflId(),
+ 		                new TypeReference<List<String>>() {}
+ 		        );
+
+         List<Optional<Profile>> profileList= tenantProfiles.stream().map(prfl->profileRepository.findById(prfl)).collect(Collectors.toList());
+         getTenantResponse.setProfile(profileList.stream().filter(prfl->prfl.isPresent()).map(prfl->prfl.get()).collect(Collectors.toList()));
+         
+         if(getTenantResponse.getProfile().size()>0) {
+        	 getTenantResponse.setMessage(SuccessMessage.SUCC_MESSAGE_15);
+        	 getTenantResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_15);
+         }
+         else {
+        	 getTenantResponse.setMessage(ErrorMessage.ERR_MESSAGE_35);
+        	 getTenantResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
+         }
+         }
+     	else {
+     		 getTenantResponse.setMessage(ErrorMessage.ERR_MESSAGE_35);
+        	 getTenantResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
+     	}
+    	return getTenantResponse;
+	}
+	
+	public Tenant getCurrentFlatTenant(String flatId ) {
+		List<Tenant> tenantList= tenantRepository.findByFlatNo(flatId);
+		Optional<Tenant> tenant=tenantList.stream().filter(tnt->null==tnt.getEndDate()).findFirst();
+		if(tenant.isPresent()) {
+			return tenant.get();
+		}
+		else {
+			return null;
+		}
+		
+	}
 	
 }

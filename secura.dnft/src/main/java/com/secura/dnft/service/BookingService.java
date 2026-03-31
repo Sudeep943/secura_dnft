@@ -274,8 +274,10 @@ public class BookingService {
 		GetUpcomigBookingResponse response = new GetUpcomigBookingResponse();
 		try {
 		LocalDateTime now = LocalDateTime.now();	
-		response.setBookingList(bookingRepository.findAll().stream().filter(bk->bk.getCreatUsrId().equals(request.getHeader().getUserId()) && bk.getBkngEvntDt().isAfter(now) && bk.getAprmntId().equals(request.getHeader().getApartmentId())).collect(Collectors.toList()));
-        response.setHeader(request.getHeader());
+		List<Booking> bookingList=bookingRepository.findAll().stream().filter(bk->bk.getCreatUsrId().equals(request.getHeader().getUserId()) && bk.getBkngEvntDt().isAfter(now) && bk.getAprmntId().equals(request.getHeader().getApartmentId())).collect(Collectors.toList());
+		response.setApprovedBookingList(bookingList.stream().filter(bk->bk.getBkngSts().equals(SecuraConstants.BOOKING_CONST_STATUS_APPROVED)).collect(Collectors.toList()));
+		response.setPendigBookingList(bookingList.stream().filter(bk->bk.getBkngSts().equals(SecuraConstants.BOOKING_CONST_STATUS_REQUEST_RECEIVED)).collect(Collectors.toList()));
+		response.setHeader(request.getHeader());
         response.setMessage(SuccessMessage.SUCC_MESSAGE_14);
         response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_14);
 		}

@@ -35,6 +35,8 @@ public class Tenant {
     @Column(name = "document" , columnDefinition = "TEXT")
     private String document;
     
+    @Column(name = "verified")
+    private boolean verified;
     
     @Column(name = "creat_ts")
     private LocalDateTime creatTs;
@@ -100,6 +102,14 @@ public class Tenant {
 
 	public void setLstUpdtUsrId(String lstUpdtUsrId) {
 		this.lstUpdtUsrId = lstUpdtUsrId;
+	}
+
+	public boolean isVerified() {
+		return verified;
+	}
+
+	public void setVerified(boolean verified) {
+		this.verified = verified;
 	}
 
 	public void setPrflId(String prflId) { this.prflId = prflId; }
