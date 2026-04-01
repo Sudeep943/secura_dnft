@@ -7,22 +7,22 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "secura_owner")
-@IdClass(OwnerId.class)
 public class Owner {
 	
 	@Id
+    @Column(name = "ownerid")
+    private String ownerId;
+
+	
     @Column(name = "aprmt_id")
     private String aprmt_id;
 
-    @Id
     @Column(name = "prfl_id")
     private String prflId;
 
-    @Id
     @Column(name = "flat_no")
     private String flatNo;
 
-    @Id
     @Column(name = "status")
     private String status;
 
@@ -51,6 +51,14 @@ public class Owner {
     
     public String getAprmt_id() {
 		return aprmt_id;
+	}
+
+	public String getOwnerId() {
+		return ownerId;
+	}
+
+	public void setOwnerId(String ownerId) {
+		this.ownerId = ownerId;
 	}
 
 	public void setAprmt_id(String aprmt_id) {

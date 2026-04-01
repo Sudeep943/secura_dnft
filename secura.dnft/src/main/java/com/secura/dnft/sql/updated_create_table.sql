@@ -157,7 +157,15 @@ CREATE TABLE secura_owner (
 
     PRIMARY KEY (aprmt_id,prfl_id, flat_no, status)
 );
+ALTER TABLE secura_owner DROP CONSTRAINT  secura_owner_pkey;
 
+ALTER TABLE secura_owner 
+ADD COLUMN ownerId VARCHAR PRIMARY KEY; 
+
+ALTER TABLE secura_tenant DROP CONSTRAINT  secura_tenant_pkey;
+
+ALTER TABLE secura_tenant 
+ADD COLUMN tenantId VARCHAR PRIMARY KEY; 
 
 CREATE TABLE secura_flat (
     aprmnt_id VARCHAR,

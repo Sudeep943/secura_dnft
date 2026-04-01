@@ -39,5 +39,6 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_34="Error In Fetching Upcoming Booking" ;
 	public final String ERR_MESSAGE_35="No Tenant Profile Found" ;
 	public final String ERR_MESSAGE_36="Tenant Profile Not Updated. Try Again Later" ;
+	public final String ERR_MESSAGE_37="Already Exits For the Flat. Want To Add To Existing or Create New Profile? Profile Type: " ;
 	
 }

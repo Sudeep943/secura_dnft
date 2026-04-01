@@ -7,22 +7,21 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "secura_tenant")
-@IdClass(TenantId.class)
 public class Tenant {
 	
 	@Id
+	@Column(name = "tenantid")
+    private String tenantId;
+	
     @Column(name = "aprmt_id")
     private String aprmt_id;
 
-    @Id
     @Column(name = "prfl_id")
     private String prflId;
 
-    @Id
     @Column(name = "flat_no")
     private String flatNo;
 
-    @Id
     @Column(name = "status")
     private String status;
 
@@ -65,6 +64,14 @@ public class Tenant {
 
 	public void setDocument(String document) {
 		this.document = document;
+	}
+
+	public String getTenantId() {
+		return tenantId;
+	}
+
+	public void setTenantId(String tenantId) {
+		this.tenantId = tenantId;
 	}
 
 	public Tenant() {}

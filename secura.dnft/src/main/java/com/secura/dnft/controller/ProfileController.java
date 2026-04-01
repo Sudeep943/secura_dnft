@@ -2,9 +2,12 @@ package com.secura.dnft.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.request.response.CreateProfileRequest;
@@ -18,6 +21,7 @@ import com.secura.dnft.request.response.ManageTenantResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 import com.secura.dnft.service.ProfileServices;
+import com.secura.dnft.validation.ProfileServiceValidation;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -26,6 +30,9 @@ public class ProfileController {
 
 	 @Autowired
 	 private ProfileServices profileServices;
+	 
+	 @Autowired
+	 private ProfileServiceValidation profileServiceValidation;
 	 
     @PostMapping("/createProfile")
     @CrossOrigin(origins = "*")
@@ -66,5 +73,11 @@ public class ProfileController {
 	   GetTenantResponse response = new GetTenantResponse();
 	   response=profileServices.getTenant(request);
    	return response;
+           }
+   
+   @GetMapping("/validateCurrentOwner/{flatId}/{profileType}")
+   @CrossOrigin(origins = "*")
+   public boolean validateOwnerTenantExits(@PathVariable   String flatId,@PathVariable  String profileType) {
+	   return profileServiceValidation.validateOwnerTenantExits(flatId,profileType);
            }
 }

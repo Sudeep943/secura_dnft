@@ -19,7 +19,14 @@ public class CreateProfileRequest {
     private String profilePosition;
     private String gender;
     private  Date profileDob;
+    private String addToExistingProfileType;
     
+	public String getAddToExistingProfileType() {
+		return addToExistingProfileType;
+	}
+	public void setAddToExistingProfileType(String addToExistingProfileType) {
+		this.addToExistingProfileType = addToExistingProfileType;
+	}
 	public String getProfileKind() {
 		return profileKind;
 	}
