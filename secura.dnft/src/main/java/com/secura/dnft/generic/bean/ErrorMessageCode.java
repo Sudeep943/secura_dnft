@@ -39,4 +39,6 @@ public interface ErrorMessageCode {
 	public final String ERR_MESSAGE_35="ERR_MESSAGE_35" ;
 	public final String ERR_MESSAGE_36="ERR_MESSAGE_36" ;
 	public final String ERR_MESSAGE_37="ERR_MESSAGE_37" ;
+	public final String ERR_MESSAGE_38="ERR_MESSAGE_38" ;
+	public final String ERR_MESSAGE_39="ERR_MESSAGE_39" ;
 }

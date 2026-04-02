@@ -33,6 +33,8 @@ import com.secura.dnft.generic.bean.Name;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.request.response.AddTenantRequest;
+import com.secura.dnft.request.response.AddTenantResponse;
 import com.secura.dnft.request.response.CreateProfileRequest;
 import com.secura.dnft.request.response.CreateProfileResponse;
 import com.secura.dnft.request.response.GenericHeader;
@@ -42,6 +44,8 @@ import com.secura.dnft.request.response.GetTenantRequest;
 import com.secura.dnft.request.response.GetTenantResponse;
 import com.secura.dnft.request.response.ManageTenantRequest;
 import com.secura.dnft.request.response.ManageTenantResponse;
+import com.secura.dnft.request.response.SearchProfileRequest;
+import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 import com.secura.dnft.security.BusinessException;
@@ -321,7 +325,7 @@ public class ProfileServices {
 
 
 
-	public String createOwnerProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) {
+	public String createOwnerProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) throws BusinessException {
 		String ownerId = null;
 		if(profileExits) {
 			List<Owner> ownerList= ownerRepository.findByFlatNo(flatId);
@@ -331,6 +335,9 @@ public class ProfileServices {
 					List<String> ownerProfiles = genericService.fromJson(currentOwner.get().getPrflId(),
 							new TypeReference<List<String>>() {
 							});
+					if(ownerProfiles.contains(profileID)) {
+						throw new BusinessException(ErrorMessage.ERR_MESSAGE_39, ErrorMessageCode.ERR_MESSAGE_39);
+					}
 					ownerProfiles.add(profileID);
 					currentOwner.get().setPrflId(genericService.toJson(ownerProfiles));
 					ownerRepository.save(currentOwner.get());
@@ -372,16 +379,19 @@ public class ProfileServices {
 		return ownerId;
 	}
 	
-	public String createTenantProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) {
+	public String createTenantProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) throws BusinessException {
 		String tenantId = null;
 		if(profileExits) {
 			List<Tenant> tenantList= tenantRepository.findByFlatNo(flatId);
 			Optional<Tenant> currentTenant =tenantList.stream().filter(ow->ow.getEndDate()==null).findFirst();
-			if(addtoExistingProfile.equals("Y")) {
+			if(null!=addtoExistingProfile && addtoExistingProfile.equals("Y")) {
 				if(currentTenant.isPresent()) {
 					List<String> tenantrProfiles = genericService.fromJson(currentTenant.get().getPrflId(),
 							new TypeReference<List<String>>() {
 							});
+					if(tenantrProfiles.contains(profileID)) {
+						throw new BusinessException(ErrorMessage.ERR_MESSAGE_39, ErrorMessageCode.ERR_MESSAGE_39);
+					}
 					tenantrProfiles.add(profileID);
 					currentTenant.get().setPrflId(genericService.toJson(tenantrProfiles));
 					tenantRepository.save(currentTenant.get());
@@ -389,7 +399,7 @@ public class ProfileServices {
 				}
 				
 			}
-			else {
+			else if(null!=addtoExistingProfile && addtoExistingProfile.equals("N")) {
 				currentTenant.get().setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
 				currentTenant.get().setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
 				Tenant tenant = new Tenant();
@@ -403,6 +413,9 @@ public class ProfileServices {
 				tenant.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
 				tenantRepository.save(tenant);
 				return tenant.getTenantId();
+			}
+			else {
+				throw new BusinessException(ErrorMessage.ERR_MESSAGE_38, ErrorMessageCode.ERR_MESSAGE_38);
 			}
 			
 		}
@@ -430,5 +443,43 @@ public class ProfileServices {
 		Random ran = new Random();
 		id.append(ran.nextInt());
 		return id.toString();
+	}
+	
+	public List<SearchProfileResponse> searchProfile(SearchProfileRequest request) {
+		List<SearchProfileResponse> responseList= new ArrayList<>();
+		List<Profile> profiles=profileRepository.searchProfiles(request.getInputKey(), request.getGenericHeader().getApartmentId());
+		if(null!=profiles && !profiles.isEmpty()) {
+			responseList=profiles.stream().map(rs->{SearchProfileResponse profileResponse= new SearchProfileResponse();
+			profileResponse.setProfileId(rs.getPrflId());
+			StringBuilder dispalyName= new StringBuilder();
+			Name name=genericService.fromJson(rs.getPrflName(), Name.class);
+			dispalyName.append(name.getFirstName()).append(" ").append(name.getMiddleName()).append(" ").append(name.getLastName()).append(" (").append(rs.getPrflId()).append(")");
+			profileResponse.setDisplayName(dispalyName.toString());
+			profileResponse.setProfilePic(rs.getProfile_pic());
+			return profileResponse;
+			}).collect(Collectors.toList());
+		}
+		return responseList;
+	}
+	
+	public AddTenantResponse addTenant(AddTenantRequest request) {
+		AddTenantResponse response = new AddTenantResponse();
+		response.setHeader(request.getHeader());
+		boolean profileExits = profileValidation.validateOwnerTenantExits(request.getFlatId(),
+				SecuraConstants.PROFILE_TYPE_TENANT);
+		String tenantId;
+		try {
+			tenantId = createTenantProfile(request.getProfileId(), request.getAddtoExisting(), profileExits,request.getFlatId(),request.getHeader());
+			if(null!=tenantId) {
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
+				response.setTenantId(tenantId);
+			}
+		} catch (BusinessException e) {
+			response.setMessage( e.getErrorMessage());
+			response.setMessageCode( e.getErrorMessageCode());
+		}
+		
+		return response;
 	}
 }

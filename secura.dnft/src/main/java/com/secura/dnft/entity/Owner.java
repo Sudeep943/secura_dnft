@@ -3,6 +3,7 @@ package com.secura.dnft.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
@@ -37,6 +38,7 @@ public class Owner {
     
     
     @Column(name = "creat_ts")
+    @CreationTimestamp
     private LocalDateTime creatTs;
 
     @Column(name = "creat_usr_id")

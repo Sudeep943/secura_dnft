@@ -28,7 +28,7 @@ public interface SecuraConstants {
 	
 	public final String PROFILE_TYPE_OWNER="OWNER" ;
 	public final String PROFILE_TYPE_TENANT="TENANT" ;
-	public final String PROFILE_TYPE_STAFF="TENANT" ;
+	public final String PROFILE_TYPE_STAFF="STAFF" ;
 
 
 }

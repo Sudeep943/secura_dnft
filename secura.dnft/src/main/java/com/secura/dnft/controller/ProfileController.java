@@ -1,5 +1,8 @@
 package com.secura.dnft.controller;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -7,9 +10,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.request.response.AddTenantRequest;
+import com.secura.dnft.request.response.AddTenantResponse;
 import com.secura.dnft.request.response.CreateProfileRequest;
 import com.secura.dnft.request.response.CreateProfileResponse;
 import com.secura.dnft.request.response.GetProfileRequest;
@@ -18,6 +22,8 @@ import com.secura.dnft.request.response.GetTenantRequest;
 import com.secura.dnft.request.response.GetTenantResponse;
 import com.secura.dnft.request.response.ManageTenantRequest;
 import com.secura.dnft.request.response.ManageTenantResponse;
+import com.secura.dnft.request.response.SearchProfileRequest;
+import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 import com.secura.dnft.service.ProfileServices;
@@ -79,5 +85,22 @@ public class ProfileController {
    @CrossOrigin(origins = "*")
    public boolean validateOwnerTenantExits(@PathVariable   String flatId,@PathVariable  String profileType) {
 	   return profileServiceValidation.validateOwnerTenantExits(flatId,profileType);
+           }
+   
+   @PostMapping("/searchProfile")
+   @CrossOrigin(origins = "*")
+   public List<SearchProfileResponse> searchProfile(@RequestBody SearchProfileRequest request) {
+	   List<SearchProfileResponse> response = new ArrayList<>();
+	   response=profileServices.searchProfile(request);
+   	return response;
+           }
+   
+
+   @PostMapping("/addTenant")
+   @CrossOrigin(origins = "*")
+   public AddTenantResponse addTenant(@RequestBody AddTenantRequest request) {
+	   AddTenantResponse response = new AddTenantResponse();
+	   response=profileServices.addTenant(request);
+   	return response;
            }
 }
