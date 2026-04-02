@@ -15,18 +15,12 @@ public interface SuccessMessageCode {
 	public final String SUCC_MESSAGE_11="SUCC_MESSAGE_11" ;
 	public final String SUCC_MESSAGE_12="SUCC_MESSAGE_12" ;
 	public final String SUCC_MESSAGE_13="SUCC_MESSAGE_13" ;
-<<<<<<< HEAD
+
 	public final String SUCC_MESSAGE_14="SUCC_MESSAGE_14" ;
 	public final String SUCC_MESSAGE_15="SUCC_MESSAGE_15" ;
 	public final String SUCC_MESSAGE_16="SUCC_MESSAGE_16" ;
 	public final String SUCC_MESSAGE_17="SUCC_MESSAGE_17" ;
 	
 }
-=======
-	public final String SUCC_MESSAGE_14="SUCC_MESSAGE_14" ;
-	public final String SUCC_MESSAGE_15="SUCC_MESSAGE_15" ;
-	public final String SUCC_MESSAGE_16="SUCC_MESSAGE_16" ;
-	public final String SUCC_MESSAGE_17="SUCC_MESSAGE_17" ;
+
 	
-}
->>>>>>> branch 'master' of https://github.com/Sudeep943/secura_dnft.git
