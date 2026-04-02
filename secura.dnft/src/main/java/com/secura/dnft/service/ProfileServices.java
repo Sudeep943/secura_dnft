@@ -50,6 +50,8 @@ import com.secura.dnft.request.response.ManageOwnerRequest;
 import com.secura.dnft.request.response.ManageOwnerResponse;
 import com.secura.dnft.request.response.ManageTenantRequest;
 import com.secura.dnft.request.response.ManageTenantResponse;
+import com.secura.dnft.request.response.RemoveOwnerTenantProfileRequest;
+import com.secura.dnft.request.response.RemoveOwnerTenantProfileResponse;
 import com.secura.dnft.request.response.SearchProfileRequest;
 import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
@@ -570,5 +572,92 @@ public class ProfileServices {
 		}
 		
 		return response;
+	}
+	
+	public RemoveOwnerTenantProfileResponse removeProfileFromOwnerTenant(RemoveOwnerTenantProfileRequest request) {
+		RemoveOwnerTenantProfileResponse response = new RemoveOwnerTenantProfileResponse();
+		response.setHeader(request.getHeader());
+		try {
+			if (SecuraConstants.PROFILE_TYPE_OWNER.equals(request.getProfileType())) {
+				removeOwnerProfile(request);
+			} else if (SecuraConstants.PROFILE_TYPE_TENANT.equals(request.getProfileType())) {
+				removeTenantProfile(request);
+			} else {
+				throw new BusinessException(ErrorMessage.ERR_MESSAGE_38, ErrorMessageCode.ERR_MESSAGE_38);
+			}
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_17);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_17);
+		} catch (BusinessException be) {
+			response.setMessage(be.getErrorMessage());
+			response.setMessageCode(be.getErrorMessageCode());
+		} catch (Exception e) {
+			LOGGER.error("Error while removing profile from owner/tenant id: {}", request.getId(), e);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+	
+	private void removeOwnerProfile(RemoveOwnerTenantProfileRequest request) throws BusinessException {
+		List<Owner> owners = ownerRepository.findByFlatNo(request.getFlatId());
+		Optional<Owner> currentOwnerOptional = owners.stream().filter(ow -> ow.getEndDate() == null).findFirst();
+		if (currentOwnerOptional.isEmpty()) {
+			return;
+		}
+		Owner currentOwner = currentOwnerOptional.get();
+		List<String> ownerProfiles = genericService.fromJson(currentOwner.getPrflId(), new TypeReference<List<String>>() {
+		});
+		if (ownerProfiles == null || ownerProfiles.isEmpty() || ownerProfiles.size() <= 1) {
+			throw new BusinessException("Atleast One Owner Required.", ErrorMessageCode.ERR_MESSAGE_38);
+		}
+		List<String> updatedProfiles = ownerProfiles.stream().filter(prfl -> !prfl.equals(request.getId()))
+				.collect(Collectors.toList());
+		if (updatedProfiles.size() == ownerProfiles.size()) {
+			return;
+		}
+		currentOwner.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
+		currentOwner.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+		currentOwner.setLstUpdtUsrId(request.getHeader().getUserId());
+		ownerRepository.save(currentOwner);
+		Owner newOwner = new Owner();
+		newOwner.setOwnerId(createOwnertenantId(request.getFlatId(), SecuraConstants.PROFILE_TYPE_OWNER));
+		newOwner.setAprmt_id(request.getHeader().getApartmentId());
+		newOwner.setCreatUsrId(request.getHeader().getUserId());
+		newOwner.setFlatNo(request.getFlatId());
+		newOwner.setPrflId(genericService.toJson(updatedProfiles));
+		newOwner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		ownerRepository.save(newOwner);
+	}
+	
+	private void removeTenantProfile(RemoveOwnerTenantProfileRequest request) {
+		List<Tenant> tenants = tenantRepository.findByFlatNo(request.getFlatId());
+		Optional<Tenant> currentTenantOptional = tenants.stream().filter(tn -> tn.getEndDate() == null).findFirst();
+		if (currentTenantOptional.isEmpty()) {
+			return;
+		}
+		Tenant currentTenant = currentTenantOptional.get();
+		List<String> tenantProfiles = genericService.fromJson(currentTenant.getPrflId(),
+				new TypeReference<List<String>>() {
+				});
+		if (tenantProfiles == null || tenantProfiles.isEmpty()) {
+			return;
+		}
+		List<String> updatedProfiles = tenantProfiles.stream().filter(prfl -> !prfl.equals(request.getId()))
+				.collect(Collectors.toList());
+		if (updatedProfiles.size() == tenantProfiles.size()) {
+			return;
+		}
+		currentTenant.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
+		currentTenant.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+		currentTenant.setLstUpdtUsrId(request.getHeader().getUserId());
+		tenantRepository.save(currentTenant);
+		Tenant newTenant = new Tenant();
+		newTenant.setTenantId(createOwnertenantId(request.getFlatId(), SecuraConstants.PROFILE_TYPE_TENANT));
+		newTenant.setAprmt_id(request.getHeader().getApartmentId());
+		newTenant.setCreatUsrId(request.getHeader().getUserId());
+		newTenant.setFlatNo(request.getFlatId());
+		newTenant.setPrflId(genericService.toJson(updatedProfiles));
+		newTenant.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		tenantRepository.save(newTenant);
 	}
 }

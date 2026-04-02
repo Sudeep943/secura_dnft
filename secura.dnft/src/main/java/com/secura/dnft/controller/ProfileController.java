@@ -28,6 +28,8 @@ import com.secura.dnft.request.response.ManageOwnerRequest;
 import com.secura.dnft.request.response.ManageOwnerResponse;
 import com.secura.dnft.request.response.ManageTenantRequest;
 import com.secura.dnft.request.response.ManageTenantResponse;
+import com.secura.dnft.request.response.RemoveOwnerTenantProfileRequest;
+import com.secura.dnft.request.response.RemoveOwnerTenantProfileResponse;
 import com.secura.dnft.request.response.SearchProfileRequest;
 import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
@@ -132,5 +134,12 @@ public class ProfileController {
 	   AddOwnerResponse response = new AddOwnerResponse();
 	   response=profileServices.addOwner(request);
    	return response;
+           }
+   
+   @PostMapping("/removeProfileFromOwnerTenant")
+   @CrossOrigin(origins = "*")
+   public RemoveOwnerTenantProfileResponse removeProfileFromOwnerTenant(@RequestBody RemoveOwnerTenantProfileRequest request) {
+	   RemoveOwnerTenantProfileResponse response = profileServices.removeProfileFromOwnerTenant(request);
+	   return response;
            }
 }
