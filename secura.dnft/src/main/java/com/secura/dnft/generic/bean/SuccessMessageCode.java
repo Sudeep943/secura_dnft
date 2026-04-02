@@ -18,5 +18,6 @@ public interface SuccessMessageCode {
 	public final String SUCC_MESSAGE_14="SUCC_MESSAGE_14" ;
 	public final String SUCC_MESSAGE_15="SUCC_MESSAGE_15" ;
 	public final String SUCC_MESSAGE_16="SUCC_MESSAGE_16" ;
+	public final String SUCC_MESSAGE_17="SUCC_MESSAGE_17" ;
 	
 }
