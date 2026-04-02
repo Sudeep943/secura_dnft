@@ -35,13 +35,19 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddTenantRequest;
 import com.secura.dnft.request.response.AddTenantResponse;
+import com.secura.dnft.request.response.AddOwnerRequest;
+import com.secura.dnft.request.response.AddOwnerResponse;
 import com.secura.dnft.request.response.CreateProfileRequest;
 import com.secura.dnft.request.response.CreateProfileResponse;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GetOwnerRequest;
+import com.secura.dnft.request.response.GetOwnerResponse;
 import com.secura.dnft.request.response.GetProfileRequest;
 import com.secura.dnft.request.response.GetProfileResponse;
 import com.secura.dnft.request.response.GetTenantRequest;
 import com.secura.dnft.request.response.GetTenantResponse;
+import com.secura.dnft.request.response.ManageOwnerRequest;
+import com.secura.dnft.request.response.ManageOwnerResponse;
 import com.secura.dnft.request.response.ManageTenantRequest;
 import com.secura.dnft.request.response.ManageTenantResponse;
 import com.secura.dnft.request.response.SearchProfileRequest;
@@ -294,6 +300,39 @@ public class ProfileServices {
 		return response;
 	}
 
+	public ManageOwnerResponse updateOwnerDetails(ManageOwnerRequest request) {
+		ManageOwnerResponse response = new ManageOwnerResponse();
+		response.setHeader(request.getHeader());
+		GetOwnerRequest getOwnerRequest = new GetOwnerRequest();
+		getOwnerRequest.setGenericHeader(request.getHeader());
+		getOwnerRequest.setFlatId(request.getFlatId());
+
+		GetOwnerResponse getOwnerResponse = getOwner(getOwnerRequest);
+		if (getOwnerResponse.getProfile().size() > 0) {
+			Owner owner = getOwnerResponse.getOwner();
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+			if (null != request.getEndDate()) {
+				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getEndDate()));
+				owner.setEndDate(LocalDateTime.parse(formatted, formatter));
+			}
+			if (null != request.getStartDate()) {
+				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getStartDate()));
+				owner.setStartDate(LocalDateTime.parse(formatted, formatter));
+			}
+			owner.setStatus(request.getStatus());
+			String douments = genericService.toJson(request.getListOfDocuments());
+			owner.setDocument(douments);
+			owner.setLstUpdtUsrId(request.getHeader().getUserId());
+			ownerRepository.save(owner);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
+		} else {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_36);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_36);
+		}
+		return response;
+	}
+
 	public GetTenantResponse getTenant(GetTenantRequest request) {
 		GetTenantResponse getTenantResponse = new GetTenantResponse();
 		getTenantResponse.setGenericHeader(request.getGenericHeader());
@@ -321,6 +360,35 @@ public class ProfileServices {
 			getTenantResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
 		}
 		return getTenantResponse;
+	}
+
+	public GetOwnerResponse getOwner(GetOwnerRequest request) {
+		GetOwnerResponse getOwnerResponse = new GetOwnerResponse();
+		getOwnerResponse.setGenericHeader(request.getGenericHeader());
+		Owner currentOwnerData = profileValidation.getCurrentFlatOwner(request.getFlatId());
+		getOwnerResponse.setOwner(currentOwnerData);
+		if (currentOwnerData != null) {
+			List<String> ownerProfiles = genericService.fromJson(currentOwnerData.getPrflId(),
+					new TypeReference<List<String>>() {
+					});
+
+			List<Optional<Profile>> profileList = ownerProfiles.stream().map(prfl -> profileRepository.findById(prfl))
+					.collect(Collectors.toList());
+			getOwnerResponse.setProfile(profileList.stream().filter(prfl -> prfl.isPresent()).map(prfl -> prfl.get())
+					.collect(Collectors.toList()));
+
+			if (getOwnerResponse.getProfile().size() > 0) {
+				getOwnerResponse.setMessage(SuccessMessage.SUCC_MESSAGE_15);
+				getOwnerResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_15);
+			} else {
+				getOwnerResponse.setMessage(ErrorMessage.ERR_MESSAGE_35);
+				getOwnerResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
+			}
+		} else {
+			getOwnerResponse.setMessage(ErrorMessage.ERR_MESSAGE_35);
+			getOwnerResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
+		}
+		return getOwnerResponse;
 	}
 
 
@@ -474,6 +542,27 @@ public class ProfileServices {
 				response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
 				response.setTenantId(tenantId);
+			}
+		} catch (BusinessException e) {
+			response.setMessage( e.getErrorMessage());
+			response.setMessageCode( e.getErrorMessageCode());
+		}
+		
+		return response;
+	}
+
+	public AddOwnerResponse addOwner(AddOwnerRequest request) {
+		AddOwnerResponse response = new AddOwnerResponse();
+		response.setHeader(request.getHeader());
+		boolean profileExits = profileValidation.validateOwnerTenantExits(request.getFlatId(),
+				SecuraConstants.PROFILE_TYPE_OWNER);
+		String ownerId;
+		try {
+			ownerId = createOwnerProfile(request.getProfileId(), request.getAddtoExisting(), profileExits,request.getFlatId(),request.getHeader());
+			if(null!=ownerId) {
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
+				response.setOwnerId(ownerId);
 			}
 		} catch (BusinessException e) {
 			response.setMessage( e.getErrorMessage());
