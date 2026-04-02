@@ -560,8 +560,8 @@ public class ProfileServices {
 		try {
 			ownerId = createOwnerProfile(request.getProfileId(), request.getAddtoExisting(), profileExits, request.getFlatId(), request.getHeader());
 			if(null!=ownerId) {
-				response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
-				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_17);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_17);
 				response.setOwnerId(ownerId);
 			}
 		} catch (BusinessException e) {
