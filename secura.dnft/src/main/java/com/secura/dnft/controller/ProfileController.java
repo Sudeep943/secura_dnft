@@ -139,8 +139,7 @@ public class ProfileController {
    @PostMapping("/removeProfileFromOwnerTenant")
    @CrossOrigin(origins = "*")
    public RemoveOwnerTenantProfileResponse removeProfileFromOwnerTenant(@RequestBody RemoveOwnerTenantProfileRequest request) {
-	   RemoveOwnerTenantProfileResponse response = new RemoveOwnerTenantProfileResponse();
-	   response = profileServices.removeProfileFromOwnerTenant(request);
+	   RemoveOwnerTenantProfileResponse response = profileServices.removeProfileFromOwnerTenant(request);
 	   return response;
            }
 }
