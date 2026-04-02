@@ -582,6 +582,8 @@ public class ProfileServices {
 				removeOwnerProfile(request);
 			} else if (SecuraConstants.PROFILE_TYPE_TENANT.equals(request.getProfileType())) {
 				removeTenantProfile(request);
+			} else {
+				throw new BusinessException(ErrorMessage.ERR_MESSAGE_38, ErrorMessageCode.ERR_MESSAGE_38);
 			}
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_17);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_17);
@@ -605,7 +607,7 @@ public class ProfileServices {
 		Owner currentOwner = currentOwnerOptional.get();
 		List<String> ownerProfiles = genericService.fromJson(currentOwner.getPrflId(), new TypeReference<List<String>>() {
 		});
-		if (ownerProfiles == null || ownerProfiles.size() <= 1) {
+		if (ownerProfiles == null || ownerProfiles.isEmpty() || ownerProfiles.size() <= 1) {
 			throw new BusinessException("Atleast One Owner Required.", ErrorMessageCode.ERR_MESSAGE_38);
 		}
 		List<String> updatedProfiles = ownerProfiles.stream().filter(prfl -> !prfl.equals(request.getId()))
@@ -637,9 +639,14 @@ public class ProfileServices {
 		List<String> tenantProfiles = genericService.fromJson(currentTenant.getPrflId(),
 				new TypeReference<List<String>>() {
 				});
+		if (tenantProfiles == null || tenantProfiles.isEmpty()) {
+			return;
+		}
 		List<String> updatedProfiles = tenantProfiles.stream().filter(prfl -> !prfl.equals(request.getId()))
 				.collect(Collectors.toList());
-		tenantRepository.delete(currentTenant);
+		if (updatedProfiles.size() == tenantProfiles.size()) {
+			return;
+		}
 		currentTenant.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
 		currentTenant.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
 		currentTenant.setLstUpdtUsrId(request.getHeader().getUserId());

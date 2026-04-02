@@ -108,7 +108,7 @@ class ProfileServicesTest {
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_17, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_17, response.getMessageCode());
-		verify(tenantRepository, times(1)).delete(any(Tenant.class));
+		verify(tenantRepository, never()).delete(any(Tenant.class));
 		verify(tenantRepository, times(2)).save(any(Tenant.class));
 	}
 
