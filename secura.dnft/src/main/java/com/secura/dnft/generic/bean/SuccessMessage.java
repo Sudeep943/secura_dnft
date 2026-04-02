@@ -18,5 +18,6 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_14="Upcoming Booking Fetched Successfully" ;
 	public final String SUCC_MESSAGE_15="Tenant Profile Found" ;
 	public final String SUCC_MESSAGE_16="Tenant Profile Updated" ;
-	public final String SUCC_MESSAGE_17="Owner Profile Removed" ;
+	public final String SUCC_MESSAGE_17="Profile Added" ;
+	public final String SUCC_MESSAGE_18="Profile Removed" ;
 }

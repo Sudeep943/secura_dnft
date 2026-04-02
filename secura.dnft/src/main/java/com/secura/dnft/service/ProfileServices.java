@@ -282,6 +282,7 @@ public class ProfileServices {
 			if (null != request.getEndDate()) {
 				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getEndDate()));
 				tenant.setEndDate(LocalDateTime.parse(formatted, formatter));
+				tenant.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
 			}
 			if (null != request.getStartDate()) {
 				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getStartDate()));
@@ -583,10 +584,10 @@ public class ProfileServices {
 			} else if (SecuraConstants.PROFILE_TYPE_TENANT.equals(request.getProfileType())) {
 				removeTenantProfile(request);
 			} else {
-				throw new BusinessException(ErrorMessage.ERR_MESSAGE_38, ErrorMessageCode.ERR_MESSAGE_38);
+				throw new BusinessException(ErrorMessage.ERR_MESSAGE_33, ErrorMessageCode.ERR_MESSAGE_33);
 			}
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_17);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_17);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_18);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_18);
 		} catch (BusinessException be) {
 			response.setMessage(be.getErrorMessage());
 			response.setMessageCode(be.getErrorMessageCode());
@@ -644,6 +645,13 @@ public class ProfileServices {
 		}
 		List<String> updatedProfiles = tenantProfiles.stream().filter(prfl -> !prfl.equals(request.getId()))
 				.collect(Collectors.toList());
+        if(updatedProfiles.size()==0) {
+        	currentTenant.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
+    		currentTenant.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+    		currentTenant.setLstUpdtUsrId(request.getHeader().getUserId());
+    		tenantRepository.save(currentTenant);
+    		return;
+		}
 		if (updatedProfiles.size() == tenantProfiles.size()) {
 			return;
 		}
