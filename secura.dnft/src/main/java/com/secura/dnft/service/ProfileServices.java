@@ -308,20 +308,22 @@ public class ProfileServices {
 		getOwnerRequest.setFlatId(request.getFlatId());
 
 		GetOwnerResponse getOwnerResponse = getOwner(getOwnerRequest);
-		if (getOwnerResponse.getProfile().size() > 0) {
+		if (getOwnerResponse.getOwner() != null && getOwnerResponse.getProfile() != null
+				&& getOwnerResponse.getProfile().size() > 0) {
 			Owner owner = getOwnerResponse.getOwner();
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+			SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			if (null != request.getEndDate()) {
-				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getEndDate()));
+				String formatted = dateFormatter.format((request.getEndDate()));
 				owner.setEndDate(LocalDateTime.parse(formatted, formatter));
 			}
 			if (null != request.getStartDate()) {
-				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getStartDate()));
+				String formatted = dateFormatter.format((request.getStartDate()));
 				owner.setStartDate(LocalDateTime.parse(formatted, formatter));
 			}
 			owner.setStatus(request.getStatus());
-			String douments = genericService.toJson(request.getListOfDocuments());
-			owner.setDocument(douments);
+			String documents = genericService.toJson(request.getListOfDocuments());
+			owner.setDocument(documents);
 			owner.setLstUpdtUsrId(request.getHeader().getUserId());
 			ownerRepository.save(owner);
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
@@ -372,9 +374,7 @@ public class ProfileServices {
 					new TypeReference<List<String>>() {
 					});
 
-			List<Optional<Profile>> profileList = ownerProfiles.stream().map(prfl -> profileRepository.findById(prfl))
-					.collect(Collectors.toList());
-			getOwnerResponse.setProfile(profileList.stream().filter(prfl -> prfl.isPresent()).map(prfl -> prfl.get())
+			getOwnerResponse.setProfile(ownerProfiles.stream().map(profileRepository::findById).flatMap(Optional::stream)
 					.collect(Collectors.toList()));
 
 			if (getOwnerResponse.getProfile().size() > 0) {
@@ -558,7 +558,7 @@ public class ProfileServices {
 				SecuraConstants.PROFILE_TYPE_OWNER);
 		String ownerId;
 		try {
-			ownerId = createOwnerProfile(request.getProfileId(), request.getAddtoExisting(), profileExits,request.getFlatId(),request.getHeader());
+			ownerId = createOwnerProfile(request.getProfileId(), request.getAddtoExisting(), profileExits, request.getFlatId(), request.getHeader());
 			if(null!=ownerId) {
 				response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
