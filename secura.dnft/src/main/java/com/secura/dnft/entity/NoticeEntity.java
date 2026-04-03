@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "secura_notice")
-public class SecuraNotice {
+public class NoticeEntity {
 
     @Column(name = "aprmt_id")
     private String aprmtId;
@@ -28,7 +28,7 @@ public class SecuraNotice {
     private String letterNumber;
 
     @Column(name = "header", columnDefinition = "TEXT")
-    private String header;
+    private String noticeHeader;
 
     @Column(name = "short_details", columnDefinition = "TEXT")
     private String shortDetails;
@@ -85,12 +85,12 @@ public class SecuraNotice {
         this.letterNumber = letterNumber;
     }
 
-    public String getHeader() {
-        return header;
+    public String getNoticeHeaderHeader() {
+        return noticeHeader;
     }
 
-    public void setHeader(String header) {
-        this.header = header;
+    public void setNoticeHeaderHeader(String noticeHeader) {
+        this.noticeHeader = noticeHeader;
     }
 
     public String getShortDetails() {

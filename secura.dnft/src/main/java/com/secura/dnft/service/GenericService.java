@@ -1,6 +1,9 @@
 package com.secura.dnft.service;
 
+import java.sql.Date;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -129,4 +132,21 @@ public class GenericService {
             throw new RuntimeException("Error converting JSON to object", e);
         }
     }
+    
+    public String createDocumentId(String documentType, String documentFor) {
+    	StringBuffer documentId= new StringBuffer();
+    	documentId.append(documentType);
+        documentId.append(documentFor);
+        Random random = new Random();
+        documentId.append(1000 + random.nextInt(9000));
+		return documentId.toString().toUpperCase();
+    }
+
+
+public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
+ 	DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+	String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(inputDate);
+	 return LocalDateTime.parse(formatted, formatter);
+    }
+
 }

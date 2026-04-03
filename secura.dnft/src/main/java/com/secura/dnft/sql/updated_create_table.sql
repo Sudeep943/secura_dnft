@@ -227,3 +227,30 @@ ADD COLUMN sec_deposite VARCHAR;
 ALTER TABLE secura_bkng DROP COLUMN bkng_date;
 
 ALTER TABLE secura_bkng ADD COLUMN bkng_date TIMESTAMP;
+
+
+CREATE TABLE secura_notice (
+    aprmt_id VARCHAR(255),
+    notice_id VARCHAR(255) PRIMARY KEY,
+    publishing_date TIMESTAMP,
+    letter_number VARCHAR(255),
+    header TEXT,
+    short_details TEXT,
+    status VARCHAR(255),
+    notice_document_id VARCHAR(255),
+    creat_ts TIMESTAMP,
+    creat_usr_id VARCHAR(255),
+    lst_updt_ts TIMESTAMP,
+    lst_updt_usr_id VARCHAR(255)
+);
+
+CREATE TABLE secura_doc (
+    document_id      VARCHAR(255) PRIMARY KEY,
+    document_type    VARCHAR(255),
+    document_data    TEXT,
+    creat_ts         TIMESTAMP,
+    creat_usr_id     VARCHAR(255),
+    lst_updt_ts      TIMESTAMP,
+    lst_updt_usrId   VARCHAR(255)
+);
+

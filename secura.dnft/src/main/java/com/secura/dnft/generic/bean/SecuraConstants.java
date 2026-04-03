@@ -29,6 +29,14 @@ public interface SecuraConstants {
 	public final String PROFILE_TYPE_OWNER="OWNER" ;
 	public final String PROFILE_TYPE_TENANT="TENANT" ;
 	public final String PROFILE_TYPE_STAFF="STAFF" ;
+	
+	public final String NOTICE_ID_PREFIX="NOTC" ;
+	public final String NOTICE_DOC_TYPE="PDF" ;
+	public final String NOTICE_DOC_FOR="NOTICE" ;
+	
+	public final String NOTICE_OPERATION_SAVE="SAVE" ;
+	public final String NOTICE_OPERATION_DELETE="DELETE" ;
+	public final String NOTICE_OPERATION_PUBLISH="PUBLISH" ;
 
 
 }

@@ -20,4 +20,7 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_16="Tenant Profile Updated" ;
 	public final String SUCC_MESSAGE_17="Profile Added" ;
 	public final String SUCC_MESSAGE_18="Profile Removed" ;
+	public final String SUCC_MESSAGE_19="Notice Published" ;
+	public final String SUCC_MESSAGE_20="Notice Created And Saved" ;
+	public final String SUCC_MESSAGE_21="Notice Fetched" ;
 }
