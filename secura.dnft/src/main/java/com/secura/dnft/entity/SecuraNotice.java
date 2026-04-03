@@ -50,7 +50,7 @@ public class SecuraNotice {
     @UpdateTimestamp
     private LocalDateTime lstUpdtTs;
 
-    @Column(name = "lst_updt_usrId")
+    @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
 
     public String getAprmtId() {
