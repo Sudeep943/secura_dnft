@@ -68,6 +68,7 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
         }
         entity.setCreatUsrId(createNoticeRequest.getGenericHeader().getUserId());
         DocumentEntity documentEntity= new DocumentEntity();
+        documentEntity.setAprmtId(createNoticeRequest.getGenericHeader().getApartmentId());
         documentEntity.setDocumentId(docId);
         entity.setNoticeDocumentId(docId);
         documentEntity.setDocumentData(createNoticeRequest.getNoticeDoc());

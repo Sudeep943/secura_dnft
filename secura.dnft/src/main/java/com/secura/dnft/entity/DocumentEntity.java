@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 @Table(name = "secura_doc")
 public class DocumentEntity {
 
+	    @Column(name = "aprmt_id")
+	    private String aprmtId;
+	    
 	    @Id
 	    @Column(name = "document_id")
 	    private String documentId;
@@ -92,6 +95,14 @@ public class DocumentEntity {
 
 		public void setLstUpdtUsrId(String lstUpdtUsrId) {
 			this.lstUpdtUsrId = lstUpdtUsrId;
+		}
+
+		public String getAprmtId() {
+			return aprmtId;
+		}
+
+		public void setAprmtId(String aprmtId) {
+			this.aprmtId = aprmtId;
 		}
 	    
 	    

@@ -254,3 +254,32 @@ CREATE TABLE secura_doc (
     lst_updt_usrId   VARCHAR(255)
 );
 
+ALTER TABLE secura_doc ADD COLUMN aprmt_id VARCHAR;
+
+
+CREATE TABLE secura_events (
+    aprmt_id VARCHAR,
+    event_id VARCHAR PRIMARY KEY,
+    event_type VARCHAR,
+    event_date_time TIMESTAMP,
+    location VARCHAR,
+    duration VARCHAR,
+    occurance VARCHAR,
+    till_date TIMESTAMP,
+    header TEXT,
+    short_details TEXT,
+    paid BOOLEAN,
+    payment_type VARCHAR,
+    collection_start_date TIMESTAMP,
+    collection_end_date TIMESTAMP,
+    registration_form_link TEXT,
+    invitees TEXT,
+    required_coupon_creation_for_paid_member BOOLEAN,
+    bank_account_id VARCHAR,
+    payment_amount VARCHAR,
+    status VARCHAR,
+    creat_ts TIMESTAMP,
+    creat_usr_id VARCHAR,
+    lst_updt_ts TIMESTAMP,
+    lst_updt_usr_id VARCHAR
+);
