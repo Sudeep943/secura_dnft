@@ -3,6 +3,7 @@ package com.secura.dnft.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,7 +36,7 @@ public class MeetingNoticeController {
 	
 	@PostMapping("/getNotice")
 	@CrossOrigin(origins = "*")
-	public GetNoticeResponse getNotice(GetNoticeRequest getNoticeRequest) {
+	public GetNoticeResponse getNotice(@RequestBody GetNoticeRequest getNoticeRequest) {
 		GetNoticeResponse response = new GetNoticeResponse();
 		try {
 			response=meetingNoticeServices.getNotice(getNoticeRequest);
@@ -51,7 +52,7 @@ public class MeetingNoticeController {
 	
 	@PostMapping("/createNotice")
 	@CrossOrigin(origins = "*")
-	public CreateNoticeResponse createNotice(CreateNoticeRequest createNoticeRequest) {
+	public CreateNoticeResponse createNotice(@RequestBody CreateNoticeRequest createNoticeRequest) {
 		CreateNoticeResponse response = new CreateNoticeResponse();
 		try {
 			response=meetingNoticeServices.createNotice(createNoticeRequest);

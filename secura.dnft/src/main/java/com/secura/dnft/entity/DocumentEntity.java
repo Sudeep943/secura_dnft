@@ -21,7 +21,7 @@ public class DocumentEntity {
 	    @Column(name = "document_type")
 	    private String documentType;
 	    
-	    @Column(name = "document_data")
+	    @Column(name = "document_data" , columnDefinition = "TEXT")
 	    private String documentData;
 
 	    @Column(name = "creat_ts")

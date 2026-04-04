@@ -85,11 +85,11 @@ public class NoticeEntity {
         this.letterNumber = letterNumber;
     }
 
-    public String getNoticeHeaderHeader() {
+    public String getNoticeHeader() {
         return noticeHeader;
     }
 
-    public void setNoticeHeaderHeader(String noticeHeader) {
+    public void setNoticeHeader(String noticeHeader) {
         this.noticeHeader = noticeHeader;
     }
 

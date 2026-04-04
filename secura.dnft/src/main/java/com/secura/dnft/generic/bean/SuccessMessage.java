@@ -23,4 +23,5 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_19="Notice Published" ;
 	public final String SUCC_MESSAGE_20="Notice Created And Saved" ;
 	public final String SUCC_MESSAGE_21="Notice Fetched" ;
+	public final String SUCC_MESSAGE_22="No Notice Fetched" ;
 }

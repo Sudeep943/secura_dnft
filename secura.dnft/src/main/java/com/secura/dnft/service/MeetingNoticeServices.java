@@ -54,11 +54,18 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
 		NoticeEntity entity = new NoticeEntity();
 		entity.setNoticeId(noticeId);
 		entity.setAprmtId(createNoticeRequest.getGenericHeader().getApartmentId());
-        entity.setNoticeHeaderHeader(createNoticeRequest.getNoticeHeader());
+        entity.setNoticeHeader(createNoticeRequest.getNoticeHeader());
+        entity.setShortDetails(createNoticeRequest.getNoticeShortDescription());
         entity.setLetterNumber(createNoticeRequest.getLetterNumber());
         entity.setPublishingDate(genericService.getCorrectLocalDateForInputDate(createNoticeRequest.getPublishingDate()));
         String docId= genericService.createDocumentId(SecuraConstants.NOTICE_DOC_TYPE, SecuraConstants.NOTICE_DOC_TYPE);
         entity.setNoticeDocumentId(noticeId);
+        if(createNoticeRequest.getOpeartion().equals(SecuraConstants.NOTICE_OPERATION_SAVE)) {
+        	entity.setStatus("DRAFTED");
+        }
+        if(createNoticeRequest.getOpeartion().equals(SecuraConstants.NOTICE_OPERATION_PUBLISH)) {
+        	entity.setStatus("PUBLISHED");
+        }
         entity.setCreatUsrId(createNoticeRequest.getGenericHeader().getUserId());
         DocumentEntity documentEntity= new DocumentEntity();
         documentEntity.setDocumentId(docId);
@@ -66,8 +73,8 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
         documentEntity.setDocumentData(createNoticeRequest.getNoticeDoc());
         documentEntity.setDocumentType(SecuraConstants.NOTICE_DOC_FOR);
         documentEntity.setCreatUsrId(createNoticeRequest.getGenericHeader().getUserId());
-        noticeRepository.save(entity);
         documentRepository.save(documentEntity);
+        noticeRepository.save(entity);
         if(createNoticeRequest.getOpeartion().equals(SecuraConstants.NOTICE_OPERATION_SAVE)) {
         	createNoticeResponse.setMessage(SuccessMessage.SUCC_MESSAGE_20);
             createNoticeResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_20 );	
@@ -83,7 +90,7 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
 	@Override
 	public GetNoticeResponse getNotice(GetNoticeRequest getNoticeRequest)  throws Exception{
 		List<NoticeEntity> noticeList=new ArrayList<>();
-		if(null==getNoticeRequest.getNoticeId()) {
+		if(null==getNoticeRequest.getNoticeId() || getNoticeRequest.getNoticeId().isEmpty()) {
 			noticeList= noticeRepository.findAll();
 
 		}
@@ -92,10 +99,16 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
 		}
 		GetNoticeResponse reponse= new GetNoticeResponse();
 		reponse.setGenericHeader(getNoticeRequest.getGenericHeader());
-		noticeList=noticeList.stream().map(nt->{nt.setNoticeDocumentId(documentRepository.findById(nt.getNoticeDocumentId()).get().getDocumentData()); return nt;}).collect(Collectors.toList());
-		reponse.setNoticeList(noticeList);
-		reponse.setMessage(SuccessMessage.SUCC_MESSAGE_21);
-		reponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_21);
+		if(null!=noticeList && !noticeList.isEmpty()) {
+			noticeList=noticeList.stream().map(nt->{nt.setNoticeDocumentId(documentRepository.findById(nt.getNoticeDocumentId()).get().getDocumentData()); return nt;}).collect(Collectors.toList());
+			reponse.setNoticeList(noticeList);
+			reponse.setMessage(SuccessMessage.SUCC_MESSAGE_21);
+			reponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_21);
+		}
+		else{
+			reponse.setMessage(SuccessMessage.SUCC_MESSAGE_22);
+			reponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_21);
+		}
 		return reponse;
 	}
 
