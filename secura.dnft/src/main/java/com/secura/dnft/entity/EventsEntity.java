@@ -34,7 +34,7 @@ public class EventsEntity {
     private String duration;
 
     @Column(name = "occurance")
-    private String occurance;
+    private String occurrence;
 
     @Column(name = "till_date")
     private LocalDateTime tillDate;
@@ -137,12 +137,12 @@ public class EventsEntity {
         this.duration = duration;
     }
 
-    public String getOccurance() {
-        return occurance;
+    public String getOccurrence() {
+        return occurrence;
     }
 
-    public void setOccurance(String occurance) {
-        this.occurance = occurance;
+    public void setOccurrence(String occurrence) {
+        this.occurrence = occurrence;
     }
 
     public LocalDateTime getTillDate() {
