@@ -2,13 +2,17 @@ package com.secura.dnft.request.response;
 
 import java.time.LocalDate;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class DuePaymentAmountDetailsResponse {
 
     private GenericHeader genericHeader;
+    @JsonFormat(pattern = "d-MMM-yyyy")
     private LocalDate dueDate;
     private String paymentCapita;
     private String amountExcludingGst;
     private String gstPercent;
+    private String gstAmount;
     private String amountIncludingGst;
 
     public GenericHeader getGenericHeader() {
@@ -57,5 +61,13 @@ public class DuePaymentAmountDetailsResponse {
 
     public void setAmountIncludingGst(String amountIncludingGst) {
         this.amountIncludingGst = amountIncludingGst;
+    }
+
+    public String getGstAmount() {
+        return gstAmount;
+    }
+
+    public void setGstAmount(String gstAmount) {
+        this.gstAmount = gstAmount;
     }
 }
