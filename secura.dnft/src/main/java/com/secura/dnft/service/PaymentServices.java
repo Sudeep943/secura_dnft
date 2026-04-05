@@ -54,10 +54,12 @@ public class PaymentServices  implements PaymentInterface{
         BigDecimal gstPercent = parseNumeric(request.getGst());
 
         BigDecimal dueBaseAmount = calculateDueBaseAmount(dueDate, cycleMonths, request.getCollectionEndDate(), cycleAmount);
-        BigDecimal totalWithGst = dueBaseAmount.add(dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+        BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal totalWithGst = dueBaseAmount.add(gstAmount);
 
         response.setAmountExcludingGst(formatNumber(dueBaseAmount));
         response.setGstPercent(formatNumber(gstPercent));
+        response.setGstAmount(formatNumber(gstAmount));
         response.setAmountIncludingGst(formatNumber(totalWithGst));
 
         return response;
@@ -70,14 +72,19 @@ public class PaymentServices  implements PaymentInterface{
             LocalDate periodEnd = naturalPeriodEnd.isAfter(end) ? end : naturalPeriodEnd;
             if (!today.isBefore(periodStart) && !today.isAfter(periodEnd)) {
                 if (isPost(mode)) {
-                    LocalDate nextPeriodStart = periodStart.plusMonths(cycleMonths);
-                    return nextPeriodStart.isAfter(end) ? periodStart : nextPeriodStart;
+                    return periodEnd.plusDays(1);
                 }
                 return periodStart;
             }
             periodStart = periodStart.plusMonths(cycleMonths);
         }
-        return isPost(mode) ? start.plusMonths(cycleMonths) : start;
+        if (isPost(mode)) {
+            if (today.isAfter(end)) {
+                return end.plusDays(1);
+            }
+            return start.plusMonths(cycleMonths);
+        }
+        return start;
     }
 
     private BigDecimal calculateDueBaseAmount(LocalDate dueDate, int cycleMonths, LocalDate collectionEndDate,
