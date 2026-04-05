@@ -1,9 +1,11 @@
 package com.secura.dnft.request.response;
 
-public class UpdateMeetingResponse {
+public class CreatePaymentResponse {
+
 	private GenericHeader genericHeader;
 	private String message;
-    private String messageCode;
+    private String message_code;
+    
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
 	}
@@ -16,10 +18,12 @@ public class UpdateMeetingResponse {
 	public void setMessage(String message) {
 		this.message = message;
 	}
-	public String getMessageCode() {
-		return messageCode;
+	public String getMessage_code() {
+		return message_code;
 	}
-	public void setMessageCode(String messageCode) {
-		this.messageCode = messageCode;
+	public void setMessage_code(String message_code) {
+		this.message_code = message_code;
 	}
+    
+    
 }

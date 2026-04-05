@@ -1,6 +1,6 @@
 package com.secura.dnft.request.response;
 
-public class ScheduleMeetingRequest {
+public class ScheduleEventRequest {
 	private GenericHeader genericHeader;
 
 }

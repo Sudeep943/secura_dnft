@@ -5,14 +5,33 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.interfaceservice.PaymentInterface;
+import com.secura.dnft.request.response.CreatePaymentRequest;
+import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GetPaymentRequest;
+import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.UpdatePaymentRequest;
+import com.secura.dnft.request.response.UpdatePaymentResponse;
 
 @Service
-public class PaymentServices {
+public class PaymentServices  implements PaymentInterface{
 
+	
+	@Autowired
+	GenericService genericService;
+	
+	@Autowired
+	PaymentRepository paymentRepository;
+	
+	@Override
     public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
         DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
         response.setGenericHeader(request.getGenericHeader());
@@ -124,4 +143,45 @@ public class PaymentServices {
         BigDecimal normalized = value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
         return normalized.toPlainString();
     }
+
+    @Override
+	public UpdatePaymentResponse updatePayment(UpdatePaymentRequest request) throws Exception {
+		UpdatePaymentResponse response = new UpdatePaymentResponse();
+		response.setGenericHeader(request.getGenericHeader());
+		return response;
+	}
+
+	@Override
+	public GetPaymentResponse getPayments(GetPaymentRequest request) throws Exception {
+		GetPaymentResponse response = new GetPaymentResponse();
+		response.setGenericHeader(request.getGenericHeader());
+		return response;
+	}
+
+
+	@Override
+	public CreatePaymentResponse createPayment(CreatePaymentRequest request) throws Exception {
+		CreatePaymentResponse response = new CreatePaymentResponse();
+		response.setGenericHeader(request.getGenericHeader());
+		PaymentEntity entity= new PaymentEntity();
+		
+		entity.setPaymentName(request.getPaymentName());
+		entity.setShortDetails(request.getShortDetails());
+		entity.setPaymentCapita(request.getPaymentCapita());
+		entity.setPaymentAmount(request.getPaymentAmount());
+		entity.setGst(request.getGst());
+		entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
+		entity.setCollectionStartDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionStartDate()));
+		entity.setCollectionEndDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate()));
+		entity.setPaymentCollectionCycle(request.getPaymentCollectionCycle());
+		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
+		entity.setApplicableFor(request.getApplicableFor());
+		entity.setPaymentType(request.getPaymentType());
+		entity.setBankAccountId(request.getBankAccountId());
+		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
+		
+		return response;
+	}
+
+
 }

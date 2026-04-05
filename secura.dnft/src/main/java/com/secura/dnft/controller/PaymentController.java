@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
@@ -58,6 +60,16 @@ public class PaymentController {
 	 @PostMapping("/getDuePaymentAmountDetails")
 	    @CrossOrigin(origins = "*")
 	    public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(@RequestBody DuePaymentAmountDetailsRequest request) {
-		 return paymentServices.getDuePaymentAmountDetails(request);
+		 DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
+		 try {
+			 return paymentServices.getDuePaymentAmountDetails(request);
+			}
+			catch (Exception e) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			}
+			return response;
+			
+		
 	            }
 }

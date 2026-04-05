@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "secura_payments")
-public class SecuraPayment {
+public class PaymentEntity {
 
     @Id
     @Column(name = "payment_id")
@@ -32,6 +32,12 @@ public class SecuraPayment {
 
     @Column(name = "gst")
     private String gst;
+    
+    @Column(name = "currency")
+    private String currency;
+    
+    @Column(name = "due_date")
+    private LocalDateTime dueDate;
 
     @Column(name = "collection_start_date")
     private LocalDateTime collectionStartDate;
@@ -71,10 +77,26 @@ public class SecuraPayment {
     @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
 
-    public SecuraPayment() {
+    public PaymentEntity() {
     }
 
-    public String getPaymentId() {
+    public String getCurrency() {
+		return currency;
+	}
+
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+
+	public LocalDateTime getDueDate() {
+		return dueDate;
+	}
+
+	public void setDueDate(LocalDateTime dueDate) {
+		this.dueDate = dueDate;
+	}
+
+	public String getPaymentId() {
         return paymentId;
     }
 

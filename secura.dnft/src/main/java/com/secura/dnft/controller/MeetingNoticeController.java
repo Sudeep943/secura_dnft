@@ -17,11 +17,11 @@ import com.secura.dnft.request.response.GetLetterHeadRequest;
 import com.secura.dnft.request.response.GetLetterHeadResponse;
 import com.secura.dnft.request.response.GetNoticeRequest;
 import com.secura.dnft.request.response.GetNoticeResponse;
-import com.secura.dnft.request.response.ScheduleMeetingRequest;
-import com.secura.dnft.request.response.ScheduleMeetingResponse;
+import com.secura.dnft.request.response.ScheduleEventRequest;
+import com.secura.dnft.request.response.ScheduleEventResponse;
 import com.secura.dnft.request.response.UpdateMOMResponse;
-import com.secura.dnft.request.response.UpdateMeetingRequest;
-import com.secura.dnft.request.response.UpdateMeetingResponse;
+import com.secura.dnft.request.response.UpdateEventRequest;
+import com.secura.dnft.request.response.UpdateEventRespopnse;
 import com.secura.dnft.request.response.UpdateNoticeRequest;
 import com.secura.dnft.request.response.UpdateNoticeResponse;
 import com.secura.dnft.service.MeetingNoticeServices;
@@ -97,8 +97,8 @@ public class MeetingNoticeController {
 	
 	@PostMapping("/scheduleMeeting")
 	@CrossOrigin(origins = "*")
-	public ScheduleMeetingResponse scheduleMeeting(ScheduleMeetingRequest meetingRequest) {
-		ScheduleMeetingResponse response = new ScheduleMeetingResponse();
+	public ScheduleEventResponse scheduleMeeting(ScheduleEventRequest meetingRequest) {
+		ScheduleEventResponse response = new ScheduleEventResponse();
 		try {
 		}
 		catch (Exception e) {
@@ -110,8 +110,8 @@ public class MeetingNoticeController {
 	
 	@PostMapping("/updateMeeting")
 	@CrossOrigin(origins = "*")
-	public UpdateMeetingResponse updateMeeting(UpdateMeetingRequest updateMeetingRequest) {
-		UpdateMeetingResponse response = new UpdateMeetingResponse();
+	public UpdateEventRespopnse updateMeeting(UpdateEventRequest updateMeetingRequest) {
+		UpdateEventRespopnse response = new UpdateEventRespopnse();
 		try {
 		}
 		catch (Exception e) {

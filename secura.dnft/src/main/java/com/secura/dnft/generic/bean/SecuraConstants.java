@@ -38,5 +38,18 @@ public interface SecuraConstants {
 	public final String NOTICE_OPERATION_DELETE="DELETE" ;
 	public final String NOTICE_OPERATION_PUBLISH="PUBLISH" ;
 
+	
+	public final String PAYMENT_CURRENCY="INR" ;
+	public final String PAYMENT_STATUS_CREATED="CREATED" ;
+	public final String PAYMENT_STATUS_ACTIVE="ACTIVE" ;
+	public final String PAYMENT_STATUS_CANCLLED="CANCLLED" ;
+	public final String PAYMENT_STATUS_COMPLETED="COMPLETED" ;
+	
+	public final String PAYMENT_CYCLE_MONTHLY="MONTHLY" ;
+	public final String PAYMENT_CYCLE_QUATERLY="QUATERLY" ;
+	public final String PAYMENT_CYCLE_HALF_YEARLY="HALF_YEARLY" ;
+	public final String PAYMENT_CYCLE_YEARLY="YEARLY" ;
+
+
 
 }
