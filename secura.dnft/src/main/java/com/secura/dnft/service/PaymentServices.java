@@ -115,7 +115,7 @@ public class PaymentServices {
         String normalized = input.replace("%", "").replace(",", "").trim();
         try {
             return new BigDecimal(normalized);
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             return BigDecimal.ZERO;
         }
     }

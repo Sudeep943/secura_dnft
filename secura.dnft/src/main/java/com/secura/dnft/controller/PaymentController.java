@@ -58,8 +58,6 @@ public class PaymentController {
 	 @PostMapping("/getDuePaymentAmountDetails")
 	    @CrossOrigin(origins = "*")
 	    public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(@RequestBody DuePaymentAmountDetailsRequest request) {
-		 DuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = new DuePaymentAmountDetailsResponse();
-		 duePaymentAmountDetailsResponse=paymentServices.getDuePaymentAmountDetails(request);
-	    	return duePaymentAmountDetailsResponse;
+		 return paymentServices.getDuePaymentAmountDetails(request);
 	            }
 }
