@@ -10,9 +10,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
+import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
+import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
+import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
 @CrossOrigin(origins = "*")
@@ -23,6 +26,9 @@ public class PaymentController {
 
 	@Autowired
 	RazorPayPaymentServices razorPayPaymentServices;
+
+	@Autowired
+	PaymentServices paymentServices;
 	
 	 @PostMapping("/razorPayCreateOrder")
 	    @CrossOrigin(origins = "*")
@@ -47,5 +53,13 @@ public class PaymentController {
 		 RazorPayPaymentDetailsResponse reazorPaymentDetails = new RazorPayPaymentDetailsResponse();
 		 reazorPaymentDetails=razorPayPaymentServices.getRazorPayPaymentDetails(paymentId);
 	    	return reazorPaymentDetails;
+	            }
+
+	 @PostMapping("/getDuePaymentAmountDetails")
+	    @CrossOrigin(origins = "*")
+	    public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(@RequestBody DuePaymentAmountDetailsRequest request) {
+		 DuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = new DuePaymentAmountDetailsResponse();
+		 duePaymentAmountDetailsResponse=paymentServices.getDuePaymentAmountDetails(request);
+	    	return duePaymentAmountDetailsResponse;
 	            }
 }
