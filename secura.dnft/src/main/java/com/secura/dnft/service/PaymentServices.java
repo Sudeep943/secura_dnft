@@ -48,13 +48,13 @@ public class PaymentServices  implements PaymentInterface{
 
         DueWindow dueWindow = calculateDueWindow(request.getCollectionStartDate(), request.getCollectionEndDate(),
                 request.getTodayDate(), request.getPaymentCollectionMode(), cycleMonths);
-        LocalDate dueDate = dueWindow.dueDate;
+        LocalDate dueDate = dueWindow.getDueDate();
         response.setDueDate(dueDate);
 
         BigDecimal cycleAmount = parseNumeric(request.getPaymentAmount());
         BigDecimal gstPercent = parseNumeric(request.getGst());
 
-        BigDecimal dueBaseAmount = calculateDueBaseAmount(dueWindow.chargePeriodStart, cycleMonths,
+        BigDecimal dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths,
                 request.getCollectionEndDate(), cycleAmount);
         BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         BigDecimal totalWithGst = dueBaseAmount.add(gstAmount);
@@ -162,6 +162,14 @@ public class PaymentServices  implements PaymentInterface{
         private DueWindow(LocalDate dueDate, LocalDate chargePeriodStart) {
             this.dueDate = dueDate;
             this.chargePeriodStart = chargePeriodStart;
+        }
+
+        private LocalDate getDueDate() {
+            return dueDate;
+        }
+
+        private LocalDate getChargePeriodStart() {
+            return chargePeriodStart;
         }
     }
 
