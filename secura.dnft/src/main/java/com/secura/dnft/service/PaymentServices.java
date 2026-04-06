@@ -155,7 +155,7 @@ public class PaymentServices  implements PaymentInterface{
         return normalized.toPlainString();
     }
 
-    private static class DueWindow {
+    private static final class DueWindow {
         private final LocalDate dueDate;
         private final LocalDate chargePeriodStart;
 
