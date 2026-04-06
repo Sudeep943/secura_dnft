@@ -46,14 +46,16 @@ public class PaymentServices  implements PaymentInterface{
             return response;
         }
 
-        LocalDate dueDate = calculateDueDate(request.getCollectionStartDate(), request.getCollectionEndDate(),
+        DueWindow dueWindow = calculateDueWindow(request.getCollectionStartDate(), request.getCollectionEndDate(),
                 request.getTodayDate(), request.getPaymentCollectionMode(), cycleMonths);
+        LocalDate dueDate = dueWindow.getDueDate();
         response.setDueDate(dueDate);
 
         BigDecimal cycleAmount = parseNumeric(request.getPaymentAmount());
         BigDecimal gstPercent = parseNumeric(request.getGst());
 
-        BigDecimal dueBaseAmount = calculateDueBaseAmount(dueDate, cycleMonths, request.getCollectionEndDate(), cycleAmount);
+        BigDecimal dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths,
+                request.getCollectionEndDate(), cycleAmount);
         BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         BigDecimal totalWithGst = dueBaseAmount.add(gstAmount);
 
@@ -65,26 +67,28 @@ public class PaymentServices  implements PaymentInterface{
         return response;
     }
 
-    private LocalDate calculateDueDate(LocalDate start, LocalDate end, LocalDate today, String mode, int cycleMonths) {
+    private DueWindow calculateDueWindow(LocalDate start, LocalDate end, LocalDate today, String mode, int cycleMonths) {
         LocalDate periodStart = start;
+        LocalDate lastPeriodStart = start;
         while (!periodStart.isAfter(end)) {
+            lastPeriodStart = periodStart;
             LocalDate naturalPeriodEnd = periodStart.plusMonths(cycleMonths).minusDays(1);
             LocalDate periodEnd = naturalPeriodEnd.isAfter(end) ? end : naturalPeriodEnd;
             if (!today.isBefore(periodStart) && !today.isAfter(periodEnd)) {
                 if (isPost(mode)) {
-                    return periodEnd.plusDays(1);
+                    return new DueWindow(periodEnd.plusDays(1), periodStart);
                 }
-                return periodStart;
+                return new DueWindow(periodStart, periodStart);
             }
             periodStart = periodStart.plusMonths(cycleMonths);
         }
         if (isPost(mode)) {
             if (today.isAfter(end)) {
-                return end.plusDays(1);
+                return new DueWindow(end.plusDays(1), lastPeriodStart);
             }
-            return start.plusMonths(cycleMonths);
+            return new DueWindow(start.plusMonths(cycleMonths), start);
         }
-        return start;
+        return new DueWindow(start, start);
     }
 
     private BigDecimal calculateDueBaseAmount(LocalDate dueDate, int cycleMonths, LocalDate collectionEndDate,
@@ -149,6 +153,24 @@ public class PaymentServices  implements PaymentInterface{
     private String formatNumber(BigDecimal value) {
         BigDecimal normalized = value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
         return normalized.toPlainString();
+    }
+
+    private static final class DueWindow {
+        private final LocalDate dueDate;
+        private final LocalDate chargePeriodStart;
+
+        private DueWindow(LocalDate dueDate, LocalDate chargePeriodStart) {
+            this.dueDate = dueDate;
+            this.chargePeriodStart = chargePeriodStart;
+        }
+
+        private LocalDate getDueDate() {
+            return dueDate;
+        }
+
+        private LocalDate getChargePeriodStart() {
+            return chargePeriodStart;
+        }
     }
 
     @Override

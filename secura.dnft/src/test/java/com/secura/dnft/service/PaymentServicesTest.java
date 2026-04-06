@@ -23,14 +23,14 @@ class PaymentServicesTest {
         request.setPaymentCollectionCycle("yearly");
         request.setPaymentCollectionMode("POST");
         request.setPaymentCapita("PER_FLAT");
-        request.setTodayDate(LocalDate.parse("2026-10-05"));
+        request.setTodayDate(LocalDate.parse("2026-04-05"));
 
         DuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 
         assertEquals(LocalDate.parse("2027-03-01"), response.getDueDate());
-        assertEquals("0", response.getAmountExcludingGst());
-        assertEquals("0", response.getGstAmount());
-        assertEquals("0", response.getAmountIncludingGst());
+        assertEquals("15000", response.getAmountExcludingGst());
+        assertEquals("1500", response.getGstAmount());
+        assertEquals("16500", response.getAmountIncludingGst());
     }
 
     @Test
