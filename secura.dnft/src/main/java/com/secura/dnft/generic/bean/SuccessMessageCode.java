@@ -26,6 +26,7 @@ public interface SuccessMessageCode {
 	public final String SUCC_MESSAGE_20="SUCC_MESSAGE_20" ;
 	public final String SUCC_MESSAGE_21="SUCC_MESSAGE_21" ;
 	public final String SUCC_MESSAGE_22="SUCC_MESSAGE_22" ;
+	public final String SUCC_MESSAGE_23="SUCC_MESSAGE_23" ;
 	
 }
 

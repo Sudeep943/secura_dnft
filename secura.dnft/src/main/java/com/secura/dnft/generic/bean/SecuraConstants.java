@@ -39,6 +39,8 @@ public interface SecuraConstants {
 	public final String NOTICE_OPERATION_PUBLISH="PUBLISH" ;
 
 	
+	
+	public final String PAYMENT_ID_PREFIX="PAY" ;
 	public final String PAYMENT_CURRENCY="INR" ;
 	public final String PAYMENT_STATUS_CREATED="CREATED" ;
 	public final String PAYMENT_STATUS_ACTIVE="ACTIVE" ;

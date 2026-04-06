@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.request.response.CreatePaymentRequest;
+import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
@@ -67,6 +69,23 @@ public class PaymentController {
 			catch (Exception e) {
 				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			}
+			return response;
+			
+		
+	            }
+	 
+	 @PostMapping("/createPayment")
+	    @CrossOrigin(origins = "*")
+	    public CreatePaymentResponse createPayment(@RequestBody CreatePaymentRequest request) {
+		 CreatePaymentResponse response = new CreatePaymentResponse();
+		 try {
+			 return paymentServices.createPayment(request);
+			}
+			catch (Exception e) {
+				e.printStackTrace();
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessage_code(ErrorMessageCode.ERR_MESSAGE_33);
 			}
 			return response;
 			
