@@ -1,0 +1,390 @@
+package com.secura.dnft.service;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.Flat;
+import com.secura.dnft.entity.Profile;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.generic.bean.Name;
+import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.interfaceservice.FlatInterface;
+import com.secura.dnft.request.response.AddFlatDetailsRequest;
+import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
+import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
+import com.secura.dnft.request.response.UploadFlatDetailsRequest;
+import com.secura.dnft.request.response.UploadFlatDetailsResponse;
+
+@Service
+public class FlatServices implements FlatInterface {
+
+	private static final String[] UPLOAD_HEADERS = { "Flat No", "Owner Name", "Owner Gender", "Tower", "Block",
+			"Possesion Date", "Owner Type", "Flat Area", "Owner DOB", "Owner Phone Number", "Owner Email Number" };
+
+	@Autowired
+	private FlatRepository flatRepository;
+
+	@Autowired
+	private ProfileRepository profileRepository;
+
+	@Autowired
+	private GenericService genericService;
+
+	private final DataFormatter dataFormatter = new DataFormatter();
+
+	@Override
+	public AddFlatDetailsResponse addFlatDetails(AddFlatDetailsRequest request) {
+		AddFlatDetailsResponse response = new AddFlatDetailsResponse();
+		response.setHeader(request.getHeader());
+		response.setFlatNo(request.getFlatNo());
+		try {
+			Flat flat = buildFlatEntity(request, null);
+			flat.setFlatPndngPaymntLst("[]");
+			flat.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+			flatRepository.save(flat);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_24);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_24);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_40);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_40);
+		}
+		return response;
+	}
+
+	@Override
+	public UpdateFlatDetailsResponse updateFlatDetails(UpdateFlatDetailsRequest request) {
+		UpdateFlatDetailsResponse response = new UpdateFlatDetailsResponse();
+		response.setHeader(request.getHeader());
+		response.setFlatNo(request.getFlatNo());
+		try {
+			Optional<Flat> existingFlat = flatRepository.findById(request.getFlatNo());
+			if (existingFlat.isEmpty()) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_41);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_41);
+				return response;
+			}
+			Flat flat = buildFlatEntity(null, request);
+			flat.setCreatTs(existingFlat.get().getCreatTs());
+			flat.setCreatUsrId(existingFlat.get().getCreatUsrId());
+			flat.setFlatPndngPaymntLst(existingFlat.get().getFlatPndngPaymntLst());
+			flat.setLstUpdtUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+			flatRepository.save(flat);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_25);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_25);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_41);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_41);
+		}
+		return response;
+	}
+
+	@Override
+	public UploadFlatDetailsResponse uploadFlatDetails(UploadFlatDetailsRequest request) {
+		UploadFlatDetailsResponse response = new UploadFlatDetailsResponse();
+		response.setHeader(request.getHeader());
+		List<List<String>> failedRows = new ArrayList<>();
+		int totalRows = 0;
+		int successRows = 0;
+
+		try (Workbook workbook = new XSSFWorkbook(
+				new ByteArrayInputStream(Base64.getDecoder().decode(stripDataUrlPrefix(request.getDocumentData()))))) {
+			Sheet sheet = resolveSheet(workbook, request.getSheetName());
+			for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+				Row row = sheet.getRow(rowIndex);
+				if (row == null || isRowBlank(row)) {
+					continue;
+				}
+				totalRows++;
+				try {
+					UploadedFlatRow uploadedRow = extractRow(row);
+					String profileId = createProfileFromUploadedRow(uploadedRow, request);
+					try {
+						createFlatFromUploadedRow(uploadedRow, profileId, request);
+						successRows++;
+					} catch (Exception flatEx) {
+						profileRepository.deleteById(profileId);
+						failedRows.add(buildFailedRow(uploadedRow, flatEx.getMessage()));
+					}
+				} catch (Exception e) {
+					failedRows.add(buildFailedRow(row, e.getMessage()));
+				}
+			}
+
+			response.setTotalRows(totalRows);
+			response.setSuccessRows(successRows);
+			response.setFailedRows(failedRows.size());
+
+			if (!failedRows.isEmpty()) {
+				String failedBase64 = generateFailedRowsWorkbook(failedRows);
+				response.setFailedRowsReportDocument(failedBase64);
+				response.setFailedRowsReportDocumentName("flat_upload_failed_rows.xlsx");
+				response.setMessage(ErrorMessage.ERR_MESSAGE_42);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_42);
+			} else {
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_26);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_26);
+			}
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_42);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_42);
+		}
+		return response;
+	}
+
+	private Flat buildFlatEntity(AddFlatDetailsRequest addRequest, UpdateFlatDetailsRequest updateRequest) {
+		Flat flat = new Flat();
+		boolean isAddRequest = addRequest != null;
+		flat.setFlatNo(isAddRequest ? addRequest.getFlatNo() : updateRequest.getFlatNo());
+		flat.setAprmntId(resolveApartmentId(isAddRequest ? addRequest.getAprmntId() : updateRequest.getAprmntId(),
+				isAddRequest ? addRequest.getHeader().getApartmentId() : updateRequest.getHeader().getApartmentId()));
+		flat.setFlatOwnerList(isAddRequest ? addRequest.getFlatOwnerList() : updateRequest.getFlatOwnerList());
+		flat.setFlatTower(isAddRequest ? addRequest.getFlatTower() : updateRequest.getFlatTower());
+		flat.setFlatBlock(isAddRequest ? addRequest.getFlatBlock() : updateRequest.getFlatBlock());
+		flat.setFlatOwnerType(isAddRequest ? addRequest.getFlatOwnerType() : updateRequest.getFlatOwnerType());
+		flat.setFlatArea(isAddRequest ? addRequest.getFlatArea() : updateRequest.getFlatArea());
+		Date possnDate = isAddRequest ? addRequest.getFlatPossnDate() : updateRequest.getFlatPossnDate();
+		if (possnDate != null) {
+			flat.setFlatPossnDate(genericService.getCorrectLocalDateForInputDate(possnDate));
+		}
+		return flat;
+	}
+
+	private String resolveApartmentId(String requestApartmentId, String headerApartmentId) {
+		if (requestApartmentId != null && !requestApartmentId.isBlank()) {
+			return requestApartmentId;
+		}
+		return headerApartmentId;
+	}
+
+	private Sheet resolveSheet(Workbook workbook, String sheetName) {
+		if (sheetName != null && !sheetName.isBlank()) {
+			Sheet namedSheet = workbook.getSheet(sheetName);
+			if (namedSheet != null) {
+				return namedSheet;
+			}
+		}
+		return workbook.getSheetAt(0);
+	}
+
+	private UploadedFlatRow extractRow(Row row) {
+		UploadedFlatRow uploadedRow = new UploadedFlatRow();
+		uploadedRow.flatNo = readStringCell(row, 0, true);
+		uploadedRow.ownerName = readStringCell(row, 1, true);
+		uploadedRow.ownerGender = readStringCell(row, 2, false);
+		uploadedRow.tower = readStringCell(row, 3, false);
+		uploadedRow.block = readStringCell(row, 4, false);
+		uploadedRow.possesionDate = readDateCell(row, 5);
+		uploadedRow.ownerType = readStringCell(row, 6, false);
+		uploadedRow.flatArea = readStringCell(row, 7, false);
+		uploadedRow.ownerDob = readDateCell(row, 8);
+		uploadedRow.ownerPhone = readStringCell(row, 9, false);
+		uploadedRow.ownerEmail = readStringCell(row, 10, false);
+		return uploadedRow;
+	}
+
+	private String createProfileFromUploadedRow(UploadedFlatRow row, UploadFlatDetailsRequest request) {
+		Profile profile = new Profile();
+		String profileId = createProfileId();
+		profile.setPrflId(profileId);
+		Name name = new Name();
+		name.setFirstName(row.ownerName);
+		profile.setPrflName(genericService.toJson(name));
+		profile.setGender(row.ownerGender);
+		profile.setPrflPhoneNo(row.ownerPhone);
+		profile.setPrflEmailAdrss(row.ownerEmail);
+		profile.setPrflDob(row.ownerDob != null ? row.ownerDob.atStartOfDay() : null);
+		profile.setProfileKind(row.ownerType);
+		profile.setCreat_usr_id(request.getHeader() != null ? request.getHeader().getUserId() : null);
+		profile.setPrflAcountDetails(genericService.toJson(buildProfileAccountDetails(row.flatNo, request)));
+		profileRepository.save(profile);
+		return profileId;
+	}
+
+	private List<ProfileAccountDetails> buildProfileAccountDetails(String flatNo, UploadFlatDetailsRequest request) {
+		ProfileAccountDetails details = new ProfileAccountDetails();
+		details.setApartmentId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+		details.setFlatId(Collections.singletonList(flatNo));
+		details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
+		details.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		return Collections.singletonList(details);
+	}
+
+	private void createFlatFromUploadedRow(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
+		Flat flat = new Flat();
+		flat.setFlatNo(row.flatNo);
+		flat.setAprmntId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+		flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(profileId)));
+		flat.setFlatTower(row.tower);
+		flat.setFlatBlock(row.block);
+		flat.setFlatPossnDate(row.possesionDate != null ? row.possesionDate.atStartOfDay() : null);
+		flat.setFlatOwnerType(row.ownerType);
+		flat.setFlatArea(row.flatArea);
+		flat.setFlatPndngPaymntLst("[]");
+		flat.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+		flatRepository.save(flat);
+	}
+
+	private String createProfileId() {
+		String profileId;
+		do {
+			Random random = new Random();
+			profileId = SecuraConstants.PROFILE_ID_PREFIX + (1000 + random.nextInt(9000));
+		} while (profileRepository.existsById(profileId));
+		return profileId;
+	}
+
+	private String generateFailedRowsWorkbook(List<List<String>> failedRows) throws Exception {
+		try (Workbook failedWorkbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet failedSheet = failedWorkbook.createSheet("failed_rows");
+			Row headerRow = failedSheet.createRow(0);
+			for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
+				headerRow.createCell(i).setCellValue(UPLOAD_HEADERS[i]);
+			}
+			headerRow.createCell(UPLOAD_HEADERS.length).setCellValue("Reason");
+
+			for (int i = 0; i < failedRows.size(); i++) {
+				Row row = failedSheet.createRow(i + 1);
+				List<String> values = failedRows.get(i);
+				for (int col = 0; col < values.size(); col++) {
+					row.createCell(col).setCellValue(values.get(col));
+				}
+			}
+			failedWorkbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
+	}
+
+	private List<String> buildFailedRow(UploadedFlatRow row, String reason) {
+		List<String> values = new ArrayList<>();
+		values.add(safeValue(row.flatNo));
+		values.add(safeValue(row.ownerName));
+		values.add(safeValue(row.ownerGender));
+		values.add(safeValue(row.tower));
+		values.add(safeValue(row.block));
+		values.add(row.possesionDate != null ? row.possesionDate.toString() : "");
+		values.add(safeValue(row.ownerType));
+		values.add(safeValue(row.flatArea));
+		values.add(row.ownerDob != null ? row.ownerDob.toString() : "");
+		values.add(safeValue(row.ownerPhone));
+		values.add(safeValue(row.ownerEmail));
+		values.add(safeValue(reason));
+		return values;
+	}
+
+	private List<String> buildFailedRow(Row row, String reason) {
+		List<String> values = new ArrayList<>();
+		for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
+			values.add(readStringCell(row, i, false));
+		}
+		values.add(safeValue(reason));
+		return values;
+	}
+
+	private String readStringCell(Row row, int cellIndex, boolean required) {
+		Cell cell = row.getCell(cellIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+		if (cell == null) {
+			if (required) {
+				throw new IllegalArgumentException("Missing required value at column " + (cellIndex + 1));
+			}
+			return "";
+		}
+		String value = dataFormatter.formatCellValue(cell);
+		if (required && (value == null || value.isBlank())) {
+			throw new IllegalArgumentException("Missing required value at column " + (cellIndex + 1));
+		}
+		return value != null ? value.trim() : "";
+	}
+
+	private LocalDate readDateCell(Row row, int cellIndex) {
+		Cell cell = row.getCell(cellIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+		if (cell == null) {
+			return null;
+		}
+		if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
+			return cell.getDateCellValue().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+		}
+		String value = dataFormatter.formatCellValue(cell);
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		DateTimeFormatter[] formatters = { DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+				DateTimeFormatter.ofPattern("dd/MM/yyyy"), DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+				DateTimeFormatter.ofPattern("MM/dd/yyyy") };
+		for (DateTimeFormatter formatter : formatters) {
+			try {
+				return LocalDate.parse(value.trim(), formatter);
+			} catch (DateTimeParseException e) {
+			}
+		}
+		throw new IllegalArgumentException("Invalid date format at column " + (cellIndex + 1));
+	}
+
+	private boolean isRowBlank(Row row) {
+		for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
+			Cell cell = row.getCell(i, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+			if (cell != null && !dataFormatter.formatCellValue(cell).isBlank()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private String stripDataUrlPrefix(String base64Value) {
+		if (base64Value == null) {
+			return "";
+		}
+		int commaIndex = base64Value.indexOf(',');
+		if (commaIndex >= 0) {
+			return base64Value.substring(commaIndex + 1);
+		}
+		return base64Value;
+	}
+
+	private String safeValue(String value) {
+		return value == null ? "" : value;
+	}
+
+	private static class UploadedFlatRow {
+		private String flatNo;
+		private String ownerName;
+		private String ownerGender;
+		private String tower;
+		private String block;
+		private LocalDate possesionDate;
+		private String ownerType;
+		private String flatArea;
+		private LocalDate ownerDob;
+		private String ownerPhone;
+		private String ownerEmail;
+	}
+}

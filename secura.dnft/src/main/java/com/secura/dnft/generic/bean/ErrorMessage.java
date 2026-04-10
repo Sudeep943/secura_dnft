@@ -42,5 +42,8 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_37="Already Exits For the Flat. Want To Add To Existing or Create New Profile? Profile Type: " ;
 	public final String ERR_MESSAGE_38="Profile Coudn't Added" ;
 	public final String ERR_MESSAGE_39="Selected Profile Alredy Exit For Flat" ;
+	public final String ERR_MESSAGE_40="Error While Creating Flat Details" ;
+	public final String ERR_MESSAGE_41="Error While Updating Flat Details" ;
+	public final String ERR_MESSAGE_42="Flat Upload Completed With Errors. Download failed rows report." ;
 	
 }
