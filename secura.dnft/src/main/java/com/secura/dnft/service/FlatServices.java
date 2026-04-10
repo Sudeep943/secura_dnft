@@ -13,7 +13,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
+import java.util.UUID;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -203,7 +203,7 @@ public class FlatServices implements FlatInterface {
 		uploadedRow.ownerGender = readStringCell(row, 2, false);
 		uploadedRow.tower = readStringCell(row, 3, false);
 		uploadedRow.block = readStringCell(row, 4, false);
-		uploadedRow.possesionDate = readDateCell(row, 5);
+		uploadedRow.possessionDate = readDateCell(row, 5);
 		uploadedRow.ownerType = readStringCell(row, 6, false);
 		uploadedRow.flatArea = readStringCell(row, 7, false);
 		uploadedRow.ownerDob = readDateCell(row, 8);
@@ -246,7 +246,7 @@ public class FlatServices implements FlatInterface {
 		flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(profileId)));
 		flat.setFlatTower(row.tower);
 		flat.setFlatBlock(row.block);
-		flat.setFlatPossnDate(row.possesionDate != null ? row.possesionDate.atStartOfDay() : null);
+		flat.setFlatPossnDate(row.possessionDate != null ? row.possessionDate.atStartOfDay() : null);
 		flat.setFlatOwnerType(row.ownerType);
 		flat.setFlatArea(row.flatArea);
 		flat.setFlatPndngPaymntLst("[]");
@@ -255,12 +255,7 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private String createProfileId() {
-		String profileId;
-		do {
-			Random random = new Random();
-			profileId = SecuraConstants.PROFILE_ID_PREFIX + (1000 + random.nextInt(9000));
-		} while (profileRepository.existsById(profileId));
-		return profileId;
+		return SecuraConstants.PROFILE_ID_PREFIX + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
 	}
 
 	private String generateFailedRowsWorkbook(List<List<String>> failedRows) throws Exception {
@@ -291,7 +286,7 @@ public class FlatServices implements FlatInterface {
 		values.add(safeValue(row.ownerGender));
 		values.add(safeValue(row.tower));
 		values.add(safeValue(row.block));
-		values.add(row.possesionDate != null ? row.possesionDate.toString() : "");
+		values.add(row.possessionDate != null ? row.possessionDate.toString() : "");
 		values.add(safeValue(row.ownerType));
 		values.add(safeValue(row.flatArea));
 		values.add(row.ownerDob != null ? row.ownerDob.toString() : "");
@@ -380,7 +375,7 @@ public class FlatServices implements FlatInterface {
 		private String ownerGender;
 		private String tower;
 		private String block;
-		private LocalDate possesionDate;
+		private LocalDate possessionDate;
 		private String ownerType;
 		private String flatArea;
 		private LocalDate ownerDob;
