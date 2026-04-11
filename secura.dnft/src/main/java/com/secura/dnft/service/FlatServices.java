@@ -7,18 +7,24 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -54,6 +60,8 @@ public class FlatServices implements FlatInterface {
 
 	private static final String[] UPLOAD_HEADERS = { "Flat No", "Owner Name", "Owner Gender", "Tower", "Block",
 			"Possesion Date", "Owner Type", "Flat Area", "Owner DOB", "Owner Phone Number", "Owner Email Number" };
+	private static final DateTimeFormatter SAMPLE_DATE_FORMAT = new DateTimeFormatterBuilder().parseCaseInsensitive()
+			.appendPattern("d-MMM-yyyy").toFormatter(Locale.ENGLISH);
 
 	@Autowired
 	private FlatRepository flatRepository;
@@ -176,23 +184,28 @@ public class FlatServices implements FlatInterface {
 		GetSampleExcellToUploadDataResponse response = new GetSampleExcellToUploadDataResponse();
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sampleSheet = workbook.createSheet("flat_upload_sample");
+			CellStyle headerStyle = createHeaderStyle(workbook);
+			CellStyle sampleDataStyle = createSampleDataStyle(workbook);
 			Row headerRow = sampleSheet.createRow(0);
 			for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
-				headerRow.createCell(i).setCellValue(UPLOAD_HEADERS[i]);
+				Cell headerCell = headerRow.createCell(i);
+				headerCell.setCellValue(UPLOAD_HEADERS[i]);
+				headerCell.setCellStyle(headerStyle);
 			}
 
 			Row sampleRow = sampleSheet.createRow(1);
-			sampleRow.createCell(0).setCellValue("A-101");
-			sampleRow.createCell(1).setCellValue("John Doe");
-			sampleRow.createCell(2).setCellValue("MALE");
-			sampleRow.createCell(3).setCellValue("T1");
-			sampleRow.createCell(4).setCellValue("B1");
-			sampleRow.createCell(5).setCellValue("15-03-2026");
-			sampleRow.createCell(6).setCellValue("OWNER");
-			sampleRow.createCell(7).setCellValue("1200");
-			sampleRow.createCell(8).setCellValue("01-01-1990");
-			sampleRow.createCell(9).setCellValue("9876543210");
-			sampleRow.createCell(10).setCellValue("john.doe@example.com");
+			createStyledCell(sampleRow, 0, "A-101", sampleDataStyle);
+			createStyledCell(sampleRow, 1, "John Doe", sampleDataStyle);
+			createStyledCell(sampleRow, 2, "MALE", sampleDataStyle);
+			createStyledCell(sampleRow, 3, "T1", sampleDataStyle);
+			createStyledCell(sampleRow, 4, "B1", sampleDataStyle);
+			createStyledCell(sampleRow, 5, SAMPLE_DATE_FORMAT.format(LocalDate.of(2029, 3, 1)), sampleDataStyle);
+			createStyledCell(sampleRow, 6, "OWNER", sampleDataStyle);
+			createStyledCell(sampleRow, 7, "1200", sampleDataStyle);
+			createStyledCell(sampleRow, 8, SAMPLE_DATE_FORMAT.format(LocalDate.of(1990, 1, 1)), sampleDataStyle);
+			createStyledCell(sampleRow, 9, "9876543210", sampleDataStyle);
+			createStyledCell(sampleRow, 10, "john.doe@example.com", sampleDataStyle);
+			autoSizeColumns(sampleSheet, UPLOAD_HEADERS.length);
 
 			workbook.write(outputStream);
 			response.setSampleDocumentData(Base64.getEncoder().encodeToString(outputStream.toByteArray()));
@@ -405,19 +418,27 @@ public class FlatServices implements FlatInterface {
 	private String generateFailedRowsWorkbook(List<List<String>> failedRows) throws Exception {
 		try (Workbook failedWorkbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet failedSheet = failedWorkbook.createSheet("failed_rows");
+			CellStyle reasonStyle = createReasonStyle(failedWorkbook);
 			Row headerRow = failedSheet.createRow(0);
 			for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
 				headerRow.createCell(i).setCellValue(UPLOAD_HEADERS[i]);
 			}
-			headerRow.createCell(UPLOAD_HEADERS.length).setCellValue("Reason");
+			Cell reasonHeaderCell = headerRow.createCell(UPLOAD_HEADERS.length);
+			reasonHeaderCell.setCellValue("Reason");
+			reasonHeaderCell.setCellStyle(reasonStyle);
 
 			for (int i = 0; i < failedRows.size(); i++) {
 				Row row = failedSheet.createRow(i + 1);
 				List<String> values = failedRows.get(i);
 				for (int col = 0; col < values.size(); col++) {
-					row.createCell(col).setCellValue(values.get(col));
+					Cell cell = row.createCell(col);
+					cell.setCellValue(values.get(col));
+					if (col == UPLOAD_HEADERS.length) {
+						cell.setCellStyle(reasonStyle);
+					}
 				}
 			}
+			autoSizeColumns(failedSheet, UPLOAD_HEADERS.length + 1);
 			failedWorkbook.write(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
@@ -477,6 +498,8 @@ public class FlatServices implements FlatInterface {
 			return null;
 		}
 		DateTimeFormatter[] formatters = { DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+				new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern("d-MMM-yyyy")
+						.toFormatter(Locale.ENGLISH),
 				DateTimeFormatter.ofPattern("dd/MM/yyyy"), DateTimeFormatter.ofPattern("yyyy-MM-dd"),
 				DateTimeFormatter.ofPattern("MM/dd/yyyy") };
 		for (DateTimeFormatter formatter : formatters) {
@@ -511,6 +534,47 @@ public class FlatServices implements FlatInterface {
 
 	private String safeValue(String value) {
 		return value == null ? "" : value;
+	}
+
+	private void createStyledCell(Row row, int columnIndex, String value, CellStyle style) {
+		Cell cell = row.createCell(columnIndex);
+		cell.setCellValue(value);
+		cell.setCellStyle(style);
+	}
+
+	private CellStyle createHeaderStyle(Workbook workbook) {
+		CellStyle headerStyle = workbook.createCellStyle();
+		headerStyle.setFillForegroundColor(IndexedColors.GREEN.getIndex());
+		headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		Font headerFont = workbook.createFont();
+		headerFont.setColor(IndexedColors.WHITE.getIndex());
+		headerFont.setBold(true);
+		headerStyle.setFont(headerFont);
+		return headerStyle;
+	}
+
+	private CellStyle createSampleDataStyle(Workbook workbook) {
+		CellStyle sampleDataStyle = workbook.createCellStyle();
+		sampleDataStyle.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+		sampleDataStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		return sampleDataStyle;
+	}
+
+	private CellStyle createReasonStyle(Workbook workbook) {
+		CellStyle reasonStyle = workbook.createCellStyle();
+		reasonStyle.setFillForegroundColor(IndexedColors.RED.getIndex());
+		reasonStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		Font reasonFont = workbook.createFont();
+		reasonFont.setColor(IndexedColors.BLACK.getIndex());
+		reasonFont.setBold(true);
+		reasonStyle.setFont(reasonFont);
+		return reasonStyle;
+	}
+
+	private void autoSizeColumns(Sheet sheet, int columnCount) {
+		for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+			sheet.autoSizeColumn(columnIndex);
+		}
 	}
 
 	private static class UploadedFlatRow {
