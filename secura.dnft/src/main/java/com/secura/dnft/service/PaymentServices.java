@@ -5,8 +5,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -96,13 +98,22 @@ public class PaymentServices implements PaymentInterface {
 	public GetDuePaymentAmountDetailsResponse getDuePaymentAmountDetails(CreatePaymentRequest request) {
 		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setListOfDueAmountDetails(buildDueAmountDetails(request, null, LocalDate.now()));
+		if (isPerSqftPaymentCapita(request != null ? request.getPaymentCapita() : null)) {
+			response.setFlatTypeDueAmountDetails(buildFlatTypeDueAmountDetails(request));
+		} else {
+			response.setListOfDueAmountDetails(buildDueAmountDetails(request, null, LocalDate.now()));
+		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
 	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId, LocalDate today) {
+		return buildDueAmountDetails(request, paymentId, today, null);
+	}
+
+	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId, LocalDate today,
+			BigDecimal cycleAmountOverride) {
 		List<DueAmountDetails> dueAmountDetails = new ArrayList<>();
 		if (request == null || request.getCollectionStartDate() == null || request.getCollectionEndDate() == null) {
 			return dueAmountDetails;
@@ -114,7 +125,8 @@ public class PaymentServices implements PaymentInterface {
 			return dueAmountDetails;
 		}
 
-		BigDecimal cycleAmount = resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
+		BigDecimal cycleAmount = cycleAmountOverride != null ? cycleAmountOverride
+				: resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
 		BigDecimal gstPercent = parseNumeric(request.getGst());
 
 		if (isOnceCycle(request.getPaymentCollectionCycle())) {
@@ -160,6 +172,27 @@ public class PaymentServices implements PaymentInterface {
 
 		applyDueStatusPolicy(dueAmountDetails, today, request.isAddLeftOverPayment());
 		return dueAmountDetails;
+	}
+
+	private Map<String, List<DueAmountDetails>> buildFlatTypeDueAmountDetails(CreatePaymentRequest request) {
+		Map<String, List<DueAmountDetails>> dueAmountByFlatArea = new LinkedHashMap<>();
+		if (request == null) {
+			return dueAmountByFlatArea;
+		}
+
+		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
+				: flatRepository.findByAprmntId(apartmentId);
+		Set<String> flatAreas = apartmentFlats.stream().map(Flat::getFlatArea).filter(area -> area != null && !area.isBlank())
+				.map(String::trim).collect(Collectors.toCollection(LinkedHashSet::new));
+
+		BigDecimal ratePerSqft = parseNumeric(request.getPaymentAmount());
+		for (String flatArea : flatAreas) {
+			BigDecimal cycleAmount = parseNumeric(flatArea).multiply(ratePerSqft);
+			List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, null, LocalDate.now(), cycleAmount);
+			dueAmountByFlatArea.put(flatArea, dueAmountDetails);
+		}
+		return dueAmountByFlatArea;
 	}
 
 	private void applyDueStatusPolicy(List<DueAmountDetails> dueAmountDetails, LocalDate today, boolean addLeftOverPayment) {
@@ -387,6 +420,14 @@ public class PaymentServices implements PaymentInterface {
 			return amount;
 		}
 		return parseNumeric(paymentCapita);
+	}
+
+	private boolean isPerSqftPaymentCapita(String paymentCapita) {
+		if (paymentCapita == null || paymentCapita.isBlank()) {
+			return false;
+		}
+		String normalized = paymentCapita.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
+		return "persqft".equals(normalized);
 	}
 
 	private String formatNumber(BigDecimal value) {
