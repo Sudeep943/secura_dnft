@@ -216,34 +216,43 @@ public class PaymentServices implements PaymentInterface {
 				.min(LocalDate::compareTo).orElse(null);
 	}
 
-	private Set<String> parseApplicableFlatNos(String applicableFor) {
+	private Set<String> parseApplicableFlatNos(List<String> applicableFor) {
 		Set<String> flatNos = new LinkedHashSet<>();
-		if (applicableFor == null || applicableFor.isBlank()) {
-			return flatNos;
-		}
-		if ("ALL".equalsIgnoreCase(applicableFor.trim())) {
-			return flatNos;
-		}
-		try {
-			List<String> parsed = genericService.fromJson(applicableFor, new TypeReference<List<String>>() {
-			});
-			if (parsed != null) {
-				parsed.stream().filter(flatNo -> flatNo != null && !flatNo.isBlank()).map(String::trim)
-						.forEach(flatNos::add);
+		for (String normalizedValue : normalizeApplicableFlatNos(applicableFor)) {
+			if ("ALL".equalsIgnoreCase(normalizedValue)) {
+				return new LinkedHashSet<>();
 			}
-		} catch (RuntimeException e) {
-			// ignore and fallback to CSV parsing
-		}
-		if (!flatNos.isEmpty()) {
-			return flatNos;
-		}
-		String[] split = applicableFor.split(",");
-		for (String value : split) {
-			if (value != null && !value.trim().isBlank()) {
-				flatNos.add(value.trim());
-			}
+			flatNos.add(normalizedValue);
 		}
 		return flatNos;
+	}
+
+	private boolean isApplicableForAll(List<String> applicableFor) {
+		for (String value : normalizeApplicableFlatNos(applicableFor)) {
+			if ("ALL".equalsIgnoreCase(value)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private List<String> normalizeApplicableFlatNos(List<String> applicableFor) {
+		if (applicableFor == null || applicableFor.isEmpty()) {
+			return List.of();
+		}
+		return applicableFor.stream().filter(value -> value != null && !value.isBlank()).map(String::trim)
+				.collect(Collectors.toList());
+	}
+
+	private String serializeApplicableFor(List<String> applicableFor) {
+		if (isApplicableForAll(applicableFor)) {
+			return "ALL";
+		}
+		Set<String> normalizedFlatNos = parseApplicableFlatNos(applicableFor);
+		if (normalizedFlatNos.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(new ArrayList<>(normalizedFlatNos));
 	}
 
 	private List<DueAmountDetails> parsePendingDueAmountDetails(String pendingDueJson) {
@@ -564,7 +573,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setCollectionEndDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate()));
 		entity.setPaymentCollectionCycle(request.getPaymentCollectionCycle());
 		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
-		entity.setApplicableFor(request.getApplicableFor());
+		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);

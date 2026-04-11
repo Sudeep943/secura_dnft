@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -388,7 +389,7 @@ class PaymentServicesTest {
 		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
 		request.setPaymentCollectionCycle("monthly");
 		request.setPaymentCollectionMode("pre");
-		request.setApplicableFor("[\"A-101\"]");
+		request.setApplicableFor(List.of("A-101"));
 		AddedCharges amountCharge = new AddedCharges();
 		amountCharge.setChargeName("Late Fee");
 		amountCharge.setChargeType("amount");
@@ -402,7 +403,6 @@ class PaymentServicesTest {
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.fromJson(eq("[\"A-101\"]"), any(TypeReference.class))).thenReturn(List.of("A-101"));
 		when(genericService.toJson(any())).thenReturn("DUE_JSON");
 		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlat, ignoredFlat));
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -415,9 +415,8 @@ class PaymentServicesTest {
 		assertEquals("A-101", flatCaptor.getValue().get(0).getFlatNo());
 		assertEquals("DUE_JSON", flatCaptor.getValue().get(0).getFlatPndngPaymntLst());
 		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, times(1)).toJson(dueListCaptor.capture());
-		@SuppressWarnings("unchecked")
-		List<DueAmountDetails> dueDetails = (List<DueAmountDetails>) dueListCaptor.getValue();
+		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
+		List<DueAmountDetails> dueDetails = extractDueAmountDetailsList(dueListCaptor);
 		assertTrue(dueDetails.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
 		assertEquals("100", dueDetails.get(0).getAddedCharges().get(0).getFinalChargeValue());
 	}
@@ -467,7 +466,7 @@ class PaymentServicesTest {
 		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
 		request.setPaymentCollectionCycle("monthly");
 		request.setPaymentCollectionMode("pre");
-		request.setApplicableFor("[\"A-101\"]");
+		request.setApplicableFor(List.of("A-101"));
 		request.setAddLeftOverPayment(false);
 
 		Flat targetFlat = new Flat();
@@ -483,7 +482,6 @@ class PaymentServicesTest {
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.fromJson(eq("[\"A-101\"]"), any(TypeReference.class))).thenReturn(List.of("A-101"));
 		when(genericService.fromJson(eq("EXISTING_JSON"), any(TypeReference.class)))
 				.thenReturn(List.of(oldExisting, futureExisting));
 		when(genericService.toJson(any())).thenReturn("DUE_JSON");
@@ -493,10 +491,22 @@ class PaymentServicesTest {
 		paymentServices.createPayment(request);
 
 		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, times(1)).toJson(dueListCaptor.capture());
-		@SuppressWarnings("unchecked")
-		List<DueAmountDetails> savedDueList = (List<DueAmountDetails>) dueListCaptor.getValue();
+		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
+		List<DueAmountDetails> savedDueList = extractDueAmountDetailsList(dueListCaptor);
 		assertTrue(savedDueList.stream().allMatch(d -> !d.getDueDate().isBefore(today)));
 		assertTrue(savedDueList.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<DueAmountDetails> extractDueAmountDetailsList(ArgumentCaptor<Object> dueListCaptor) {
+		for (Object captured : dueListCaptor.getAllValues()) {
+			if (!(captured instanceof List<?> capturedList) || capturedList.isEmpty()) {
+				continue;
+			}
+			if (capturedList.get(0) instanceof DueAmountDetails) {
+				return (List<DueAmountDetails>) capturedList;
+			}
+		}
+		return List.of();
 	}
 }
