@@ -218,14 +218,7 @@ public class PaymentServices implements PaymentInterface {
 
 	private Set<String> parseApplicableFlatNos(List<String> applicableFor) {
 		Set<String> flatNos = new LinkedHashSet<>();
-		if (applicableFor == null || applicableFor.isEmpty()) {
-			return flatNos;
-		}
-		for (String value : applicableFor) {
-			if (value == null || value.isBlank()) {
-				continue;
-			}
-			String normalizedValue = value.trim();
+		for (String normalizedValue : normalizeApplicableFlatNos(applicableFor)) {
 			if ("ALL".equalsIgnoreCase(normalizedValue)) {
 				return new LinkedHashSet<>();
 			}
@@ -234,7 +227,27 @@ public class PaymentServices implements PaymentInterface {
 		return flatNos;
 	}
 
+	private boolean isApplicableForAll(List<String> applicableFor) {
+		for (String value : normalizeApplicableFlatNos(applicableFor)) {
+			if ("ALL".equalsIgnoreCase(value)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private List<String> normalizeApplicableFlatNos(List<String> applicableFor) {
+		if (applicableFor == null || applicableFor.isEmpty()) {
+			return List.of();
+		}
+		return applicableFor.stream().filter(value -> value != null && !value.isBlank()).map(String::trim)
+				.collect(Collectors.toList());
+	}
+
 	private String serializeApplicableFor(List<String> applicableFor) {
+		if (isApplicableForAll(applicableFor)) {
+			return "ALL";
+		}
 		Set<String> normalizedFlatNos = parseApplicableFlatNos(applicableFor);
 		if (normalizedFlatNos.isEmpty()) {
 			return null;

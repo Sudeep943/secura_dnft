@@ -416,12 +416,7 @@ class PaymentServicesTest {
 		assertEquals("DUE_JSON", flatCaptor.getValue().get(0).getFlatPndngPaymntLst());
 		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
 		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		@SuppressWarnings("unchecked")
-		List<DueAmountDetails> dueDetails = dueListCaptor.getAllValues().stream()
-				.filter(value -> value instanceof List<?>)
-				.map(value -> (List<?>) value)
-				.filter(list -> !list.isEmpty() && list.get(0) instanceof DueAmountDetails)
-				.map(list -> (List<DueAmountDetails>) list).findFirst().orElse(List.of());
+		List<DueAmountDetails> dueDetails = extractDueAmountDetailsList(dueListCaptor);
 		assertTrue(dueDetails.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
 		assertEquals("100", dueDetails.get(0).getAddedCharges().get(0).getFinalChargeValue());
 	}
@@ -497,13 +492,21 @@ class PaymentServicesTest {
 
 		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
 		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		@SuppressWarnings("unchecked")
-		List<DueAmountDetails> savedDueList = dueListCaptor.getAllValues().stream()
-				.filter(value -> value instanceof List<?>)
-				.map(value -> (List<?>) value)
-				.filter(list -> !list.isEmpty() && list.get(0) instanceof DueAmountDetails)
-				.map(list -> (List<DueAmountDetails>) list).findFirst().orElse(List.of());
+		List<DueAmountDetails> savedDueList = extractDueAmountDetailsList(dueListCaptor);
 		assertTrue(savedDueList.stream().allMatch(d -> !d.getDueDate().isBefore(today)));
 		assertTrue(savedDueList.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<DueAmountDetails> extractDueAmountDetailsList(ArgumentCaptor<Object> dueListCaptor) {
+		for (Object captured : dueListCaptor.getAllValues()) {
+			if (!(captured instanceof List<?> capturedList) || capturedList.isEmpty()) {
+				continue;
+			}
+			if (capturedList.get(0) instanceof DueAmountDetails) {
+				return (List<DueAmountDetails>) capturedList;
+			}
+		}
+		return List.of();
 	}
 }
