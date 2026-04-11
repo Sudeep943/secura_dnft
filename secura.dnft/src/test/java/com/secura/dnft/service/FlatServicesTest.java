@@ -251,7 +251,7 @@ class FlatServicesTest {
 		flat2.setFlatTower("T2");
 		flat2.setFlatBlock(null);
 
-		when(flatRepository.findAll()).thenReturn(List.of(flat1, flat2));
+		when(flatRepository.findByAprmntId("APRT001")).thenReturn(List.of(flat1, flat2));
 
 		GetAllFlatsResponse response = flatServices.getAllFlats(request);
 
@@ -284,7 +284,7 @@ class FlatServicesTest {
 		directBlockFlat.setFlatTower("");
 		directBlockFlat.setFlatBlock("B1");
 
-		when(flatRepository.findAll()).thenReturn(List.of(towerFlat, directBlockFlat));
+		when(flatRepository.findByAprmntId("APRT001")).thenReturn(List.of(towerFlat, directBlockFlat));
 
 		GetAllFlatsResponse response = flatServices.getAllFlats(request);
 

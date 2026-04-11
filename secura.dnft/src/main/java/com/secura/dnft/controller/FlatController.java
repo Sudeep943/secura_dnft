@@ -89,8 +89,8 @@ public class FlatController {
 			response = flatServices.getAllFlats(request);
 		} catch (Exception e) {
 			response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
 		}
 		return response;
 	}

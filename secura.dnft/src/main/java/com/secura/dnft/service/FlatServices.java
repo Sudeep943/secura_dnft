@@ -233,9 +233,9 @@ public class FlatServices implements FlatInterface {
 			String apartmentId = request != null && request.getGenericHeader() != null
 					? request.getGenericHeader().getApartmentId()
 					: null;
-			List<Flat> apartmentFlats = flatRepository.findAll().stream()
-					.filter(flat -> apartmentId == null || apartmentId.equals(flat.getAprmntId()))
-					.sorted(Comparator.comparing(flat -> normalizeHierarchyKey(flat.getFlatNo())))
+			List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
+					: flatRepository.findByAprmntId(apartmentId);
+			apartmentFlats = apartmentFlats.stream().sorted(Comparator.comparing(flat -> normalizeHierarchyKey(flat.getFlatNo())))
 					.collect(Collectors.toList());
 
 			boolean hasNamedBlock = apartmentFlats.stream().anyMatch(flat -> hasText(flat.getFlatBlock()));
