@@ -15,6 +15,7 @@ import java.sql.Date;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -451,6 +452,70 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void createPayment_shouldAppendDueAmountDetailsForCommaSeparatedApplicableFlats() throws Exception {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setAddLeftOverPayment(true);
+		request.setApplicableFor(List.of("a-101, A-102"));
+
+		Flat targetFlatOne = new Flat();
+		targetFlatOne.setFlatNo("A-101");
+		targetFlatOne.setFlatPndngPaymntLst("EXISTING_JSON_1");
+		Flat targetFlatTwo = new Flat();
+		targetFlatTwo.setFlatNo("A-102");
+		targetFlatTwo.setFlatPndngPaymntLst("EXISTING_JSON_2");
+		Flat ignoredFlat = new Flat();
+		ignoredFlat.setFlatNo("A-103");
+
+		DueAmountDetails existingDueOne = new DueAmountDetails();
+		existingDueOne.setDueDate(today.plusDays(5));
+		existingDueOne.setPaymentId("OLD1");
+		DueAmountDetails existingDueTwo = new DueAmountDetails();
+		existingDueTwo.setDueDate(today.plusDays(6));
+		existingDueTwo.setPaymentId("OLD2");
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.fromJson(eq("EXISTING_JSON_1"), any(TypeReference.class))).thenReturn(List.of(existingDueOne));
+		when(genericService.fromJson(eq("EXISTING_JSON_2"), any(TypeReference.class))).thenReturn(List.of(existingDueTwo));
+		when(genericService.toJson(any())).thenReturn("DUE_JSON");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlatOne, targetFlatTwo, ignoredFlat));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
+		List<Flat> savedFlats = flatCaptor.getValue();
+		assertEquals(2, savedFlats.size());
+		assertTrue(savedFlats.stream().anyMatch(flat -> "A-101".equals(flat.getFlatNo())));
+		assertTrue(savedFlats.stream().anyMatch(flat -> "A-102".equals(flat.getFlatNo())));
+
+		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
+		List<List<DueAmountDetails>> savedDueLists = extractAllDueAmountDetailsLists(dueListCaptor);
+		assertEquals(2, savedDueLists.size());
+		assertTrue(savedDueLists.stream().allMatch(list -> list.size() >= 2));
+		assertTrue(savedDueLists.stream().flatMap(List::stream).anyMatch(d -> "OLD1".equals(d.getPaymentId())));
+		assertTrue(savedDueLists.stream().flatMap(List::stream).anyMatch(d -> "OLD2".equals(d.getPaymentId())));
+		assertTrue(savedDueLists.stream().flatMap(List::stream)
+				.anyMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+	}
+
+	@Test
 	void createPayment_shouldDeleteOlderDueObjectsWhenAddLeftOverPaymentFalse() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
@@ -508,5 +573,19 @@ class PaymentServicesTest {
 			}
 		}
 		return List.of();
+	}
+
+	@SuppressWarnings("unchecked")
+	private List<List<DueAmountDetails>> extractAllDueAmountDetailsLists(ArgumentCaptor<Object> dueListCaptor) {
+		List<List<DueAmountDetails>> dueLists = new ArrayList<>();
+		for (Object captured : dueListCaptor.getAllValues()) {
+			if (!(captured instanceof List<?> capturedList) || capturedList.isEmpty()) {
+				continue;
+			}
+			if (capturedList.get(0) instanceof DueAmountDetails) {
+				dueLists.add((List<DueAmountDetails>) capturedList);
+			}
+		}
+		return dueLists;
 	}
 }
