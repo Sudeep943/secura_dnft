@@ -62,6 +62,9 @@ public class PaymentEntity {
 
     @Column(name = "status")
     private String status;
+    
+    @Column(name = "maintainance_fee")
+    private boolean maintainanceFee;
 
     @Column(name = "creat_ts")
     @CreationTimestamp
@@ -207,6 +210,14 @@ public class PaymentEntity {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public boolean isMaintainanceFee() {
+		return maintainanceFee;
+	}
+
+	public void setMaintainanceFee(boolean maintainanceFee) {
+		this.maintainanceFee = maintainanceFee;
+	}
 
     public LocalDateTime getCreatTs() {
         return creatTs;

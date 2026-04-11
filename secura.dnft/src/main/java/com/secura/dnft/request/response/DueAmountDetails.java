@@ -11,6 +11,8 @@ public class DueAmountDetails {
 	private String paymentId;
 	private String status;
 	private String amount;
+	private String gstAmount;
+	private String totalAmount;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -42,5 +44,21 @@ public class DueAmountDetails {
 
 	public void setAmount(String amount) {
 		this.amount = amount;
+	}
+
+	public String getGstAmount() {
+		return gstAmount;
+	}
+
+	public void setGstAmount(String gstAmount) {
+		this.gstAmount = gstAmount;
+	}
+
+	public String getTotalAmount() {
+		return totalAmount;
+	}
+
+	public void setTotalAmount(String totalAmount) {
+		this.totalAmount = totalAmount;
 	}
 }

@@ -1,6 +1,7 @@
 package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,6 +26,7 @@ import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.request.response.CreatePaymentRequest;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericHeader;
@@ -98,9 +100,66 @@ class PaymentServicesTest {
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 		assertNotNull(response.getListOfDueAmountDetails());
 		assertEquals(3, response.getListOfDueAmountDetails().size());
+		assertEquals("1000", response.getListOfDueAmountDetails().get(0).getAmount());
+		assertEquals("100", response.getListOfDueAmountDetails().get(0).getGstAmount());
+		assertEquals("1100", response.getListOfDueAmountDetails().get(0).getTotalAmount());
 		long activeCount = response.getListOfDueAmountDetails().stream().filter(d -> "ACTIVE".equals(d.getStatus()))
 				.count();
 		assertEquals(1, activeCount);
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldSupportOnceCycleForPreAndPostMode() {
+		DuePaymentAmountDetailsRequest preRequest = new DuePaymentAmountDetailsRequest();
+		preRequest.setPaymentAmount("4355");
+		preRequest.setGst("10");
+		preRequest.setCollectionStartDate(LocalDate.parse("2026-04-01"));
+		preRequest.setCollectionEndDate(LocalDate.parse("2027-05-23"));
+		preRequest.setPaymentCollectionCycle("once");
+		preRequest.setPaymentCollectionMode("pre");
+		preRequest.setTodayDate(LocalDate.parse("2026-04-11"));
+
+		DuePaymentAmountDetailsResponse preResponse = paymentServices.getDuePaymentAmountDetails(preRequest);
+		assertEquals(LocalDate.parse("2026-04-01"), preResponse.getDueDate());
+		assertEquals("4355", preResponse.getAmountExcludingGst());
+		assertEquals("435.5", preResponse.getGstAmount());
+		assertEquals("4790.5", preResponse.getAmountIncludingGst());
+
+		DuePaymentAmountDetailsRequest postRequest = new DuePaymentAmountDetailsRequest();
+		postRequest.setPaymentAmount("4355");
+		postRequest.setGst("10");
+		postRequest.setCollectionStartDate(LocalDate.parse("2026-04-01"));
+		postRequest.setCollectionEndDate(LocalDate.parse("2027-05-23"));
+		postRequest.setPaymentCollectionCycle("once");
+		postRequest.setPaymentCollectionMode("post");
+		postRequest.setTodayDate(LocalDate.parse("2026-04-11"));
+
+		DuePaymentAmountDetailsResponse postResponse = paymentServices.getDuePaymentAmountDetails(postRequest);
+		assertEquals(LocalDate.parse("2027-05-24"), postResponse.getDueDate());
+		assertEquals("4355", postResponse.getAmountExcludingGst());
+		assertEquals("435.5", postResponse.getGstAmount());
+		assertEquals("4790.5", postResponse.getAmountIncludingGst());
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldMarkPastDuesActiveWhenAddLeftOverPaymentTrue() {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1000");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today.minusMonths(2)));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setAddLeftOverPayment(true);
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+		long oldDueCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueDate().isBefore(today)).count();
+		long oldActiveCount = response.getListOfDueAmountDetails().stream()
+				.filter(d -> d.getDueDate().isBefore(today) && "ACTIVE".equals(d.getStatus())).count();
+
+		assertTrue(oldDueCount > 0);
+		assertEquals(oldDueCount, oldActiveCount);
 	}
 
 	@Test
@@ -139,5 +198,82 @@ class PaymentServicesTest {
 		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
 		assertEquals("A-101", flatCaptor.getValue().get(0).getFlatNo());
 		assertEquals("DUE_JSON", flatCaptor.getValue().get(0).getFlatPndngPaymntLst());
+	}
+
+	@Test
+	void createPayment_shouldSetMaintainanceFeeFromCamPaymentFlag() throws Exception {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setCamPayment(true);
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertTrue(paymentCaptor.getValue().isMaintainanceFee());
+	}
+
+	@Test
+	void createPayment_shouldDeleteOlderDueObjectsWhenAddLeftOverPaymentFalse() throws Exception {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today.minusMonths(1)));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setApplicableFor("[\"A-101\"]");
+		request.setAddLeftOverPayment(false);
+
+		Flat targetFlat = new Flat();
+		targetFlat.setFlatNo("A-101");
+		targetFlat.setFlatPndngPaymntLst("EXISTING_JSON");
+
+		DueAmountDetails oldExisting = new DueAmountDetails();
+		oldExisting.setDueDate(today.minusDays(10));
+		oldExisting.setStatus("NOT ACTIVE");
+		DueAmountDetails futureExisting = new DueAmountDetails();
+		futureExisting.setDueDate(today.plusDays(10));
+		futureExisting.setStatus("NOT ACTIVE");
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.fromJson(eq("[\"A-101\"]"), any(TypeReference.class))).thenReturn(List.of("A-101"));
+		when(genericService.fromJson(eq("EXISTING_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(oldExisting, futureExisting));
+		when(genericService.toJson(any())).thenReturn("DUE_JSON");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlat));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(genericService, times(1)).toJson(dueListCaptor.capture());
+		@SuppressWarnings("unchecked")
+		List<DueAmountDetails> savedDueList = (List<DueAmountDetails>) dueListCaptor.getValue();
+		assertTrue(savedDueList.stream().allMatch(d -> !d.getDueDate().isBefore(today)));
 	}
 }
