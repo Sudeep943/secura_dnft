@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.sql.Date;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -291,7 +292,6 @@ class PaymentServicesTest {
 		BigDecimal chargeTotal = dueDetails.getAddedCharges().stream().map(c -> new BigDecimal(c.getFinalChargeValue()))
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 		assertEquals(new BigDecimal("1000").add(chargeTotal).toPlainString(), dueDetails.getAmount());
-		assertEquals("1100", dueDetails.getAmount());
 		assertEquals("100", dueDetails.getGstAmount());
 		assertEquals("1200", dueDetails.getTotalAmount());
 		assertEquals("100", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
@@ -325,9 +325,11 @@ class PaymentServicesTest {
 		assertEquals("100", dueDetails.getAddedCharges().get(1).getFinalChargeValue());
 		assertEquals("1200.4", dueDetails.getAmount());
 		assertEquals("100", dueDetails.getGstAmount());
-		assertEquals("1300.4",
-				new BigDecimal(dueDetails.getAmount()).add(new BigDecimal(dueDetails.getGstAmount())).toPlainString());
-		assertEquals("1300", dueDetails.getTotalAmount());
+		BigDecimal unroundedTotal = new BigDecimal(dueDetails.getAmount()).add(new BigDecimal(dueDetails.getGstAmount()));
+		assertEquals("1300.4", unroundedTotal.toPlainString());
+		BigDecimal expectedRoundedTotal = unroundedTotal.setScale(0, RoundingMode.DOWN).setScale(2, RoundingMode.HALF_UP)
+				.stripTrailingZeros();
+		assertEquals(expectedRoundedTotal.toPlainString(), dueDetails.getTotalAmount());
 	}
 
 	@Test
