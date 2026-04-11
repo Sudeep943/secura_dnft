@@ -18,6 +18,7 @@ import java.util.Base64;
 import java.util.List;
 
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
@@ -262,12 +263,14 @@ class FlatServicesTest {
 
 	private int expectedColumnWidth(Sheet sheet, int columnIndex) {
 		int maxLength = 1;
+		DataFormatter formatter = new DataFormatter();
 		for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
 			Row row = sheet.getRow(rowIndex);
 			if (row == null || row.getCell(columnIndex) == null) {
 				continue;
 			}
-			maxLength = Math.max(maxLength, row.getCell(columnIndex).getStringCellValue().length());
+			String value = formatter.formatCellValue(row.getCell(columnIndex));
+			maxLength = Math.max(maxLength, value.length());
 		}
 		return (int) Math.ceil(maxLength * 1.5 * 256);
 	}
