@@ -25,6 +25,7 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.PaymentInterface;
+import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.DueAmountDetails;
@@ -38,6 +39,7 @@ import com.secura.dnft.request.response.UpdatePaymentResponse;
 
 @Service
 public class PaymentServices implements PaymentInterface {
+	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
 
 	@Autowired
 	GenericService genericService;
@@ -134,11 +136,14 @@ public class PaymentServices implements PaymentInterface {
 			details.setPaymentId(paymentId);
 			details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
+			AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
+			BigDecimal dueAmountWithAddedCharges = roundAmountByThreshold(dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount()));
 			BigDecimal gstAmount = roundAmountByThreshold(
-					dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
-			details.setAmount(formatNumber(dueBaseAmount));
+					dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+			details.setAmount(formatNumber(dueAmountWithAddedCharges));
 			details.setGstAmount(formatNumber(gstAmount));
-			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueBaseAmount.add(gstAmount))));
+			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
+			details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
 			dueAmountDetails.add(details);
 		} else {
 			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
@@ -158,11 +163,14 @@ public class PaymentServices implements PaymentInterface {
 
 				BigDecimal dueBaseAmount = roundAmountByThreshold(
 						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
+				AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
+				BigDecimal dueAmountWithAddedCharges = roundAmountByThreshold(dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount()));
 				BigDecimal gstAmount = roundAmountByThreshold(
-						dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
-				details.setAmount(formatNumber(dueBaseAmount));
+						dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+				details.setAmount(formatNumber(dueAmountWithAddedCharges));
 				details.setGstAmount(formatNumber(gstAmount));
-				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueBaseAmount.add(gstAmount))));
+				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
+				details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
 				dueAmountDetails.add(details);
 
 				periodStart = periodStart.plusMonths(cycleMonths);
@@ -289,6 +297,26 @@ public class PaymentServices implements PaymentInterface {
 			copy.setAmount(details.getAmount());
 			copy.setGstAmount(details.getGstAmount());
 			copy.setTotalAmount(details.getTotalAmount());
+			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
+			cloned.add(copy);
+		}
+		return cloned;
+	}
+
+	private List<AddedCharges> cloneAddedCharges(List<AddedCharges> addedCharges) {
+		List<AddedCharges> cloned = new ArrayList<>();
+		if (addedCharges == null) {
+			return cloned;
+		}
+		for (AddedCharges charge : addedCharges) {
+			if (charge == null) {
+				continue;
+			}
+			AddedCharges copy = new AddedCharges();
+			copy.setChargeName(charge.getChargeName());
+			copy.setChargeType(charge.getChargeType());
+			copy.setValue(charge.getValue());
+			copy.setFinalChargeValue(charge.getFinalChargeValue());
 			cloned.add(copy);
 		}
 		return cloned;
@@ -370,6 +398,44 @@ public class PaymentServices implements PaymentInterface {
 		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 
+	private AddedChargesCalculation calculateAddedCharges(List<AddedCharges> addedCharges, BigDecimal baseAmount) {
+		List<AddedCharges> finalAddedCharges = new ArrayList<>();
+		if (addedCharges == null || addedCharges.isEmpty()) {
+			return new AddedChargesCalculation(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP), finalAddedCharges);
+		}
+		BigDecimal totalChargeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		for (AddedCharges charge : addedCharges) {
+			if (charge == null) {
+				continue;
+			}
+			BigDecimal finalChargeAmount = resolveFinalChargeAmount(charge.getChargeType(), charge.getValue(), baseAmount);
+			AddedCharges finalCharge = new AddedCharges();
+			finalCharge.setChargeName(charge.getChargeName());
+			finalCharge.setChargeType(charge.getChargeType());
+			finalCharge.setValue(charge.getValue());
+			finalCharge.setFinalChargeValue(formatNumber(finalChargeAmount));
+			finalAddedCharges.add(finalCharge);
+			totalChargeAmount = totalChargeAmount.add(finalChargeAmount);
+		}
+		return new AddedChargesCalculation(roundAmountByThreshold(totalChargeAmount), finalAddedCharges);
+	}
+
+	private BigDecimal resolveFinalChargeAmount(String chargeType, String chargeValue, BigDecimal baseAmount) {
+		BigDecimal numericValue = parseNumeric(chargeValue);
+		if (isPercentageChargeType(chargeType)) {
+			return roundAmountByThreshold(
+					baseAmount.multiply(numericValue).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+		}
+		return roundAmountByThreshold(numericValue);
+	}
+
+	private boolean isPercentageChargeType(String chargeType) {
+		if (chargeType == null) {
+			return false;
+		}
+		return PERCENTAGE_CHARGE_TYPES.contains(chargeType.trim().toLowerCase());
+	}
+
 	private int getCycleMonths(String cycle) {
 		if (cycle == null) {
 			return 0;
@@ -446,6 +512,24 @@ public class PaymentServices implements PaymentInterface {
 
 		private LocalDate getChargePeriodStart() {
 			return chargePeriodStart;
+		}
+	}
+
+	private static final class AddedChargesCalculation {
+		private final BigDecimal totalChargeAmount;
+		private final List<AddedCharges> finalAddedCharges;
+
+		private AddedChargesCalculation(BigDecimal totalChargeAmount, List<AddedCharges> finalAddedCharges) {
+			this.totalChargeAmount = totalChargeAmount;
+			this.finalAddedCharges = finalAddedCharges;
+		}
+
+		private BigDecimal getTotalChargeAmount() {
+			return totalChargeAmount;
+		}
+
+		private List<AddedCharges> getFinalAddedCharges() {
+			return finalAddedCharges;
 		}
 	}
 
