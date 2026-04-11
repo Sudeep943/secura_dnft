@@ -108,9 +108,9 @@ class PaymentServicesTest {
 		assertEquals("1000", response.getListOfDueAmountDetails().get(0).getAmount());
 		assertEquals("100", response.getListOfDueAmountDetails().get(0).getGstAmount());
 		assertEquals("1100", response.getListOfDueAmountDetails().get(0).getTotalAmount());
-		long activeCount = response.getListOfDueAmountDetails().stream().filter(d -> "ACTIVE".equals(d.getStatus()))
+		long dueIdCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueId() != null)
 				.count();
-		assertEquals(1, activeCount);
+		assertEquals(0, dueIdCount);
 		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_28, response.getMessageCode());
 	}
@@ -224,11 +224,11 @@ class PaymentServicesTest {
 
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 		long oldDueCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueDate().isBefore(today)).count();
-		long oldActiveCount = response.getListOfDueAmountDetails().stream()
-				.filter(d -> d.getDueDate().isBefore(today) && "ACTIVE".equals(d.getStatus())).count();
+		long oldDueWithoutDueIdCount = response.getListOfDueAmountDetails().stream()
+				.filter(d -> d.getDueDate().isBefore(today) && d.getDueId() == null).count();
 
 		assertTrue(oldDueCount > 0);
-		assertEquals(oldDueCount, oldActiveCount);
+		assertEquals(oldDueCount, oldDueWithoutDueIdCount);
 	}
 
 	@Test
@@ -308,6 +308,11 @@ class PaymentServicesTest {
 		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
 		assertEquals("A-101", flatCaptor.getValue().get(0).getFlatNo());
 		assertEquals("DUE_JSON", flatCaptor.getValue().get(0).getFlatPndngPaymntLst());
+		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(genericService, times(1)).toJson(dueListCaptor.capture());
+		@SuppressWarnings("unchecked")
+		List<DueAmountDetails> dueDetails = (List<DueAmountDetails>) dueListCaptor.getValue();
+		assertTrue(dueDetails.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
 	}
 
 	@Test
@@ -364,10 +369,10 @@ class PaymentServicesTest {
 
 		DueAmountDetails oldExisting = new DueAmountDetails();
 		oldExisting.setDueDate(today.minusDays(10));
-		oldExisting.setStatus("NOT ACTIVE");
+		oldExisting.setPaymentId(null);
 		DueAmountDetails futureExisting = new DueAmountDetails();
 		futureExisting.setDueDate(today.plusDays(10));
-		futureExisting.setStatus("NOT ACTIVE");
+		futureExisting.setPaymentId(null);
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
@@ -385,5 +390,6 @@ class PaymentServicesTest {
 		@SuppressWarnings("unchecked")
 		List<DueAmountDetails> savedDueList = (List<DueAmountDetails>) dueListCaptor.getValue();
 		assertTrue(savedDueList.stream().allMatch(d -> !d.getDueDate().isBefore(today)));
+		assertTrue(savedDueList.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
 	}
 }

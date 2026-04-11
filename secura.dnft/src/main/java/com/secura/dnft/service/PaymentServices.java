@@ -9,8 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +47,6 @@ public class PaymentServices implements PaymentInterface {
 	
 	@Autowired
 	FlatRepository flatRepository;
-
-	private static final String DUE_STATUS_NOT_ACTIVE = "NOT ACTIVE";
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -101,18 +99,18 @@ public class PaymentServices implements PaymentInterface {
 		if (isPerSqftPaymentCapita(request != null ? request.getPaymentCapita() : null)) {
 			response.setFlatTypeDueAmountDetails(buildFlatTypeDueAmountDetails(request));
 		} else {
-			response.setListOfDueAmountDetails(buildDueAmountDetails(request, null, LocalDate.now()));
+			response.setListOfDueAmountDetails(buildDueAmountDetails(request, null));
 		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
-	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId, LocalDate today) {
-		return buildDueAmountDetails(request, paymentId, today, null);
+	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId) {
+		return buildDueAmountDetails(request, paymentId, null);
 	}
 
-	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId, LocalDate today,
+	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId,
 			BigDecimal cycleAmountOverride) {
 		List<DueAmountDetails> dueAmountDetails = new ArrayList<>();
 		if (request == null || request.getCollectionStartDate() == null || request.getCollectionEndDate() == null) {
@@ -128,12 +126,13 @@ public class PaymentServices implements PaymentInterface {
 		BigDecimal cycleAmount = cycleAmountOverride != null ? cycleAmountOverride
 				: resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
 		BigDecimal gstPercent = parseNumeric(request.getGst());
+		Set<String> usedDueIds = new LinkedHashSet<>();
 
 		if (isOnceCycle(request.getPaymentCollectionCycle())) {
 			DueAmountDetails details = new DueAmountDetails();
 			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? end.plusDays(1) : start);
 			details.setPaymentId(paymentId);
-			details.setStatus(DUE_STATUS_NOT_ACTIVE);
+			details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
 			BigDecimal gstAmount = roundAmountByThreshold(
 					dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
@@ -155,7 +154,7 @@ public class PaymentServices implements PaymentInterface {
 				DueAmountDetails details = new DueAmountDetails();
 				details.setDueDate(isPost(request.getPaymentCollectionMode()) ? periodEnd.plusDays(1) : periodStart);
 				details.setPaymentId(paymentId);
-				details.setStatus(DUE_STATUS_NOT_ACTIVE);
+				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 
 				BigDecimal dueBaseAmount = roundAmountByThreshold(
 						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
@@ -170,7 +169,6 @@ public class PaymentServices implements PaymentInterface {
 			}
 		}
 
-		applyDueStatusPolicy(dueAmountDetails, today, request.isAddLeftOverPayment());
 		return dueAmountDetails;
 	}
 
@@ -193,39 +191,20 @@ public class PaymentServices implements PaymentInterface {
 				continue;
 			}
 			BigDecimal cycleAmount = parsedFlatArea.multiply(ratePerSqft);
-			List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, null, LocalDate.now(), cycleAmount);
+			List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, null, cycleAmount);
 			dueAmountByFlatArea.put(flatArea, dueAmountDetails);
 		}
 		return dueAmountByFlatArea;
 	}
 
-	private void applyDueStatusPolicy(List<DueAmountDetails> dueAmountDetails, LocalDate today, boolean addLeftOverPayment) {
-		if (addLeftOverPayment) {
-			for (DueAmountDetails details : dueAmountDetails) {
-				if (details.getDueDate() != null && details.getDueDate().isBefore(today)) {
-					details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
-				}
-			}
+	private LocalDate resolveEntityDueDate(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
+		LocalDate upcomingDueDate = dueAmountDetails.stream().map(DueAmountDetails::getDueDate).filter(dueDate -> dueDate != null)
+				.filter(dueDate -> !dueDate.isBefore(today)).min(LocalDate::compareTo).orElse(null);
+		if (upcomingDueDate != null) {
+			return upcomingDueDate;
 		}
-		markUpcomingDueAsActive(dueAmountDetails, today);
-	}
-
-	private void markUpcomingDueAsActive(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
-		for (DueAmountDetails details : dueAmountDetails) {
-			if (!details.getDueDate().isBefore(today)) {
-				details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
-				break;
-			}
-		}
-	}
-
-	private LocalDate resolveEntityDueDate(List<DueAmountDetails> dueAmountDetails) {
-		for (DueAmountDetails details : dueAmountDetails) {
-			if (SecuraConstants.PAYMENT_STATUS_ACTIVE.equals(details.getStatus())) {
-				return details.getDueDate();
-			}
-		}
-		return dueAmountDetails.isEmpty() ? null : dueAmountDetails.get(0).getDueDate();
+		return dueAmountDetails.stream().map(DueAmountDetails::getDueDate).filter(dueDate -> dueDate != null)
+				.min(LocalDate::compareTo).orElse(null);
 	}
 
 	private Set<String> parseApplicableFlatNos(String applicableFor) {
@@ -272,7 +251,8 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request, List<DueAmountDetails> dueAmountDetails) {
+	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request, List<DueAmountDetails> dueAmountDetails,
+			String paymentId) {
 		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
 				: null;
 		List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
@@ -289,13 +269,8 @@ public class PaymentServices implements PaymentInterface {
 		for (Flat flat : targetFlats) {
 			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
 			existingDueAmountDetails.addAll(cloneDueAmountDetails(dueAmountDetails));
-			if (request != null && request.isAddLeftOverPayment()) {
-				for (DueAmountDetails details : existingDueAmountDetails) {
-					if (details.getDueDate() != null && details.getDueDate().isBefore(today)) {
-						details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
-					}
-				}
-			} else {
+			ensureDueIdsForFlatSave(existingDueAmountDetails, paymentId);
+			if (request == null || !request.isAddLeftOverPayment()) {
 				existingDueAmountDetails
 						.removeIf(details -> details.getDueDate() != null && details.getDueDate().isBefore(today));
 			}
@@ -310,13 +285,30 @@ public class PaymentServices implements PaymentInterface {
 			DueAmountDetails copy = new DueAmountDetails();
 			copy.setDueDate(details.getDueDate());
 			copy.setPaymentId(details.getPaymentId());
-			copy.setStatus(details.getStatus());
+			copy.setDueId(details.getDueId());
 			copy.setAmount(details.getAmount());
 			copy.setGstAmount(details.getGstAmount());
 			copy.setTotalAmount(details.getTotalAmount());
 			cloned.add(copy);
 		}
 		return cloned;
+	}
+
+	private void ensureDueIdsForFlatSave(List<DueAmountDetails> dueAmountDetails, String fallbackPaymentId) {
+		Set<String> usedDueIds = dueAmountDetails.stream().map(DueAmountDetails::getDueId)
+				.filter(dueId -> dueId != null && !dueId.isBlank()).collect(Collectors.toCollection(LinkedHashSet::new));
+		for (DueAmountDetails details : dueAmountDetails) {
+			if (details.getDueId() != null && !details.getDueId().isBlank()) {
+				continue;
+			}
+			String paymentId = details.getPaymentId();
+			if ((paymentId == null || paymentId.isBlank()) && fallbackPaymentId != null && !fallbackPaymentId.isBlank()) {
+				paymentId = fallbackPaymentId;
+			}
+			if (paymentId != null && !paymentId.isBlank()) {
+				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
+			}
+		}
 	}
 
 	private DueWindow calculateDueWindow(LocalDate start, LocalDate end, LocalDate today, String mode,
@@ -493,13 +485,13 @@ public class PaymentServices implements PaymentInterface {
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
 		entity.setMaintainanceFee(request != null && request.isCamPayment());
-		List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, paymentId, LocalDate.now());
-		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails);
+		List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, paymentId);
+		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails, LocalDate.now());
 		if (activeDueDate != null) {
 			entity.setDueDate(activeDueDate.atStartOfDay());
 		}
 		paymentRepository.save(entity);
-		updatePendingDueAmountDetailsForFlats(request, dueAmountDetails);
+		updatePendingDueAmountDetailsForFlats(request, dueAmountDetails, paymentId);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 		return response;
@@ -509,9 +501,22 @@ public class PaymentServices implements PaymentInterface {
 		StringBuffer paymentId = new StringBuffer();
 		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
 		paymentId.append(paymentType);
-		Random random= new Random();
-		paymentId.append( 1000 + random.nextInt(9000));
+		paymentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
 		return paymentId.toString().toUpperCase();
+	}
+
+	private String generateUniqueDueId(String paymentId, Set<String> usedDueIds) {
+		if (paymentId == null || paymentId.isBlank()) {
+			return null;
+		}
+		for (int attempts = 0; attempts < 1000; attempts++) {
+			String dueId = ("DUE" + paymentId + String.format("%03d", ThreadLocalRandom.current().nextInt(1000)))
+					.toUpperCase();
+			if (usedDueIds.add(dueId)) {
+				return dueId;
+			}
+		}
+		throw new IllegalStateException("Unable to generate unique dueId for paymentId: " + paymentId);
 	}
 
 }
