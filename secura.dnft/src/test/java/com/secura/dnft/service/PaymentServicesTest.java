@@ -149,8 +149,8 @@ class PaymentServicesTest {
 		DuePaymentAmountDetailsResponse preResponse = paymentServices.getDuePaymentAmountDetails(preRequest);
 		assertEquals(LocalDate.parse("2026-04-01"), preResponse.getDueDate());
 		assertEquals("4355", preResponse.getAmountExcludingGst());
-		assertEquals("435.5", preResponse.getGstAmount());
-		assertEquals("4790.5", preResponse.getAmountIncludingGst());
+		assertEquals("435", preResponse.getGstAmount());
+		assertEquals("4790", preResponse.getAmountIncludingGst());
 
 		DuePaymentAmountDetailsRequest postRequest = new DuePaymentAmountDetailsRequest();
 		postRequest.setPaymentAmount("4355");
@@ -164,8 +164,50 @@ class PaymentServicesTest {
 		DuePaymentAmountDetailsResponse postResponse = paymentServices.getDuePaymentAmountDetails(postRequest);
 		assertEquals(LocalDate.parse("2027-05-24"), postResponse.getDueDate());
 		assertEquals("4355", postResponse.getAmountExcludingGst());
-		assertEquals("435.5", postResponse.getGstAmount());
-		assertEquals("4790.5", postResponse.getAmountIncludingGst());
+		assertEquals("435", postResponse.getGstAmount());
+		assertEquals("4790", postResponse.getAmountIncludingGst());
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldRoundGstAndTotalByThreshold_withDecimalBoundaryCases() {
+		DuePaymentAmountDetailsRequest lowDecimalRequest = new DuePaymentAmountDetailsRequest();
+		lowDecimalRequest.setPaymentAmount("47223");
+		lowDecimalRequest.setGst("10");
+		lowDecimalRequest.setCollectionStartDate(LocalDate.parse("2026-04-01"));
+		lowDecimalRequest.setCollectionEndDate(LocalDate.parse("2026-12-31"));
+		lowDecimalRequest.setPaymentCollectionCycle("once");
+		lowDecimalRequest.setPaymentCollectionMode("pre");
+		lowDecimalRequest.setTodayDate(LocalDate.parse("2026-04-11"));
+
+		DuePaymentAmountDetailsResponse lowDecimalResponse = paymentServices.getDuePaymentAmountDetails(lowDecimalRequest);
+		assertEquals("4722", lowDecimalResponse.getGstAmount());
+		assertEquals("51945", lowDecimalResponse.getAmountIncludingGst());
+
+		DuePaymentAmountDetailsRequest highDecimalRequest = new DuePaymentAmountDetailsRequest();
+		highDecimalRequest.setPaymentAmount("47226");
+		highDecimalRequest.setGst("10");
+		highDecimalRequest.setCollectionStartDate(LocalDate.parse("2026-04-01"));
+		highDecimalRequest.setCollectionEndDate(LocalDate.parse("2026-12-31"));
+		highDecimalRequest.setPaymentCollectionCycle("once");
+		highDecimalRequest.setPaymentCollectionMode("pre");
+		highDecimalRequest.setTodayDate(LocalDate.parse("2026-04-11"));
+
+		DuePaymentAmountDetailsResponse highDecimalResponse = paymentServices.getDuePaymentAmountDetails(highDecimalRequest);
+		assertEquals("4723", highDecimalResponse.getGstAmount());
+		assertEquals("51949", highDecimalResponse.getAmountIncludingGst());
+
+		DuePaymentAmountDetailsRequest halfDecimalRequest = new DuePaymentAmountDetailsRequest();
+		halfDecimalRequest.setPaymentAmount("47225");
+		halfDecimalRequest.setGst("10");
+		halfDecimalRequest.setCollectionStartDate(LocalDate.parse("2026-04-01"));
+		halfDecimalRequest.setCollectionEndDate(LocalDate.parse("2026-12-31"));
+		halfDecimalRequest.setPaymentCollectionCycle("once");
+		halfDecimalRequest.setPaymentCollectionMode("pre");
+		halfDecimalRequest.setTodayDate(LocalDate.parse("2026-04-11"));
+
+		DuePaymentAmountDetailsResponse halfDecimalResponse = paymentServices.getDuePaymentAmountDetails(halfDecimalRequest);
+		assertEquals("4722", halfDecimalResponse.getGstAmount());
+		assertEquals("51947", halfDecimalResponse.getAmountIncludingGst());
 	}
 
 	@Test
