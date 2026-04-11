@@ -80,8 +80,7 @@ public class PaymentServices implements PaymentInterface {
 					cycleAmount);
 		}
 		dueBaseAmount = roundAmountByThreshold(dueBaseAmount);
-		BigDecimal gstAmount = roundAmountByThreshold(
-				dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+		BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 		BigDecimal totalWithGst = roundAmountByThreshold(dueBaseAmount.add(gstAmount));
 
 		response.setAmountExcludingGst(formatNumber(dueBaseAmount));
@@ -137,9 +136,10 @@ public class PaymentServices implements PaymentInterface {
 			details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
 			AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
-			BigDecimal dueAmountWithAddedCharges = roundAmountByThreshold(dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount()));
-			BigDecimal gstAmount = roundAmountByThreshold(
-					dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+			BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
+					.setScale(2, RoundingMode.HALF_UP);
+			BigDecimal gstAmount = dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
+					RoundingMode.HALF_UP);
 			details.setAmount(formatNumber(dueAmountWithAddedCharges));
 			details.setGstAmount(formatNumber(gstAmount));
 			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
@@ -164,9 +164,10 @@ public class PaymentServices implements PaymentInterface {
 				BigDecimal dueBaseAmount = roundAmountByThreshold(
 						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
 				AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
-				BigDecimal dueAmountWithAddedCharges = roundAmountByThreshold(dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount()));
-				BigDecimal gstAmount = roundAmountByThreshold(
-						dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+				BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
+						.setScale(2, RoundingMode.HALF_UP);
+				BigDecimal gstAmount = dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
+						RoundingMode.HALF_UP);
 				details.setAmount(formatNumber(dueAmountWithAddedCharges));
 				details.setGstAmount(formatNumber(gstAmount));
 				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
@@ -417,16 +418,15 @@ public class PaymentServices implements PaymentInterface {
 			finalAddedCharges.add(finalCharge);
 			totalChargeAmount = totalChargeAmount.add(finalChargeAmount);
 		}
-		return new AddedChargesCalculation(roundAmountByThreshold(totalChargeAmount), finalAddedCharges);
+		return new AddedChargesCalculation(totalChargeAmount, finalAddedCharges);
 	}
 
 	private BigDecimal resolveFinalChargeAmount(String chargeType, String chargeValue, BigDecimal baseAmount) {
 		BigDecimal numericValue = parseNumeric(chargeValue);
 		if (isPercentageChargeType(chargeType)) {
-			return roundAmountByThreshold(
-					baseAmount.multiply(numericValue).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+			return baseAmount.multiply(numericValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 		}
-		return roundAmountByThreshold(numericValue);
+		return numericValue.setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private boolean isPercentageChargeType(String chargeType) {

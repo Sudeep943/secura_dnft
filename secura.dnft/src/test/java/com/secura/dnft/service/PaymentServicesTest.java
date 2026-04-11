@@ -151,7 +151,7 @@ class PaymentServicesTest {
 		DuePaymentAmountDetailsResponse preResponse = paymentServices.getDuePaymentAmountDetails(preRequest);
 		assertEquals(LocalDate.parse("2026-04-01"), preResponse.getDueDate());
 		assertEquals("4355", preResponse.getAmountExcludingGst());
-		assertEquals("435", preResponse.getGstAmount());
+		assertEquals("435.5", preResponse.getGstAmount());
 		assertEquals("4790", preResponse.getAmountIncludingGst());
 
 		DuePaymentAmountDetailsRequest postRequest = new DuePaymentAmountDetailsRequest();
@@ -166,7 +166,7 @@ class PaymentServicesTest {
 		DuePaymentAmountDetailsResponse postResponse = paymentServices.getDuePaymentAmountDetails(postRequest);
 		assertEquals(LocalDate.parse("2027-05-24"), postResponse.getDueDate());
 		assertEquals("4355", postResponse.getAmountExcludingGst());
-		assertEquals("435", postResponse.getGstAmount());
+		assertEquals("435.5", postResponse.getGstAmount());
 		assertEquals("4790", postResponse.getAmountIncludingGst());
 	}
 
@@ -182,7 +182,7 @@ class PaymentServicesTest {
 		lowDecimalRequest.setTodayDate(LocalDate.parse("2026-04-11"));
 
 		DuePaymentAmountDetailsResponse lowDecimalResponse = paymentServices.getDuePaymentAmountDetails(lowDecimalRequest);
-		assertEquals("4722", lowDecimalResponse.getGstAmount());
+		assertEquals("4722.3", lowDecimalResponse.getGstAmount());
 		assertEquals("51945", lowDecimalResponse.getAmountIncludingGst());
 
 		DuePaymentAmountDetailsRequest highDecimalRequest = new DuePaymentAmountDetailsRequest();
@@ -195,7 +195,7 @@ class PaymentServicesTest {
 		highDecimalRequest.setTodayDate(LocalDate.parse("2026-04-11"));
 
 		DuePaymentAmountDetailsResponse highDecimalResponse = paymentServices.getDuePaymentAmountDetails(highDecimalRequest);
-		assertEquals("4723", highDecimalResponse.getGstAmount());
+		assertEquals("4722.6", highDecimalResponse.getGstAmount());
 		assertEquals("51949", highDecimalResponse.getAmountIncludingGst());
 
 		DuePaymentAmountDetailsRequest halfDecimalRequest = new DuePaymentAmountDetailsRequest();
@@ -208,7 +208,7 @@ class PaymentServicesTest {
 		halfDecimalRequest.setTodayDate(LocalDate.parse("2026-04-11"));
 
 		DuePaymentAmountDetailsResponse halfDecimalResponse = paymentServices.getDuePaymentAmountDetails(halfDecimalRequest);
-		assertEquals("4722", halfDecimalResponse.getGstAmount());
+		assertEquals("4722.5", halfDecimalResponse.getGstAmount());
 		assertEquals("51947", halfDecimalResponse.getAmountIncludingGst());
 	}
 
@@ -266,6 +266,37 @@ class PaymentServicesTest {
 		BigDecimal chargeTotal = dueDetails.getAddedCharges().stream().map(c -> new BigDecimal(c.getFinalChargeValue()))
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 		assertEquals(new BigDecimal("1000").add(chargeTotal).toPlainString(), dueDetails.getAmount());
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldNotThresholdRoundGstAndAddedChargesUntilTotal() {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1000");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("once");
+		request.setPaymentCollectionMode("pre");
+
+		AddedCharges amountCharge = new AddedCharges();
+		amountCharge.setChargeName("Late Fee");
+		amountCharge.setChargeType("amount");
+		amountCharge.setValue("100.4");
+		AddedCharges percentageCharge = new AddedCharges();
+		percentageCharge.setChargeName("Convenience");
+		percentageCharge.setChargeType("percentage");
+		percentageCharge.setValue("10");
+		request.setAddedCharges(List.of(amountCharge, percentageCharge));
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
+
+		assertEquals("100.4", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
+		assertEquals("100", dueDetails.getAddedCharges().get(1).getFinalChargeValue());
+		assertEquals("1200.4", dueDetails.getAmount());
+		assertEquals("120.04", dueDetails.getGstAmount());
+		assertEquals("1320", dueDetails.getTotalAmount());
 	}
 
 	@Test
