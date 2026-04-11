@@ -1,10 +1,12 @@
 package com.secura.dnft.request.response;
 
 import java.util.List;
+import java.util.Map;
 
 public class GetDuePaymentAmountDetailsResponse {
 	private GenericHeader genericHeader;
 	private List<DueAmountDetails> listOfDueAmountDetails;
+	private Map<String, List<DueAmountDetails>> flatTypeDueAmountDetails;
 	private String message;
     private String messageCode;
 
@@ -14,6 +16,14 @@ public class GetDuePaymentAmountDetailsResponse {
 
 	public void setListOfDueAmountDetails(List<DueAmountDetails> listOfDueAmountDetails) {
 		this.listOfDueAmountDetails = listOfDueAmountDetails;
+	}
+
+	public Map<String, List<DueAmountDetails>> getFlatTypeDueAmountDetails() {
+		return flatTypeDueAmountDetails;
+	}
+
+	public void setFlatTypeDueAmountDetails(Map<String, List<DueAmountDetails>> flatTypeDueAmountDetails) {
+		this.flatTypeDueAmountDetails = flatTypeDueAmountDetails;
 	}
 
 	public GenericHeader getGenericHeader() {

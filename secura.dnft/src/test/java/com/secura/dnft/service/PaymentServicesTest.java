@@ -1,8 +1,9 @@
 package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -186,6 +187,47 @@ class PaymentServicesTest {
 
 		assertTrue(oldDueCount > 0);
 		assertEquals(oldDueCount, oldActiveCount);
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldReturnFlatAreaWiseDueAmountsWhenPaymentCapitaIsPerSqft() {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentCapita("Per Sqft");
+		request.setPaymentAmount("2");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+
+		Flat flatA = new Flat();
+		flatA.setFlatNo("A-101");
+		flatA.setFlatArea("1000");
+		Flat flatB = new Flat();
+		flatB.setFlatNo("A-102");
+		flatB.setFlatArea("1200");
+		Flat flatC = new Flat();
+		flatC.setFlatNo("A-103");
+		flatC.setFlatArea("1000");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(flatA, flatB, flatC));
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+
+		assertNotNull(response.getFlatTypeDueAmountDetails());
+		assertNull(response.getListOfDueAmountDetails());
+		assertEquals(2, response.getFlatTypeDueAmountDetails().size());
+		assertEquals("2000", response.getFlatTypeDueAmountDetails().get("1000").get(0).getAmount());
+		assertEquals("200", response.getFlatTypeDueAmountDetails().get("1000").get(0).getGstAmount());
+		assertEquals("2200", response.getFlatTypeDueAmountDetails().get("1000").get(0).getTotalAmount());
+		assertEquals("2400", response.getFlatTypeDueAmountDetails().get("1200").get(0).getAmount());
+		assertEquals("240", response.getFlatTypeDueAmountDetails().get("1200").get(0).getGstAmount());
+		assertEquals("2640", response.getFlatTypeDueAmountDetails().get("1200").get(0).getTotalAmount());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_28, response.getMessageCode());
 	}
 
 	@Test
