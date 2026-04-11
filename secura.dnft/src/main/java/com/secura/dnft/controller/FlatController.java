@@ -84,14 +84,6 @@ public class FlatController {
 	@PostMapping("/getAllFlats")
 	@CrossOrigin(origins = "*")
 	public GetAllFlatsResponse getAllFlats(@RequestBody GetAllFlatsRequest request) {
-		GetAllFlatsResponse response = new GetAllFlatsResponse();
-		try {
-			response = flatServices.getAllFlats(request);
-		} catch (Exception e) {
-			response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
-		}
-		return response;
+		return flatServices.getAllFlats(request);
 	}
 }

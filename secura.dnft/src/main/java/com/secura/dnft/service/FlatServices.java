@@ -12,7 +12,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -235,8 +234,6 @@ public class FlatServices implements FlatInterface {
 					: null;
 			List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
 					: flatRepository.findByAprmntId(apartmentId);
-			apartmentFlats = apartmentFlats.stream().sorted(Comparator.comparing(flat -> normalizeHierarchyKey(flat.getFlatNo())))
-					.collect(Collectors.toList());
 
 			boolean hasNamedBlock = apartmentFlats.stream().anyMatch(flat -> hasText(flat.getFlatBlock()));
 			if (!hasNamedBlock) {
