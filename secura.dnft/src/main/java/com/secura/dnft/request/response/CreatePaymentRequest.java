@@ -20,6 +20,8 @@ public class CreatePaymentRequest {
 	private String paymentType;
 	private String bankAccountId;
 	private String status;
+	private boolean camPayment;
+	private boolean addLeftOverPayment;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -110,6 +112,18 @@ public class CreatePaymentRequest {
 	}
 	public void setStatus(String status) {
 		this.status = status;
+	}
+	public boolean isCamPayment() {
+		return camPayment;
+	}
+	public void setCamPayment(boolean camPayment) {
+		this.camPayment = camPayment;
+	}
+	public boolean isAddLeftOverPayment() {
+		return addLeftOverPayment;
+	}
+	public void setAddLeftOverPayment(boolean addLeftOverPayment) {
+		this.addLeftOverPayment = addLeftOverPayment;
 	}
 	
 	
