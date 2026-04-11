@@ -26,10 +26,13 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.entity.Flat;
+import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -56,6 +59,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private ProfileRepository profileRepository;
+
+	@Autowired
+	private OwnerRepository ownerRepository;
 
 	@Autowired
 	private GenericService genericService;
@@ -127,12 +133,15 @@ public class FlatServices implements FlatInterface {
 				totalRows++;
 				try {
 					UploadedFlatRow uploadedRow = extractRow(row);
-					String profileId = createProfileFromUploadedRow(uploadedRow, request);
+					ProfileContext profileContext = createOrUpdateProfileFromUploadedRow(uploadedRow, request);
 					try {
-						createFlatFromUploadedRow(uploadedRow, profileId, request);
+						createFlatFromUploadedRow(uploadedRow, profileContext.profileId, request);
+						ensureOwnerEntry(uploadedRow, profileContext.profileId, request);
 						successRows++;
 					} catch (Exception flatEx) {
-						profileRepository.deleteById(profileId);
+						if (profileContext.created) {
+							profileRepository.deleteById(profileContext.profileId);
+						}
 						failedRows.add(buildFailedRow(uploadedRow, flatEx.getMessage()));
 					}
 				} catch (Exception e) {
@@ -207,12 +216,27 @@ public class FlatServices implements FlatInterface {
 		uploadedRow.ownerType = readStringCell(row, 6, false);
 		uploadedRow.flatArea = readStringCell(row, 7, false);
 		uploadedRow.ownerDob = readDateCell(row, 8);
-		uploadedRow.ownerPhone = readStringCell(row, 9, false);
+		uploadedRow.ownerPhone = readStringCell(row, 9, true);
 		uploadedRow.ownerEmail = readStringCell(row, 10, false);
 		return uploadedRow;
 	}
 
-	private String createProfileFromUploadedRow(UploadedFlatRow row, UploadFlatDetailsRequest request) {
+	private ProfileContext createOrUpdateProfileFromUploadedRow(UploadedFlatRow row, UploadFlatDetailsRequest request) {
+		if (row.ownerPhone == null || row.ownerPhone.isBlank()) {
+			throw new IllegalArgumentException("Owner mobile number is required");
+		}
+
+		List<Profile> existingProfiles = profileRepository.findByPrflPhoneNo(row.ownerPhone);
+		if (existingProfiles != null && !existingProfiles.isEmpty()) {
+			Profile existingProfile = existingProfiles.get(0);
+			List<ProfileAccountDetails> mergedDetails = mergeProfileAccountDetails(existingProfile.getPrflAcountDetails(),
+					existingProfile.getPrflId(), row.flatNo, request);
+			existingProfile.setPrflAcountDetails(genericService.toJson(mergedDetails));
+			existingProfile.setLst_updt_usrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+			profileRepository.save(existingProfile);
+			return new ProfileContext(existingProfile.getPrflId(), false);
+		}
+
 		Profile profile = new Profile();
 		String profileId = createProfileId();
 		profile.setPrflId(profileId);
@@ -225,18 +249,57 @@ public class FlatServices implements FlatInterface {
 		profile.setPrflDob(row.ownerDob != null ? row.ownerDob.atStartOfDay() : null);
 		profile.setProfileKind(row.ownerType);
 		profile.setCreat_usr_id(request.getHeader() != null ? request.getHeader().getUserId() : null);
-		profile.setPrflAcountDetails(genericService.toJson(buildProfileAccountDetails(row.flatNo, request)));
+		profile.setPrflAcountDetails(genericService.toJson(buildProfileAccountDetails(row.flatNo, request, profileId)));
 		profileRepository.save(profile);
-		return profileId;
+		return new ProfileContext(profileId, true);
 	}
 
-	private List<ProfileAccountDetails> buildProfileAccountDetails(String flatNo, UploadFlatDetailsRequest request) {
+	private List<ProfileAccountDetails> mergeProfileAccountDetails(String profileAccountDetailsJson, String profileId,
+			String flatNo, UploadFlatDetailsRequest request) {
+		List<ProfileAccountDetails> detailsList = new ArrayList<>();
+		if (profileAccountDetailsJson != null && !profileAccountDetailsJson.isBlank()) {
+			List<ProfileAccountDetails> existing = genericService.fromJson(profileAccountDetailsJson,
+					new TypeReference<List<ProfileAccountDetails>>() {
+					});
+			if (existing != null) {
+				detailsList.addAll(existing);
+			}
+		}
+
+		String apartmentId = request.getHeader() != null ? request.getHeader().getApartmentId() : null;
+		Optional<ProfileAccountDetails> apartmentDetails = detailsList.stream()
+				.filter(details -> apartmentId != null && apartmentId.equals(details.getApartmentId())).findFirst();
+		if (apartmentDetails.isPresent()) {
+			ProfileAccountDetails details = apartmentDetails.get();
+			List<String> flatIds = details.getFlatId() != null ? new ArrayList<>(details.getFlatId()) : new ArrayList<>();
+			if (!flatIds.contains(flatNo)) {
+				flatIds.add(flatNo);
+			}
+			details.setFlatId(flatIds);
+			details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
+			details.setPosition("MEMBER");
+			details.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		} else {
+			detailsList.add(buildSingleProfileAccountDetail(flatNo, request, profileId));
+		}
+		return detailsList;
+	}
+
+	private List<ProfileAccountDetails> buildProfileAccountDetails(String flatNo, UploadFlatDetailsRequest request,
+			String profileId) {
+		return Collections.singletonList(buildSingleProfileAccountDetail(flatNo, request, profileId));
+	}
+
+	private ProfileAccountDetails buildSingleProfileAccountDetail(String flatNo, UploadFlatDetailsRequest request,
+			String profileId) {
 		ProfileAccountDetails details = new ProfileAccountDetails();
 		details.setApartmentId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+		details.setApartmentName(profileId);
 		details.setFlatId(Collections.singletonList(flatNo));
 		details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
+		details.setPosition("MEMBER");
 		details.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
-		return Collections.singletonList(details);
+		return details;
 	}
 
 	private void createFlatFromUploadedRow(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
@@ -254,8 +317,53 @@ public class FlatServices implements FlatInterface {
 		flatRepository.save(flat);
 	}
 
+	private void ensureOwnerEntry(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
+		List<Owner> owners = ownerRepository.findByFlatNo(row.flatNo);
+		if (owners != null) {
+			for (Owner owner : owners) {
+				List<String> ownerProfiles = parseProfileIds(owner.getPrflId());
+				if (ownerProfiles.contains(profileId)) {
+					return;
+				}
+			}
+
+			Optional<Owner> activeOwner = owners.stream().filter(owner -> owner.getEndDate() == null).findFirst();
+			if (activeOwner.isPresent()) {
+				Owner currentOwner = activeOwner.get();
+				currentOwner.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
+				currentOwner.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+				currentOwner.setLstUpdtUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+				ownerRepository.save(currentOwner);
+			}
+		}
+
+		Owner owner = new Owner();
+		owner.setOwnerId(createOwnerId(row.flatNo));
+		owner.setAprmt_id(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+		owner.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+		owner.setFlatNo(row.flatNo);
+		owner.setPrflId(genericService.toJson(Collections.singletonList(profileId)));
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setStartDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+		ownerRepository.save(owner);
+	}
+
+	private List<String> parseProfileIds(String profileIdsJson) {
+		if (profileIdsJson == null || profileIdsJson.isBlank()) {
+			return new ArrayList<>();
+		}
+		List<String> profileIds = genericService.fromJson(profileIdsJson, new TypeReference<List<String>>() {
+		});
+		return profileIds != null ? profileIds : new ArrayList<>();
+	}
+
 	private String createProfileId() {
 		return SecuraConstants.PROFILE_ID_PREFIX + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+	}
+
+	private String createOwnerId(String flatNo) {
+		return SecuraConstants.PROFILE_TYPE_OWNER + flatNo
+				+ UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
 	}
 
 	private String generateFailedRowsWorkbook(List<List<String>> failedRows) throws Exception {
@@ -381,5 +489,15 @@ public class FlatServices implements FlatInterface {
 		private LocalDate ownerDob;
 		private String ownerPhone;
 		private String ownerEmail;
+	}
+
+	private static class ProfileContext {
+		private final String profileId;
+		private final boolean created;
+
+		private ProfileContext(String profileId, boolean created) {
+			this.profileId = profileId;
+			this.created = created;
+		}
 	}
 }
