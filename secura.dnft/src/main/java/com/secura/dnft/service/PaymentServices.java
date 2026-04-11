@@ -247,6 +247,14 @@ public class PaymentServices implements PaymentInterface {
 				.collect(Collectors.toList());
 	}
 
+	private String normalizeFlatNoForMatch(String flatNo) {
+		if (flatNo == null) {
+			return null;
+		}
+		String normalized = flatNo.trim();
+		return normalized.isBlank() ? null : normalized.toUpperCase();
+	}
+
 	private String serializeApplicableFor(List<String> applicableFor) {
 		if (isApplicableForAll(applicableFor)) {
 			return "ALL";
@@ -282,10 +290,10 @@ public class PaymentServices implements PaymentInterface {
 
 		List<Flat> targetFlats = apartmentFlats;
 		if (!applicableFlatNos.isEmpty()) {
-			Set<String> normalizedApplicableFlatNos = applicableFlatNos.stream().map(String::trim)
-					.map(String::toUpperCase).collect(Collectors.toCollection(LinkedHashSet::new));
+			Set<String> normalizedApplicableFlatNos = applicableFlatNos.stream().map(this::normalizeFlatNoForMatch)
+					.filter(value -> value != null).collect(Collectors.toCollection(LinkedHashSet::new));
 			targetFlats = apartmentFlats.stream().filter(flat -> flat != null && flat.getFlatNo() != null
-					&& normalizedApplicableFlatNos.contains(flat.getFlatNo().trim().toUpperCase()))
+					&& normalizedApplicableFlatNos.contains(normalizeFlatNoForMatch(flat.getFlatNo())))
 					.collect(Collectors.toList());
 		}
 

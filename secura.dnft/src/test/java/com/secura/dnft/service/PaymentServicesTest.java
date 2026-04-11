@@ -516,6 +516,51 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void createPayment_shouldSupportApplicableForAcrossMultipleListEntriesWithCommaValues() throws Exception {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setApplicableFor(List.of("A-101, A-102", "A-103"));
+
+		Flat flat101 = new Flat();
+		flat101.setFlatNo("A-101");
+		Flat flat102 = new Flat();
+		flat102.setFlatNo("A-102");
+		Flat flat103 = new Flat();
+		flat103.setFlatNo("A-103");
+		Flat flat104 = new Flat();
+		flat104.setFlatNo("A-104");
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.toJson(any())).thenReturn("DUE_JSON");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(flat101, flat102, flat103, flat104));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
+		List<Flat> savedFlats = flatCaptor.getValue();
+		assertEquals(3, savedFlats.size());
+		assertTrue(savedFlats.stream().anyMatch(flat -> "A-101".equals(flat.getFlatNo())));
+		assertTrue(savedFlats.stream().anyMatch(flat -> "A-102".equals(flat.getFlatNo())));
+		assertTrue(savedFlats.stream().anyMatch(flat -> "A-103".equals(flat.getFlatNo())));
+	}
+
+	@Test
 	void createPayment_shouldDeleteOlderDueObjectsWhenAddLeftOverPaymentFalse() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
