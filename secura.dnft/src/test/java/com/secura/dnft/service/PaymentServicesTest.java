@@ -288,6 +288,9 @@ class PaymentServicesTest {
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
 
+		BigDecimal chargeTotal = dueDetails.getAddedCharges().stream().map(c -> new BigDecimal(c.getFinalChargeValue()))
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		assertEquals(new BigDecimal("1000").add(chargeTotal).toPlainString(), dueDetails.getAmount());
 		assertEquals("1100", dueDetails.getAmount());
 		assertEquals("100", dueDetails.getGstAmount());
 		assertEquals("1200", dueDetails.getTotalAmount());
@@ -322,6 +325,8 @@ class PaymentServicesTest {
 		assertEquals("100", dueDetails.getAddedCharges().get(1).getFinalChargeValue());
 		assertEquals("1200.4", dueDetails.getAmount());
 		assertEquals("100", dueDetails.getGstAmount());
+		assertEquals("1300.4",
+				new BigDecimal(dueDetails.getAmount()).add(new BigDecimal(dueDetails.getGstAmount())).toPlainString());
 		assertEquals("1300", dueDetails.getTotalAmount());
 	}
 
