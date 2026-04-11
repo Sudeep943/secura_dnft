@@ -210,6 +210,25 @@ class FlatServicesTest {
 		assertEquals(LocalDateTime.of(2029, 3, 1, 0, 0), flatCaptor.getValue().getFlatPossnDate());
 	}
 
+	@Test
+	void uploadFlatDetails_shouldShowHeaderName_whenDateFormatIsInvalid() throws Exception {
+		UploadFlatDetailsRequest request = buildRequest(
+				buildWorkbookBase64WithDates("9999999999", "A-103", "1-Mar-2029", "invalid-date"));
+
+		UploadFlatDetailsResponse response = flatServices.uploadFlatDetails(request);
+
+		assertEquals(1, response.getTotalRows());
+		assertEquals(0, response.getSuccessRows());
+		assertEquals(1, response.getFailedRows());
+		assertNotNull(response.getFailedRowsReportDocument());
+
+		byte[] decodedWorkbook = Base64.getDecoder().decode(response.getFailedRowsReportDocument());
+		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(decodedWorkbook))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			assertEquals("Invalid date format for Owner DOB", sheet.getRow(1).getCell(11).getStringCellValue());
+		}
+	}
+
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APRT001");

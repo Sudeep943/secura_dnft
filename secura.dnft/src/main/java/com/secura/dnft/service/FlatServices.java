@@ -473,13 +473,13 @@ public class FlatServices implements FlatInterface {
 		Cell cell = row.getCell(cellIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
 		if (cell == null) {
 			if (required) {
-				throw new IllegalArgumentException("Missing required value at column " + (cellIndex + 1));
+				throw new IllegalArgumentException("Missing required value for " + getUploadHeaderName(cellIndex));
 			}
 			return "";
 		}
 		String value = dataFormatter.formatCellValue(cell);
 		if (required && (value == null || value.isBlank())) {
-			throw new IllegalArgumentException("Missing required value at column " + (cellIndex + 1));
+			throw new IllegalArgumentException("Missing required value for " + getUploadHeaderName(cellIndex));
 		}
 		return value != null ? value.trim() : "";
 	}
@@ -507,7 +507,14 @@ public class FlatServices implements FlatInterface {
 			} catch (DateTimeParseException e) {
 			}
 		}
-		throw new IllegalArgumentException("Invalid date format at column " + (cellIndex + 1));
+		throw new IllegalArgumentException("Invalid date format for " + getUploadHeaderName(cellIndex));
+	}
+
+	private String getUploadHeaderName(int cellIndex) {
+		if (cellIndex >= 0 && cellIndex < UPLOAD_HEADERS.length) {
+			return UPLOAD_HEADERS[cellIndex];
+		}
+		return "column " + (cellIndex + 1);
 	}
 
 	private boolean isRowBlank(Row row) {
