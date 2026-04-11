@@ -169,7 +169,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void getDuePaymentAmountDetails_shouldRoundGstAndTotalByThreshold() {
+	void getDuePaymentAmountDetails_shouldRoundGstAndTotalByThreshold_withDecimalBoundaryCases() {
 		DuePaymentAmountDetailsRequest lowDecimalRequest = new DuePaymentAmountDetailsRequest();
 		lowDecimalRequest.setPaymentAmount("47223");
 		lowDecimalRequest.setGst("10");
