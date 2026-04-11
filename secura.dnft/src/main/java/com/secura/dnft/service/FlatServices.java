@@ -12,10 +12,13 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -49,6 +52,8 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.GetAllFlatsRequest;
+import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -219,6 +224,32 @@ public class FlatServices implements FlatInterface {
 		return response;
 	}
 
+	@Override
+	public GetAllFlatsResponse getAllFlats(GetAllFlatsRequest request) {
+		GetAllFlatsResponse response = new GetAllFlatsResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			String apartmentId = request != null && request.getGenericHeader() != null
+					? request.getGenericHeader().getApartmentId()
+					: null;
+			List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
+					: flatRepository.findByAprmntId(apartmentId);
+
+			boolean hasNamedBlock = apartmentFlats.stream().anyMatch(flat -> hasText(flat.getFlatBlock()));
+			if (!hasNamedBlock) {
+				response.setTowerList(buildTowerHierarchy(apartmentFlats));
+			} else {
+				response.setBlockList(buildBlockHierarchy(apartmentFlats));
+			}
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_27);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_27);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
+		}
+		return response;
+	}
+
 	private Flat buildFlatEntity(AddFlatDetailsRequest addRequest, UpdateFlatDetailsRequest updateRequest) {
 		Flat flat = new Flat();
 		boolean isAddRequest = addRequest != null;
@@ -235,6 +266,57 @@ public class FlatServices implements FlatInterface {
 			flat.setFlatPossnDate(genericService.getCorrectLocalDateForInputDate(possnDate));
 		}
 		return flat;
+	}
+
+	private List<GetAllFlatsResponse.BlockDetails> buildBlockHierarchy(List<Flat> apartmentFlats) {
+		Map<String, List<Flat>> groupedByBlock = apartmentFlats.stream()
+				.collect(Collectors.groupingBy(flat -> normalizeHierarchyKey(flat.getFlatBlock()), LinkedHashMap::new,
+						Collectors.toList()));
+		List<GetAllFlatsResponse.BlockDetails> blockList = new ArrayList<>();
+		for (Map.Entry<String, List<Flat>> blockEntry : groupedByBlock.entrySet()) {
+			GetAllFlatsResponse.BlockDetails blockDetails = new GetAllFlatsResponse.BlockDetails();
+			blockDetails.setBlockName(blankToNull(blockEntry.getKey()));
+			List<Flat> blockFlats = blockEntry.getValue();
+			List<Flat> directFlats = blockFlats.stream().filter(flat -> !hasText(flat.getFlatTower()))
+					.collect(Collectors.toList());
+			if (!directFlats.isEmpty()) {
+				blockDetails.setFlatList(
+						directFlats.stream().map(Flat::getFlatNo).filter(this::hasText).collect(Collectors.toList()));
+			}
+			List<Flat> towerFlats = blockFlats.stream().filter(flat -> hasText(flat.getFlatTower())).collect(Collectors.toList());
+			if (!towerFlats.isEmpty()) {
+				blockDetails.setTowerList(buildTowerHierarchy(towerFlats));
+			}
+			blockList.add(blockDetails);
+		}
+		return blockList;
+	}
+
+	private List<GetAllFlatsResponse.TowerDetails> buildTowerHierarchy(List<Flat> flats) {
+		Map<String, List<Flat>> groupedByTower = flats.stream()
+				.collect(Collectors.groupingBy(flat -> normalizeHierarchyKey(flat.getFlatTower()), LinkedHashMap::new,
+						Collectors.toList()));
+		List<GetAllFlatsResponse.TowerDetails> towerList = new ArrayList<>();
+		for (Map.Entry<String, List<Flat>> towerEntry : groupedByTower.entrySet()) {
+			GetAllFlatsResponse.TowerDetails towerDetails = new GetAllFlatsResponse.TowerDetails();
+			towerDetails.setTowerName(blankToNull(towerEntry.getKey()));
+			towerDetails.setFlatList(
+					towerEntry.getValue().stream().map(Flat::getFlatNo).filter(this::hasText).collect(Collectors.toList()));
+			towerList.add(towerDetails);
+		}
+		return towerList;
+	}
+
+	private String normalizeHierarchyKey(String value) {
+		return value == null ? "" : value.trim();
+	}
+
+	private boolean hasText(String value) {
+		return value != null && !value.trim().isEmpty();
+	}
+
+	private String blankToNull(String value) {
+		return hasText(value) ? value : null;
 	}
 
 	private String resolveApartmentId(String requestApartmentId, String headerApartmentId) {

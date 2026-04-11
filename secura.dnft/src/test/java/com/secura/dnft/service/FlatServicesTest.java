@@ -2,6 +2,7 @@ package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,6 +43,8 @@ import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
+import com.secura.dnft.request.response.GetAllFlatsRequest;
+import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
@@ -227,6 +230,75 @@ class FlatServicesTest {
 			Sheet sheet = workbook.getSheetAt(0);
 			assertEquals("Invalid date format for Owner DOB", sheet.getRow(1).getCell(11).getStringCellValue());
 		}
+	}
+
+	@Test
+	void getAllFlats_shouldReturnTowerHierarchyOnly_whenNoBlockNamesAvailable() {
+		GetAllFlatsRequest request = new GetAllFlatsRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+
+		Flat flat1 = new Flat();
+		flat1.setAprmntId("APRT001");
+		flat1.setFlatNo("A-101");
+		flat1.setFlatTower("T1");
+		flat1.setFlatBlock("");
+
+		Flat flat2 = new Flat();
+		flat2.setAprmntId("APRT001");
+		flat2.setFlatNo("A-102");
+		flat2.setFlatTower("T2");
+		flat2.setFlatBlock(null);
+
+		when(flatRepository.findByAprmntId("APRT001")).thenReturn(List.of(flat1, flat2));
+
+		GetAllFlatsResponse response = flatServices.getAllFlats(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getTowerList());
+		assertEquals(2, response.getTowerList().size());
+		assertNull(response.getBlockList());
+		assertEquals("T1", response.getTowerList().get(0).getTowerName());
+		assertEquals(List.of("A-101"), response.getTowerList().get(0).getFlatList());
+		assertEquals("T2", response.getTowerList().get(1).getTowerName());
+		assertEquals(List.of("A-102"), response.getTowerList().get(1).getFlatList());
+	}
+
+	@Test
+	void getAllFlats_shouldReturnBlockHierarchy_withTowersAndDirectBlockFlats() {
+		GetAllFlatsRequest request = new GetAllFlatsRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+
+		Flat towerFlat = new Flat();
+		towerFlat.setAprmntId("APRT001");
+		towerFlat.setFlatNo("B-201");
+		towerFlat.setFlatTower("T1");
+		towerFlat.setFlatBlock("B1");
+
+		Flat directBlockFlat = new Flat();
+		directBlockFlat.setAprmntId("APRT001");
+		directBlockFlat.setFlatNo("B-001");
+		directBlockFlat.setFlatTower("");
+		directBlockFlat.setFlatBlock("B1");
+
+		when(flatRepository.findByAprmntId("APRT001")).thenReturn(List.of(towerFlat, directBlockFlat));
+
+		GetAllFlatsResponse response = flatServices.getAllFlats(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getBlockList());
+		assertEquals(1, response.getBlockList().size());
+		assertNull(response.getTowerList());
+		GetAllFlatsResponse.BlockDetails blockDetails = response.getBlockList().get(0);
+		assertEquals("B1", blockDetails.getBlockName());
+		assertEquals(List.of("B-001"), blockDetails.getFlatList());
+		assertNotNull(blockDetails.getTowerList());
+		assertEquals(1, blockDetails.getTowerList().size());
+		assertEquals("T1", blockDetails.getTowerList().get(0).getTowerName());
+		assertEquals(List.of("B-201"), blockDetails.getTowerList().get(0).getFlatList());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
