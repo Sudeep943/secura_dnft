@@ -14,8 +14,7 @@ import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
-import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
-import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
@@ -61,8 +60,8 @@ public class PaymentController {
 
 	 @PostMapping("/getDuePaymentAmountDetails")
 	    @CrossOrigin(origins = "*")
-	    public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(@RequestBody DuePaymentAmountDetailsRequest request) {
-		 DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
+	    public GetDuePaymentAmountDetailsResponse getDuePaymentAmountDetails(@RequestBody CreatePaymentRequest request) {
+		 GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
 		 try {
 			 return paymentServices.getDuePaymentAmountDetails(request);
 			}
