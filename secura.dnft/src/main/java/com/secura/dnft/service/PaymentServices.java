@@ -80,9 +80,9 @@ public class PaymentServices implements PaymentInterface {
 					cycleAmount);
 		}
 		dueBaseAmount = roundAmountByThreshold(dueBaseAmount);
-		BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
-				RoundingMode.HALF_UP);
-		BigDecimal totalWithGst = dueBaseAmount.add(gstAmount);
+		BigDecimal gstAmount = roundAmountByThreshold(
+				dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+		BigDecimal totalWithGst = roundAmountByThreshold(dueBaseAmount.add(gstAmount));
 
 		response.setAmountExcludingGst(formatNumber(dueBaseAmount));
 		response.setGstPercent(formatNumber(gstPercent));
@@ -135,11 +135,11 @@ public class PaymentServices implements PaymentInterface {
 			details.setPaymentId(paymentId);
 			details.setStatus(DUE_STATUS_NOT_ACTIVE);
 			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
-			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
-					RoundingMode.HALF_UP);
+			BigDecimal gstAmount = roundAmountByThreshold(
+					dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
 			details.setAmount(formatNumber(dueBaseAmount));
 			details.setGstAmount(formatNumber(gstAmount));
-			details.setTotalAmount(formatNumber(dueBaseAmount.add(gstAmount)));
+			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueBaseAmount.add(gstAmount))));
 			dueAmountDetails.add(details);
 		} else {
 			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
@@ -159,11 +159,11 @@ public class PaymentServices implements PaymentInterface {
 
 				BigDecimal dueBaseAmount = roundAmountByThreshold(
 						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
-				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
-						RoundingMode.HALF_UP);
+				BigDecimal gstAmount = roundAmountByThreshold(
+						dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
 				details.setAmount(formatNumber(dueBaseAmount));
 				details.setGstAmount(formatNumber(gstAmount));
-				details.setTotalAmount(formatNumber(dueBaseAmount.add(gstAmount)));
+				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueBaseAmount.add(gstAmount))));
 				dueAmountDetails.add(details);
 
 				periodStart = periodStart.plusMonths(cycleMonths);
