@@ -141,10 +141,11 @@ public class PaymentServices implements PaymentInterface {
 					.setScale(2, RoundingMode.HALF_UP);
 			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 					RoundingMode.HALF_UP);
-			details.setAmount(formatNumber(dueAmountWithAddedCharges));
+			details.setAmount(formatNumber(dueBaseAmount));
 			details.setGstAmount(formatNumber(gstAmount));
 			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
 			details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
+			details.setTotalAddedCharges(formatNumber(addedChargesCalculation.getTotalChargeAmount()));
 			dueAmountDetails.add(details);
 		} else {
 			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
@@ -169,10 +170,11 @@ public class PaymentServices implements PaymentInterface {
 						.setScale(2, RoundingMode.HALF_UP);
 				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 						RoundingMode.HALF_UP);
-				details.setAmount(formatNumber(dueAmountWithAddedCharges));
+				details.setAmount(formatNumber(dueBaseAmount));
 				details.setGstAmount(formatNumber(gstAmount));
 				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
 				details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
+				details.setTotalAddedCharges(formatNumber(addedChargesCalculation.getTotalChargeAmount()));
 				dueAmountDetails.add(details);
 
 				periodStart = periodStart.plusMonths(cycleMonths);
@@ -322,6 +324,7 @@ public class PaymentServices implements PaymentInterface {
 			copy.setGstAmount(details.getGstAmount());
 			copy.setTotalAmount(details.getTotalAmount());
 			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
+			copy.setTotalAddedCharges(details.getTotalAddedCharges());
 			cloned.add(copy);
 		}
 		return cloned;
