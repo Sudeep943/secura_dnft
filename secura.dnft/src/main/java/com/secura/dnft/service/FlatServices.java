@@ -13,7 +13,6 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -363,7 +362,8 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private String createOwnerId(String flatNo) {
-		return SecuraConstants.PROFILE_TYPE_OWNER + flatNo + new Random().nextInt();
+		return SecuraConstants.PROFILE_TYPE_OWNER + flatNo
+				+ UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
 	}
 
 	private String generateFailedRowsWorkbook(List<List<String>> failedRows) throws Exception {
