@@ -257,8 +257,8 @@ class PaymentServicesTest {
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
 
-		assertEquals("120", dueDetails.getGstAmount());
-		assertEquals("1320", dueDetails.getTotalAmount());
+		assertEquals("100", dueDetails.getGstAmount());
+		assertEquals("1300", dueDetails.getTotalAmount());
 		assertNotNull(dueDetails.getAddedCharges());
 		assertEquals(2, dueDetails.getAddedCharges().size());
 		assertEquals("100", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
@@ -266,6 +266,32 @@ class PaymentServicesTest {
 		BigDecimal chargeTotal = dueDetails.getAddedCharges().stream().map(c -> new BigDecimal(c.getFinalChargeValue()))
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 		assertEquals(new BigDecimal("1000").add(chargeTotal).toPlainString(), dueDetails.getAmount());
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldCalculateGstFromBaseAmountWhenPercentageAddedChargeExists() {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1000");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("once");
+		request.setPaymentCollectionMode("pre");
+
+		AddedCharges percentageCharge = new AddedCharges();
+		percentageCharge.setChargeName("Surcharge");
+		percentageCharge.setChargeType("percentage");
+		percentageCharge.setValue("10");
+		request.setAddedCharges(List.of(percentageCharge));
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
+
+		assertEquals("1100", dueDetails.getAmount());
+		assertEquals("100", dueDetails.getGstAmount());
+		assertEquals("1200", dueDetails.getTotalAmount());
+		assertEquals("100", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
 	}
 
 	@Test
@@ -295,8 +321,8 @@ class PaymentServicesTest {
 		assertEquals("100.4", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
 		assertEquals("100", dueDetails.getAddedCharges().get(1).getFinalChargeValue());
 		assertEquals("1200.4", dueDetails.getAmount());
-		assertEquals("120.04", dueDetails.getGstAmount());
-		assertEquals("1320", dueDetails.getTotalAmount());
+		assertEquals("100", dueDetails.getGstAmount());
+		assertEquals("1300", dueDetails.getTotalAmount());
 	}
 
 	@Test
