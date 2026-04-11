@@ -583,9 +583,7 @@ public class FlatServices implements FlatInterface {
 					continue;
 				}
 				String value = dataFormatter.formatCellValue(cell);
-				if (value != null) {
-					maxTextLength = Math.max(maxTextLength, value.length());
-				}
+				maxTextLength = Math.max(maxTextLength, value.length());
 			}
 			int width = (int) Math.ceil(maxTextLength * 1.5 * 256);
 			sheet.setColumnWidth(columnIndex, Math.min(width, 255 * 256));

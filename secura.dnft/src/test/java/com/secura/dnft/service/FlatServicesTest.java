@@ -262,7 +262,7 @@ class FlatServicesTest {
 	}
 
 	private int expectedColumnWidth(Sheet sheet, int columnIndex) {
-		int maxLength = 1;
+		int maxTextLength = 1;
 		DataFormatter formatter = new DataFormatter();
 		for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
 			Row row = sheet.getRow(rowIndex);
@@ -270,8 +270,8 @@ class FlatServicesTest {
 				continue;
 			}
 			String value = formatter.formatCellValue(row.getCell(columnIndex));
-			maxLength = Math.max(maxLength, value.length());
+			maxTextLength = Math.max(maxTextLength, value.length());
 		}
-		return (int) Math.ceil(maxLength * 1.5 * 256);
+		return (int) Math.ceil(maxTextLength * 1.5 * 256);
 	}
 }
