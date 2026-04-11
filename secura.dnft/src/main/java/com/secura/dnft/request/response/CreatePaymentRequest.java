@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.util.List;
 
 public class CreatePaymentRequest {
 
@@ -22,6 +23,7 @@ public class CreatePaymentRequest {
 	private String status;
 	private boolean camPayment;
 	private boolean addLeftOverPayment;
+	private List<AddedCharges> addedCharges;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -124,6 +126,12 @@ public class CreatePaymentRequest {
 	}
 	public void setAddLeftOverPayment(boolean addLeftOverPayment) {
 		this.addLeftOverPayment = addLeftOverPayment;
+	}
+	public List<AddedCharges> getAddedCharges() {
+		return addedCharges;
+	}
+	public void setAddedCharges(List<AddedCharges> addedCharges) {
+		this.addedCharges = addedCharges;
 	}
 	
 	

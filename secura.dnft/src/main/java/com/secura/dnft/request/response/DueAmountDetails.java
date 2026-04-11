@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -13,6 +14,7 @@ public class DueAmountDetails {
 	private String amount;
 	private String gstAmount;
 	private String totalAmount;
+	private List<AddedCharges> addedCharges;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -60,5 +62,13 @@ public class DueAmountDetails {
 
 	public void setTotalAmount(String totalAmount) {
 		this.totalAmount = totalAmount;
+	}
+
+	public List<AddedCharges> getAddedCharges() {
+		return addedCharges;
+	}
+
+	public void setAddedCharges(List<AddedCharges> addedCharges) {
+		this.addedCharges = addedCharges;
 	}
 }

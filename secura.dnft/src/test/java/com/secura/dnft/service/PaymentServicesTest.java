@@ -28,6 +28,7 @@ import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
@@ -232,6 +233,39 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void getDuePaymentAmountDetails_shouldApplyAddedChargesForAmountAndPercentageTypes() {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1000");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("once");
+		request.setPaymentCollectionMode("pre");
+
+		AddedCharges amountCharge = new AddedCharges();
+		amountCharge.setChargeName("Late Fee");
+		amountCharge.setChargeType("amount");
+		amountCharge.setValue("100");
+		AddedCharges percentageCharge = new AddedCharges();
+		percentageCharge.setChargeName("Convenience");
+		percentageCharge.setChargeType("percentage");
+		percentageCharge.setValue("10");
+		request.setAddedCharges(List.of(amountCharge, percentageCharge));
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
+
+		assertEquals("1200", dueDetails.getAmount());
+		assertEquals("120", dueDetails.getGstAmount());
+		assertEquals("1320", dueDetails.getTotalAmount());
+		assertNotNull(dueDetails.getAddedCharges());
+		assertEquals(2, dueDetails.getAddedCharges().size());
+		assertEquals("100", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
+		assertEquals("100", dueDetails.getAddedCharges().get(1).getFinalChargeValue());
+	}
+
+	@Test
 	void getDuePaymentAmountDetails_shouldReturnFlatAreaWiseDueAmountsWhenPaymentCapitaIsPerSqft() {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
@@ -288,6 +322,11 @@ class PaymentServicesTest {
 		request.setPaymentCollectionCycle("monthly");
 		request.setPaymentCollectionMode("pre");
 		request.setApplicableFor("[\"A-101\"]");
+		AddedCharges amountCharge = new AddedCharges();
+		amountCharge.setChargeName("Late Fee");
+		amountCharge.setChargeType("amount");
+		amountCharge.setValue("100");
+		request.setAddedCharges(List.of(amountCharge));
 
 		Flat targetFlat = new Flat();
 		targetFlat.setFlatNo("A-101");
@@ -313,6 +352,7 @@ class PaymentServicesTest {
 		@SuppressWarnings("unchecked")
 		List<DueAmountDetails> dueDetails = (List<DueAmountDetails>) dueListCaptor.getValue();
 		assertTrue(dueDetails.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+		assertEquals("100", dueDetails.get(0).getAddedCharges().get(0).getFinalChargeValue());
 	}
 
 	@Test
