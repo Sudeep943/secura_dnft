@@ -198,12 +198,13 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private LocalDate resolveEntityDueDate(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
-		for (DueAmountDetails details : dueAmountDetails) {
-			if (details.getDueDate() != null && !details.getDueDate().isBefore(today)) {
-				return details.getDueDate();
-			}
+		LocalDate upcomingDueDate = dueAmountDetails.stream().map(DueAmountDetails::getDueDate).filter(dueDate -> dueDate != null)
+				.filter(dueDate -> !dueDate.isBefore(today)).min(LocalDate::compareTo).orElse(null);
+		if (upcomingDueDate != null) {
+			return upcomingDueDate;
 		}
-		return dueAmountDetails.isEmpty() ? null : dueAmountDetails.get(0).getDueDate();
+		return dueAmountDetails.stream().map(DueAmountDetails::getDueDate).filter(dueDate -> dueDate != null)
+				.min(LocalDate::compareTo).orElse(null);
 	}
 
 	private Set<String> parseApplicableFlatNos(String applicableFor) {
@@ -303,7 +304,6 @@ public class PaymentServices implements PaymentInterface {
 			String paymentId = details.getPaymentId();
 			if ((paymentId == null || paymentId.isBlank()) && fallbackPaymentId != null && !fallbackPaymentId.isBlank()) {
 				paymentId = fallbackPaymentId;
-				details.setPaymentId(paymentId);
 			}
 			if (paymentId != null && !paymentId.isBlank()) {
 				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
@@ -516,9 +516,7 @@ public class PaymentServices implements PaymentInterface {
 				return dueId;
 			}
 		}
-		String fallbackDueId = ("DUE" + paymentId + "999").toUpperCase();
-		usedDueIds.add(fallbackDueId);
-		return fallbackDueId;
+		throw new IllegalStateException("Unable to generate unique dueId for paymentId: " + paymentId);
 	}
 
 }
