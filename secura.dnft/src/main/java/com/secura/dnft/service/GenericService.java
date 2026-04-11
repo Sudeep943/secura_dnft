@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.secura.dnft.dao.BookingRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.WorklistRepository;
@@ -42,6 +43,8 @@ public class GenericService {
 
     static {
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        objectMapper.findAndRegisterModules();
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 	
 	public DashBordDataResponce getDashBoardData(GenericHeader header) {
