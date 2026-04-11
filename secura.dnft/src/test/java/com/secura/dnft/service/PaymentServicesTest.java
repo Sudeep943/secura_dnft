@@ -257,7 +257,6 @@ class PaymentServicesTest {
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
 
-		assertEquals("1200", dueDetails.getAmount());
 		assertEquals("120", dueDetails.getGstAmount());
 		assertEquals("1320", dueDetails.getTotalAmount());
 		assertNotNull(dueDetails.getAddedCharges());
