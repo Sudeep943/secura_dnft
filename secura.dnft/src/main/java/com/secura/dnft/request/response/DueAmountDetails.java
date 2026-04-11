@@ -15,6 +15,7 @@ public class DueAmountDetails {
 	private String gstAmount;
 	private String totalAmount;
 	private List<AddedCharges> addedCharges;
+	private String totalAddedCharges;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -70,5 +71,13 @@ public class DueAmountDetails {
 
 	public void setAddedCharges(List<AddedCharges> addedCharges) {
 		this.addedCharges = addedCharges;
+	}
+
+	public String getTotalAddedCharges() {
+		return totalAddedCharges;
+	}
+
+	public void setTotalAddedCharges(String totalAddedCharges) {
+		this.totalAddedCharges = totalAddedCharges;
 	}
 }
