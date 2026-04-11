@@ -1,0 +1,162 @@
+package com.secura.dnft.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.dao.OwnerRepository;
+import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.Flat;
+import com.secura.dnft.entity.Owner;
+import com.secura.dnft.entity.Profile;
+import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.UploadFlatDetailsRequest;
+import com.secura.dnft.request.response.UploadFlatDetailsResponse;
+
+@ExtendWith(MockitoExtension.class)
+class FlatServicesTest {
+
+	@Mock
+	private FlatRepository flatRepository;
+
+	@Mock
+	private ProfileRepository profileRepository;
+
+	@Mock
+	private OwnerRepository ownerRepository;
+
+	@Mock
+	private GenericService genericService;
+
+	@InjectMocks
+	private FlatServices flatServices;
+
+	@Test
+	void uploadFlatDetails_shouldFailRow_whenOwnerMobileMissing() throws Exception {
+		UploadFlatDetailsRequest request = buildRequest(buildWorkbookBase64("", "A-101"));
+
+		UploadFlatDetailsResponse response = flatServices.uploadFlatDetails(request);
+
+		assertEquals(1, response.getTotalRows());
+		assertEquals(0, response.getSuccessRows());
+		assertEquals(1, response.getFailedRows());
+		assertNotNull(response.getFailedRowsReportDocument());
+		verify(profileRepository, never()).save(any(Profile.class));
+		verify(flatRepository, never()).save(any(Flat.class));
+	}
+
+	@Test
+	void uploadFlatDetails_shouldReuseExistingProfileAndRotateOwner_whenPhoneExists() throws Exception {
+		UploadFlatDetailsRequest request = buildRequest(buildWorkbookBase64("9999999999", "A-101"));
+
+		Profile existingProfile = new Profile();
+		existingProfile.setPrflId("PRFL0001");
+		existingProfile.setPrflAcountDetails("ACCOUNT_JSON");
+		existingProfile.setPrflPhoneNo("9999999999");
+
+		Owner activeOwner = new Owner();
+		activeOwner.setOwnerId("OWN-1");
+		activeOwner.setFlatNo("A-101");
+		activeOwner.setPrflId("[\"OLDPRFL\"]");
+		activeOwner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		activeOwner.setStartDate(LocalDateTime.now().minusDays(2));
+
+		when(profileRepository.findByPrflPhoneNo("9999999999")).thenReturn(List.of(existingProfile));
+		when(profileRepository.save(any(Profile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(ownerRepository.findByFlatNo("A-101")).thenReturn(List.of(activeOwner));
+		when(ownerRepository.save(any(Owner.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("JSON_VALUE");
+		when(genericService.fromJson(eq("ACCOUNT_JSON"), any(TypeReference.class)))
+				.thenReturn(new ArrayList<ProfileAccountDetails>());
+		when(genericService.fromJson(eq("[\"OLDPRFL\"]"), any(TypeReference.class))).thenReturn(List.of("OLDPRFL"));
+
+		UploadFlatDetailsResponse response = flatServices.uploadFlatDetails(request);
+
+		assertEquals(1, response.getTotalRows());
+		assertEquals(1, response.getSuccessRows());
+		assertEquals(0, response.getFailedRows());
+		verify(profileRepository, times(1)).findByPrflPhoneNo("9999999999");
+		verify(profileRepository, times(1)).save(any(Profile.class));
+		verify(flatRepository, times(1)).save(any(Flat.class));
+		verify(ownerRepository, times(2)).save(any(Owner.class));
+
+		ArgumentCaptor<Owner> ownerCaptor = ArgumentCaptor.forClass(Owner.class);
+		verify(ownerRepository, times(2)).save(ownerCaptor.capture());
+		List<Owner> savedOwners = ownerCaptor.getAllValues();
+		assertTrue(savedOwners.stream().anyMatch(owner -> SecuraConstants.PROFILE_STATUS_INACTIVE.equals(owner.getStatus())
+				&& owner.getEndDate() != null));
+		assertTrue(savedOwners.stream().anyMatch(owner -> SecuraConstants.PROFILE_STATUS_ACTIVE.equals(owner.getStatus())
+				&& owner.getStartDate() != null && "A-101".equals(owner.getFlatNo())));
+	}
+
+	private UploadFlatDetailsRequest buildRequest(String documentData) {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		header.setUserId("PRFLADMIN1");
+
+		UploadFlatDetailsRequest request = new UploadFlatDetailsRequest();
+		request.setHeader(header);
+		request.setDocumentData(documentData);
+		request.setSheetName("Sheet1");
+		return request;
+	}
+
+	private String buildWorkbookBase64(String ownerPhone, String flatNo) throws Exception {
+		try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet("Sheet1");
+			Row headerRow = sheet.createRow(0);
+			headerRow.createCell(0).setCellValue("Flat No");
+			headerRow.createCell(1).setCellValue("Owner Name");
+			headerRow.createCell(2).setCellValue("Owner Gender");
+			headerRow.createCell(3).setCellValue("Tower");
+			headerRow.createCell(4).setCellValue("Block");
+			headerRow.createCell(5).setCellValue("Possesion Date");
+			headerRow.createCell(6).setCellValue("Owner Type");
+			headerRow.createCell(7).setCellValue("Flat Area");
+			headerRow.createCell(8).setCellValue("Owner DOB");
+			headerRow.createCell(9).setCellValue("Owner Phone Number");
+			headerRow.createCell(10).setCellValue("Owner Email Number");
+
+			Row row = sheet.createRow(1);
+			row.createCell(0).setCellValue(flatNo);
+			row.createCell(1).setCellValue("John");
+			row.createCell(2).setCellValue("M");
+			row.createCell(3).setCellValue("T1");
+			row.createCell(4).setCellValue("B1");
+			row.createCell(6).setCellValue("OWNER");
+			row.createCell(7).setCellValue("1200");
+			row.createCell(9).setCellValue(ownerPhone);
+			row.createCell(10).setCellValue("john@example.com");
+
+			workbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
+	}
+}

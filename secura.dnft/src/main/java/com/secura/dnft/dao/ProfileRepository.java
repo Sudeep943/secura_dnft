@@ -10,6 +10,8 @@ import com.secura.dnft.entity.Profile;
 
 public interface ProfileRepository extends JpaRepository<Profile, String>{
 
+	List<Profile> findByPrflPhoneNo(String prflPhoneNo);
+
 	@Query(value = "SELECT * FROM secura_profl p WHERE " +
 	        "(" +
 	        "LOWER((p.prfl_name::jsonb ->> 'firstName')) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
