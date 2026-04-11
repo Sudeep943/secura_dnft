@@ -1,8 +1,9 @@
 package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -217,7 +218,7 @@ class PaymentServicesTest {
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 
 		assertNotNull(response.getFlatTypeDueAmountDetails());
-		assertEquals(null, response.getListOfDueAmountDetails());
+		assertNull(response.getListOfDueAmountDetails());
 		assertEquals(2, response.getFlatTypeDueAmountDetails().size());
 		assertEquals("2000", response.getFlatTypeDueAmountDetails().get("1000").get(0).getAmount());
 		assertEquals("200", response.getFlatTypeDueAmountDetails().get("1000").get(0).getGstAmount());

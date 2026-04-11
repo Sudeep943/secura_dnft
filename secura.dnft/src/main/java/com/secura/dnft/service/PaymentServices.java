@@ -188,7 +188,11 @@ public class PaymentServices implements PaymentInterface {
 
 		BigDecimal ratePerSqft = parseNumeric(request.getPaymentAmount());
 		for (String flatArea : flatAreas) {
-			BigDecimal cycleAmount = parseNumeric(flatArea).multiply(ratePerSqft);
+			BigDecimal parsedFlatArea = parseNumeric(flatArea);
+			if (parsedFlatArea.compareTo(BigDecimal.ZERO) <= 0) {
+				continue;
+			}
+			BigDecimal cycleAmount = parsedFlatArea.multiply(ratePerSqft);
 			List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, null, LocalDate.now(), cycleAmount);
 			dueAmountByFlatArea.put(flatArea, dueAmountDetails);
 		}
