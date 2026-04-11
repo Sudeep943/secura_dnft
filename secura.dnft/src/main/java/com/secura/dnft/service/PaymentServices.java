@@ -39,6 +39,7 @@ import com.secura.dnft.request.response.UpdatePaymentResponse;
 
 @Service
 public class PaymentServices implements PaymentInterface {
+	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
 
 	@Autowired
 	GenericService genericService;
@@ -432,8 +433,7 @@ public class PaymentServices implements PaymentInterface {
 		if (chargeType == null) {
 			return false;
 		}
-		String normalized = chargeType.trim().toLowerCase();
-		return "percentage".equals(normalized) || "percent".equals(normalized) || "%".equals(normalized);
+		return PERCENTAGE_CHARGE_TYPES.contains(chargeType.trim().toLowerCase());
 	}
 
 	private int getCycleMonths(String cycle) {

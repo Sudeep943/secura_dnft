@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.sql.Date;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -263,6 +264,9 @@ class PaymentServicesTest {
 		assertEquals(2, dueDetails.getAddedCharges().size());
 		assertEquals("100", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
 		assertEquals("100", dueDetails.getAddedCharges().get(1).getFinalChargeValue());
+		BigDecimal chargeTotal = dueDetails.getAddedCharges().stream().map(c -> new BigDecimal(c.getFinalChargeValue()))
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		assertEquals(new BigDecimal("1000").add(chargeTotal).toPlainString(), dueDetails.getAmount());
 	}
 
 	@Test
