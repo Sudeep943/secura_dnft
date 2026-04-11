@@ -241,8 +241,8 @@ public class PaymentServices implements PaymentInterface {
 		if (applicableFor == null || applicableFor.isEmpty()) {
 			return List.of();
 		}
-		return applicableFor.stream().filter(value -> value != null && !value.isBlank())
-				.flatMap(value -> Arrays.stream(value.split(","))).map(String::trim)
+		return applicableFor.stream().filter(value -> value != null).flatMap(value -> Arrays.stream(value.split(",")))
+				.map(String::trim)
 				.filter(value -> !value.isBlank())
 				.collect(Collectors.toList());
 	}
@@ -282,9 +282,11 @@ public class PaymentServices implements PaymentInterface {
 
 		List<Flat> targetFlats = apartmentFlats;
 		if (!applicableFlatNos.isEmpty()) {
+			Set<String> normalizedApplicableFlatNos = applicableFlatNos.stream().map(String::trim)
+					.map(String::toUpperCase).collect(Collectors.toCollection(LinkedHashSet::new));
 			targetFlats = apartmentFlats.stream().filter(flat -> flat != null && flat.getFlatNo() != null
-					&& applicableFlatNos.stream().anyMatch(applicableFlatNo -> applicableFlatNo.equalsIgnoreCase(flat.getFlatNo().trim())))
-				.collect(Collectors.toList());
+					&& normalizedApplicableFlatNos.contains(flat.getFlatNo().trim().toUpperCase()))
+					.collect(Collectors.toList());
 		}
 
 		LocalDate today = LocalDate.now();
