@@ -25,4 +25,7 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_21="Notice Fetched" ;
 	public final String SUCC_MESSAGE_22="No Notice Fetched" ;
 	public final String SUCC_MESSAGE_23="Payment Created" ;
+	public final String SUCC_MESSAGE_24="Flat Created Successfully" ;
+	public final String SUCC_MESSAGE_25="Flat Updated Successfully" ;
+	public final String SUCC_MESSAGE_26="Flat Details Uploaded Successfully" ;
 }
