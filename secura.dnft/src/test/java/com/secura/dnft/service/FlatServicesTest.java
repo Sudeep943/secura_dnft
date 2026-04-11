@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -18,6 +19,7 @@ import java.util.List;
 
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +37,7 @@ import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
@@ -114,6 +117,38 @@ class FlatServicesTest {
 				&& owner.getEndDate() != null));
 		assertTrue(savedOwners.stream().anyMatch(owner -> SecuraConstants.PROFILE_STATUS_ACTIVE.equals(owner.getStatus())
 				&& owner.getStartDate() != null && "A-101".equals(owner.getFlatNo())));
+	}
+
+	@Test
+	void getSampleExcellToUploadData_shouldReturnBase64WorkbookWithHeadersAndSampleRow() throws Exception {
+		GetSampleExcellToUploadDataResponse response = flatServices.getSampleExcellToUploadData();
+		assertNotNull(response);
+		assertNotNull(response.getSampleDocumentData());
+		assertEquals("flat_upload_sample.xlsx", response.getSampleDocumentName());
+
+		byte[] decodedWorkbook = Base64.getDecoder().decode(response.getSampleDocumentData());
+		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(decodedWorkbook))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			Row headerRow = sheet.getRow(0);
+			assertEquals("Flat No", headerRow.getCell(0).getStringCellValue());
+			assertEquals("Owner Name", headerRow.getCell(1).getStringCellValue());
+			assertEquals("Owner Gender", headerRow.getCell(2).getStringCellValue());
+			assertEquals("Tower", headerRow.getCell(3).getStringCellValue());
+			assertEquals("Block", headerRow.getCell(4).getStringCellValue());
+			assertEquals("Possesion Date", headerRow.getCell(5).getStringCellValue());
+			assertEquals("Owner Type", headerRow.getCell(6).getStringCellValue());
+			assertEquals("Flat Area", headerRow.getCell(7).getStringCellValue());
+			assertEquals("Owner DOB", headerRow.getCell(8).getStringCellValue());
+			assertEquals("Owner Phone Number", headerRow.getCell(9).getStringCellValue());
+			assertEquals("Owner Email Number", headerRow.getCell(10).getStringCellValue());
+
+			Row sampleRow = sheet.getRow(1);
+			assertEquals("A-101", sampleRow.getCell(0).getStringCellValue());
+			assertEquals("John Doe", sampleRow.getCell(1).getStringCellValue());
+			assertEquals("15-03-2026", sampleRow.getCell(5).getStringCellValue());
+			assertEquals("01-01-1990", sampleRow.getCell(8).getStringCellValue());
+			assertEquals("9876543210", sampleRow.getCell(9).getStringCellValue());
+		}
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
