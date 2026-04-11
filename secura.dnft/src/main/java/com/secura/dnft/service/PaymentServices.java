@@ -77,6 +77,7 @@ public class PaymentServices implements PaymentInterface {
 			dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths, request.getCollectionEndDate(),
 					cycleAmount);
 		}
+		dueBaseAmount = roundAmountByThreshold(dueBaseAmount);
 		BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 				RoundingMode.HALF_UP);
 		BigDecimal totalWithGst = dueBaseAmount.add(gstAmount);
@@ -85,6 +86,8 @@ public class PaymentServices implements PaymentInterface {
 		response.setGstPercent(formatNumber(gstPercent));
 		response.setGstAmount(formatNumber(gstAmount));
 		response.setAmountIncludingGst(formatNumber(totalWithGst));
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 
 		return response;
 	}
@@ -94,6 +97,8 @@ public class PaymentServices implements PaymentInterface {
 		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		response.setListOfDueAmountDetails(buildDueAmountDetails(request, null, LocalDate.now()));
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
@@ -117,7 +122,7 @@ public class PaymentServices implements PaymentInterface {
 			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? end.plusDays(1) : start);
 			details.setPaymentId(paymentId);
 			details.setStatus(DUE_STATUS_NOT_ACTIVE);
-			BigDecimal dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
+			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
 			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 					RoundingMode.HALF_UP);
 			details.setAmount(formatNumber(dueBaseAmount));
@@ -140,7 +145,8 @@ public class PaymentServices implements PaymentInterface {
 				details.setPaymentId(paymentId);
 				details.setStatus(DUE_STATUS_NOT_ACTIVE);
 
-				BigDecimal dueBaseAmount = calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount);
+				BigDecimal dueBaseAmount = roundAmountByThreshold(
+						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
 				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 						RoundingMode.HALF_UP);
 				details.setAmount(formatNumber(dueBaseAmount));
@@ -322,6 +328,17 @@ public class PaymentServices implements PaymentInterface {
 
 		return cycleAmount.multiply(BigDecimal.valueOf(activeCycleDays)).divide(BigDecimal.valueOf(totalCycleDays), 2,
 				RoundingMode.HALF_UP);
+	}
+
+	private BigDecimal roundAmountByThreshold(BigDecimal amount) {
+		if (amount == null) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+		BigDecimal normalized = amount.stripTrailingZeros();
+		BigDecimal decimalPart = normalized.remainder(BigDecimal.ONE).abs();
+		RoundingMode roundingMode = decimalPart.compareTo(BigDecimal.valueOf(0.5)) > 0 ? RoundingMode.UP
+				: RoundingMode.DOWN;
+		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private int getCycleMonths(String cycle) {

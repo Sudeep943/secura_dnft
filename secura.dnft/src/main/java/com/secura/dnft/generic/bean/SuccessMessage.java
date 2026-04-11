@@ -29,4 +29,5 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_25="Flat Updated Successfully" ;
 	public final String SUCC_MESSAGE_26="Flat Details Uploaded Successfully" ;
 	public final String SUCC_MESSAGE_27="Flat Details Fetched Successfully" ;
+	public final String SUCC_MESSAGE_28="Due Payment Amount Details Fetched Successfully" ;
 }
