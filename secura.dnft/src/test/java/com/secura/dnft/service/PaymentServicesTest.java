@@ -25,6 +25,8 @@ import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
@@ -85,6 +87,8 @@ class PaymentServicesTest {
 		assertEquals("1000", response.getAmountExcludingGst());
 		assertEquals("100", response.getGstAmount());
 		assertEquals("1100", response.getAmountIncludingGst());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_28, response.getMessageCode());
 	}
 
 	@Test
@@ -106,6 +110,28 @@ class PaymentServicesTest {
 		long activeCount = response.getListOfDueAmountDetails().stream().filter(d -> "ACTIVE".equals(d.getStatus()))
 				.count();
 		assertEquals(1, activeCount);
+		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_28, response.getMessageCode());
+	}
+
+	@Test
+	void getDuePaymentAmountDetails_shouldRoundHalfYearlyLastCycleAmountDownWhenDecimalIsPointFiveOrLess() {
+		DuePaymentAmountDetailsRequest request = new DuePaymentAmountDetailsRequest();
+		request.setPaymentAmount("4355");
+		request.setGst("10");
+		request.setCollectionStartDate(LocalDate.parse("2026-04-01"));
+		request.setCollectionEndDate(LocalDate.parse("2026-10-23"));
+		request.setPaymentCollectionCycle("half yearly");
+		request.setPaymentCollectionMode("pre");
+		request.setTodayDate(LocalDate.parse("2026-10-11"));
+		request.setPaymentCapita("PER_FLAT");
+
+		DuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+
+		assertEquals(LocalDate.parse("2026-10-01"), response.getDueDate());
+		assertEquals("550", response.getAmountExcludingGst());
+		assertEquals("55", response.getGstAmount());
+		assertEquals("605", response.getAmountIncludingGst());
 	}
 
 	@Test
