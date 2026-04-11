@@ -205,7 +205,7 @@ public class FlatServices implements FlatInterface {
 			createStyledCell(sampleRow, 8, SAMPLE_DATE_FORMAT.format(LocalDate.of(1990, 1, 1)), sampleDataStyle);
 			createStyledCell(sampleRow, 9, "9876543210", sampleDataStyle);
 			createStyledCell(sampleRow, 10, "john.doe@example.com", sampleDataStyle);
-			autoSizeColumns(sampleSheet, UPLOAD_HEADERS.length);
+			setColumnWidthsBasedOnTextLength(sampleSheet, UPLOAD_HEADERS.length);
 
 			workbook.write(outputStream);
 			response.setSampleDocumentData(Base64.getEncoder().encodeToString(outputStream.toByteArray()));
@@ -418,14 +418,13 @@ public class FlatServices implements FlatInterface {
 	private String generateFailedRowsWorkbook(List<List<String>> failedRows) throws Exception {
 		try (Workbook failedWorkbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet failedSheet = failedWorkbook.createSheet("failed_rows");
+			CellStyle headerStyle = createHeaderStyle(failedWorkbook);
 			CellStyle reasonStyle = createReasonStyle(failedWorkbook);
 			Row headerRow = failedSheet.createRow(0);
 			for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
-				headerRow.createCell(i).setCellValue(UPLOAD_HEADERS[i]);
+				createStyledCell(headerRow, i, UPLOAD_HEADERS[i], headerStyle);
 			}
-			Cell reasonHeaderCell = headerRow.createCell(UPLOAD_HEADERS.length);
-			reasonHeaderCell.setCellValue("Reason");
-			reasonHeaderCell.setCellStyle(reasonStyle);
+			createStyledCell(headerRow, UPLOAD_HEADERS.length, "Reason", headerStyle);
 
 			for (int i = 0; i < failedRows.size(); i++) {
 				Row row = failedSheet.createRow(i + 1);
@@ -438,7 +437,7 @@ public class FlatServices implements FlatInterface {
 					}
 				}
 			}
-			autoSizeColumns(failedSheet, UPLOAD_HEADERS.length + 1);
+			setColumnWidthsBasedOnTextLength(failedSheet, UPLOAD_HEADERS.length + 1);
 			failedWorkbook.write(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
@@ -571,9 +570,23 @@ public class FlatServices implements FlatInterface {
 		return reasonStyle;
 	}
 
-	private void autoSizeColumns(Sheet sheet, int columnCount) {
+	private void setColumnWidthsBasedOnTextLength(Sheet sheet, int columnCount) {
 		for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-			sheet.autoSizeColumn(columnIndex);
+			int maxTextLength = 1;
+			for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+				Row row = sheet.getRow(rowIndex);
+				if (row == null) {
+					continue;
+				}
+				Cell cell = row.getCell(columnIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+				if (cell == null) {
+					continue;
+				}
+				String value = dataFormatter.formatCellValue(cell);
+				maxTextLength = Math.max(maxTextLength, value.length());
+			}
+			int width = (int) Math.ceil(maxTextLength * 1.5 * 256);
+			sheet.setColumnWidth(columnIndex, Math.min(width, 255 * 256));
 		}
 	}
 
