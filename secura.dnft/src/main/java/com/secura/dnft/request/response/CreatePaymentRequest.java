@@ -17,7 +17,7 @@ public class CreatePaymentRequest {
 	private Date collectionEndDate;
 	private String paymentCollectionCycle;
 	private String paymentCollectionMode;
-	private String applicableFor;
+	private List<String> applicableFor;
 	private String paymentType;
 	private String bankAccountId;
 	private String status;
@@ -91,10 +91,10 @@ public class CreatePaymentRequest {
 	public void setPaymentCollectionMode(String paymentCollectionMode) {
 		this.paymentCollectionMode = paymentCollectionMode;
 	}
-	public String getApplicableFor() {
+	public List<String> getApplicableFor() {
 		return applicableFor;
 	}
-	public void setApplicableFor(String applicableFor) {
+	public void setApplicableFor(List<String> applicableFor) {
 		this.applicableFor = applicableFor;
 	}
 	public String getPaymentType() {

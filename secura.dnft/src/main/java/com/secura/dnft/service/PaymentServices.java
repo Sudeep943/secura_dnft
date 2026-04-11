@@ -216,34 +216,30 @@ public class PaymentServices implements PaymentInterface {
 				.min(LocalDate::compareTo).orElse(null);
 	}
 
-	private Set<String> parseApplicableFlatNos(String applicableFor) {
+	private Set<String> parseApplicableFlatNos(List<String> applicableFor) {
 		Set<String> flatNos = new LinkedHashSet<>();
-		if (applicableFor == null || applicableFor.isBlank()) {
+		if (applicableFor == null || applicableFor.isEmpty()) {
 			return flatNos;
 		}
-		if ("ALL".equalsIgnoreCase(applicableFor.trim())) {
-			return flatNos;
-		}
-		try {
-			List<String> parsed = genericService.fromJson(applicableFor, new TypeReference<List<String>>() {
-			});
-			if (parsed != null) {
-				parsed.stream().filter(flatNo -> flatNo != null && !flatNo.isBlank()).map(String::trim)
-						.forEach(flatNos::add);
+		for (String value : applicableFor) {
+			if (value == null || value.isBlank()) {
+				continue;
 			}
-		} catch (RuntimeException e) {
-			// ignore and fallback to CSV parsing
-		}
-		if (!flatNos.isEmpty()) {
-			return flatNos;
-		}
-		String[] split = applicableFor.split(",");
-		for (String value : split) {
-			if (value != null && !value.trim().isBlank()) {
-				flatNos.add(value.trim());
+			String normalizedValue = value.trim();
+			if ("ALL".equalsIgnoreCase(normalizedValue)) {
+				return new LinkedHashSet<>();
 			}
+			flatNos.add(normalizedValue);
 		}
 		return flatNos;
+	}
+
+	private String serializeApplicableFor(List<String> applicableFor) {
+		Set<String> normalizedFlatNos = parseApplicableFlatNos(applicableFor);
+		if (normalizedFlatNos.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(new ArrayList<>(normalizedFlatNos));
 	}
 
 	private List<DueAmountDetails> parsePendingDueAmountDetails(String pendingDueJson) {
@@ -564,7 +560,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setCollectionEndDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate()));
 		entity.setPaymentCollectionCycle(request.getPaymentCollectionCycle());
 		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
-		entity.setApplicableFor(request.getApplicableFor());
+		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
