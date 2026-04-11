@@ -45,5 +45,6 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_40="Error While Creating Flat Details" ;
 	public final String ERR_MESSAGE_41="Error While Updating Flat Details" ;
 	public final String ERR_MESSAGE_42="Flat Upload Completed With Errors. Download failed rows report." ;
+	public final String ERR_MESSAGE_43="Error While Fetching Flat Details" ;
 	
 }

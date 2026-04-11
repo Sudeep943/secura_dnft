@@ -30,6 +30,7 @@ public interface SuccessMessageCode {
 	public final String SUCC_MESSAGE_24="SUCC_MESSAGE_24" ;
 	public final String SUCC_MESSAGE_25="SUCC_MESSAGE_25" ;
 	public final String SUCC_MESSAGE_26="SUCC_MESSAGE_26" ;
+	public final String SUCC_MESSAGE_27="SUCC_MESSAGE_27" ;
 	
 }
 

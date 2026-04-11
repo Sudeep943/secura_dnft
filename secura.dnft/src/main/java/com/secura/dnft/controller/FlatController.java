@@ -12,6 +12,8 @@ import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.GetAllFlatsRequest;
+import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -73,6 +75,20 @@ public class FlatController {
 		try {
 			response = flatServices.getSampleExcellToUploadData();
 		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/getAllFlats")
+	@CrossOrigin(origins = "*")
+	public GetAllFlatsResponse getAllFlats(@RequestBody GetAllFlatsRequest request) {
+		GetAllFlatsResponse response = new GetAllFlatsResponse();
+		try {
+			response = flatServices.getAllFlats(request);
+		} catch (Exception e) {
+			response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
