@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
@@ -28,24 +30,52 @@ public class FlatController {
 	@PostMapping("/addFlatDetails")
 	@CrossOrigin(origins = "*")
 	public AddFlatDetailsResponse addFlatDetails(@RequestBody AddFlatDetailsRequest request) {
-		return flatServices.addFlatDetails(request);
+		AddFlatDetailsResponse response = new AddFlatDetailsResponse();
+		try {
+			response = flatServices.addFlatDetails(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 
 	@PostMapping("/updateFlatDetails")
 	@CrossOrigin(origins = "*")
 	public UpdateFlatDetailsResponse updateFlatDetails(@RequestBody UpdateFlatDetailsRequest request) {
-		return flatServices.updateFlatDetails(request);
+		UpdateFlatDetailsResponse response = new UpdateFlatDetailsResponse();
+		try {
+			response = flatServices.updateFlatDetails(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 
 	@PostMapping("/uploadFlatDetails")
 	@CrossOrigin(origins = "*")
 	public UploadFlatDetailsResponse uploadFlatDetails(@RequestBody UploadFlatDetailsRequest request) {
-		return flatServices.uploadFlatDetails(request);
+		UploadFlatDetailsResponse response = new UploadFlatDetailsResponse();
+		try {
+			response = flatServices.uploadFlatDetails(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 
 	@GetMapping("/getSampleExcellToUploadData")
 	@CrossOrigin(origins = "*")
 	public GetSampleExcellToUploadDataResponse getSampleExcellToUploadData() {
-		return flatServices.getSampleExcellToUploadData();
+		GetSampleExcellToUploadDataResponse response = new GetSampleExcellToUploadDataResponse();
+		try {
+			response = flatServices.getSampleExcellToUploadData();
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 }
