@@ -126,12 +126,13 @@ public class PaymentServices implements PaymentInterface {
 		BigDecimal cycleAmount = cycleAmountOverride != null ? cycleAmountOverride
 				: resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
 		BigDecimal gstPercent = parseNumeric(request.getGst());
+		Set<String> usedDueIds = new LinkedHashSet<>();
 
 		if (isOnceCycle(request.getPaymentCollectionCycle())) {
 			DueAmountDetails details = new DueAmountDetails();
 			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? end.plusDays(1) : start);
 			details.setPaymentId(paymentId);
-			details.setDueId(generateDueId(paymentId));
+			details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
 			BigDecimal gstAmount = roundAmountByThreshold(
 					dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
@@ -153,7 +154,7 @@ public class PaymentServices implements PaymentInterface {
 				DueAmountDetails details = new DueAmountDetails();
 				details.setDueDate(isPost(request.getPaymentCollectionMode()) ? periodEnd.plusDays(1) : periodStart);
 				details.setPaymentId(paymentId);
-				details.setDueId(generateDueId(paymentId));
+				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 
 				BigDecimal dueBaseAmount = roundAmountByThreshold(
 						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
@@ -293,6 +294,8 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private void ensureDueIdsForFlatSave(List<DueAmountDetails> dueAmountDetails, String fallbackPaymentId) {
+		Set<String> usedDueIds = dueAmountDetails.stream().map(DueAmountDetails::getDueId)
+				.filter(dueId -> dueId != null && !dueId.isBlank()).collect(Collectors.toCollection(LinkedHashSet::new));
 		for (DueAmountDetails details : dueAmountDetails) {
 			if (details.getDueId() != null && !details.getDueId().isBlank()) {
 				continue;
@@ -303,7 +306,7 @@ public class PaymentServices implements PaymentInterface {
 				details.setPaymentId(paymentId);
 			}
 			if (paymentId != null && !paymentId.isBlank()) {
-				details.setDueId(generateDueId(paymentId));
+				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 			}
 		}
 	}
@@ -502,11 +505,20 @@ public class PaymentServices implements PaymentInterface {
 		return paymentId.toString().toUpperCase();
 	}
 
-	private String generateDueId(String paymentId) {
+	private String generateUniqueDueId(String paymentId, Set<String> usedDueIds) {
 		if (paymentId == null || paymentId.isBlank()) {
 			return null;
 		}
-		return ("DUE" + paymentId + String.format("%03d", ThreadLocalRandom.current().nextInt(1000))).toUpperCase();
+		for (int attempts = 0; attempts < 1000; attempts++) {
+			String dueId = ("DUE" + paymentId + String.format("%03d", ThreadLocalRandom.current().nextInt(1000)))
+					.toUpperCase();
+			if (usedDueIds.add(dueId)) {
+				return dueId;
+			}
+		}
+		String fallbackDueId = ("DUE" + paymentId + "999").toUpperCase();
+		usedDueIds.add(fallbackDueId);
+		return fallbackDueId;
 	}
 
 }
