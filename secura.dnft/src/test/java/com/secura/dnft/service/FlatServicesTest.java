@@ -77,15 +77,21 @@ class FlatServicesTest {
 		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(decodedWorkbook))) {
 			Sheet sheet = workbook.getSheetAt(0);
 			Row headerRow = sheet.getRow(0);
+			CellStyle flatHeaderStyle = headerRow.getCell(0).getCellStyle();
+			assertEquals(IndexedColors.GREEN.getIndex(), flatHeaderStyle.getFillForegroundColor());
+			Font flatHeaderFont = workbook.getFontAt(flatHeaderStyle.getFontIndex());
+			assertEquals(IndexedColors.WHITE.getIndex(), flatHeaderFont.getColor());
+			assertTrue(flatHeaderFont.getBold());
+
 			CellStyle reasonHeaderStyle = headerRow.getCell(11).getCellStyle();
-			assertEquals(IndexedColors.RED.getIndex(), reasonHeaderStyle.getFillForegroundColor());
+			assertEquals(IndexedColors.GREEN.getIndex(), reasonHeaderStyle.getFillForegroundColor());
 			Font reasonHeaderFont = workbook.getFontAt(reasonHeaderStyle.getFontIndex());
-			assertEquals(IndexedColors.BLACK.getIndex(), reasonHeaderFont.getColor());
+			assertEquals(IndexedColors.WHITE.getIndex(), reasonHeaderFont.getColor());
 			assertTrue(reasonHeaderFont.getBold());
 			Row failedRow = sheet.getRow(1);
 			CellStyle reasonValueStyle = failedRow.getCell(11).getCellStyle();
 			assertEquals(IndexedColors.RED.getIndex(), reasonValueStyle.getFillForegroundColor());
-			assertTrue(sheet.getColumnWidth(11) > 2048);
+			assertEquals(expectedColumnWidth(sheet, 11), sheet.getColumnWidth(11));
 		}
 		verify(profileRepository, never()).save(any(Profile.class));
 		verify(flatRepository, never()).save(any(Flat.class));
@@ -172,7 +178,7 @@ class FlatServicesTest {
 			assertEquals("9876543210", sampleRow.getCell(9).getStringCellValue());
 			CellStyle sampleStyle = sampleRow.getCell(0).getCellStyle();
 			assertEquals(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex(), sampleStyle.getFillForegroundColor());
-			assertTrue(sheet.getColumnWidth(10) > 2048);
+			assertEquals(expectedColumnWidth(sheet, 10), sheet.getColumnWidth(10));
 		}
 	}
 
@@ -252,5 +258,17 @@ class FlatServicesTest {
 			workbook.write(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
+	}
+
+	private int expectedColumnWidth(Sheet sheet, int columnIndex) {
+		int maxLength = 1;
+		for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+			Row row = sheet.getRow(rowIndex);
+			if (row == null || row.getCell(columnIndex) == null) {
+				continue;
+			}
+			maxLength = Math.max(maxLength, row.getCell(columnIndex).getStringCellValue().length());
+		}
+		return (int) Math.ceil(maxLength * 1.5 * 256);
 	}
 }
