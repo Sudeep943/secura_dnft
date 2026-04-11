@@ -140,9 +140,6 @@ public class PaymentServices implements PaymentInterface {
 
 	private void markUpcomingDueAsActive(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
 		for (DueAmountDetails details : dueAmountDetails) {
-			details.setStatus(DUE_STATUS_NOT_ACTIVE);
-		}
-		for (DueAmountDetails details : dueAmountDetails) {
 			if (!details.getDueDate().isBefore(today)) {
 				details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 				break;
@@ -171,8 +168,8 @@ public class PaymentServices implements PaymentInterface {
 			List<String> parsed = genericService.fromJson(applicableFor, new TypeReference<List<String>>() {
 			});
 			if (parsed != null) {
-				flatNos.addAll(parsed.stream().filter(flatNo -> flatNo != null && !flatNo.isBlank()).map(String::trim)
-						.collect(Collectors.toList()));
+				parsed.stream().filter(flatNo -> flatNo != null && !flatNo.isBlank()).map(String::trim)
+						.forEach(flatNos::add);
 			}
 		} catch (RuntimeException e) {
 			// ignore and fallback to CSV parsing
@@ -220,8 +217,8 @@ public class PaymentServices implements PaymentInterface {
 			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
 			existingDueAmountDetails.addAll(dueAmountDetails);
 			flat.setFlatPndngPaymntLst(genericService.toJson(existingDueAmountDetails));
-			flatRepository.save(flat);
 		}
+		flatRepository.saveAll(targetFlats);
 	}
 
 	private DueWindow calculateDueWindow(LocalDate start, LocalDate end, LocalDate today, String mode,

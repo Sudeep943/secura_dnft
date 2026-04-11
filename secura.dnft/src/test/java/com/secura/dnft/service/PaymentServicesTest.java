@@ -2,7 +2,6 @@ package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -98,7 +97,7 @@ class PaymentServicesTest {
 
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 		assertNotNull(response.getListOfDueAmountDetails());
-		assertTrue(response.getListOfDueAmountDetails().size() >= 2);
+		assertEquals(3, response.getListOfDueAmountDetails().size());
 		long activeCount = response.getListOfDueAmountDetails().stream().filter(d -> "ACTIVE".equals(d.getStatus()))
 				.count();
 		assertEquals(1, activeCount);
@@ -135,9 +134,10 @@ class PaymentServicesTest {
 
 		paymentServices.createPayment(request);
 
-		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
-		verify(flatRepository, times(1)).save(flatCaptor.capture());
-		assertEquals("A-101", flatCaptor.getValue().getFlatNo());
-		assertEquals("DUE_JSON", flatCaptor.getValue().getFlatPndngPaymntLst());
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
+		assertEquals("A-101", flatCaptor.getValue().get(0).getFlatNo());
+		assertEquals("DUE_JSON", flatCaptor.getValue().get(0).getFlatPndngPaymntLst());
 	}
 }
