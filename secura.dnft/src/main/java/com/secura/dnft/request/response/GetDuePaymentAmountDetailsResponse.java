@@ -1,9 +1,21 @@
 package com.secura.dnft.request.response;
 
+import java.util.List;
+
 public class GetDuePaymentAmountDetailsResponse {
 	private GenericHeader genericHeader;
+	private List<DueAmountDetails> listOfDueAmountDetails;
 	private String message;
     private String messageCode;
+
+	public List<DueAmountDetails> getListOfDueAmountDetails() {
+		return listOfDueAmountDetails;
+	}
+
+	public void setListOfDueAmountDetails(List<DueAmountDetails> listOfDueAmountDetails) {
+		this.listOfDueAmountDetails = listOfDueAmountDetails;
+	}
+
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
 	}

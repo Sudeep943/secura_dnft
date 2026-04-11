@@ -4,12 +4,20 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
@@ -17,8 +25,10 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
@@ -32,6 +42,11 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	PaymentRepository paymentRepository;
+	
+	@Autowired
+	FlatRepository flatRepository;
+
+	private static final String DUE_STATUS_NOT_ACTIVE = "NOT ACTIVE";
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -69,6 +84,144 @@ public class PaymentServices implements PaymentInterface {
 		response.setAmountIncludingGst(formatNumber(totalWithGst));
 
 		return response;
+	}
+	
+	@Override
+	public GetDuePaymentAmountDetailsResponse getDuePaymentAmountDetails(CreatePaymentRequest request) {
+		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setListOfDueAmountDetails(buildDueAmountDetails(request, null, LocalDate.now()));
+		return response;
+	}
+
+	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId, LocalDate today) {
+		List<DueAmountDetails> dueAmountDetails = new ArrayList<>();
+		if (request == null || request.getCollectionStartDate() == null || request.getCollectionEndDate() == null) {
+			return dueAmountDetails;
+		}
+
+		int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
+		if (cycleMonths <= 0) {
+			return dueAmountDetails;
+		}
+
+		LocalDate start = request.getCollectionStartDate().toLocalDate();
+		LocalDate end = request.getCollectionEndDate().toLocalDate();
+		if (start.isAfter(end)) {
+			return dueAmountDetails;
+		}
+
+		BigDecimal cycleAmount = parseNumeric(request.getPaymentAmount());
+		BigDecimal gstPercent = parseNumeric(request.getGst());
+
+		LocalDate periodStart = start;
+		while (!periodStart.isAfter(end)) {
+			LocalDate periodEnd = periodStart.plusMonths(cycleMonths).minusDays(1);
+			if (periodEnd.isAfter(end)) {
+				periodEnd = end;
+			}
+			DueAmountDetails details = new DueAmountDetails();
+			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? periodEnd.plusDays(1) : periodStart);
+			details.setPaymentId(paymentId);
+			details.setStatus(DUE_STATUS_NOT_ACTIVE);
+
+			BigDecimal dueBaseAmount = calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount);
+			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
+					RoundingMode.HALF_UP);
+			details.setAmount(formatNumber(dueBaseAmount.add(gstAmount)));
+			dueAmountDetails.add(details);
+
+			periodStart = periodStart.plusMonths(cycleMonths);
+		}
+
+		markUpcomingDueAsActive(dueAmountDetails, today);
+		return dueAmountDetails;
+	}
+
+	private void markUpcomingDueAsActive(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
+		for (DueAmountDetails details : dueAmountDetails) {
+			details.setStatus(DUE_STATUS_NOT_ACTIVE);
+		}
+		for (DueAmountDetails details : dueAmountDetails) {
+			if (!details.getDueDate().isBefore(today)) {
+				details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+				break;
+			}
+		}
+	}
+
+	private LocalDate resolveEntityDueDate(List<DueAmountDetails> dueAmountDetails) {
+		for (DueAmountDetails details : dueAmountDetails) {
+			if (SecuraConstants.PAYMENT_STATUS_ACTIVE.equals(details.getStatus())) {
+				return details.getDueDate();
+			}
+		}
+		return dueAmountDetails.isEmpty() ? null : dueAmountDetails.get(0).getDueDate();
+	}
+
+	private Set<String> parseApplicableFlatNos(String applicableFor) {
+		Set<String> flatNos = new LinkedHashSet<>();
+		if (applicableFor == null || applicableFor.isBlank()) {
+			return flatNos;
+		}
+		if ("ALL".equalsIgnoreCase(applicableFor.trim())) {
+			return flatNos;
+		}
+		try {
+			List<String> parsed = genericService.fromJson(applicableFor, new TypeReference<List<String>>() {
+			});
+			if (parsed != null) {
+				flatNos.addAll(parsed.stream().filter(flatNo -> flatNo != null && !flatNo.isBlank()).map(String::trim)
+						.collect(Collectors.toList()));
+			}
+		} catch (RuntimeException e) {
+			// ignore and fallback to CSV parsing
+		}
+		if (!flatNos.isEmpty()) {
+			return flatNos;
+		}
+		String[] split = applicableFor.split(",");
+		for (String value : split) {
+			if (value != null && !value.trim().isBlank()) {
+				flatNos.add(value.trim());
+			}
+		}
+		return flatNos;
+	}
+
+	private List<DueAmountDetails> parsePendingDueAmountDetails(String pendingDueJson) {
+		if (pendingDueJson == null || pendingDueJson.isBlank()) {
+			return new ArrayList<>();
+		}
+		try {
+			List<DueAmountDetails> existing = genericService.fromJson(pendingDueJson,
+					new TypeReference<List<DueAmountDetails>>() {
+					});
+			return existing != null ? new ArrayList<>(existing) : new ArrayList<>();
+		} catch (RuntimeException e) {
+			return new ArrayList<>();
+		}
+	}
+
+	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request, List<DueAmountDetails> dueAmountDetails) {
+		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
+				: null;
+		List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
+				: flatRepository.findByAprmntId(apartmentId);
+		Set<String> applicableFlatNos = parseApplicableFlatNos(request != null ? request.getApplicableFor() : null);
+
+		List<Flat> targetFlats = apartmentFlats;
+		if (!applicableFlatNos.isEmpty()) {
+			targetFlats = apartmentFlats.stream().filter(flat -> applicableFlatNos.contains(flat.getFlatNo()))
+					.collect(Collectors.toList());
+		}
+
+		for (Flat flat : targetFlats) {
+			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
+			existingDueAmountDetails.addAll(dueAmountDetails);
+			flat.setFlatPndngPaymntLst(genericService.toJson(existingDueAmountDetails));
+			flatRepository.save(flat);
+		}
 	}
 
 	private DueWindow calculateDueWindow(LocalDate start, LocalDate end, LocalDate today, String mode,
@@ -197,7 +350,8 @@ public class PaymentServices implements PaymentInterface {
 		CreatePaymentResponse response = new CreatePaymentResponse();
 		response.setGenericHeader(request.getGenericHeader());
 		PaymentEntity entity = new PaymentEntity();
-		entity.setPaymentId(getPaymentId(request.getPaymentType()));
+		String paymentId = getPaymentId(request.getPaymentType());
+		entity.setPaymentId(paymentId);
 		entity.setPaymentName(request.getPaymentName());
 		entity.setShortDetails(request.getShortDetails());
 		entity.setPaymentCapita(request.getPaymentCapita());
@@ -212,21 +366,13 @@ public class PaymentServices implements PaymentInterface {
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
-		DuePaymentAmountDetailsRequest duePaymentAmountDetailsRequest = new DuePaymentAmountDetailsRequest();
-		duePaymentAmountDetailsRequest.setCollectionEndDate(
-				genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate()).toLocalDate());
-		duePaymentAmountDetailsRequest.setCollectionStartDate(
-				genericService.getCorrectLocalDateForInputDate(request.getCollectionStartDate()).toLocalDate());
-		duePaymentAmountDetailsRequest.setGenericHeader(request.getGenericHeader());
-		duePaymentAmountDetailsRequest.setGst(request.getGst());
-		duePaymentAmountDetailsRequest.setPaymentAmount(request.getPaymentAmount());
-		duePaymentAmountDetailsRequest.setPaymentCapita(request.getPaymentCapita());
-		duePaymentAmountDetailsRequest.setPaymentCollectionCycle(request.getPaymentCollectionCycle());
-		duePaymentAmountDetailsRequest.setPaymentCollectionMode(request.getPaymentCollectionMode());
-		duePaymentAmountDetailsRequest.setTodayDate(LocalDate.now());
-		DuePaymentAmountDetailsResponse duePaymentResponse = getDuePaymentAmountDetails(duePaymentAmountDetailsRequest);
-		entity.setDueDate(duePaymentResponse.getDueDate().atStartOfDay());
+		List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, paymentId, LocalDate.now());
+		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails);
+		if (activeDueDate != null) {
+			entity.setDueDate(activeDueDate.atStartOfDay());
+		}
 		paymentRepository.save(entity);
+		updatePendingDueAmountDetailsForFlats(request, dueAmountDetails);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 		return response;
