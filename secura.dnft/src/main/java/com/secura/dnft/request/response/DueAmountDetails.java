@@ -9,7 +9,7 @@ public class DueAmountDetails {
 	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate dueDate;
 	private String paymentId;
-	private String status;
+	private String dueId;
 	private String amount;
 	private String gstAmount;
 	private String totalAmount;
@@ -30,12 +30,12 @@ public class DueAmountDetails {
 		this.paymentId = paymentId;
 	}
 
-	public String getStatus() {
-		return status;
+	public String getDueId() {
+		return dueId;
 	}
 
-	public void setStatus(String status) {
-		this.status = status;
+	public void setDueId(String dueId) {
+		this.dueId = dueId;
 	}
 
 	public String getAmount() {
