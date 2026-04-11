@@ -334,10 +334,10 @@ public class PaymentServices implements PaymentInterface {
 		if (amount == null) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-		BigDecimal normalized = amount.setScale(2, RoundingMode.HALF_UP);
+		BigDecimal normalized = amount.stripTrailingZeros();
 		BigDecimal decimalPart = normalized.remainder(BigDecimal.ONE).abs();
-		RoundingMode roundingMode = decimalPart.compareTo(BigDecimal.valueOf(0.5)) > 0 ? RoundingMode.CEILING
-				: RoundingMode.FLOOR;
+		RoundingMode roundingMode = decimalPart.compareTo(BigDecimal.valueOf(0.5)) > 0 ? RoundingMode.UP
+				: RoundingMode.DOWN;
 		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 

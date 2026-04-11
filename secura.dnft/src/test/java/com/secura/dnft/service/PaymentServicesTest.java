@@ -115,7 +115,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void getDuePaymentAmountDetails_shouldRoundHalfYearlyLastCycleAmountDownWhenDecimalIsPointFiveOrLess() {
+	void getDuePaymentAmountDetails_shouldRoundHalfYearlyLastCycleAmountDown() {
 		DuePaymentAmountDetailsRequest request = new DuePaymentAmountDetailsRequest();
 		request.setPaymentAmount("4355");
 		request.setGst("10");
