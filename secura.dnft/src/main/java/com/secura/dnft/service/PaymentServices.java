@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -240,8 +241,18 @@ public class PaymentServices implements PaymentInterface {
 		if (applicableFor == null || applicableFor.isEmpty()) {
 			return List.of();
 		}
-		return applicableFor.stream().filter(value -> value != null && !value.isBlank()).map(String::trim)
+		return applicableFor.stream().filter(value -> value != null).flatMap(value -> Arrays.stream(value.split(",")))
+				.map(String::trim)
+				.filter(value -> !value.isBlank())
 				.collect(Collectors.toList());
+	}
+
+	private String normalizeFlatNoForMatch(String flatNo) {
+		if (flatNo == null) {
+			return null;
+		}
+		String normalized = flatNo.trim();
+		return normalized.isBlank() ? null : normalized.toUpperCase();
 	}
 
 	private String serializeApplicableFor(List<String> applicableFor) {
@@ -279,7 +290,10 @@ public class PaymentServices implements PaymentInterface {
 
 		List<Flat> targetFlats = apartmentFlats;
 		if (!applicableFlatNos.isEmpty()) {
-			targetFlats = apartmentFlats.stream().filter(flat -> applicableFlatNos.contains(flat.getFlatNo()))
+			Set<String> normalizedApplicableFlatNos = applicableFlatNos.stream().map(this::normalizeFlatNoForMatch)
+					.filter(value -> value != null).collect(Collectors.toCollection(LinkedHashSet::new));
+			targetFlats = apartmentFlats.stream().filter(flat -> flat != null && flat.getFlatNo() != null
+					&& normalizedApplicableFlatNos.contains(normalizeFlatNoForMatch(flat.getFlatNo())))
 					.collect(Collectors.toList());
 		}
 
