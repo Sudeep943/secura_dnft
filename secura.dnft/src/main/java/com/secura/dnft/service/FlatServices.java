@@ -43,6 +43,7 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
@@ -163,6 +164,41 @@ public class FlatServices implements FlatInterface {
 				response.setMessage(SuccessMessage.SUCC_MESSAGE_26);
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_26);
 			}
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_42);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_42);
+		}
+		return response;
+	}
+
+	@Override
+	public GetSampleExcellToUploadDataResponse getSampleExcellToUploadData() {
+		GetSampleExcellToUploadDataResponse response = new GetSampleExcellToUploadDataResponse();
+		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sampleSheet = workbook.createSheet("flat_upload_sample");
+			Row headerRow = sampleSheet.createRow(0);
+			for (int i = 0; i < UPLOAD_HEADERS.length; i++) {
+				headerRow.createCell(i).setCellValue(UPLOAD_HEADERS[i]);
+			}
+
+			Row sampleRow = sampleSheet.createRow(1);
+			sampleRow.createCell(0).setCellValue("A-101");
+			sampleRow.createCell(1).setCellValue("John Doe");
+			sampleRow.createCell(2).setCellValue("MALE");
+			sampleRow.createCell(3).setCellValue("T1");
+			sampleRow.createCell(4).setCellValue("B1");
+			sampleRow.createCell(5).setCellValue("15-03-2026");
+			sampleRow.createCell(6).setCellValue("OWNER");
+			sampleRow.createCell(7).setCellValue("1200");
+			sampleRow.createCell(8).setCellValue("01-01-1990");
+			sampleRow.createCell(9).setCellValue("9876543210");
+			sampleRow.createCell(10).setCellValue("john.doe@example.com");
+
+			workbook.write(outputStream);
+			response.setSampleDocumentData(Base64.getEncoder().encodeToString(outputStream.toByteArray()));
+			response.setSampleDocumentName("flat_upload_sample.xlsx");
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_26);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_26);
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_42);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_42);

@@ -2,6 +2,7 @@ package com.secura.dnft.interfaceservice;
 
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
@@ -14,4 +15,6 @@ public interface FlatInterface {
 	UpdateFlatDetailsResponse updateFlatDetails(UpdateFlatDetailsRequest request);
 
 	UploadFlatDetailsResponse uploadFlatDetails(UploadFlatDetailsRequest request);
+
+	GetSampleExcellToUploadDataResponse getSampleExcellToUploadData();
 }
