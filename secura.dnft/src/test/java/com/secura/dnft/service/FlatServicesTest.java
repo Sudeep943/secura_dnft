@@ -17,6 +17,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -70,6 +73,20 @@ class FlatServicesTest {
 		assertEquals(0, response.getSuccessRows());
 		assertEquals(1, response.getFailedRows());
 		assertNotNull(response.getFailedRowsReportDocument());
+		byte[] decodedWorkbook = Base64.getDecoder().decode(response.getFailedRowsReportDocument());
+		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(decodedWorkbook))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			Row headerRow = sheet.getRow(0);
+			CellStyle reasonHeaderStyle = headerRow.getCell(11).getCellStyle();
+			assertEquals(IndexedColors.RED.getIndex(), reasonHeaderStyle.getFillForegroundColor());
+			Font reasonHeaderFont = workbook.getFontAt(reasonHeaderStyle.getFontIndex());
+			assertEquals(IndexedColors.BLACK.getIndex(), reasonHeaderFont.getColor());
+			assertTrue(reasonHeaderFont.getBold());
+			Row failedRow = sheet.getRow(1);
+			CellStyle reasonValueStyle = failedRow.getCell(11).getCellStyle();
+			assertEquals(IndexedColors.RED.getIndex(), reasonValueStyle.getFillForegroundColor());
+			assertTrue(sheet.getColumnWidth(11) > 2048);
+		}
 		verify(profileRepository, never()).save(any(Profile.class));
 		verify(flatRepository, never()).save(any(Flat.class));
 	}
@@ -141,14 +158,49 @@ class FlatServicesTest {
 			assertEquals("Owner DOB", headerRow.getCell(8).getStringCellValue());
 			assertEquals("Owner Phone Number", headerRow.getCell(9).getStringCellValue());
 			assertEquals("Owner Email Number", headerRow.getCell(10).getStringCellValue());
+			CellStyle headerStyle = headerRow.getCell(0).getCellStyle();
+			assertEquals(IndexedColors.GREEN.getIndex(), headerStyle.getFillForegroundColor());
+			Font headerFont = workbook.getFontAt(headerStyle.getFontIndex());
+			assertEquals(IndexedColors.WHITE.getIndex(), headerFont.getColor());
+			assertTrue(headerFont.getBold());
 
 			Row sampleRow = sheet.getRow(1);
 			assertEquals("A-101", sampleRow.getCell(0).getStringCellValue());
 			assertEquals("John Doe", sampleRow.getCell(1).getStringCellValue());
-			assertEquals("15-03-2026", sampleRow.getCell(5).getStringCellValue());
-			assertEquals("01-01-1990", sampleRow.getCell(8).getStringCellValue());
+			assertEquals("1-Mar-2029", sampleRow.getCell(5).getStringCellValue());
+			assertEquals("1-Jan-1990", sampleRow.getCell(8).getStringCellValue());
 			assertEquals("9876543210", sampleRow.getCell(9).getStringCellValue());
+			CellStyle sampleStyle = sampleRow.getCell(0).getCellStyle();
+			assertEquals(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex(), sampleStyle.getFillForegroundColor());
+			assertTrue(sheet.getColumnWidth(10) > 2048);
 		}
+	}
+
+	@Test
+	void uploadFlatDetails_shouldParseDateFieldsInDMMMYYYYFormat() throws Exception {
+		UploadFlatDetailsRequest request = buildRequest(
+				buildWorkbookBase64WithDates("9999999999", "A-102", "1-Mar-2029", "1-Jan-1990"));
+
+		when(profileRepository.findByPrflPhoneNo("9999999999")).thenReturn(new ArrayList<>());
+		when(profileRepository.save(any(Profile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(ownerRepository.findByFlatNo("A-102")).thenReturn(new ArrayList<>());
+		when(ownerRepository.save(any(Owner.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("JSON_VALUE");
+
+		UploadFlatDetailsResponse response = flatServices.uploadFlatDetails(request);
+
+		assertEquals(1, response.getTotalRows());
+		assertEquals(1, response.getSuccessRows());
+		assertEquals(0, response.getFailedRows());
+
+		ArgumentCaptor<Profile> profileCaptor = ArgumentCaptor.forClass(Profile.class);
+		verify(profileRepository, times(1)).save(profileCaptor.capture());
+		assertEquals(LocalDateTime.of(1990, 1, 1, 0, 0), profileCaptor.getValue().getPrflDob());
+
+		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
+		verify(flatRepository, times(1)).save(flatCaptor.capture());
+		assertEquals(LocalDateTime.of(2029, 3, 1, 0, 0), flatCaptor.getValue().getFlatPossnDate());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
@@ -164,6 +216,11 @@ class FlatServicesTest {
 	}
 
 	private String buildWorkbookBase64(String ownerPhone, String flatNo) throws Exception {
+		return buildWorkbookBase64WithDates(ownerPhone, flatNo, "", "");
+	}
+
+	private String buildWorkbookBase64WithDates(String ownerPhone, String flatNo, String possessionDate, String ownerDob)
+			throws Exception {
 		try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("Sheet1");
 			Row headerRow = sheet.createRow(0);
@@ -185,8 +242,10 @@ class FlatServicesTest {
 			row.createCell(2).setCellValue("M");
 			row.createCell(3).setCellValue("T1");
 			row.createCell(4).setCellValue("B1");
+			row.createCell(5).setCellValue(possessionDate);
 			row.createCell(6).setCellValue("OWNER");
 			row.createCell(7).setCellValue("1200");
+			row.createCell(8).setCellValue(ownerDob);
 			row.createCell(9).setCellValue(ownerPhone);
 			row.createCell(10).setCellValue("john@example.com");
 
