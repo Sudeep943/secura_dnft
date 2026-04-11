@@ -271,13 +271,13 @@ class PaymentServicesTest {
 	@Test
 	void getDuePaymentAmountDetails_shouldNotThresholdRoundGstAndAddedChargesUntilTotal() {
 		LocalDate today = LocalDate.now();
-		CreatePaymentRequest request = new CreatePaymentRequest();
-		request.setPaymentAmount("1000");
-		request.setGst("10");
-		request.setCollectionStartDate(Date.valueOf(today));
-		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
-		request.setPaymentCollectionCycle("once");
-		request.setPaymentCollectionMode("pre");
+		CreatePaymentRequest createRequest = new CreatePaymentRequest();
+		createRequest.setPaymentAmount("1000");
+		createRequest.setGst("10");
+		createRequest.setCollectionStartDate(Date.valueOf(today));
+		createRequest.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		createRequest.setPaymentCollectionCycle("once");
+		createRequest.setPaymentCollectionMode("pre");
 
 		AddedCharges amountCharge = new AddedCharges();
 		amountCharge.setChargeName("Late Fee");
@@ -287,9 +287,9 @@ class PaymentServicesTest {
 		percentageCharge.setChargeName("Convenience");
 		percentageCharge.setChargeType("percentage");
 		percentageCharge.setValue("10");
-		request.setAddedCharges(List.of(amountCharge, percentageCharge));
+		createRequest.setAddedCharges(List.of(amountCharge, percentageCharge));
 
-		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(createRequest);
 		DueAmountDetails dueDetails = response.getListOfDueAmountDetails().get(0);
 
 		assertEquals("100.4", dueDetails.getAddedCharges().get(0).getFinalChargeValue());
