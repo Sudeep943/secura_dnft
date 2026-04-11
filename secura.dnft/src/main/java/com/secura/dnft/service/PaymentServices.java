@@ -138,7 +138,7 @@ public class PaymentServices implements PaymentInterface {
 			AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
 			BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
 					.setScale(2, RoundingMode.HALF_UP);
-			BigDecimal gstAmount = dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
+			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 					RoundingMode.HALF_UP);
 			details.setAmount(formatNumber(dueAmountWithAddedCharges));
 			details.setGstAmount(formatNumber(gstAmount));
@@ -166,7 +166,7 @@ public class PaymentServices implements PaymentInterface {
 				AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
 				BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
 						.setScale(2, RoundingMode.HALF_UP);
-				BigDecimal gstAmount = dueAmountWithAddedCharges.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
+				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 						RoundingMode.HALF_UP);
 				details.setAmount(formatNumber(dueAmountWithAddedCharges));
 				details.setGstAmount(formatNumber(gstAmount));
