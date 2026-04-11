@@ -59,21 +59,24 @@ public class PaymentServices implements PaymentInterface {
 			return response;
 		}
 
-		int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
-		if (cycleMonths <= 0) {
-			return response;
-		}
-
-		DueWindow dueWindow = calculateDueWindow(request.getCollectionStartDate(), request.getCollectionEndDate(),
-				request.getTodayDate(), request.getPaymentCollectionMode(), cycleMonths);
-		LocalDate dueDate = dueWindow.getDueDate();
-		response.setDueDate(dueDate);
-
-		BigDecimal cycleAmount = parseNumeric(request.getPaymentAmount());
+		BigDecimal cycleAmount = resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
 		BigDecimal gstPercent = parseNumeric(request.getGst());
-
-		BigDecimal dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths,
-				request.getCollectionEndDate(), cycleAmount);
+		BigDecimal dueBaseAmount;
+		if (isOnceCycle(request.getPaymentCollectionCycle())) {
+			response.setDueDate(isPost(request.getPaymentCollectionMode()) ? request.getCollectionEndDate().plusDays(1)
+					: request.getCollectionStartDate());
+			dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
+		} else {
+			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
+			if (cycleMonths <= 0) {
+				return response;
+			}
+			DueWindow dueWindow = calculateDueWindow(request.getCollectionStartDate(), request.getCollectionEndDate(),
+					request.getTodayDate(), request.getPaymentCollectionMode(), cycleMonths);
+			response.setDueDate(dueWindow.getDueDate());
+			dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths, request.getCollectionEndDate(),
+					cycleAmount);
+		}
 		BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 				RoundingMode.HALF_UP);
 		BigDecimal totalWithGst = dueBaseAmount.add(gstAmount);
@@ -100,42 +103,68 @@ public class PaymentServices implements PaymentInterface {
 			return dueAmountDetails;
 		}
 
-		int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
-		if (cycleMonths <= 0) {
-			return dueAmountDetails;
-		}
-
 		LocalDate start = request.getCollectionStartDate().toLocalDate();
 		LocalDate end = request.getCollectionEndDate().toLocalDate();
 		if (start.isAfter(end)) {
 			return dueAmountDetails;
 		}
 
-		BigDecimal cycleAmount = parseNumeric(request.getPaymentAmount());
+		BigDecimal cycleAmount = resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
 		BigDecimal gstPercent = parseNumeric(request.getGst());
 
-		LocalDate periodStart = start;
-		while (!periodStart.isAfter(end)) {
-			LocalDate periodEnd = periodStart.plusMonths(cycleMonths).minusDays(1);
-			if (periodEnd.isAfter(end)) {
-				periodEnd = end;
-			}
+		if (isOnceCycle(request.getPaymentCollectionCycle())) {
 			DueAmountDetails details = new DueAmountDetails();
-			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? periodEnd.plusDays(1) : periodStart);
+			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? end.plusDays(1) : start);
 			details.setPaymentId(paymentId);
 			details.setStatus(DUE_STATUS_NOT_ACTIVE);
-
-			BigDecimal dueBaseAmount = calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount);
+			BigDecimal dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
 			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 					RoundingMode.HALF_UP);
-			details.setAmount(formatNumber(dueBaseAmount.add(gstAmount)));
+			details.setAmount(formatNumber(dueBaseAmount));
+			details.setGstAmount(formatNumber(gstAmount));
+			details.setTotalAmount(formatNumber(dueBaseAmount.add(gstAmount)));
 			dueAmountDetails.add(details);
+		} else {
+			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
+			if (cycleMonths <= 0) {
+				return dueAmountDetails;
+			}
+			LocalDate periodStart = start;
+			while (!periodStart.isAfter(end)) {
+				LocalDate periodEnd = periodStart.plusMonths(cycleMonths).minusDays(1);
+				if (periodEnd.isAfter(end)) {
+					periodEnd = end;
+				}
+				DueAmountDetails details = new DueAmountDetails();
+				details.setDueDate(isPost(request.getPaymentCollectionMode()) ? periodEnd.plusDays(1) : periodStart);
+				details.setPaymentId(paymentId);
+				details.setStatus(DUE_STATUS_NOT_ACTIVE);
 
-			periodStart = periodStart.plusMonths(cycleMonths);
+				BigDecimal dueBaseAmount = calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount);
+				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
+						RoundingMode.HALF_UP);
+				details.setAmount(formatNumber(dueBaseAmount));
+				details.setGstAmount(formatNumber(gstAmount));
+				details.setTotalAmount(formatNumber(dueBaseAmount.add(gstAmount)));
+				dueAmountDetails.add(details);
+
+				periodStart = periodStart.plusMonths(cycleMonths);
+			}
 		}
 
-		markUpcomingDueAsActive(dueAmountDetails, today);
+		applyDueStatusPolicy(dueAmountDetails, today, request.isAddLeftOverPayment());
 		return dueAmountDetails;
+	}
+
+	private void applyDueStatusPolicy(List<DueAmountDetails> dueAmountDetails, LocalDate today, boolean addLeftOverPayment) {
+		if (addLeftOverPayment) {
+			for (DueAmountDetails details : dueAmountDetails) {
+				if (details.getDueDate() != null && details.getDueDate().isBefore(today)) {
+					details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+				}
+			}
+		}
+		markUpcomingDueAsActive(dueAmountDetails, today);
 	}
 
 	private void markUpcomingDueAsActive(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
@@ -213,12 +242,38 @@ public class PaymentServices implements PaymentInterface {
 					.collect(Collectors.toList());
 		}
 
+		LocalDate today = LocalDate.now();
 		for (Flat flat : targetFlats) {
 			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
-			existingDueAmountDetails.addAll(dueAmountDetails);
+			existingDueAmountDetails.addAll(cloneDueAmountDetails(dueAmountDetails));
+			if (request != null && request.isAddLeftOverPayment()) {
+				for (DueAmountDetails details : existingDueAmountDetails) {
+					if (details.getDueDate() != null && details.getDueDate().isBefore(today)) {
+						details.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+					}
+				}
+			} else {
+				existingDueAmountDetails
+						.removeIf(details -> details.getDueDate() != null && details.getDueDate().isBefore(today));
+			}
 			flat.setFlatPndngPaymntLst(genericService.toJson(existingDueAmountDetails));
 		}
 		flatRepository.saveAll(targetFlats);
+	}
+
+	private List<DueAmountDetails> cloneDueAmountDetails(List<DueAmountDetails> dueAmountDetails) {
+		List<DueAmountDetails> cloned = new ArrayList<>();
+		for (DueAmountDetails details : dueAmountDetails) {
+			DueAmountDetails copy = new DueAmountDetails();
+			copy.setDueDate(details.getDueDate());
+			copy.setPaymentId(details.getPaymentId());
+			copy.setStatus(details.getStatus());
+			copy.setAmount(details.getAmount());
+			copy.setGstAmount(details.getGstAmount());
+			copy.setTotalAmount(details.getTotalAmount());
+			cloned.add(copy);
+		}
+		return cloned;
 	}
 
 	private DueWindow calculateDueWindow(LocalDate start, LocalDate end, LocalDate today, String mode,
@@ -289,6 +344,10 @@ public class PaymentServices implements PaymentInterface {
 		return 0;
 	}
 
+	private boolean isOnceCycle(String cycle) {
+		return cycle != null && cycle.trim().equalsIgnoreCase("once");
+	}
+
 	private boolean isPost(String mode) {
 		return mode != null && mode.trim().equalsIgnoreCase("post");
 	}
@@ -303,6 +362,14 @@ public class PaymentServices implements PaymentInterface {
 		} catch (NumberFormatException e) {
 			return BigDecimal.ZERO;
 		}
+	}
+
+	private BigDecimal resolveCycleAmount(String paymentAmount, String paymentCapita) {
+		BigDecimal amount = parseNumeric(paymentAmount);
+		if (amount.compareTo(BigDecimal.ZERO) > 0) {
+			return amount;
+		}
+		return parseNumeric(paymentCapita);
 	}
 
 	private String formatNumber(BigDecimal value) {
@@ -363,6 +430,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
+		entity.setMaintainanceFee(request != null && request.isCamPayment());
 		List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, paymentId, LocalDate.now());
 		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails);
 		if (activeDueDate != null) {
