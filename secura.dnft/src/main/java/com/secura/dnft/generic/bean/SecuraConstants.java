@@ -49,8 +49,9 @@ public interface SecuraConstants {
 	
 	public final String PAYMENT_CYCLE_MONTHLY="MONTHLY" ;
 	public final String PAYMENT_CYCLE_QUATERLY="QUATERLY" ;
-	public final String PAYMENT_CYCLE_HALF_YEARLY="HALF_YEARLY" ;
+	public final String PAYMENT_CYCLE_HALF_YEARLY="HALF YEARLY" ;
 	public final String PAYMENT_CYCLE_YEARLY="YEARLY" ;
+	public final String PAYMENT_CYCLE_ONCE="ONCE" ;
 
 
 
