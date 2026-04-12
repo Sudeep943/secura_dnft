@@ -291,11 +291,11 @@ public class PaymentServices implements PaymentInterface {
 		if (listOfDueAmountDetails != null && !listOfDueAmountDetails.isEmpty()) {
 			return listOfDueAmountDetails;
 		}
-		Map<String, List<DueAmountDetails>> dueAmountByFlatType = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
-		if (dueAmountByFlatType == null || dueAmountByFlatType.isEmpty()) {
+		Map<String, List<DueAmountDetails>> dueAmountByFlatArea = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
+		if (dueAmountByFlatArea == null || dueAmountByFlatArea.isEmpty()) {
 			return List.of();
 		}
-		return dueAmountByFlatType.values().stream().filter(dueAmountDetails -> dueAmountDetails != null)
+		return dueAmountByFlatArea.values().stream().filter(dueAmountDetails -> dueAmountDetails != null)
 				.filter(dueAmountDetails -> !dueAmountDetails.isEmpty()).findFirst().orElse(List.of());
 	}
 
@@ -305,16 +305,16 @@ public class PaymentServices implements PaymentInterface {
 			return List.of();
 		}
 		List<DueAmountDetails> listOfDueAmountDetails = duePaymentAmountDetailsResponse.getListOfDueAmountDetails();
-		if (listOfDueAmountDetails != null) {
+		if (listOfDueAmountDetails != null && !listOfDueAmountDetails.isEmpty()) {
 			return listOfDueAmountDetails;
 		}
-		Map<String, List<DueAmountDetails>> dueAmountByFlatType = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
-		if (dueAmountByFlatType == null || dueAmountByFlatType.isEmpty() || flat == null || flat.getFlatArea() == null
+		Map<String, List<DueAmountDetails>> dueAmountByFlatArea = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
+		if (dueAmountByFlatArea == null || dueAmountByFlatArea.isEmpty() || flat == null || flat.getFlatArea() == null
 				|| flat.getFlatArea().isBlank()) {
 			return List.of();
 		}
 		String exactFlatArea = flat.getFlatArea().trim();
-		List<DueAmountDetails> exactMatchDueAmountDetails = dueAmountByFlatType.get(exactFlatArea);
+		List<DueAmountDetails> exactMatchDueAmountDetails = dueAmountByFlatArea.get(exactFlatArea);
 		if (exactMatchDueAmountDetails != null) {
 			return exactMatchDueAmountDetails;
 		}
@@ -322,7 +322,7 @@ public class PaymentServices implements PaymentInterface {
 		if (normalizedFlatArea == null) {
 			return List.of();
 		}
-		for (Map.Entry<String, List<DueAmountDetails>> entry : dueAmountByFlatType.entrySet()) {
+		for (Map.Entry<String, List<DueAmountDetails>> entry : dueAmountByFlatArea.entrySet()) {
 			if (normalizedFlatArea.equals(normalizeAreaKey(entry.getKey()))) {
 				return entry.getValue();
 			}

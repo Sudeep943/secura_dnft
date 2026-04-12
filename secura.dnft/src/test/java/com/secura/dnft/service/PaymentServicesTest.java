@@ -476,10 +476,12 @@ class PaymentServicesTest {
 		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
 		List<List<DueAmountDetails>> savedDueLists = extractAllDueAmountDetailsLists(dueListCaptor);
 		assertEquals(2, savedDueLists.size());
-		assertTrue(savedDueLists.stream().anyMatch(list -> list.stream().anyMatch(d -> "OLD1200".equals(d.getPaymentId()))
-				&& list.stream().anyMatch(d -> "2400".equals(d.getAmount()) && "2640".equals(d.getTotalAmount()))));
-		assertTrue(savedDueLists.stream().anyMatch(list -> list.stream().anyMatch(d -> "OLD1000".equals(d.getPaymentId()))
-				&& list.stream().anyMatch(d -> "2000".equals(d.getAmount()) && "2200".equals(d.getTotalAmount()))));
+		List<DueAmountDetails> savedListFor1200 = savedDueLists.stream()
+				.filter(list -> list.stream().anyMatch(d -> "OLD1200".equals(d.getPaymentId()))).findFirst().orElse(List.of());
+		List<DueAmountDetails> savedListFor1000 = savedDueLists.stream()
+				.filter(list -> list.stream().anyMatch(d -> "OLD1000".equals(d.getPaymentId()))).findFirst().orElse(List.of());
+		assertTrue(savedListFor1200.stream().anyMatch(d -> "2400".equals(d.getAmount()) && "2640".equals(d.getTotalAmount())));
+		assertTrue(savedListFor1000.stream().anyMatch(d -> "2000".equals(d.getAmount()) && "2200".equals(d.getTotalAmount())));
 		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
 				.filter(d -> !"OLD1000".equals(d.getPaymentId()))
 				.allMatch(d -> d.getPaymentId() != null && d.getPaymentId().startsWith("PAYCAM")));
