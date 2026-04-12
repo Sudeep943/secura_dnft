@@ -215,12 +215,12 @@ public class PaymentEntity {
     }
     
     public String getAprmtId() {
-		return aprmtId;
-	}
+        return aprmtId;
+    }
 
-	public void setAprmtId(String aprmtId) {
-		this.aprmtId = aprmtId;
-	}
+    public void setAprmtId(String aprmtId) {
+        this.aprmtId = aprmtId;
+    }
 
     public boolean isMaintainanceFee() {
 		return maintainanceFee;
