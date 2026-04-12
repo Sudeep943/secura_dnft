@@ -517,6 +517,7 @@ class PaymentServicesTest {
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
 		assertTrue(paymentCaptor.getValue().isMaintainanceFee());
+		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
 	}
 
 	@Test

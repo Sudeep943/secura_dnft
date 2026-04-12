@@ -655,6 +655,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
+		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
 		entity.setMaintainanceFee(request != null && request.isCamPayment());
 		GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = getDuePaymentAmountDetails(request);
