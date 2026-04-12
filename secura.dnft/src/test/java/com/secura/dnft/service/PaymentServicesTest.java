@@ -427,6 +427,70 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void createPayment_shouldAppendAreaWiseDueAmountDetailsForPerSqftPayments() throws Exception {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("Per Sqft");
+		request.setPaymentAmount("2");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setAddLeftOverPayment(true);
+
+		Flat flat1200 = new Flat();
+		flat1200.setFlatNo("A-101");
+		flat1200.setFlatArea("1200");
+		flat1200.setFlatPndngPaymntLst("EXISTING_JSON_1200");
+
+		Flat flat1000 = new Flat();
+		flat1000.setFlatNo("A-102");
+		flat1000.setFlatArea("1000");
+		flat1000.setFlatPndngPaymntLst("EXISTING_JSON_1000");
+
+		DueAmountDetails existing1200 = new DueAmountDetails();
+		existing1200.setDueDate(today.plusDays(5));
+		existing1200.setPaymentId("OLD1200");
+
+		DueAmountDetails existing1000 = new DueAmountDetails();
+		existing1000.setDueDate(today.plusDays(6));
+		existing1000.setPaymentId("OLD1000");
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.fromJson(eq("EXISTING_JSON_1200"), any(TypeReference.class))).thenReturn(List.of(existing1200));
+		when(genericService.fromJson(eq("EXISTING_JSON_1000"), any(TypeReference.class))).thenReturn(List.of(existing1000));
+		when(genericService.toJson(any())).thenReturn("DUE_JSON");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(flat1200, flat1000));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
+		List<List<DueAmountDetails>> savedDueLists = extractAllDueAmountDetailsLists(dueListCaptor);
+		assertEquals(2, savedDueLists.size());
+		List<DueAmountDetails> savedListFor1200 = savedDueLists.stream()
+				.filter(list -> list.stream().anyMatch(d -> "OLD1200".equals(d.getPaymentId()))).findFirst().orElse(List.of());
+		List<DueAmountDetails> savedListFor1000 = savedDueLists.stream()
+				.filter(list -> list.stream().anyMatch(d -> "OLD1000".equals(d.getPaymentId()))).findFirst().orElse(List.of());
+		assertTrue(savedListFor1200.stream().anyMatch(d -> "2400".equals(d.getAmount()) && "2640".equals(d.getTotalAmount())));
+		assertTrue(savedListFor1000.stream().anyMatch(d -> "2000".equals(d.getAmount()) && "2200".equals(d.getTotalAmount())));
+		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
+				.filter(d -> !"OLD1000".equals(d.getPaymentId()))
+				.allMatch(d -> d.getPaymentId() != null && d.getPaymentId().startsWith("PAYCAM")));
+		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
+				.filter(d -> !"OLD1000".equals(d.getPaymentId()))
+				.allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+	}
+
+	@Test
 	void createPayment_shouldSetMaintainanceFeeFromCamPaymentFlag() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
