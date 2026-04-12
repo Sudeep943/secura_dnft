@@ -33,4 +33,5 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_29="DiscFin Added Successfully" ;
 	public final String SUCC_MESSAGE_30="DiscFin Details Fetched Successfully" ;
 	public final String SUCC_MESSAGE_31="No DiscFin Details Found" ;
+	public final String SUCC_MESSAGE_32="DiscFin Deleted Successfully" ;
 }

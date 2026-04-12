@@ -10,11 +10,15 @@ import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.entity.DiscFin;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.DiscFinInterface;
 import com.secura.dnft.request.response.AddDiscfinRequest;
 import com.secura.dnft.request.response.AddDiscfinResponse;
+import com.secura.dnft.request.response.DeleteDiscfinRequest;
+import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
 
@@ -86,6 +90,39 @@ public class DiscFinServices implements DiscFinInterface {
 		} else {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_30);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_30);
+		}
+		return response;
+	}
+
+	@Override
+	public DeleteDiscfinResponse deleteDiscfin(DeleteDiscfinRequest request) throws Exception {
+		DeleteDiscfinResponse response = new DeleteDiscfinResponse();
+		response.setGenericHeader(request.getGenericHeader());
+		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		String discFnId = request.getDiscFinId();
+
+		if (discFnId == null || discFnId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_44);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_44);
+			return response;
+		}
+		if (apartmentId == null || apartmentId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+
+		Optional<DiscFin> discFin = discFinRepository.findById(discFnId);
+		if (discFin.isEmpty()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_46);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_46);
+		} else if (!apartmentId.equals(discFin.get().getAprmtId())) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_45);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_45);
+		} else {
+			discFinRepository.deleteById(discFnId);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_32);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_32);
 		}
 		return response;
 	}

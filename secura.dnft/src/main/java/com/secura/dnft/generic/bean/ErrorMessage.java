@@ -46,5 +46,8 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_41="Error While Updating Flat Details" ;
 	public final String ERR_MESSAGE_42="Flat Upload Completed With Errors. Download failed rows report." ;
 	public final String ERR_MESSAGE_43="Error While Fetching Flat Details" ;
+	public final String ERR_MESSAGE_44="Please provide DiscFin Id" ;
+	public final String ERR_MESSAGE_45="You Are Not Allowed To Delete This DiscFin" ;
+	public final String ERR_MESSAGE_46="DiscFin Details Not Found" ;
 	
 }
