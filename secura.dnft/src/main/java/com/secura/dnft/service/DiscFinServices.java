@@ -15,6 +15,8 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.DiscFinInterface;
 import com.secura.dnft.request.response.AddDiscfinRequest;
 import com.secura.dnft.request.response.AddDiscfinResponse;
+import com.secura.dnft.request.response.DeleteDiscfinRequest;
+import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
 
@@ -86,6 +88,35 @@ public class DiscFinServices implements DiscFinInterface {
 		} else {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_30);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_30);
+		}
+		return response;
+	}
+
+	@Override
+	public DeleteDiscfinResponse deleteDiscfin(DeleteDiscfinRequest request) throws Exception {
+		DeleteDiscfinResponse response = new DeleteDiscfinResponse();
+		response.setGenericHeader(request.getGenericHeader());
+		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		String discFnId = request.getDiscFnId();
+		if (discFnId == null || discFnId.isBlank()) {
+			discFnId = request.getDiscFinId();
+		}
+
+		if (discFnId == null || discFnId.isBlank()) {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);
+			return response;
+		}
+
+		Optional<DiscFin> discFin = discFinRepository.findById(discFnId);
+		if (discFin.isPresent()
+				&& (apartmentId == null || apartmentId.isBlank() || apartmentId.equals(discFin.get().getAprmtId()))) {
+			discFinRepository.deleteById(discFnId);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_32);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_32);
+		} else {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);
 		}
 		return response;
 	}
