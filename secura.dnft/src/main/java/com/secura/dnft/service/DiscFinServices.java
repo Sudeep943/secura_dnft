@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.entity.DiscFin;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.DiscFinInterface;
@@ -97,26 +99,30 @@ public class DiscFinServices implements DiscFinInterface {
 		DeleteDiscfinResponse response = new DeleteDiscfinResponse();
 		response.setGenericHeader(request.getGenericHeader());
 		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
-		String discFnId = request.getDiscFnId();
-		if (discFnId == null || discFnId.isBlank()) {
-			discFnId = request.getDiscFinId();
-		}
+		String discFnId = request.getDiscFinId();
 
 		if (discFnId == null || discFnId.isBlank()) {
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_44);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_44);
+			return response;
+		}
+		if (apartmentId == null || apartmentId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
 			return response;
 		}
 
 		Optional<DiscFin> discFin = discFinRepository.findById(discFnId);
-		if (discFin.isPresent()
-				&& (apartmentId == null || apartmentId.isBlank() || apartmentId.equals(discFin.get().getAprmtId()))) {
+		if (discFin.isEmpty()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_46);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_46);
+		} else if (!apartmentId.equals(discFin.get().getAprmtId())) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_45);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_45);
+		} else {
 			discFinRepository.deleteById(discFnId);
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_32);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_32);
-		} else {
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);
 		}
 		return response;
 	}
