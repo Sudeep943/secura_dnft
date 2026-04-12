@@ -89,6 +89,12 @@ public class DiscFinServices implements DiscFinInterface {
 
 	private String createDiscFnId(String discFnType) {
 		String type = (discFnType == null || discFnType.isBlank()) ? "GEN" : discFnType.trim().toUpperCase();
-		return ("DFN" + type + ThreadLocalRandom.current().nextInt(1000, 10000));
+		for (int attempt = 0; attempt < 1000; attempt++) {
+			String discFnId = "DFN" + type + ThreadLocalRandom.current().nextInt(1000, 10000);
+			if (!discFinRepository.existsById(discFnId)) {
+				return discFnId;
+			}
+		}
+		throw new IllegalStateException("Unable to generate unique discFnId");
 	}
 }
