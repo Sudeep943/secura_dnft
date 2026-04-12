@@ -650,13 +650,15 @@ public class PaymentServices implements PaymentInterface {
 		entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
 		entity.setCollectionStartDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionStartDate()));
 		entity.setCollectionEndDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate()));
-		entity.setPaymentCollectionCycle(request.getPaymentCollectionCycle());
+		entity.setPaymentCollectionCycle(normalizePaymentCollectionCycle(request.getPaymentCollectionCycle()));
 		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
 		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
+		entity.setAddedCharges(serializeAddedCharges(request.getAddedCharges()));
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
+		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		entity.setMaintainanceFee(request != null && request.isCamPayment());
 		GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = getDuePaymentAmountDetails(request);
 		List<DueAmountDetails> dueAmountDetails = resolveDueAmountDetailsForEntity(duePaymentAmountDetailsResponse);
@@ -694,6 +696,36 @@ public class PaymentServices implements PaymentInterface {
 			}
 		}
 		throw new IllegalStateException("Unable to generate unique dueId for paymentId: " + paymentId);
+	}
+
+	private String serializeAddedCharges(List<AddedCharges> addedCharges) {
+		if (addedCharges == null || addedCharges.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(addedCharges);
+	}
+
+	private String normalizePaymentCollectionCycle(String paymentCollectionCycle) {
+		if (paymentCollectionCycle == null || paymentCollectionCycle.isBlank()) {
+			return paymentCollectionCycle;
+		}
+		String normalized = paymentCollectionCycle.toLowerCase().replaceAll("[\\s_-]", "");
+		if ("monthly".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_MONTHLY;
+		}
+		if ("quarterly".equals(normalized) || "quaterly".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_QUATERLY;
+		}
+		if ("halfyearly".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY;
+		}
+		if ("yearly".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_YEARLY;
+		}
+		if ("once".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_ONCE;
+		}
+		return paymentCollectionCycle.toUpperCase().trim();
 	}
 
 }

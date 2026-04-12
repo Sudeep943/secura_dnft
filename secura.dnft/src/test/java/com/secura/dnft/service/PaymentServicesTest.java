@@ -30,6 +30,7 @@ import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
@@ -495,6 +496,7 @@ class PaymentServicesTest {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
 		request.setGenericHeader(header);
 		request.setPaymentName("CAM");
 		request.setPaymentType("CAM");
@@ -503,12 +505,18 @@ class PaymentServicesTest {
 		request.setGst("10");
 		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
 		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
-		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionCycle("half_yearly");
 		request.setPaymentCollectionMode("pre");
 		request.setCamPayment(true);
+		AddedCharges amountCharge = new AddedCharges();
+		amountCharge.setChargeName("Late Fee");
+		amountCharge.setChargeType("amount");
+		amountCharge.setValue("100");
+		request.setAddedCharges(List.of(amountCharge));
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON");
 		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -518,6 +526,10 @@ class PaymentServicesTest {
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
 		assertTrue(paymentCaptor.getValue().isMaintainanceFee());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
+		assertEquals(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, paymentCaptor.getValue().getPaymentCollectionCycle());
+		assertEquals(SecuraConstants.PAYMENT_STATUS_ACTIVE, paymentCaptor.getValue().getStatus());
+		assertEquals("USR-001", paymentCaptor.getValue().getCreatUsrId());
+		assertEquals("ADDED_CHARGES_JSON", paymentCaptor.getValue().getAddedCharges());
 	}
 
 	@Test

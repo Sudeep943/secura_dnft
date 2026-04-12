@@ -68,6 +68,9 @@ public class PaymentEntity {
     
     @Column(name = "maintainance_fee")
     private boolean maintainanceFee;
+    
+    @Column(name = "added_charges", columnDefinition = "TEXT")
+    private String addedCharges;
 
     @Column(name = "creat_ts")
     @CreationTimestamp
@@ -228,6 +231,14 @@ public class PaymentEntity {
 
 	public void setMaintainanceFee(boolean maintainanceFee) {
 		this.maintainanceFee = maintainanceFee;
+	}
+
+	public String getAddedCharges() {
+		return addedCharges;
+	}
+
+	public void setAddedCharges(String addedCharges) {
+		this.addedCharges = addedCharges;
 	}
 
     public LocalDateTime getCreatTs() {
