@@ -20,6 +20,9 @@ import com.secura.dnft.request.response.GetDiscfinResponse;
 
 @Service
 public class DiscFinServices implements DiscFinInterface {
+	private static final int MAX_ID_GENERATION_ATTEMPTS = 1000;
+	private static final int ID_RANDOM_MIN = 1000;
+	private static final int ID_RANDOM_MAX_EXCLUSIVE = 10000;
 
 	@Autowired
 	private DiscFinRepository discFinRepository;
@@ -89,8 +92,8 @@ public class DiscFinServices implements DiscFinInterface {
 
 	private String createDiscFnId(String discFnType) {
 		String type = (discFnType == null || discFnType.isBlank()) ? "GEN" : discFnType.trim().toUpperCase();
-		for (int attempt = 0; attempt < 1000; attempt++) {
-			String discFnId = "DFN" + type + ThreadLocalRandom.current().nextInt(1000, 10000);
+		for (int attempt = 0; attempt < MAX_ID_GENERATION_ATTEMPTS; attempt++) {
+			String discFnId = "DFN" + type + ThreadLocalRandom.current().nextInt(ID_RANDOM_MIN, ID_RANDOM_MAX_EXCLUSIVE);
 			if (!discFinRepository.existsById(discFnId)) {
 				return discFnId;
 			}

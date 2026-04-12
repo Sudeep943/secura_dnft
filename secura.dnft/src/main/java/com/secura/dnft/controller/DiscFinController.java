@@ -24,7 +24,6 @@ public class DiscFinController {
 	private DiscFinServices discFinServices;
 
 	@PostMapping("/addDiscfin")
-	@CrossOrigin(origins = "*")
 	public AddDiscfinResponse addDiscfin(@RequestBody AddDiscfinRequest request) {
 		AddDiscfinResponse response = new AddDiscfinResponse();
 		try {
@@ -37,7 +36,6 @@ public class DiscFinController {
 	}
 
 	@PostMapping("/getDiscfin")
-	@CrossOrigin(origins = "*")
 	public GetDiscfinResponse getDiscfin(@RequestBody GetDiscfinRequest request) {
 		GetDiscfinResponse response = new GetDiscfinResponse();
 		try {
