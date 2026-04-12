@@ -16,6 +16,8 @@ public class DueAmountDetails {
 	private String totalAmount;
 	private List<AddedCharges> addedCharges;
 	private String totalAddedCharges;
+	private String discountCode;
+	private String fineCode;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -79,5 +81,21 @@ public class DueAmountDetails {
 
 	public void setTotalAddedCharges(String totalAddedCharges) {
 		this.totalAddedCharges = totalAddedCharges;
+	}
+
+	public String getDiscountCode() {
+		return discountCode;
+	}
+
+	public void setDiscountCode(String discountCode) {
+		this.discountCode = discountCode;
+	}
+
+	public String getFineCode() {
+		return fineCode;
+	}
+
+	public void setFineCode(String fineCode) {
+		this.fineCode = fineCode;
 	}
 }

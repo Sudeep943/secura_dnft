@@ -688,6 +688,63 @@ class PaymentServicesTest {
 		assertTrue(savedDueList.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
 	}
 
+	@Test
+	void createPayment_shouldApplyDiscountAndFineCodesOnlyToFutureDueDates() throws Exception {
+		LocalDate today = LocalDate.now();
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(today.minusMonths(1)));
+		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setApplicableFor(List.of("A-101"));
+		request.setAddLeftOverPayment(true);
+		request.setDiscountCode("DISC10");
+		request.setFineCode("FINE5");
+
+		Flat targetFlat = new Flat();
+		targetFlat.setFlatNo("A-101");
+		targetFlat.setFlatPndngPaymntLst("EXISTING_JSON");
+
+		DueAmountDetails pastExisting = new DueAmountDetails();
+		pastExisting.setDueDate(today.minusDays(10));
+		pastExisting.setPaymentId("OLD");
+		pastExisting.setDueId("DUEOLD001");
+
+		DueAmountDetails futureExisting = new DueAmountDetails();
+		futureExisting.setDueDate(today.plusDays(10));
+		futureExisting.setPaymentId("OLD");
+		futureExisting.setDueId("DUEOLD002");
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.fromJson(eq("EXISTING_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(pastExisting, futureExisting));
+		when(genericService.toJson(any())).thenReturn("DUE_JSON");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlat));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
+		List<DueAmountDetails> savedDueList = extractDueAmountDetailsList(dueListCaptor);
+
+		assertTrue(savedDueList.stream()
+				.filter(d -> d.getDueDate() != null && d.getDueDate().isAfter(today) && d.getDueId() != null)
+				.allMatch(d -> "DISC10".equals(d.getDiscountCode()) && "FINE5".equals(d.getFineCode())));
+		assertTrue(savedDueList.stream()
+				.filter(d -> d.getDueDate() != null && !d.getDueDate().isAfter(today))
+				.allMatch(d -> d.getDiscountCode() == null && d.getFineCode() == null));
+	}
+
 	@SuppressWarnings("unchecked")
 	private List<DueAmountDetails> extractDueAmountDetailsList(ArgumentCaptor<Object> dueListCaptor) {
 		for (Object captured : dueListCaptor.getAllValues()) {
