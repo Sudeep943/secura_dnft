@@ -365,6 +365,7 @@ public class PaymentServices implements PaymentInterface {
 			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
 			existingDueAmountDetails.addAll(cloneDueAmountDetails(dueAmountDetailsForFlat));
 			ensureDueIdsForFlatSave(existingDueAmountDetails, paymentId);
+			applyRequestCodesToFutureDues(existingDueAmountDetails, request, today);
 			if (request == null || !request.isAddLeftOverPayment()) {
 				existingDueAmountDetails
 						.removeIf(details -> details.getDueDate() != null && details.getDueDate().isBefore(today));
@@ -386,9 +387,38 @@ public class PaymentServices implements PaymentInterface {
 			copy.setTotalAmount(details.getTotalAmount());
 			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
 			copy.setTotalAddedCharges(details.getTotalAddedCharges());
+			copy.setDiscountCode(details.getDiscountCode());
+			copy.setFineCode(details.getFineCode());
 			cloned.add(copy);
 		}
 		return cloned;
+	}
+
+	private void applyRequestCodesToFutureDues(List<DueAmountDetails> dueAmountDetails, CreatePaymentRequest request,
+			LocalDate today) {
+		if (dueAmountDetails == null || dueAmountDetails.isEmpty() || request == null) {
+			return;
+		}
+		boolean hasDiscountCode = hasText(request.getDiscountCode());
+		boolean hasFineCode = hasText(request.getFineCode());
+		if (!hasDiscountCode && !hasFineCode) {
+			return;
+		}
+
+		for (DueAmountDetails details : dueAmountDetails) {
+			if (details == null || details.getDueDate() == null || !details.getDueDate().isAfter(today)) {
+				continue;
+			}
+			if (!hasText(details.getDueId())) {
+				continue;
+			}
+			if (hasDiscountCode) {
+				details.setDiscountCode(request.getDiscountCode());
+			}
+			if (hasFineCode) {
+				details.setFineCode(request.getFineCode());
+			}
+		}
 	}
 
 	private List<AddedCharges> cloneAddedCharges(List<AddedCharges> addedCharges) {
@@ -726,6 +756,10 @@ public class PaymentServices implements PaymentInterface {
 			return SecuraConstants.PAYMENT_CYCLE_ONCE;
 		}
 		return paymentCollectionCycle.toUpperCase().trim();
+	}
+
+	private boolean hasText(String value) {
+		return value != null && !value.isBlank();
 	}
 
 }

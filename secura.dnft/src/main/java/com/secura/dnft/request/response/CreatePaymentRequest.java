@@ -23,6 +23,8 @@ public class CreatePaymentRequest {
 	private String status;
 	private boolean camPayment;
 	private boolean addLeftOverPayment;
+	private String discountCode;
+	private String fineCode;
 	private List<AddedCharges> addedCharges;
 	
 	public GenericHeader getGenericHeader() {
@@ -126,6 +128,18 @@ public class CreatePaymentRequest {
 	}
 	public void setAddLeftOverPayment(boolean addLeftOverPayment) {
 		this.addLeftOverPayment = addLeftOverPayment;
+	}
+	public String getDiscountCode() {
+		return discountCode;
+	}
+	public void setDiscountCode(String discountCode) {
+		this.discountCode = discountCode;
+	}
+	public String getFineCode() {
+		return fineCode;
+	}
+	public void setFineCode(String fineCode) {
+		this.fineCode = fineCode;
 	}
 	public List<AddedCharges> getAddedCharges() {
 		return addedCharges;
