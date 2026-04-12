@@ -350,7 +350,7 @@ public class PaymentServices implements PaymentInterface {
 				: flatRepository.findByAprmntId(apartmentId);
 		Set<String> applicableFlatNos = parseApplicableFlatNos(request != null ? request.getApplicableFor() : null);
 
-		List<Flat> targetFlats = apartmentFlats;
+		List<Flat> targetFlats = apartmentFlats.stream().filter(flat->applicableFlatNos.contains(flat.getFlatNo())).collect(Collectors.toList());
 		if (!applicableFlatNos.isEmpty()) {
 			Set<String> normalizedApplicableFlatNos = applicableFlatNos.stream().map(this::normalizeFlatNoForMatch)
 					.filter(value -> value != null).collect(Collectors.toCollection(LinkedHashSet::new));
