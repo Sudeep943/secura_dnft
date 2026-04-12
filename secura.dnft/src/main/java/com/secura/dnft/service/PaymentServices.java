@@ -282,8 +282,68 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request, List<DueAmountDetails> dueAmountDetails,
-			String paymentId) {
+	private List<DueAmountDetails> resolveDueAmountDetailsForEntity(
+			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse) {
+		if (duePaymentAmountDetailsResponse == null) {
+			return List.of();
+		}
+		List<DueAmountDetails> listOfDueAmountDetails = duePaymentAmountDetailsResponse.getListOfDueAmountDetails();
+		if (listOfDueAmountDetails != null && !listOfDueAmountDetails.isEmpty()) {
+			return listOfDueAmountDetails;
+		}
+		Map<String, List<DueAmountDetails>> dueAmountByFlatType = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
+		if (dueAmountByFlatType == null || dueAmountByFlatType.isEmpty()) {
+			return List.of();
+		}
+		return dueAmountByFlatType.values().stream().filter(dueAmountDetails -> dueAmountDetails != null)
+				.filter(dueAmountDetails -> !dueAmountDetails.isEmpty()).findFirst().orElse(List.of());
+	}
+
+	private List<DueAmountDetails> resolveDueAmountDetailsForFlat(Flat flat,
+			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse) {
+		if (duePaymentAmountDetailsResponse == null) {
+			return List.of();
+		}
+		List<DueAmountDetails> listOfDueAmountDetails = duePaymentAmountDetailsResponse.getListOfDueAmountDetails();
+		if (listOfDueAmountDetails != null) {
+			return listOfDueAmountDetails;
+		}
+		Map<String, List<DueAmountDetails>> dueAmountByFlatType = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
+		if (dueAmountByFlatType == null || dueAmountByFlatType.isEmpty() || flat == null || flat.getFlatArea() == null
+				|| flat.getFlatArea().isBlank()) {
+			return List.of();
+		}
+		String exactFlatArea = flat.getFlatArea().trim();
+		List<DueAmountDetails> exactMatchDueAmountDetails = dueAmountByFlatType.get(exactFlatArea);
+		if (exactMatchDueAmountDetails != null) {
+			return exactMatchDueAmountDetails;
+		}
+		String normalizedFlatArea = normalizeAreaKey(exactFlatArea);
+		if (normalizedFlatArea == null) {
+			return List.of();
+		}
+		for (Map.Entry<String, List<DueAmountDetails>> entry : dueAmountByFlatType.entrySet()) {
+			if (normalizedFlatArea.equals(normalizeAreaKey(entry.getKey()))) {
+				return entry.getValue();
+			}
+		}
+		return List.of();
+	}
+
+	private String normalizeAreaKey(String flatArea) {
+		if (flatArea == null || flatArea.isBlank()) {
+			return null;
+		}
+		String normalized = flatArea.trim().replace(",", "");
+		try {
+			return new BigDecimal(normalized).stripTrailingZeros().toPlainString();
+		} catch (NumberFormatException e) {
+			return normalized;
+		}
+	}
+
+	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request,
+			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse, String paymentId) {
 		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
 				: null;
 		List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
@@ -301,8 +361,9 @@ public class PaymentServices implements PaymentInterface {
 
 		LocalDate today = LocalDate.now();
 		for (Flat flat : targetFlats) {
+			List<DueAmountDetails> dueAmountDetailsForFlat = resolveDueAmountDetailsForFlat(flat, duePaymentAmountDetailsResponse);
 			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
-			existingDueAmountDetails.addAll(cloneDueAmountDetails(dueAmountDetails));
+			existingDueAmountDetails.addAll(cloneDueAmountDetails(dueAmountDetailsForFlat));
 			ensureDueIdsForFlatSave(existingDueAmountDetails, paymentId);
 			if (request == null || !request.isAddLeftOverPayment()) {
 				existingDueAmountDetails
@@ -353,12 +414,13 @@ public class PaymentServices implements PaymentInterface {
 		Set<String> usedDueIds = dueAmountDetails.stream().map(DueAmountDetails::getDueId)
 				.filter(dueId -> dueId != null && !dueId.isBlank()).collect(Collectors.toCollection(LinkedHashSet::new));
 		for (DueAmountDetails details : dueAmountDetails) {
-			if (details.getDueId() != null && !details.getDueId().isBlank()) {
-				continue;
-			}
 			String paymentId = details.getPaymentId();
 			if ((paymentId == null || paymentId.isBlank()) && fallbackPaymentId != null && !fallbackPaymentId.isBlank()) {
 				paymentId = fallbackPaymentId;
+				details.setPaymentId(paymentId);
+			}
+			if (details.getDueId() != null && !details.getDueId().isBlank()) {
+				continue;
 			}
 			if (paymentId != null && !paymentId.isBlank()) {
 				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
@@ -595,13 +657,17 @@ public class PaymentServices implements PaymentInterface {
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_CREATED);
 		entity.setMaintainanceFee(request != null && request.isCamPayment());
-		List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, paymentId);
+		GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = getDuePaymentAmountDetails(request);
+		List<DueAmountDetails> dueAmountDetails = resolveDueAmountDetailsForEntity(duePaymentAmountDetailsResponse);
+		if (dueAmountDetails.isEmpty()) {
+			dueAmountDetails = buildDueAmountDetails(request, paymentId);
+		}
 		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails, LocalDate.now());
 		if (activeDueDate != null) {
 			entity.setDueDate(activeDueDate.atStartOfDay());
 		}
 		paymentRepository.save(entity);
-		updatePendingDueAmountDetailsForFlats(request, dueAmountDetails, paymentId);
+		updatePendingDueAmountDetailsForFlats(request, duePaymentAmountDetailsResponse, paymentId);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 		return response;
