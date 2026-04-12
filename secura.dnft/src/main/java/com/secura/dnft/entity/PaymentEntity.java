@@ -63,6 +63,9 @@ public class PaymentEntity {
     @Column(name = "status")
     private String status;
     
+    @Column(name = "aprmt_id")
+    private String aprmtId;
+    
     @Column(name = "maintainance_fee")
     private boolean maintainanceFee;
 
@@ -210,6 +213,14 @@ public class PaymentEntity {
     public void setStatus(String status) {
         this.status = status;
     }
+    
+    public String getAprmtId() {
+		return aprmtId;
+	}
+
+	public void setAprmtId(String aprmtId) {
+		this.aprmtId = aprmtId;
+	}
 
     public boolean isMaintainanceFee() {
 		return maintainanceFee;
