@@ -53,6 +53,25 @@ public interface SecuraConstants {
 	public final String PAYMENT_CYCLE_YEARLY="YEARLY" ;
 	public final String PAYMENT_CYCLE_ONCE="ONCE" ;
 
+	public final String DISC_FN_TYPE_DISCOUNT = "DISCOUNT";
+	public final String DISC_FN_TYPE_FINE = "FINE";
+	public final String DISC_FN_MODE_AMOUNT = "AMOUNT";
+	public final String DISC_FN_MODE_PERCENTAGE = "PERCENTAGE";
+	public final String DISC_FN_CYCLE_TYPE_SIMPLE = "SIMPLE";
+	public final String DISC_FN_CYCLE_TYPE_CUMULATIVE = "CUMULATIVE";
+	public final String DISC_FN_CYCLE_TYPE_CUMMULATIVE = "CUMMULATIVE";
+	public final String DISC_FN_CYCLE_TYPE_CUMMILATIVE = "CUMMILATIVE";
+	public final String DISC_FN_CYCLE_TYPE_CUMILATIVE = "CUMILATIVE";
+	public final String DISC_FN_CYCLE_DAILY = "DAILY";
+	public final String DISC_FN_CYCLE_MONTHLY = "MONTHLY";
+	public final String DISC_FN_CYCLE_MONTHLY_MISSPELLED = "MONTLY";
+	public final String DISC_FN_CYCLE_QUARTERLY = "QUARTERLY";
+	public final String DISC_FN_CYCLE_QUARTERLY_MISSPELLED = "QUATERLY";
+	public final String DISC_FN_CYCLE_HALF_YEARLY = "HALF YEARLY";
+	public final String DISC_FN_CYCLE_HALFYEARLY = "HALFYEARLY";
+	public final String DISC_FN_CYCLE_HALF_DASH_YEARLY = "HALF-YEARLY";
+	public final String DISC_FN_CYCLE_YEARLY = "YEARLY";
+
 
 
 }

@@ -39,6 +39,9 @@ public class DiscFin {
 	@Column(name = "disc_fn_cumlaton_cycle")
 	private String discFnCumlatonCycle;
 
+	@Column(name = "disc_fn_cycle_type")
+	private String discFnCycleType;
+
 	@Column(name = "creat_ts")
 	@CreationTimestamp
 	private LocalDateTime creatTs;
@@ -126,6 +129,14 @@ public class DiscFin {
 
 	public void setDiscFnCumlatonCycle(String discFnCumlatonCycle) {
 		this.discFnCumlatonCycle = discFnCumlatonCycle;
+	}
+
+	public String getDiscFnCycleType() {
+		return discFnCycleType;
+	}
+
+	public void setDiscFnCycleType(String discFnCycleType) {
+		this.discFnCycleType = discFnCycleType;
 	}
 
 	public LocalDateTime getCreatTs() {
