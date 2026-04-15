@@ -53,9 +53,9 @@ public class DiscFinServices implements DiscFinInterface {
 		}
 		entity.setDiscFnMode(request.getDiscFnMode());
 		entity.setDiscFnCumlatonCycle(request.getDiscFnCumlatonCycle());
-		entity.setDiscFnCycleType(request.getDiscFnCumlatonCycleType());
+		entity.setDiscFnCycleType(request.getDiscFnCycleType());
 		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-
+		entity.setDiscFinValue(request.getDiscFnValue());
 		discFinRepository.save(entity);
 
 		response.setDiscFnId(discFnId);

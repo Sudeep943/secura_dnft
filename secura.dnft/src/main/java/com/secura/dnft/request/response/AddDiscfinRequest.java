@@ -11,11 +11,20 @@ public class AddDiscfinRequest {
 	private Date discFnEndDt;
 	private String discFnMode;
 	private String discFnCumlatonCycle;
-	private String discFnCumlatonCycleType;
 	private String discFnCycleType;
+	private String discFnValue;
+
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
+	}
+
+	public String getDiscFnValue() {
+		return discFnValue;
+	}
+
+	public void setDiscFnValue(String discFnValue) {
+		this.discFnValue = discFnValue;
 	}
 
 	public void setGenericHeader(GenericHeader genericHeader) {
@@ -78,11 +87,4 @@ public class AddDiscfinRequest {
 		this.discFnCycleType = discFnCycleType;
 	}
 
-	public String getDiscFnCumlatonCycleType() {
-		return discFnCumlatonCycleType;
-	}
-
-	public void setDiscFnCumlatonCycleType(String discFnCumlatonCycleType) {
-		this.discFnCumlatonCycleType = discFnCumlatonCycleType;
-	}
 }
