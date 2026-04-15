@@ -52,6 +52,17 @@ public class DiscFin {
 
 	@Column(name = "lst_updt_usr_id")
 	private String lstUpdtUsrId;
+	
+	@Column(name = "disc_fn_value")
+	private String discFinValue;
+
+	public String getDiscFinValue() {
+		return discFinValue;
+	}
+
+	public void setDiscFinValue(String discFinValue) {
+		this.discFinValue = discFinValue;
+	}
 
 	public String getAprmtId() {
 		return aprmtId;

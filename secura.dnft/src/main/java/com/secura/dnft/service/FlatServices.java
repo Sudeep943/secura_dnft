@@ -346,7 +346,7 @@ public class FlatServices implements FlatInterface {
 		if (!isDiscountApplicable(discount, details.getDueDate(), today)) {
 			return originalTotalAmount;
 		}
-		BigDecimal discFnValue = parseNumeric(discount.getDiscFnCumlatonCycle());
+		BigDecimal discFnValue = parseNumeric(discount.getDiscFinValue());
 		details.setDiscFnValue(formatNumber(discFnValue));
 		String discountMode = discount.getDiscFnMode();
 		if (discountMode != null && discountMode.trim().equalsIgnoreCase("AMOUNT")) {
