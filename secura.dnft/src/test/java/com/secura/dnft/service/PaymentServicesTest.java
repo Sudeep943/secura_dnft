@@ -539,6 +539,36 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void createPayment_shouldSerializeAllowedPaymentModes() throws Exception {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setAllowedPaymentModes(List.of("UPI", "CARD"));
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.toJson(eq(List.of("UPI", "CARD")))).thenReturn("ALLOWED_PAYMENT_MODES_JSON");
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertEquals("ALLOWED_PAYMENT_MODES_JSON", paymentCaptor.getValue().getAllowedPaymentModes());
+	}
+
+	@Test
 	void createPayment_shouldAppendDueAmountDetailsForCommaSeparatedApplicableFlats() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
