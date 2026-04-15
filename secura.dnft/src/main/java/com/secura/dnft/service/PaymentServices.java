@@ -686,6 +686,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setPaymentCollectionCycle(normalizePaymentCollectionCycle(request.getPaymentCollectionCycle()));
 		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
 		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
+		entity.setAllowedPaymentModes(serializeAllowedPaymentModes(request.getAllowedPaymentModes()));
 		entity.setAddedCharges(serializeAddedCharges(request.getAddedCharges()));
 		entity.setDiscFin(serializeDiscFin(request));
 		entity.setPaymentType(request.getPaymentType());
@@ -737,6 +738,18 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		return genericService.toJson(addedCharges);
+	}
+
+	private String serializeAllowedPaymentModes(List<String> allowedPaymentModes) {
+		if (allowedPaymentModes == null || allowedPaymentModes.isEmpty()) {
+			return null;
+		}
+		List<String> normalizedModes = allowedPaymentModes.stream().filter(mode -> mode != null).map(String::trim)
+				.filter(mode -> !mode.isBlank()).collect(Collectors.toList());
+		if (normalizedModes.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(normalizedModes);
 	}
 
 	private String serializeDiscFin(CreatePaymentRequest request) {

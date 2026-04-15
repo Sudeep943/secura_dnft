@@ -18,6 +18,7 @@ public class CreatePaymentRequest {
 	private String paymentCollectionCycle;
 	private String paymentCollectionMode;
 	private List<String> applicableFor;
+	private List<String> allowedPaymentModes;
 	private String paymentType;
 	private String bankAccountId;
 	private String status;
@@ -98,6 +99,12 @@ public class CreatePaymentRequest {
 	}
 	public void setApplicableFor(List<String> applicableFor) {
 		this.applicableFor = applicableFor;
+	}
+	public List<String> getAllowedPaymentModes() {
+		return allowedPaymentModes;
+	}
+	public void setAllowedPaymentModes(List<String> allowedPaymentModes) {
+		this.allowedPaymentModes = allowedPaymentModes;
 	}
 	public String getPaymentType() {
 		return paymentType;

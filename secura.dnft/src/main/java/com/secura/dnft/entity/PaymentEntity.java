@@ -54,6 +54,9 @@ public class PaymentEntity {
     @Column(name = "applicable_for", columnDefinition = "TEXT")
     private String applicableFor;
 
+    @Column(name = "allowed_payment_modes", columnDefinition = "TEXT")
+    private String allowedPaymentModes;
+
     @Column(name = "payment_type")
     private String paymentType;
 
@@ -195,6 +198,14 @@ public class PaymentEntity {
     public void setApplicableFor(String applicableFor) {
         this.applicableFor = applicableFor;
     }
+
+    public String getAllowedPaymentModes() {
+		return allowedPaymentModes;
+	}
+
+	public void setAllowedPaymentModes(String allowedPaymentModes) {
+		this.allowedPaymentModes = allowedPaymentModes;
+	}
 
     public String getPaymentType() {
         return paymentType;

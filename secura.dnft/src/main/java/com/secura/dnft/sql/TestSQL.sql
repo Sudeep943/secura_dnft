@@ -19,6 +19,9 @@ drop Table secura_worklist;
 drop Table secura_owner;
 drop Table secura_profl_access;
 
+ALTER TABLE secura_payments
+ADD COLUMN allowed_payment_modes TEXT;
+
 
 
 INSERT INTO secura_aprmnt (
