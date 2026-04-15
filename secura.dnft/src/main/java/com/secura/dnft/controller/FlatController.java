@@ -14,6 +14,8 @@ import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -85,5 +87,18 @@ public class FlatController {
 	@CrossOrigin(origins = "*")
 	public GetAllFlatsResponse getAllFlats(@RequestBody GetAllFlatsRequest request) {
 		return flatServices.getAllFlats(request);
+	}
+
+	@PostMapping("/getDueAmountForFlat")
+	@CrossOrigin(origins = "*")
+	public GetDueAmountForFlatResponse getDueAmountForFlat(@RequestBody GetDueAmountForFlatRequest request) {
+		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
+		try {
+			return flatServices.getDueAmountForFlat(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 }

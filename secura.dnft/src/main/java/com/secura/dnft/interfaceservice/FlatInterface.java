@@ -4,6 +4,8 @@ import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -21,4 +23,6 @@ public interface FlatInterface {
 	GetSampleExcellToUploadDataResponse getSampleExcellToUploadData();
 
 	GetAllFlatsResponse getAllFlats(GetAllFlatsRequest request);
+
+	GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request);
 }

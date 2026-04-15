@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -35,16 +36,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
@@ -54,6 +61,9 @@ class FlatServicesTest {
 
 	@Mock
 	private FlatRepository flatRepository;
+
+	@Mock
+	private DiscFinRepository discFinRepository;
 
 	@Mock
 	private ProfileRepository profileRepository;
@@ -299,6 +309,73 @@ class FlatServicesTest {
 		assertEquals(1, blockDetails.getTowerList().size());
 		assertEquals("T1", blockDetails.getTowerList().get(0).getTowerName());
 		assertEquals(List.of("B-201"), blockDetails.getTowerList().get(0).getFlatList());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldApplyPercentageDiscountAndCalculateTotalDueAmount() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+		request.setFlatId("A-101");
+
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueDate(LocalDate.now().minusDays(1));
+		details.setDiscountCode("DFNDISCOUNT1234");
+		details.setTotalAmount("18626");
+		AddedCharges amountCharge = new AddedCharges();
+		amountCharge.setChargeType("amount");
+		amountCharge.setFinalChargeValue("100");
+		details.setAddedCharges(List.of(amountCharge));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		DiscFin discount = new DiscFin();
+		discount.setDiscFnId("DFNDISCOUNT1234");
+		discount.setDiscFnType("DISCOUNT");
+		discount.setDueDateAsStartDateFlag(true);
+		discount.setDiscFnMode("PERCENTAGE");
+		discount.setDiscFnCumlatonCycle("12");
+
+		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
+		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertEquals("16422.88", response.getDuePaymentList().get(0).getTotalAmount());
+		assertEquals("12", response.getDuePaymentList().get(0).getDiscFnValue());
+		assertEquals("2225.12", response.getDuePaymentList().get(0).getDiscountedAmount());
+		assertEquals("16422.88", response.getTotalDueAmount());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldKeepOriginalTotal_whenNoDiscountCode() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueDate(LocalDate.now().minusDays(1));
+		details.setTotalAmount("18626");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertEquals("18626", response.getDuePaymentList().get(0).getTotalAmount());
+		assertNull(response.getDuePaymentList().get(0).getDiscFnValue());
+		assertNull(response.getDuePaymentList().get(0).getDiscountedAmount());
+		assertEquals("18626", response.getTotalDueAmount());
+		verify(discFinRepository, never()).findById(any());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {

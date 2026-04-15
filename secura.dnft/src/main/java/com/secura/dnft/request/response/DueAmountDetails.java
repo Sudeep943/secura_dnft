@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DueAmountDetails {
 
@@ -19,6 +20,9 @@ public class DueAmountDetails {
 	private String gstPercentage;
 	private String discountCode;
 	private String fineCode;
+	@JsonProperty("disc_fn_value")
+	private String discFnValue;
+	private String discountedAmount;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -106,5 +110,21 @@ public class DueAmountDetails {
 
 	public void setFineCode(String fineCode) {
 		this.fineCode = fineCode;
+	}
+
+	public String getDiscFnValue() {
+		return discFnValue;
+	}
+
+	public void setDiscFnValue(String discFnValue) {
+		this.discFnValue = discFnValue;
+	}
+
+	public String getDiscountedAmount() {
+		return discountedAmount;
+	}
+
+	public void setDiscountedAmount(String discountedAmount) {
+		this.discountedAmount = discountedAmount;
 	}
 }
