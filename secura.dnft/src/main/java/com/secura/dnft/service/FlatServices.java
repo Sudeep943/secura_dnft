@@ -454,11 +454,11 @@ public class FlatServices implements FlatInterface {
 			return ChronoUnit.DAYS.between(startDate, today);
 		}
 		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTHLY)
-				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTLY)) {
+				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED)) {
 			return ChronoUnit.MONTHS.between(startDate, today);
 		}
 		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUARTERLY)
-				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUATERLY)) {
+				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED)) {
 			return ChronoUnit.MONTHS.between(startDate, today) / 3;
 		}
 		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALFYEARLY)
@@ -516,10 +516,14 @@ public class FlatServices implements FlatInterface {
 		if (Boolean.TRUE.equals(discFin.getDueDateAsStartDateFlag())) {
 			return dueDate;
 		}
-		return resolveDiscountStartDate(discFin, dueDate);
+		if (discFin.getDiscFnStrtDt() != null) {
+			return discFin.getDiscFnStrtDt().toLocalDate();
+		}
+		return dueDate;
 	}
 
 	private LocalDate resolveDiscountStartDate(DiscFin discFin, LocalDate dueDate) {
+		// Discount start-date logic intentionally does not use dueDateAsStartDateFlag.
 		if (discFin.getDiscFnStrtDt() != null) {
 			return discFin.getDiscFnStrtDt().toLocalDate();
 		}

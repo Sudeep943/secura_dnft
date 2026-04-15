@@ -64,9 +64,9 @@ public interface SecuraConstants {
 	public final String DISC_FN_CYCLE_TYPE_CUMILATIVE = "CUMILATIVE";
 	public final String DISC_FN_CYCLE_DAILY = "DAILY";
 	public final String DISC_FN_CYCLE_MONTHLY = "MONTHLY";
-	public final String DISC_FN_CYCLE_MONTLY = "MONTLY";
+	public final String DISC_FN_CYCLE_MONTHLY_MISSPELLED = "MONTLY";
 	public final String DISC_FN_CYCLE_QUARTERLY = "QUARTERLY";
-	public final String DISC_FN_CYCLE_QUATERLY = "QUATERLY";
+	public final String DISC_FN_CYCLE_QUARTERLY_MISSPELLED = "QUATERLY";
 	public final String DISC_FN_CYCLE_HALF_YEARLY = "HALF YEARLY";
 	public final String DISC_FN_CYCLE_HALFYEARLY = "HALFYEARLY";
 	public final String DISC_FN_CYCLE_HALF_DASH_YEARLY = "HALF-YEARLY";
