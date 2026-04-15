@@ -92,13 +92,13 @@ public class FlatController {
 	@PostMapping("/getDueAmountForFlat")
 	@CrossOrigin(origins = "*")
 	public GetDueAmountForFlatResponse getDueAmountForFlat(@RequestBody GetDueAmountForFlatRequest request) {
-		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
 		try {
 			return flatServices.getDueAmountForFlat(request);
 		} catch (Exception e) {
+			GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
 		}
-		return response;
 	}
 }

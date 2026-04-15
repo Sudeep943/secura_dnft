@@ -22,6 +22,7 @@ public class DueAmountDetails {
 	private String fineCode;
 	@JsonProperty("disc_fn_value")
 	private String discFnValue;
+	@JsonProperty("discountedAmount")
 	private String discountedAmount;
 
 	public LocalDate getDueDate() {

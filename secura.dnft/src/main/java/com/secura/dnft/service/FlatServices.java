@@ -355,6 +355,8 @@ public class FlatServices implements FlatInterface {
 			return originalTotalAmount.subtract(discountedAmount).max(BigDecimal.ZERO);
 		}
 		if (discountMode != null && discountMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+			// Percentage discount is applied only on the amount excluding fixed amount-type added
+			// charges, then the fixed amount charges are added back to preserve them unchanged.
 			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
 			BigDecimal totalAmountExcludingAmountAddedCharges = originalTotalAmount.subtract(amountAddedCharges)
 					.max(BigDecimal.ZERO);
@@ -420,6 +422,9 @@ public class FlatServices implements FlatInterface {
 
 	private String formatNumber(BigDecimal value) {
 		if (value == null) {
+			return "0";
+		}
+		if (value.compareTo(BigDecimal.ZERO) == 0) {
 			return "0";
 		}
 		return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
