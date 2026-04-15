@@ -142,6 +142,7 @@ public class PaymentServices implements PaymentInterface {
 			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 					RoundingMode.HALF_UP);
 			details.setAmount(formatNumber(dueBaseAmount));
+			details.setGstPercentage(formatNumber(gstPercent));
 			details.setGstAmount(formatNumber(gstAmount));
 			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
 			details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
@@ -171,6 +172,7 @@ public class PaymentServices implements PaymentInterface {
 				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
 						RoundingMode.HALF_UP);
 				details.setAmount(formatNumber(dueBaseAmount));
+				details.setGstPercentage(formatNumber(gstPercent));
 				details.setGstAmount(formatNumber(gstAmount));
 				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
 				details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
@@ -383,6 +385,7 @@ public class PaymentServices implements PaymentInterface {
 			copy.setPaymentId(details.getPaymentId());
 			copy.setDueId(details.getDueId());
 			copy.setAmount(details.getAmount());
+			copy.setGstPercentage(details.getGstPercentage());
 			copy.setGstAmount(details.getGstAmount());
 			copy.setTotalAmount(details.getTotalAmount());
 			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
@@ -684,6 +687,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
 		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
 		entity.setAddedCharges(serializeAddedCharges(request.getAddedCharges()));
+		entity.setDiscFin(serializeDiscFin(request));
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
@@ -733,6 +737,29 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		return genericService.toJson(addedCharges);
+	}
+
+	private String serializeDiscFin(CreatePaymentRequest request) {
+		if (request == null) {
+			return null;
+		}
+		List<Map<String, String>> discFin = new ArrayList<>();
+		if (hasText(request.getDiscountCode())) {
+			Map<String, String> discount = new LinkedHashMap<>();
+			discount.put("DISTFIN_TYPE", "DISCOUNT");
+			discount.put("code", request.getDiscountCode());
+			discFin.add(discount);
+		}
+		if (hasText(request.getFineCode())) {
+			Map<String, String> fine = new LinkedHashMap<>();
+			fine.put("DISTFIN_TYPE", "FINE");
+			fine.put("code", request.getFineCode());
+			discFin.add(fine);
+		}
+		if (discFin.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(discFin);
 	}
 
 	private String normalizePaymentCollectionCycle(String paymentCollectionCycle) {

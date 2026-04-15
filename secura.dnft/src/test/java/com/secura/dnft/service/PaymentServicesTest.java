@@ -112,6 +112,7 @@ class PaymentServicesTest {
 		assertNotNull(response.getListOfDueAmountDetails());
 		assertEquals(3, response.getListOfDueAmountDetails().size());
 		assertEquals("1000", response.getListOfDueAmountDetails().get(0).getAmount());
+		assertEquals("10", response.getListOfDueAmountDetails().get(0).getGstPercentage());
 		assertEquals("100", response.getListOfDueAmountDetails().get(0).getGstAmount());
 		assertEquals("1100", response.getListOfDueAmountDetails().get(0).getTotalAmount());
 		long dueIdCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueId() != null)
@@ -371,9 +372,11 @@ class PaymentServicesTest {
 		assertNull(response.getListOfDueAmountDetails());
 		assertEquals(2, response.getFlatTypeDueAmountDetails().size());
 		assertEquals("2000", response.getFlatTypeDueAmountDetails().get("1000").get(0).getAmount());
+		assertEquals("10", response.getFlatTypeDueAmountDetails().get("1000").get(0).getGstPercentage());
 		assertEquals("200", response.getFlatTypeDueAmountDetails().get("1000").get(0).getGstAmount());
 		assertEquals("2200", response.getFlatTypeDueAmountDetails().get("1000").get(0).getTotalAmount());
 		assertEquals("2400", response.getFlatTypeDueAmountDetails().get("1200").get(0).getAmount());
+		assertEquals("10", response.getFlatTypeDueAmountDetails().get("1200").get(0).getGstPercentage());
 		assertEquals("240", response.getFlatTypeDueAmountDetails().get("1200").get(0).getGstAmount());
 		assertEquals("2640", response.getFlatTypeDueAmountDetails().get("1200").get(0).getTotalAmount());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
@@ -508,6 +511,8 @@ class PaymentServicesTest {
 		request.setPaymentCollectionCycle("half_yearly");
 		request.setPaymentCollectionMode("pre");
 		request.setCamPayment(true);
+		request.setDiscountCode("DISC10");
+		request.setFineCode("FINE5");
 		AddedCharges amountCharge = new AddedCharges();
 		amountCharge.setChargeName("Late Fee");
 		amountCharge.setChargeType("amount");
@@ -516,7 +521,7 @@ class PaymentServicesTest {
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON");
+		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON", "DISC_FIN_JSON");
 		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -530,6 +535,7 @@ class PaymentServicesTest {
 		assertEquals(SecuraConstants.PAYMENT_STATUS_ACTIVE, paymentCaptor.getValue().getStatus());
 		assertEquals("USR-001", paymentCaptor.getValue().getCreatUsrId());
 		assertEquals("ADDED_CHARGES_JSON", paymentCaptor.getValue().getAddedCharges());
+		assertEquals("DISC_FIN_JSON", paymentCaptor.getValue().getDiscFin());
 	}
 
 	@Test
