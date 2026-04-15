@@ -16,6 +16,7 @@ public class DueAmountDetails {
 	private String totalAmount;
 	private List<AddedCharges> addedCharges;
 	private String totalAddedCharges;
+	private String gstPercentage;
 	private String discountCode;
 	private String fineCode;
 
@@ -81,6 +82,14 @@ public class DueAmountDetails {
 
 	public void setTotalAddedCharges(String totalAddedCharges) {
 		this.totalAddedCharges = totalAddedCharges;
+	}
+
+	public String getGstPercentage() {
+		return gstPercentage;
+	}
+
+	public void setGstPercentage(String gstPercentage) {
+		this.gstPercentage = gstPercentage;
 	}
 
 	public String getDiscountCode() {

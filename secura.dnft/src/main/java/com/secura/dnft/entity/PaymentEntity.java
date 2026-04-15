@@ -72,6 +72,9 @@ public class PaymentEntity {
     @Column(name = "added_charges", columnDefinition = "TEXT")
     private String addedCharges;
 
+    @Column(name = "disc_fin", columnDefinition = "TEXT")
+    private String discFin;
+
     @Column(name = "creat_ts")
     @CreationTimestamp
     private LocalDateTime creatTs;
@@ -239,6 +242,14 @@ public class PaymentEntity {
 
 	public void setAddedCharges(String addedCharges) {
 		this.addedCharges = addedCharges;
+	}
+
+	public String getDiscFin() {
+		return discFin;
+	}
+
+	public void setDiscFin(String discFin) {
+		this.discFin = discFin;
 	}
 
     public LocalDateTime getCreatTs() {
