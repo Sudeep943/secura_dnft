@@ -744,8 +744,11 @@ public class PaymentServices implements PaymentInterface {
 		if (allowedPaymentModes == null || allowedPaymentModes.isEmpty()) {
 			return null;
 		}
-		List<String> normalizedModes = allowedPaymentModes.stream().filter(mode -> mode != null).map(String::trim)
-				.filter(mode -> !mode.isBlank()).collect(Collectors.toList());
+		List<String> normalizedModes = allowedPaymentModes.stream()
+				.filter(mode -> mode != null)
+				.map(String::trim)
+				.filter(mode -> !mode.isEmpty())
+				.collect(Collectors.toList());
 		if (normalizedModes.isEmpty()) {
 			return null;
 		}
