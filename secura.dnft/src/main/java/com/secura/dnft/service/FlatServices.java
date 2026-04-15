@@ -2,6 +2,8 @@ package com.secura.dnft.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,10 +38,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
@@ -52,8 +56,12 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -70,6 +78,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private FlatRepository flatRepository;
+
+	@Autowired
+	private DiscFinRepository discFinRepository;
 
 	@Autowired
 	private ProfileRepository profileRepository;
@@ -250,6 +261,40 @@ public class FlatServices implements FlatInterface {
 		return response;
 	}
 
+	@Override
+	public GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request) {
+		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		List<DueAmountDetails> duePaymentList = new ArrayList<>();
+		BigDecimal totalDueAmount = BigDecimal.ZERO;
+		try {
+			String flatId = request != null ? request.getFlatId() : null;
+			if (flatId != null && !flatId.isBlank()) {
+				Optional<Flat> flatOptional = flatRepository.findById(flatId);
+				if (flatOptional.isPresent()) {
+					duePaymentList = parsePendingDueAmountDetails(flatOptional.get().getFlatPndngPaymntLst());
+				}
+			}
+			LocalDate today = LocalDate.now();
+			for (DueAmountDetails details : duePaymentList) {
+				if (details == null) {
+					continue;
+				}
+				BigDecimal finalAmount = applyDiscountIfApplicable(details, today);
+				details.setTotalAmount(formatNumber(finalAmount));
+				totalDueAmount = totalDueAmount.add(finalAmount);
+			}
+			response.setDuePaymentList(duePaymentList);
+			response.setTotalDueAmount(formatNumber(totalDueAmount));
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
+		}
+		return response;
+	}
+
 	private Flat buildFlatEntity(AddFlatDetailsRequest addRequest, UpdateFlatDetailsRequest updateRequest) {
 		Flat flat = new Flat();
 		boolean isAddRequest = addRequest != null;
@@ -266,6 +311,123 @@ public class FlatServices implements FlatInterface {
 			flat.setFlatPossnDate(genericService.getCorrectLocalDateForInputDate(possnDate));
 		}
 		return flat;
+	}
+
+	private List<DueAmountDetails> parsePendingDueAmountDetails(String pendingDueJson) {
+		if (pendingDueJson == null || pendingDueJson.isBlank()) {
+			return new ArrayList<>();
+		}
+		try {
+			List<DueAmountDetails> existing = genericService.fromJson(pendingDueJson,
+					new TypeReference<List<DueAmountDetails>>() {
+					});
+			return existing != null ? new ArrayList<>(existing) : new ArrayList<>();
+		} catch (RuntimeException e) {
+			return new ArrayList<>();
+		}
+	}
+
+	private BigDecimal applyDiscountIfApplicable(DueAmountDetails details, LocalDate today) {
+		BigDecimal originalTotalAmount = parseNumeric(details.getTotalAmount());
+		details.setDiscFnValue(null);
+		details.setDiscountedAmount(null);
+		String discountCode = details.getDiscountCode();
+		if (discountCode == null || discountCode.isBlank()) {
+			return originalTotalAmount;
+		}
+		Optional<DiscFin> discountOptional = discFinRepository.findById(discountCode);
+		if (discountOptional.isEmpty()) {
+			return originalTotalAmount;
+		}
+		DiscFin discount = discountOptional.get();
+		if (discount.getDiscFnType() != null && !"DISCOUNT".equalsIgnoreCase(discount.getDiscFnType().trim())) {
+			return originalTotalAmount;
+		}
+		if (!isDiscountApplicable(discount, details.getDueDate(), today)) {
+			return originalTotalAmount;
+		}
+		BigDecimal discFnValue = parseNumeric(discount.getDiscFnCumlatonCycle());
+		details.setDiscFnValue(formatNumber(discFnValue));
+		String discountMode = discount.getDiscFnMode();
+		if (discountMode != null && discountMode.trim().equalsIgnoreCase("AMOUNT")) {
+			BigDecimal discountedAmount = discFnValue.min(originalTotalAmount);
+			details.setDiscountedAmount(formatNumber(discountedAmount));
+			return originalTotalAmount.subtract(discountedAmount).max(BigDecimal.ZERO);
+		}
+		if (discountMode != null && discountMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+			// Percentage discount is applied only on the amount excluding fixed amount-type added
+			// charges, then the fixed amount charges are added back to preserve them unchanged.
+			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
+			BigDecimal totalAmountExcludingAmountAddedCharges = originalTotalAmount.subtract(amountAddedCharges)
+					.max(BigDecimal.ZERO);
+			BigDecimal discountedAmount = totalAmountExcludingAmountAddedCharges.multiply(discFnValue)
+					.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+			details.setDiscountedAmount(formatNumber(discountedAmount));
+			return totalAmountExcludingAmountAddedCharges.subtract(discountedAmount).add(amountAddedCharges)
+					.max(BigDecimal.ZERO);
+		}
+		return originalTotalAmount;
+	}
+
+	private boolean isDiscountApplicable(DiscFin discount, LocalDate dueDate, LocalDate today) {
+		if (today == null) {
+			return false;
+		}
+		LocalDate startDateOfDiscount;
+		if (Boolean.TRUE.equals(discount.getDueDateAsStartDateFlag())) {
+			startDateOfDiscount = dueDate;
+		} else if (discount.getDiscFnStrtDt() != null) {
+			startDateOfDiscount = discount.getDiscFnStrtDt().toLocalDate();
+		} else {
+			startDateOfDiscount = dueDate;
+		}
+		if (startDateOfDiscount == null || today.isBefore(startDateOfDiscount)) {
+			return false;
+		}
+		LocalDate endDateOfDiscount = discount.getDiscFnEndDt() != null ? discount.getDiscFnEndDt().toLocalDate() : null;
+		if (endDateOfDiscount == null) {
+			return true;
+		}
+		return !today.isAfter(endDateOfDiscount);
+	}
+
+	private BigDecimal sumAmountTypeAddedCharges(List<AddedCharges> addedCharges) {
+		if (addedCharges == null || addedCharges.isEmpty()) {
+			return BigDecimal.ZERO;
+		}
+		BigDecimal totalAmountCharges = BigDecimal.ZERO;
+		for (AddedCharges charge : addedCharges) {
+			if (charge == null) {
+				continue;
+			}
+			String chargeType = charge.getChargeType();
+			if (chargeType != null && chargeType.trim().equalsIgnoreCase("amount")) {
+				totalAmountCharges = totalAmountCharges.add(parseNumeric(charge.getFinalChargeValue()));
+			}
+		}
+		return totalAmountCharges;
+	}
+
+	private BigDecimal parseNumeric(String input) {
+		if (input == null || input.trim().isEmpty()) {
+			return BigDecimal.ZERO;
+		}
+		String normalized = input.replace("%", "").replace(",", "").trim();
+		try {
+			return new BigDecimal(normalized);
+		} catch (NumberFormatException e) {
+			return BigDecimal.ZERO;
+		}
+	}
+
+	private String formatNumber(BigDecimal value) {
+		if (value == null) {
+			return "0";
+		}
+		if (value.compareTo(BigDecimal.ZERO) == 0) {
+			return "0";
+		}
+		return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
 	}
 
 	private List<GetAllFlatsResponse.BlockDetails> buildBlockHierarchy(List<Flat> apartmentFlats) {
