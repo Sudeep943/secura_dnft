@@ -394,7 +394,8 @@ class FlatServicesTest {
 
 		DiscFin fine = new DiscFin();
 		fine.setDiscFnId("DFNFINE1234");
-		fine.setDiscFnType("SIMPLE");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("SIMPLE");
 		fine.setDiscFnMode("AMOUNT");
 		fine.setDiscFinValue("50");
 		fine.setDiscFnStrtDt(LocalDateTime.now().minusDays(3));
@@ -410,7 +411,7 @@ class FlatServicesTest {
 		assertEquals("1050", response.getDuePaymentList().get(0).getTotalAmount());
 		assertEquals("50", response.getDuePaymentList().get(0).getDiscFnValue());
 		assertEquals("50", response.getDuePaymentList().get(0).getFineAmount());
-		assertEquals("SIMPLE", response.getDuePaymentList().get(0).getFineType());
+		assertEquals("FINE", response.getDuePaymentList().get(0).getFineType());
 		assertEquals("1050", response.getTotalDueAmount());
 	}
 
@@ -435,14 +436,15 @@ class FlatServicesTest {
 
 		DiscFin discount = new DiscFin();
 		discount.setDiscFnId("DFNDISCOUNT1234");
-		discount.setDiscFnType("SIMPLE");
+		discount.setDiscFnType("DISCOUNT");
 		discount.setDueDateAsStartDateFlag(true);
 		discount.setDiscFnMode("PERCENTAGE");
 		discount.setDiscFinValue("10");
 
 		DiscFin fine = new DiscFin();
 		fine.setDiscFnId("DFNFINE1234");
-		fine.setDiscFnType("SIMPLE");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("SIMPLE");
 		fine.setDiscFnMode("AMOUNT");
 		fine.setDiscFinValue("50");
 		fine.setDiscFnStrtDt(LocalDateTime.now().minusDays(3));
@@ -459,9 +461,77 @@ class FlatServicesTest {
 		assertEquals("960", response.getDuePaymentList().get(0).getTotalAmount());
 		assertEquals("90", response.getDuePaymentList().get(0).getDiscountedAmount());
 		assertEquals("50", response.getDuePaymentList().get(0).getFineAmount());
-		assertEquals("SIMPLE", response.getDuePaymentList().get(0).getFineType());
+		assertEquals("FINE", response.getDuePaymentList().get(0).getFineType());
 		assertEquals("50", response.getDuePaymentList().get(0).getDiscFnValue());
 		assertEquals("960", response.getTotalDueAmount());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldIgnoreDueDateFlagForDiscountStartDate() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueDate(LocalDate.now().minusDays(10));
+		details.setDiscountCode("DFNDISCOUNT1234");
+		details.setTotalAmount("1000");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		DiscFin discount = new DiscFin();
+		discount.setDiscFnId("DFNDISCOUNT1234");
+		discount.setDiscFnType("DISCOUNT");
+		discount.setDueDateAsStartDateFlag(true);
+		discount.setDiscFnMode("AMOUNT");
+		discount.setDiscFinValue("50");
+		discount.setDiscFnStrtDt(LocalDateTime.now().plusDays(1));
+
+		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
+		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertEquals("1000", response.getDuePaymentList().get(0).getTotalAmount());
+		assertNull(response.getDuePaymentList().get(0).getDiscountedAmount());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldUseDueDateAsFineStartDate_whenFlagTrue() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueDate(LocalDate.now().minusDays(10));
+		details.setFineCode("DFNFINE1234");
+		details.setTotalAmount("1000");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		DiscFin fine = new DiscFin();
+		fine.setDiscFnId("DFNFINE1234");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("SIMPLE");
+		fine.setDueDateAsStartDateFlag(true);
+		fine.setDiscFnMode("AMOUNT");
+		fine.setDiscFinValue("50");
+		fine.setDiscFnStrtDt(LocalDateTime.now().plusDays(1));
+		fine.setDiscFnEndDt(LocalDateTime.now().plusDays(5));
+
+		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
+		when(discFinRepository.findById("DFNFINE1234")).thenReturn(java.util.Optional.of(fine));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertEquals("1050", response.getDuePaymentList().get(0).getTotalAmount());
+		assertEquals("50", response.getDuePaymentList().get(0).getFineAmount());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {

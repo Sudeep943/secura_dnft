@@ -348,18 +348,21 @@ public class FlatServices implements FlatInterface {
 			return originalTotalAmount;
 		}
 		DiscFin discount = discountOptional.get();
+		if (!isDiscFnType(discount, SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
+			return originalTotalAmount;
+		}
 		if (!isDiscFinApplicable(discount, details.getDueDate(), today)) {
 			return originalTotalAmount;
 		}
 		BigDecimal discFnValue = resolveDiscFnValue(discount);
 		details.setDiscFnValue(formatNumber(discFnValue));
 		String discountMode = discount.getDiscFnMode();
-		if (discountMode != null && discountMode.trim().equalsIgnoreCase("AMOUNT")) {
+		if (discountMode != null && discountMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_AMOUNT)) {
 			BigDecimal discountedAmount = discFnValue.min(originalTotalAmount);
 			details.setDiscountedAmount(formatNumber(discountedAmount));
 			return originalTotalAmount.subtract(discountedAmount).max(BigDecimal.ZERO);
 		}
-		if (discountMode != null && discountMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+		if (discountMode != null && discountMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_PERCENTAGE)) {
 			// Percentage discount is applied only on the amount excluding fixed amount-type added
 			// charges, then the fixed amount charges are added back to preserve them unchanged.
 			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
@@ -384,6 +387,9 @@ public class FlatServices implements FlatInterface {
 			return amountAfterDiscount;
 		}
 		DiscFin fine = fineOptional.get();
+		if (!isDiscFnType(fine, SecuraConstants.DISC_FN_TYPE_FINE)) {
+			return amountAfterDiscount;
+		}
 		BigDecimal discFnValue = resolveDiscFnValue(fine);
 		details.setDiscFnValue(formatNumber(discFnValue));
 		details.setFineType(normalizeDiscFnType(fine.getDiscFnType()));
@@ -393,7 +399,7 @@ public class FlatServices implements FlatInterface {
 		}
 		String fineMode = fine.getDiscFnMode();
 		BigDecimal fineAmount;
-		if (fineMode != null && fineMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+		if (fineMode != null && fineMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_PERCENTAGE)) {
 			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
 			BigDecimal amountExcludingAddedCharges = amountAfterDiscount.subtract(amountAddedCharges).max(BigDecimal.ZERO);
 			fineAmount = calculateFineAmount(fine, discFnValue, amountExcludingAddedCharges, details.getDueDate(), today);
@@ -411,16 +417,16 @@ public class FlatServices implements FlatInterface {
 		if (fineMode == null) {
 			return BigDecimal.ZERO;
 		}
-		LocalDate startDate = resolveStartDate(fine, dueDate);
-		boolean cumulative = isCumulativeType(fine.getDiscFnType());
-		if (fineMode.trim().equalsIgnoreCase("AMOUNT")) {
+		LocalDate startDate = resolveFineStartDate(fine, dueDate);
+		boolean cumulative = isCumulativeType(fine.getDiscFnCycleType());
+		if (fineMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_AMOUNT)) {
 			if (!cumulative) {
 				return discFnValue.max(BigDecimal.ZERO);
 			}
 			long totalCyclesPassed = calculateTotalCyclesPassed(startDate, today, fine.getDiscFnCumlatonCycle());
 			return discFnValue.multiply(BigDecimal.valueOf(totalCyclesPassed)).max(BigDecimal.ZERO);
 		}
-		if (fineMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+		if (fineMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_PERCENTAGE)) {
 			BigDecimal percentageRate = discFnValue.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP);
 			if (!cumulative) {
 				return baseAmount.multiply(percentageRate).setScale(2, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
@@ -444,20 +450,23 @@ public class FlatServices implements FlatInterface {
 			return 0;
 		}
 		String normalizedCycle = cycle == null ? "" : cycle.trim().toUpperCase();
-		if (normalizedCycle.equals("DAILY")) {
+		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_DAILY)) {
 			return ChronoUnit.DAYS.between(startDate, today);
 		}
-		if (normalizedCycle.equals("MONTHLY") || normalizedCycle.equals("MONTLY")) {
+		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTHLY)
+				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTLY)) {
 			return ChronoUnit.MONTHS.between(startDate, today);
 		}
-		if (normalizedCycle.equals("QUARTERLY") || normalizedCycle.equals("QUATERLY")) {
+		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUARTERLY)
+				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUATERLY)) {
 			return ChronoUnit.MONTHS.between(startDate, today) / 3;
 		}
-		if (normalizedCycle.equals("HALFYEARLY") || normalizedCycle.equals("HALF YEARLY")
-				|| normalizedCycle.equals("HALF-YEARLY")) {
+		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALFYEARLY)
+				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY)
+				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALF_DASH_YEARLY)) {
 			return ChronoUnit.MONTHS.between(startDate, today) / 6;
 		}
-		if (normalizedCycle.equals("YEARLY")) {
+		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_YEARLY)) {
 			return ChronoUnit.YEARS.between(startDate, today);
 		}
 		return 0;
@@ -468,8 +477,10 @@ public class FlatServices implements FlatInterface {
 			return false;
 		}
 		String normalizedType = discFnType.trim().toUpperCase();
-		return normalizedType.equals("CUMULATIVE") || normalizedType.equals("CUMMULATIVE")
-				|| normalizedType.equals("CUMMILATIVE") || normalizedType.equals("CUMILATIVE");
+		return normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMULATIVE)
+				|| normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMULATIVE)
+				|| normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMILATIVE)
+				|| normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
 	}
 
 	private String normalizeDiscFnType(String discFnType) {
@@ -488,7 +499,9 @@ public class FlatServices implements FlatInterface {
 		if (today == null) {
 			return false;
 		}
-		LocalDate startDate = resolveStartDate(discFin, dueDate);
+		LocalDate startDate = isDiscFnType(discFin, SecuraConstants.DISC_FN_TYPE_FINE)
+				? resolveFineStartDate(discFin, dueDate)
+				: resolveDiscountStartDate(discFin, dueDate);
 		if (startDate == null || today.isBefore(startDate)) {
 			return false;
 		}
@@ -499,14 +512,25 @@ public class FlatServices implements FlatInterface {
 		return !today.isAfter(endDateOfDiscount);
 	}
 
-	private LocalDate resolveStartDate(DiscFin discFin, LocalDate dueDate) {
+	private LocalDate resolveFineStartDate(DiscFin discFin, LocalDate dueDate) {
 		if (Boolean.TRUE.equals(discFin.getDueDateAsStartDateFlag())) {
 			return dueDate;
 		}
+		return resolveDiscountStartDate(discFin, dueDate);
+	}
+
+	private LocalDate resolveDiscountStartDate(DiscFin discFin, LocalDate dueDate) {
 		if (discFin.getDiscFnStrtDt() != null) {
 			return discFin.getDiscFnStrtDt().toLocalDate();
 		}
 		return dueDate;
+	}
+
+	private boolean isDiscFnType(DiscFin discFin, String expectedType) {
+		if (discFin == null || discFin.getDiscFnType() == null || expectedType == null) {
+			return false;
+		}
+		return discFin.getDiscFnType().trim().equalsIgnoreCase(expectedType);
 	}
 
 	private BigDecimal sumAmountTypeAddedCharges(List<AddedCharges> addedCharges) {
