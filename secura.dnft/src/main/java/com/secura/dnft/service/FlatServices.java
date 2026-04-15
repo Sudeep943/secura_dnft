@@ -11,6 +11,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -280,7 +281,7 @@ public class FlatServices implements FlatInterface {
 				if (details == null) {
 					continue;
 				}
-				BigDecimal finalAmount = applyDiscountIfApplicable(details, today);
+				BigDecimal finalAmount = applyDiscountAndFineIfApplicable(details, today);
 				details.setTotalAmount(formatNumber(finalAmount));
 				totalDueAmount = totalDueAmount.add(finalAmount);
 			}
@@ -327,10 +328,17 @@ public class FlatServices implements FlatInterface {
 		}
 	}
 
-	private BigDecimal applyDiscountIfApplicable(DueAmountDetails details, LocalDate today) {
+	private BigDecimal applyDiscountAndFineIfApplicable(DueAmountDetails details, LocalDate today) {
 		BigDecimal originalTotalAmount = parseNumeric(details.getTotalAmount());
 		details.setDiscFnValue(null);
 		details.setDiscountedAmount(null);
+		details.setFineAmount(null);
+		details.setFineType(null);
+		BigDecimal amountAfterDiscount = applyDiscountIfApplicable(details, today, originalTotalAmount);
+		return applyFineIfApplicable(details, today, amountAfterDiscount);
+	}
+
+	private BigDecimal applyDiscountIfApplicable(DueAmountDetails details, LocalDate today, BigDecimal originalTotalAmount) {
 		String discountCode = details.getDiscountCode();
 		if (discountCode == null || discountCode.isBlank()) {
 			return originalTotalAmount;
@@ -340,13 +348,10 @@ public class FlatServices implements FlatInterface {
 			return originalTotalAmount;
 		}
 		DiscFin discount = discountOptional.get();
-		if (discount.getDiscFnType() != null && !"DISCOUNT".equalsIgnoreCase(discount.getDiscFnType().trim())) {
+		if (!isDiscFinApplicable(discount, details.getDueDate(), today)) {
 			return originalTotalAmount;
 		}
-		if (!isDiscountApplicable(discount, details.getDueDate(), today)) {
-			return originalTotalAmount;
-		}
-		BigDecimal discFnValue = parseNumeric(discount.getDiscFinValue());
+		BigDecimal discFnValue = resolveDiscFnValue(discount);
 		details.setDiscFnValue(formatNumber(discFnValue));
 		String discountMode = discount.getDiscFnMode();
 		if (discountMode != null && discountMode.trim().equalsIgnoreCase("AMOUNT")) {
@@ -369,26 +374,139 @@ public class FlatServices implements FlatInterface {
 		return originalTotalAmount;
 	}
 
-	private boolean isDiscountApplicable(DiscFin discount, LocalDate dueDate, LocalDate today) {
+	private BigDecimal applyFineIfApplicable(DueAmountDetails details, LocalDate today, BigDecimal amountAfterDiscount) {
+		String fineCode = details.getFineCode();
+		if (fineCode == null || fineCode.isBlank()) {
+			return amountAfterDiscount;
+		}
+		Optional<DiscFin> fineOptional = discFinRepository.findById(fineCode);
+		if (fineOptional.isEmpty()) {
+			return amountAfterDiscount;
+		}
+		DiscFin fine = fineOptional.get();
+		BigDecimal discFnValue = resolveDiscFnValue(fine);
+		details.setDiscFnValue(formatNumber(discFnValue));
+		details.setFineType(normalizeDiscFnType(fine.getDiscFnType()));
+		if (!isDiscFinApplicable(fine, details.getDueDate(), today)) {
+			details.setFineAmount("0");
+			return amountAfterDiscount;
+		}
+		String fineMode = fine.getDiscFnMode();
+		BigDecimal fineAmount;
+		if (fineMode != null && fineMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
+			BigDecimal amountExcludingAddedCharges = amountAfterDiscount.subtract(amountAddedCharges).max(BigDecimal.ZERO);
+			fineAmount = calculateFineAmount(fine, discFnValue, amountExcludingAddedCharges, details.getDueDate(), today);
+			details.setFineAmount(formatNumber(fineAmount));
+			return amountExcludingAddedCharges.add(fineAmount).add(amountAddedCharges).max(BigDecimal.ZERO);
+		}
+		fineAmount = calculateFineAmount(fine, discFnValue, amountAfterDiscount, details.getDueDate(), today);
+		details.setFineAmount(formatNumber(fineAmount));
+		return amountAfterDiscount.add(fineAmount).max(BigDecimal.ZERO);
+	}
+
+	private BigDecimal calculateFineAmount(DiscFin fine, BigDecimal discFnValue, BigDecimal baseAmount, LocalDate dueDate,
+			LocalDate today) {
+		String fineMode = fine.getDiscFnMode();
+		if (fineMode == null) {
+			return BigDecimal.ZERO;
+		}
+		LocalDate startDate = resolveStartDate(fine, dueDate);
+		boolean cumulative = isCumulativeType(fine.getDiscFnType());
+		if (fineMode.trim().equalsIgnoreCase("AMOUNT")) {
+			if (!cumulative) {
+				return discFnValue.max(BigDecimal.ZERO);
+			}
+			long totalCyclesPassed = calculateTotalCyclesPassed(startDate, today, fine.getDiscFnCumlatonCycle());
+			return discFnValue.multiply(BigDecimal.valueOf(totalCyclesPassed)).max(BigDecimal.ZERO);
+		}
+		if (fineMode.trim().equalsIgnoreCase("PERCENTAGE")) {
+			BigDecimal percentageRate = discFnValue.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP);
+			if (!cumulative) {
+				return baseAmount.multiply(percentageRate).setScale(2, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
+			}
+			long totalCyclesPassed = calculateTotalCyclesPassed(startDate, today, fine.getDiscFnCumlatonCycle());
+			if (totalCyclesPassed <= 0) {
+				return BigDecimal.ZERO;
+			}
+			BigDecimal cumulativeBase = baseAmount;
+			BigDecimal multiplier = BigDecimal.ONE.add(percentageRate);
+			for (long cycle = 0; cycle < totalCyclesPassed; cycle++) {
+				cumulativeBase = cumulativeBase.multiply(multiplier);
+			}
+			return cumulativeBase.subtract(baseAmount).setScale(2, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
+		}
+		return BigDecimal.ZERO;
+	}
+
+	private long calculateTotalCyclesPassed(LocalDate startDate, LocalDate today, String cycle) {
+		if (startDate == null || today == null || today.isBefore(startDate)) {
+			return 0;
+		}
+		String normalizedCycle = cycle == null ? "" : cycle.trim().toUpperCase();
+		if (normalizedCycle.equals("DAILY")) {
+			return ChronoUnit.DAYS.between(startDate, today);
+		}
+		if (normalizedCycle.equals("MONTHLY") || normalizedCycle.equals("MONTLY")) {
+			return ChronoUnit.MONTHS.between(startDate, today);
+		}
+		if (normalizedCycle.equals("QUARTERLY") || normalizedCycle.equals("QUATERLY")) {
+			return ChronoUnit.MONTHS.between(startDate, today) / 3;
+		}
+		if (normalizedCycle.equals("HALFYEARLY") || normalizedCycle.equals("HALF YEARLY")
+				|| normalizedCycle.equals("HALF-YEARLY")) {
+			return ChronoUnit.MONTHS.between(startDate, today) / 6;
+		}
+		if (normalizedCycle.equals("YEARLY")) {
+			return ChronoUnit.YEARS.between(startDate, today);
+		}
+		return 0;
+	}
+
+	private boolean isCumulativeType(String discFnType) {
+		if (discFnType == null) {
+			return false;
+		}
+		String normalizedType = discFnType.trim().toUpperCase();
+		return normalizedType.equals("CUMULATIVE") || normalizedType.equals("CUMMULATIVE")
+				|| normalizedType.equals("CUMMILATIVE") || normalizedType.equals("CUMILATIVE");
+	}
+
+	private String normalizeDiscFnType(String discFnType) {
+		return discFnType == null ? null : discFnType.trim();
+	}
+
+	private BigDecimal resolveDiscFnValue(DiscFin discFin) {
+		BigDecimal discFnValue = parseNumeric(discFin.getDiscFinValue());
+		if (discFnValue.compareTo(BigDecimal.ZERO) != 0) {
+			return discFnValue;
+		}
+		return parseNumeric(discFin.getDiscFnCumlatonCycle());
+	}
+
+	private boolean isDiscFinApplicable(DiscFin discFin, LocalDate dueDate, LocalDate today) {
 		if (today == null) {
 			return false;
 		}
-		LocalDate startDateOfDiscount;
-		if (Boolean.TRUE.equals(discount.getDueDateAsStartDateFlag())) {
-			startDateOfDiscount = dueDate;
-		} else if (discount.getDiscFnStrtDt() != null) {
-			startDateOfDiscount = discount.getDiscFnStrtDt().toLocalDate();
-		} else {
-			startDateOfDiscount = dueDate;
-		}
-		if (startDateOfDiscount == null || today.isBefore(startDateOfDiscount)) {
+		LocalDate startDate = resolveStartDate(discFin, dueDate);
+		if (startDate == null || today.isBefore(startDate)) {
 			return false;
 		}
-		LocalDate endDateOfDiscount = discount.getDiscFnEndDt() != null ? discount.getDiscFnEndDt().toLocalDate() : null;
+		LocalDate endDateOfDiscount = discFin.getDiscFnEndDt() != null ? discFin.getDiscFnEndDt().toLocalDate() : null;
 		if (endDateOfDiscount == null) {
 			return true;
 		}
 		return !today.isAfter(endDateOfDiscount);
+	}
+
+	private LocalDate resolveStartDate(DiscFin discFin, LocalDate dueDate) {
+		if (Boolean.TRUE.equals(discFin.getDueDateAsStartDateFlag())) {
+			return dueDate;
+		}
+		if (discFin.getDiscFnStrtDt() != null) {
+			return discFin.getDiscFnStrtDt().toLocalDate();
+		}
+		return dueDate;
 	}
 
 	private BigDecimal sumAmountTypeAddedCharges(List<AddedCharges> addedCharges) {

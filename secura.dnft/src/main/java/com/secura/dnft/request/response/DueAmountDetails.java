@@ -24,6 +24,10 @@ public class DueAmountDetails {
 	private String discFnValue;
 	@JsonProperty("discountedAmount")
 	private String discountedAmount;
+	@JsonProperty("fineAmount")
+	private String fineAmount;
+	@JsonProperty("disc_fn_type")
+	private String fineType;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -127,5 +131,21 @@ public class DueAmountDetails {
 
 	public void setDiscountedAmount(String discountedAmount) {
 		this.discountedAmount = discountedAmount;
+	}
+
+	public String getFineAmount() {
+		return fineAmount;
+	}
+
+	public void setFineAmount(String fineAmount) {
+		this.fineAmount = fineAmount;
+	}
+
+	public String getFineType() {
+		return fineType;
+	}
+
+	public void setFineType(String fineType) {
+		this.fineType = fineType;
 	}
 }
