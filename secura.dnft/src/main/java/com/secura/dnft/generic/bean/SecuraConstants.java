@@ -16,6 +16,8 @@ public interface SecuraConstants {
 	public final String WORKLIST_STATUS_PENDING="PENDING" ;
 	public final String WORKLIST_STATUS_COMPLETE="BOOKING" ;
 	public final String WORKLIST_STATUS_CANCELLED="CANCELLED" ;
+	public final String WORKLIST_ASSIGNMENT_STATUS_ACTIVE="ACTIVE" ;
+	public final String WORKLIST_ASSIGNMENT_STATUS_TRANSFERED="TRANSFERED" ;
 	
 	public final String WORKLIST_TYPE_BOOKING="BOOKING" ;
 	public final String WORKLIST_TYPE_PAYMENT="PAYMENT" ;
