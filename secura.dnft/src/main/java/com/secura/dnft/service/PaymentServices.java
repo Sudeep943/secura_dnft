@@ -942,7 +942,7 @@ public class PaymentServices implements PaymentInterface {
 		if (receiptAddedCharges == null) {
 			receiptAddedCharges = new ArrayList<>();
 		}
-		if (hasText(dueDetails != null ? dueDetails.getGstAmount() : null)) {
+		if (dueDetails != null && hasText(dueDetails.getGstAmount())) {
 			AddedCharges gstCharge = new AddedCharges();
 			gstCharge.setChargeName("GST");
 			gstCharge.setChargeType("percentage");
