@@ -351,6 +351,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 		details.setPaymentName(request.getPaymentName());
 		details.setPaymentType(request.getPaymentType());
+		details.setEventPayment(request.isEventPayment());
 		details.setAllowedPaymentModes(normalizeAllowedPaymentModes(request.getAllowedPaymentModes()));
 		details.setPaymentCapita(request.getPaymentCapita());
 	}
@@ -413,6 +414,7 @@ public class PaymentServices implements PaymentInterface {
 			copy.setTotalAmount(details.getTotalAmount());
 			copy.setPaymentName(details.getPaymentName());
 			copy.setPaymentType(details.getPaymentType());
+			copy.setEventPayment(details.isEventPayment());
 			copy.setAllowedPaymentModes(details.getAllowedPaymentModes() == null ? null : new ArrayList<>(details.getAllowedPaymentModes()));
 			copy.setPaymentCapita(details.getPaymentCapita());
 			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
@@ -722,6 +724,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		entity.setMaintainanceFee(request != null && request.isCamPayment());
+		entity.setEventPayment(request != null && request.isEventPayment());
 		GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = getDuePaymentAmountDetails(request);
 		List<DueAmountDetails> dueAmountDetails = resolveDueAmountDetailsForEntity(duePaymentAmountDetailsResponse);
 		if (dueAmountDetails.isEmpty()) {
