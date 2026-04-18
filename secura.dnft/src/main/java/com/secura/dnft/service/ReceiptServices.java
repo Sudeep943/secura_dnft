@@ -22,6 +22,8 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.generic.bean.SuccessMessage;
@@ -37,6 +39,8 @@ import com.secura.dnft.request.response.Receipt;
 
 @Service
 public class ReceiptServices implements ReceiptInterface {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(ReceiptServices.class);
 
 	private static final DateTimeFormatter RECEIPT_DATE_FORMAT = DateTimeFormatter.ofPattern("d-MMM-yyyy",
 			Locale.ENGLISH);
@@ -96,7 +100,8 @@ public class ReceiptServices implements ReceiptInterface {
 			try {
 				PDImageXObject logo = PDImageXObject.createFromByteArray(canvas.document, logoBytes, "receipt-logo");
 				canvas.contentStream.drawImage(logo, PAGE_MARGIN, canvas.y - 48, 48, 48);
-			} catch (IOException ignored) {
+			} catch (IOException e) {
+				LOGGER.warn("Unable to render receipt logo", e);
 			}
 		}
 
@@ -323,7 +328,7 @@ public class ReceiptServices implements ReceiptInterface {
 
 		private void drawLabelValue(String label, String value, float x, float y, float labelWidth) throws IOException {
 			drawText(label + ":", x, y, FONT_BOLD, TEXT_FONT_SIZE);
-			drawText(valueOrEmpty(value), x + labelWidth / 2, y, FONT_REGULAR, TEXT_FONT_SIZE);
+			drawText(valueOrEmpty(value), x + labelWidth, y, FONT_REGULAR, TEXT_FONT_SIZE);
 		}
 
 		private void drawText(String text, float x, float y, PDFont font, float fontSize) throws IOException {
