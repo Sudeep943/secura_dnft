@@ -101,10 +101,10 @@ public class GenericService {
 		}
 	}
 
-	public Worklist createWorklistAssignmentFlow(String workListId, List<String> listOfProfielIDs) {
+	public Worklist createWorklistAssignmentFlow(String workListId, List<String> listOfProfileIDs) {
 		Worklist worklist = getWorklistById(workListId);
 		List<WorkListAssignment> workListAssignments = new ArrayList<>();
-		workListAssignments.add(buildWorkListAssignment(listOfProfielIDs, "new"));
+		workListAssignments.add(buildWorkListAssignment(listOfProfileIDs, "new"));
 		worklist.setWorklistsAssignFlow(toJson(workListAssignments));
 		worklistRepository.save(worklist);
 		return worklist;
@@ -126,7 +126,7 @@ public class GenericService {
 			throw new IllegalArgumentException("You Are Not Allowed To Reassign");
 		}
 		activeAssignment.setCompletedDate(Date.valueOf(LocalDate.now()));
-		activeAssignment.setCurrentStatus(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_TRANSFERED);
+		activeAssignment.setCurrentStatus(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_TRANSFERRED);
 		workListAssignments.add(buildWorkListAssignment(List.of(newassignee), currentAssignee));
 		worklist.setWorklistsAssignFlow(toJson(workListAssignments));
 		worklistRepository.save(worklist);

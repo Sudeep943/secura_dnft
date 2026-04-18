@@ -72,7 +72,7 @@ class GenericServiceTest {
 	}
 
 	@Test
-	void rassignworklistFlowService_shouldTransferActiveAssignmentAndAppendNewOne() {
+	void reassignWorklistFlowService_shouldTransferActiveAssignmentAndAppendNewOne() {
 		WorkListAssignment activeAssignment = new WorkListAssignment();
 		activeAssignment.setAssignmentDate(Date.valueOf(LocalDate.of(2026, 4, 1)));
 		activeAssignment.setAssignedBy("new");
@@ -95,7 +95,7 @@ class GenericServiceTest {
 				});
 
 		assertEquals(2, assignments.size());
-		assertEquals(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_TRANSFERED, assignments.get(0).getCurrentStatus());
+		assertEquals(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_TRANSFERRED, assignments.get(0).getCurrentStatus());
 		assertEquals(Date.valueOf(LocalDate.now()), assignments.get(0).getCompletedDate());
 		assertEquals(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_ACTIVE, assignments.get(1).getCurrentStatus());
 		assertEquals("PRFL-1", assignments.get(1).getAssignedBy());
