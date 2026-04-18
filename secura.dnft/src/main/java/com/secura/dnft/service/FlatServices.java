@@ -72,6 +72,7 @@ import com.secura.dnft.request.response.UploadFlatDetailsResponse;
 @Service
 public class FlatServices implements FlatInterface {
 
+	private static final String OPTIONAL_PAYMENT_TYPE = "optional";
 	private static final String[] UPLOAD_HEADERS = { "Flat No", "Owner Name", "Owner Gender", "Tower", "Block",
 			"Possesion Date", "Owner Type", "Flat Area", "Owner DOB", "Owner Phone Number", "Owner Email Number" };
 	private static final DateTimeFormatter SAMPLE_DATE_FORMAT = new DateTimeFormatterBuilder().parseCaseInsensitive()
@@ -268,6 +269,8 @@ public class FlatServices implements FlatInterface {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		List<DueAmountDetails> duePaymentList = new ArrayList<>();
 		BigDecimal totalDueAmount = BigDecimal.ZERO;
+		BigDecimal totalMandatoryPaymentAmount = BigDecimal.ZERO;
+		BigDecimal totalOptionalPaymentAmount = BigDecimal.ZERO;
 		try {
 			String flatId = request != null ? request.getFlatId() : null;
 			if (flatId != null && !flatId.isBlank()) {
@@ -285,9 +288,16 @@ public class FlatServices implements FlatInterface {
 				BigDecimal roundedFinalAmount = roundAmountByThreshold(finalAmount);
 				details.setTotalAmount(formatNumber(roundedFinalAmount));
 				totalDueAmount = totalDueAmount.add(roundedFinalAmount);
+				if (isOptionalPaymentType(details.getPaymentType())) {
+					totalOptionalPaymentAmount = totalOptionalPaymentAmount.add(roundedFinalAmount);
+				} else {
+					totalMandatoryPaymentAmount = totalMandatoryPaymentAmount.add(roundedFinalAmount);
+				}
 			}
 			response.setDuePaymentList(duePaymentList);
 			response.setTotalDueAmount(formatNumber(totalDueAmount));
+			response.setTotalMandatoryPaymentAmount(formatNumber(totalMandatoryPaymentAmount));
+			response.setTotalOptionalPaymentAmount(formatNumber(totalOptionalPaymentAmount));
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		} catch (Exception e) {
@@ -337,6 +347,10 @@ public class FlatServices implements FlatInterface {
 		details.setFineType(null);
 		BigDecimal amountAfterDiscount = applyDiscountIfApplicable(details, today, originalTotalAmount);
 		return applyFineIfApplicable(details, today, amountAfterDiscount);
+	}
+
+	private boolean isOptionalPaymentType(String paymentType) {
+		return paymentType != null && paymentType.trim().equalsIgnoreCase(OPTIONAL_PAYMENT_TYPE);
 	}
 
 	private BigDecimal applyDiscountIfApplicable(DueAmountDetails details, LocalDate today, BigDecimal originalTotalAmount) {

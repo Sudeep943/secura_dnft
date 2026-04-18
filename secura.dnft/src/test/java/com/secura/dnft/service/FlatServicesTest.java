@@ -353,6 +353,37 @@ class FlatServicesTest {
 	}
 
 	@Test
+	void getDueAmountForFlat_shouldSetMandatoryAndOptionalTotalsAtResponseLevel() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		DueAmountDetails mandatoryDetails = new DueAmountDetails();
+		mandatoryDetails.setDueDate(LocalDate.now().minusDays(1));
+		mandatoryDetails.setPaymentType("mandatory");
+		mandatoryDetails.setTotalAmount("1000");
+
+		DueAmountDetails optionalDetails = new DueAmountDetails();
+		optionalDetails.setDueDate(LocalDate.now().minusDays(1));
+		optionalDetails.setPaymentType("optional");
+		optionalDetails.setTotalAmount("200");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(mandatoryDetails, optionalDetails));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertEquals("1200", response.getTotalDueAmount());
+		assertEquals("1000", response.getTotalMandatoryPaymentAmount());
+		assertEquals("200", response.getTotalOptionalPaymentAmount());
+	}
+
+	@Test
 	void getDueAmountForFlat_shouldKeepOriginalTotal_whenNoDiscountCode() {
 		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
 		request.setFlatId("A-101");

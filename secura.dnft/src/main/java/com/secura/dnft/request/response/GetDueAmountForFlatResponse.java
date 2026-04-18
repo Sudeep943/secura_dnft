@@ -7,6 +7,8 @@ public class GetDueAmountForFlatResponse {
 	private GenericHeader genericHeader;
 	private List<DueAmountDetails> duePaymentList;
 	private String totalDueAmount;
+	private String totalMandatoryPaymentAmount;
+	private String totalOptionalPaymentAmount;
 	private String message;
 	private String messageCode;
 
@@ -32,6 +34,22 @@ public class GetDueAmountForFlatResponse {
 
 	public void setTotalDueAmount(String totalDueAmount) {
 		this.totalDueAmount = totalDueAmount;
+	}
+
+	public String getTotalMandatoryPaymentAmount() {
+		return totalMandatoryPaymentAmount;
+	}
+
+	public void setTotalMandatoryPaymentAmount(String totalMandatoryPaymentAmount) {
+		this.totalMandatoryPaymentAmount = totalMandatoryPaymentAmount;
+	}
+
+	public String getTotalOptionalPaymentAmount() {
+		return totalOptionalPaymentAmount;
+	}
+
+	public void setTotalOptionalPaymentAmount(String totalOptionalPaymentAmount) {
+		this.totalOptionalPaymentAmount = totalOptionalPaymentAmount;
 	}
 
 	public String getMessage() {

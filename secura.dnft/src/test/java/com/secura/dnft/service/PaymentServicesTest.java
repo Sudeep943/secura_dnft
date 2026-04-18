@@ -122,12 +122,6 @@ class PaymentServicesTest {
 		assertEquals("MANDATORY", response.getListOfDueAmountDetails().get(0).getPaymentType());
 		assertEquals("PER_FLAT", response.getListOfDueAmountDetails().get(0).getPaymentCapita());
 		assertEquals(List.of("UPI", "CARD"), response.getListOfDueAmountDetails().get(0).getAllowedPaymentModes());
-		BigDecimal totalDueAmount = response.getListOfDueAmountDetails().stream().map(DueAmountDetails::getTotalAmount)
-				.map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add).stripTrailingZeros();
-		assertTrue(response.getListOfDueAmountDetails().stream().allMatch(
-				detail -> totalDueAmount.toPlainString().equals(detail.getTotalMandatoryPaymentAmount())));
-		assertTrue(response.getListOfDueAmountDetails().stream()
-				.allMatch(detail -> "0".equals(detail.getTotalOptionalPaymentAmount())));
 		long dueIdCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueId() != null)
 				.count();
 		assertEquals(0, dueIdCount);
@@ -398,13 +392,6 @@ class PaymentServicesTest {
 		assertEquals("Per Sqft", response.getFlatTypeDueAmountDetails().get("1200").get(0).getPaymentCapita());
 		assertEquals(List.of("UPI", "NETBANKING"),
 				response.getFlatTypeDueAmountDetails().get("1200").get(0).getAllowedPaymentModes());
-		BigDecimal optionalTotalFor1200 = response.getFlatTypeDueAmountDetails().get("1200").stream()
-				.map(DueAmountDetails::getTotalAmount).map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add)
-				.stripTrailingZeros();
-		assertTrue(response.getFlatTypeDueAmountDetails().get("1200").stream()
-				.allMatch(detail -> optionalTotalFor1200.toPlainString().equals(detail.getTotalOptionalPaymentAmount())));
-		assertTrue(response.getFlatTypeDueAmountDetails().get("1200").stream()
-				.allMatch(detail -> "0".equals(detail.getTotalMandatoryPaymentAmount())));
 		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_28, response.getMessageCode());
 	}

@@ -41,7 +41,6 @@ import com.secura.dnft.request.response.UpdatePaymentResponse;
 @Service
 public class PaymentServices implements PaymentInterface {
 	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
-	private static final String OPTIONAL_PAYMENT_TYPE = "optional";
 
 	@Autowired
 	GenericService genericService;
@@ -185,7 +184,6 @@ public class PaymentServices implements PaymentInterface {
 			}
 		}
 
-		applyPaymentTypeTotals(dueAmountDetails, request.getPaymentType());
 		return dueAmountDetails;
 	}
 
@@ -369,21 +367,6 @@ public class PaymentServices implements PaymentInterface {
 		return normalizedModes;
 	}
 
-	private void applyPaymentTypeTotals(List<DueAmountDetails> dueAmountDetails, String paymentType) {
-		if (dueAmountDetails == null || dueAmountDetails.isEmpty()) {
-			return;
-		}
-		BigDecimal totalAmount = dueAmountDetails.stream().map(DueAmountDetails::getTotalAmount).map(this::parseNumeric)
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
-		boolean optionalPaymentType = paymentType != null && paymentType.trim().equalsIgnoreCase(OPTIONAL_PAYMENT_TYPE);
-		String totalMandatoryAmount = optionalPaymentType ? formatNumber(BigDecimal.ZERO) : formatNumber(totalAmount);
-		String totalOptionalAmount = optionalPaymentType ? formatNumber(totalAmount) : formatNumber(BigDecimal.ZERO);
-		for (DueAmountDetails details : dueAmountDetails) {
-			details.setTotalMandatoryPaymentAmount(totalMandatoryAmount);
-			details.setTotalOptionalPaymentAmount(totalOptionalAmount);
-		}
-	}
-
 	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request,
 			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse, String paymentId) {
 		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
@@ -432,8 +415,6 @@ public class PaymentServices implements PaymentInterface {
 			copy.setPaymentType(details.getPaymentType());
 			copy.setAllowedPaymentModes(details.getAllowedPaymentModes() == null ? null : new ArrayList<>(details.getAllowedPaymentModes()));
 			copy.setPaymentCapita(details.getPaymentCapita());
-			copy.setTotalMandatoryPaymentAmount(details.getTotalMandatoryPaymentAmount());
-			copy.setTotalOptionalPaymentAmount(details.getTotalOptionalPaymentAmount());
 			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
 			copy.setTotalAddedCharges(details.getTotalAddedCharges());
 			copy.setDiscountCode(details.getDiscountCode());
