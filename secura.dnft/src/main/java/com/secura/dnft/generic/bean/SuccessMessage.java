@@ -35,4 +35,5 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_31="No DiscFin Details Found" ;
 	public final String SUCC_MESSAGE_32="DiscFin Deleted Successfully" ;
 	public final String SUCC_MESSAGE_33="Due Payment Transaction Created Successfully" ;
+	public final String SUCC_MESSAGE_34="Receipt Created Successfully" ;
 }
