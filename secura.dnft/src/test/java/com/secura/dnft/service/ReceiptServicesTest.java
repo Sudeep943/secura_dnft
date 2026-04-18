@@ -89,7 +89,7 @@ class ReceiptServicesTest {
 		header.setProfileName("Sudeep");
 		header.setFlatNo("A-101");
 		header.setProfilepic(
-				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAwUBAO+Xk90AAAAASUVORK5CYII=");
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==");
 		return header;
 	}
 
