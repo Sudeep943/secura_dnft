@@ -57,6 +57,7 @@ import jakarta.persistence.EntityNotFoundException;
 @Service
 public class PaymentServices implements PaymentInterface {
 	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
+	private static final String DEFAULT_PAYMENT_QUANTITY = "1";
 
 	@Autowired
 	GenericService genericService;
@@ -933,7 +934,7 @@ public class PaymentServices implements PaymentInterface {
 		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
 		item.setAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
 		item.setType("PAYMENT");
-		item.setQuantity("1");
+		item.setQuantity(DEFAULT_PAYMENT_QUANTITY);
 		return item;
 	}
 
