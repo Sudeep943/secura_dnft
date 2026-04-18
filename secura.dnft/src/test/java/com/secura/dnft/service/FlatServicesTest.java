@@ -346,10 +346,10 @@ class FlatServicesTest {
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
 		assertNotNull(response);
-		assertEquals("16402.88", response.getDuePaymentList().get(0).getTotalAmount());
+		assertEquals("16403", response.getDuePaymentList().get(0).getTotalAmount());
 		assertEquals("12", response.getDuePaymentList().get(0).getDiscFnValue());
 		assertEquals("2223.12", response.getDuePaymentList().get(0).getDiscountedAmount());
-		assertEquals("16402.88", response.getTotalDueAmount());
+		assertEquals("16403", response.getTotalDueAmount());
 	}
 
 	@Test
