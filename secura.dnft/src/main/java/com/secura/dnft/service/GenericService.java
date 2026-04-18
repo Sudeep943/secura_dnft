@@ -110,11 +110,7 @@ public class GenericService {
 		return worklist;
 	}
 
-	public Worklist rassignworklistFlowService(String worklistId, String newassignee, String currentAssignee) {
-		return reassignWorklistFlowService(worklistId, newassignee, currentAssignee);
-	}
-
-	public Worklist reassignWorklistFlowService(String worklistId, String newassignee, String currentAssignee) {
+	public Worklist reassignWorklistFlowService(String worklistId, String newAssignee, String currentAssignee) {
 		Worklist worklist = getWorklistById(worklistId);
 		List<WorkListAssignment> workListAssignments = getWorkListAssignments(worklist.getWorklistsAssignFlow());
 		WorkListAssignment activeAssignment = workListAssignments.stream()
@@ -127,7 +123,7 @@ public class GenericService {
 		}
 		activeAssignment.setCompletedDate(Date.valueOf(LocalDate.now()));
 		activeAssignment.setCurrentStatus(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_TRANSFERRED);
-		workListAssignments.add(buildWorkListAssignment(List.of(newassignee), currentAssignee));
+		workListAssignments.add(buildWorkListAssignment(List.of(newAssignee), currentAssignee));
 		worklist.setWorklistsAssignFlow(toJson(workListAssignments));
 		worklistRepository.save(worklist);
 		return worklist;

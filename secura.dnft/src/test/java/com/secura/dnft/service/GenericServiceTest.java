@@ -86,7 +86,7 @@ class GenericServiceTest {
 		when(worklistRepository.findById("WL-2")).thenReturn(Optional.of(worklist));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		genericService.rassignworklistFlowService("WL-2", "PRFL-3", "PRFL-1");
+		genericService.reassignWorklistFlowService("WL-2", "PRFL-3", "PRFL-1");
 
 		ArgumentCaptor<Worklist> worklistCaptor = ArgumentCaptor.forClass(Worklist.class);
 		verify(worklistRepository).save(worklistCaptor.capture());
@@ -105,7 +105,7 @@ class GenericServiceTest {
 	}
 
 	@Test
-	void rassignworklistFlowService_shouldRejectWhenCurrentAssigneeIsNotActiveAssignee() {
+	void reassignWorklistFlowService_shouldRejectWhenCurrentAssigneeIsNotActiveAssignee() {
 		WorkListAssignment activeAssignment = new WorkListAssignment();
 		activeAssignment.setAssignmentDate(Date.valueOf(LocalDate.of(2026, 4, 1)));
 		activeAssignment.setAssignedPersonList(List.of("PRFL-1"));
@@ -118,7 +118,7 @@ class GenericServiceTest {
 		when(worklistRepository.findById("WL-3")).thenReturn(Optional.of(worklist));
 
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-				() -> genericService.rassignworklistFlowService("WL-3", "PRFL-3", "PRFL-2"));
+				() -> genericService.reassignWorklistFlowService("WL-3", "PRFL-3", "PRFL-2"));
 
 		assertEquals("You Are Not Allowed To Reassign", exception.getMessage());
 		verify(worklistRepository, never()).save(any(Worklist.class));
