@@ -63,7 +63,7 @@ public class Transaction {
 	@Column(name = "due_details", columnDefinition = "TEXT")
 	private String dueDetails;
 
-	@Column(name = "workList_Id")
+	@Column(name = "worklist_id")
 	private String workListId;
 
 	@Column(name = "creat_ts")

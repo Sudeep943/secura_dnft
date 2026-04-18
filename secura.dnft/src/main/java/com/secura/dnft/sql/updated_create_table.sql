@@ -65,7 +65,7 @@ CREATE TABLE secura_trnsac (
     third_party_trns_ref VARCHAR,
     third_party_name VARCHAR,
     due_details TEXT,
-    workList_Id VARCHAR,
+    worklist_id VARCHAR,
     creat_ts TIMESTAMP,
     creat_usr_id VARCHAR,
     lst_updt_ts TIMESTAMP,
