@@ -135,7 +135,7 @@ public class PaymentServices implements PaymentInterface {
 			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? end.plusDays(1) : start);
 			details.setPaymentId(paymentId);
 			details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
-			BigDecimal dueBaseAmount = roundAmountByThreshold(cycleAmount.setScale(2, RoundingMode.HALF_UP));
+			BigDecimal dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
 			AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
 			BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
 					.setScale(2, RoundingMode.HALF_UP);
@@ -144,7 +144,7 @@ public class PaymentServices implements PaymentInterface {
 			details.setAmount(formatNumber(dueBaseAmount));
 			details.setGstPercentage(formatNumber(gstPercent));
 			details.setGstAmount(formatNumber(gstAmount));
-			details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
+			details.setTotalAmount(formatNumber(dueAmountWithAddedCharges.add(gstAmount)));
 			details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
 			details.setTotalAddedCharges(formatNumber(addedChargesCalculation.getTotalChargeAmount()));
 			dueAmountDetails.add(details);
@@ -164,8 +164,7 @@ public class PaymentServices implements PaymentInterface {
 				details.setPaymentId(paymentId);
 				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
 
-				BigDecimal dueBaseAmount = roundAmountByThreshold(
-						calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount));
+				BigDecimal dueBaseAmount = calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount);
 				AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
 				BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
 						.setScale(2, RoundingMode.HALF_UP);
@@ -174,7 +173,7 @@ public class PaymentServices implements PaymentInterface {
 				details.setAmount(formatNumber(dueBaseAmount));
 				details.setGstPercentage(formatNumber(gstPercent));
 				details.setGstAmount(formatNumber(gstAmount));
-				details.setTotalAmount(formatNumber(roundAmountByThreshold(dueAmountWithAddedCharges.add(gstAmount))));
+				details.setTotalAmount(formatNumber(dueAmountWithAddedCharges.add(gstAmount)));
 				details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
 				details.setTotalAddedCharges(formatNumber(addedChargesCalculation.getTotalChargeAmount()));
 				dueAmountDetails.add(details);

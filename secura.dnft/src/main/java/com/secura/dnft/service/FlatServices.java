@@ -282,8 +282,9 @@ public class FlatServices implements FlatInterface {
 					continue;
 				}
 				BigDecimal finalAmount = applyDiscountAndFineIfApplicable(details, today);
-				details.setTotalAmount(formatNumber(finalAmount));
-				totalDueAmount = totalDueAmount.add(finalAmount);
+				BigDecimal roundedFinalAmount = roundAmountByThreshold(finalAmount);
+				details.setTotalAmount(formatNumber(roundedFinalAmount));
+				totalDueAmount = totalDueAmount.add(roundedFinalAmount);
 			}
 			response.setDuePaymentList(duePaymentList);
 			response.setTotalDueAmount(formatNumber(totalDueAmount));
@@ -574,6 +575,17 @@ public class FlatServices implements FlatInterface {
 			return "0";
 		}
 		return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+	}
+
+	private BigDecimal roundAmountByThreshold(BigDecimal amount) {
+		if (amount == null) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+		BigDecimal normalized = amount.stripTrailingZeros();
+		BigDecimal decimalPart = normalized.remainder(BigDecimal.ONE).abs();
+		RoundingMode roundingMode = decimalPart.compareTo(BigDecimal.valueOf(0.5)) > 0 ? RoundingMode.UP
+				: RoundingMode.DOWN;
+		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private List<GetAllFlatsResponse.BlockDetails> buildBlockHierarchy(List<Flat> apartmentFlats) {

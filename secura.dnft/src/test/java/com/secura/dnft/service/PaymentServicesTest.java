@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 
 import java.sql.Date;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -335,9 +334,7 @@ class PaymentServicesTest {
 		BigDecimal unroundedTotal = new BigDecimal(dueDetails.getAmount()).add(new BigDecimal(dueDetails.getTotalAddedCharges()))
 				.add(new BigDecimal(dueDetails.getGstAmount()));
 		assertEquals("1300.4", unroundedTotal.toPlainString());
-		BigDecimal expectedRoundedTotal = unroundedTotal.setScale(0, RoundingMode.DOWN).setScale(2, RoundingMode.HALF_UP)
-				.stripTrailingZeros();
-		assertEquals(expectedRoundedTotal.toPlainString(), dueDetails.getTotalAmount());
+		assertEquals(unroundedTotal.stripTrailingZeros().toPlainString(), dueDetails.getTotalAmount());
 	}
 
 	@Test
