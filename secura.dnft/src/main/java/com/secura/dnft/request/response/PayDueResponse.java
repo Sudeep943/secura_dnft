@@ -6,6 +6,7 @@ public class PayDueResponse {
 	private String message;
 	private String messageCode;
 	private String transactionId;
+	private String receipt;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -37,5 +38,13 @@ public class PayDueResponse {
 
 	public void setTransactionId(String transactionId) {
 		this.transactionId = transactionId;
+	}
+
+	public String getReceipt() {
+		return receipt;
+	}
+
+	public void setReceipt(String receipt) {
+		this.receipt = receipt;
 	}
 }

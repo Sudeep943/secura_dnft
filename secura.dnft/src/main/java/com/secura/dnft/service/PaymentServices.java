@@ -34,6 +34,8 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.CreateReceiptRequest;
+import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.DueAmountDetails;
@@ -42,6 +44,7 @@ import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.PayDueRequest;
@@ -69,6 +72,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	TransactionRepository transactionRepository;
+
+	@Autowired
+	ReceiptServices receiptServices;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -764,8 +770,13 @@ public class PaymentServices implements PaymentInterface {
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		Transaction transaction = buildTransaction(request);
+		DueAmountDetails dueDetails = getMatchingDueDetails(request);
+		Transaction transaction = buildTransaction(request, dueDetails);
 		transactionRepository.save(transaction);
+		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
+			CreateReceiptResponse receiptResponse = receiptServices.createReceipt(buildReceiptRequest(request, dueDetails));
+			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
 		response.setTransactionId(transaction.getTrnscId());
@@ -866,10 +877,9 @@ public class PaymentServices implements PaymentInterface {
 		return value != null && !value.isBlank();
 	}
 
-	private Transaction buildTransaction(PayDueRequest request) {
+	private Transaction buildTransaction(PayDueRequest request, DueAmountDetails dueDetails) {
 		PaymentEntity paymentEntity = paymentRepository.findById(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
-		DueAmountDetails dueDetails = getMatchingDueDetails(request);
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
@@ -903,6 +913,44 @@ public class PaymentServices implements PaymentInterface {
 			transaction.setWorkListId(worklist.getWorklistTaskId());
 		}
 		return transaction;
+	}
+
+	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails) {
+		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
+		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails)));
+		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
+		receiptRequest.setReceiptType("Payment");
+		receiptRequest.setPerheadFlag(false);
+		receiptRequest.setRemarks(null);
+		receiptRequest.setUnitPriceRequired(false);
+		receiptRequest.setTotalAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
+		return receiptRequest;
+	}
+
+	private Items buildReceiptItem(DueAmountDetails dueDetails) {
+		Items item = new Items();
+		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
+		item.setAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
+		item.setType("PAYMENT");
+		item.setQuantity("1");
+		return item;
+	}
+
+	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails) {
+		List<AddedCharges> receiptAddedCharges = cloneAddedCharges(dueDetails != null ? dueDetails.getAddedCharges() : null);
+		if (receiptAddedCharges == null) {
+			receiptAddedCharges = new ArrayList<>();
+		}
+		if (hasText(dueDetails != null ? dueDetails.getGstAmount() : null)) {
+			AddedCharges gstCharge = new AddedCharges();
+			gstCharge.setChargeName("GST");
+			gstCharge.setChargeType("percentage");
+			gstCharge.setValue(dueDetails.getGstPercentage());
+			gstCharge.setFinalChargeValue(dueDetails.getGstAmount());
+			receiptAddedCharges.add(gstCharge);
+		}
+		return receiptAddedCharges.isEmpty() ? null : receiptAddedCharges;
 	}
 
 	private DueAmountDetails getMatchingDueDetails(PayDueRequest request) {
