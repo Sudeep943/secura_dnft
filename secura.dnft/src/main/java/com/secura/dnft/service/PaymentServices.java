@@ -3,6 +3,8 @@ package com.secura.dnft.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,11 +22,16 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.Worklist;
+import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -32,11 +39,17 @@ import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.PayDueRequest;
+import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
+
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class PaymentServices implements PaymentInterface {
@@ -50,6 +63,12 @@ public class PaymentServices implements PaymentInterface {
 	
 	@Autowired
 	FlatRepository flatRepository;
+
+	@Autowired
+	FlatInterface flatInterface;
+
+	@Autowired
+	TransactionRepository transactionRepository;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -741,6 +760,18 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
+	@Override
+	public PayDueResponse payDues(PayDueRequest request) throws Exception {
+		PayDueResponse response = new PayDueResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		Transaction transaction = buildTransaction(request);
+		transactionRepository.save(transaction);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
+		response.setTransactionId(transaction.getTrnscId());
+		return response;
+	}
+
 	public String getPaymentId(String paymentType) {
 		StringBuffer paymentId = new StringBuffer();
 		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
@@ -833,6 +864,91 @@ public class PaymentServices implements PaymentInterface {
 
 	private boolean hasText(String value) {
 		return value != null && !value.isBlank();
+	}
+
+	private Transaction buildTransaction(PayDueRequest request) {
+		PaymentEntity paymentEntity = paymentRepository.findById(request.getPaymentId())
+				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
+		DueAmountDetails dueDetails = getMatchingDueDetails(request);
+		LocalDateTime currentTimestamp = LocalDateTime.now();
+		Transaction transaction = new Transaction();
+		transaction.setAprmntId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+		transaction.setTrnscId(createTransactionId(request.getTender(), request.getAmount(), request.getPaymentId(),
+				currentTimestamp.toLocalDate()));
+		transaction.setTrnsDate(currentTimestamp);
+		transaction.setTrnsBy(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		transaction.setTrnsTender(request.getTender());
+		transaction.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
+		transaction.setTrnsShrtDesc("");
+		transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
+		transaction.setTrnsBnkAccnt(paymentEntity.getBankAccountId());
+		transaction.setTrnsAmt(request.getAmount());
+		transaction.setTrnsCurrency(SecuraConstants.PAYMENT_CURRENCY);
+		transaction.setPymntId(request.getPaymentId());
+		transaction.setTrnsStatus(resolveTransactionStatus(request.getTender(), request.getTransactionStatus()));
+		transaction.setNoOfPerson(request.getNoOfPersons());
+		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
+		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
+		transaction.setDueDetails(genericService.toJson(dueDetails));
+		transaction.setCreatTs(currentTimestamp);
+		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		transaction.setLstUpdtTs(null);
+		transaction.setLstUpdtUsrId(null);
+		if (requiresWorklist(request.getTender())) {
+			Worklist worklist = genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_TRANSACTION,
+					request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null,
+					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
+					transaction.getTrnscId());
+			genericService.createWorklistAssignmentFlow(worklist.getWorklistTaskId(), List.of("admin"));
+			transaction.setWorkListId(worklist.getWorklistTaskId());
+		}
+		return transaction;
+	}
+
+	private DueAmountDetails getMatchingDueDetails(PayDueRequest request) {
+		GetDueAmountForFlatRequest dueRequest = new GetDueAmountForFlatRequest();
+		dueRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		dueRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
+		GetDueAmountForFlatResponse dueResponse = flatInterface.getDueAmountForFlat(dueRequest);
+		List<DueAmountDetails> duePaymentList = dueResponse != null ? dueResponse.getDuePaymentList() : null;
+		if (duePaymentList == null) {
+			throw new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33);
+		}
+		return duePaymentList.stream().filter(details -> details != null && details.getDueId() != null)
+				.filter(details -> details.getDueId().equals(request.getDueId())).findFirst()
+				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
+	}
+
+	private String createTransactionId(String tender, String amount, String paymentId, LocalDate todayDate) {
+		StringBuilder transactionId = new StringBuilder();
+		transactionId.append(normalizeTransactionIdPart(tender));
+		transactionId.append(normalizeTransactionIdPart(amount));
+		transactionId.append(normalizeTransactionIdPart(paymentId));
+		transactionId.append(todayDate != null ? todayDate.format(DateTimeFormatter.BASIC_ISO_DATE) : "");
+		transactionId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
+		return transactionId.toString().toUpperCase();
+	}
+
+	private String normalizeTransactionIdPart(String value) {
+		return value == null ? "" : value.replaceAll("\\s+", "");
+	}
+
+	private String resolveTransactionStatus(String tender, String transactionStatus) {
+		if (SecuraConstants.TRANSACTION_TENDER_ONLINE.equalsIgnoreCase(trimValue(tender))
+				&& SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(trimValue(transactionStatus))) {
+			return SecuraConstants.TRANSACTION_STATUS_SUCCESS;
+		}
+		return SecuraConstants.TRANSACTION_STATUS_ON_HOLD;
+	}
+
+	private boolean requiresWorklist(String tender) {
+		String normalizedTender = trimValue(tender);
+		return SecuraConstants.TRANSACTION_TENDER_CASH.equalsIgnoreCase(normalizedTender)
+				|| SecuraConstants.TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER.equalsIgnoreCase(normalizedTender);
+	}
+
+	private String trimValue(String value) {
+		return value == null ? null : value.trim();
 	}
 
 }
