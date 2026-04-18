@@ -2,8 +2,10 @@ package com.secura.dnft.service;
 
 import java.sql.Date;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -15,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.secura.dnft.bean.WorkListAssignment;
 import com.secura.dnft.dao.BookingRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.WorklistRepository;
@@ -25,6 +28,8 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetProfileRequest;
+
+import jakarta.persistence.EntityNotFoundException;
 
 
 @Service
@@ -95,6 +100,34 @@ public class GenericService {
 			worklistRepository.save(worklist.get());
 		}
 	}
+
+	public Worklist createWorklistAssignmentFlow(String workListId, List<String> listOfProfileIDs) {
+		Worklist worklist = getWorklistById(workListId);
+		List<WorkListAssignment> workListAssignments = new ArrayList<>();
+		workListAssignments.add(buildWorkListAssignment(listOfProfileIDs, "new"));
+		worklist.setWorklistsAssignFlow(toJson(workListAssignments));
+		worklistRepository.save(worklist);
+		return worklist;
+	}
+
+	public Worklist reassignWorklistFlowService(String worklistId, String newAssignee, String currentAssignee) {
+		Worklist worklist = getWorklistById(worklistId);
+		List<WorkListAssignment> workListAssignments = getWorkListAssignments(worklist.getWorklistsAssignFlow());
+		WorkListAssignment activeAssignment = workListAssignments.stream()
+				.filter(assignment -> SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_ACTIVE.equals(assignment.getCurrentStatus()))
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("No Active WorkList Assignment Found"));
+		if (activeAssignment.getAssignedPersonList() == null
+				|| !activeAssignment.getAssignedPersonList().contains(currentAssignee)) {
+			throw new IllegalArgumentException("You Are Not Allowed To Reassign");
+		}
+		activeAssignment.setCompletedDate(Date.valueOf(LocalDate.now()));
+		activeAssignment.setCurrentStatus(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_TRANSFERRED);
+		workListAssignments.add(buildWorkListAssignment(List.of(newAssignee), currentAssignee));
+		worklist.setWorklistsAssignFlow(toJson(workListAssignments));
+		worklistRepository.save(worklist);
+		return worklist;
+	}
 	
 	public void getLatestPaymentsCredit() {}
 
@@ -136,9 +169,9 @@ public class GenericService {
         }
     }
     
-    public String createDocumentId(String documentType, String documentFor) {
-    	StringBuffer documentId= new StringBuffer();
-    	documentId.append(documentType);
+     public String createDocumentId(String documentType, String documentFor) {
+     	StringBuffer documentId= new StringBuffer();
+     	documentId.append(documentType);
         documentId.append(documentFor);
         Random random = new Random();
         documentId.append(1000 + random.nextInt(9000));
@@ -151,5 +184,29 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(inputDate);
 	 return LocalDateTime.parse(formatted, formatter);
     }
+
+	private Worklist getWorklistById(String workListId) {
+		return worklistRepository.findById(workListId)
+				.orElseThrow(() -> new EntityNotFoundException("Worklist not found"));
+	}
+
+	private WorkListAssignment buildWorkListAssignment(List<String> assignedPersonList, String assignedBy) {
+		WorkListAssignment workListAssignment = new WorkListAssignment();
+		workListAssignment.setAssignmentDate(Date.valueOf(LocalDate.now()));
+		workListAssignment.setAssignedPersonList(new ArrayList<>(assignedPersonList));
+		workListAssignment.setCurrentStatus(SecuraConstants.WORKLIST_ASSIGNMENT_STATUS_ACTIVE);
+		workListAssignment.setAssignedBy(assignedBy);
+		return workListAssignment;
+	}
+
+	private List<WorkListAssignment> getWorkListAssignments(String worklistsAssignFlow) {
+		if (worklistsAssignFlow == null || worklistsAssignFlow.isBlank()) {
+			return new ArrayList<>();
+		}
+		List<WorkListAssignment> workListAssignments = fromJson(worklistsAssignFlow,
+				new TypeReference<List<WorkListAssignment>>() {
+				});
+		return workListAssignments == null ? new ArrayList<>() : workListAssignments;
+	}
 
 }

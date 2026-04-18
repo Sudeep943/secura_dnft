@@ -24,7 +24,7 @@ public class Worklist {
     @Column(name = "status")
     private String status;
     
-    @Column(name = "worklists_assign_flow")
+    @Column(name = "worklists_assign_flow", columnDefinition = "TEXT")
     private String worklistsAssignFlow;
     
     @Column(name = "short_remark")
