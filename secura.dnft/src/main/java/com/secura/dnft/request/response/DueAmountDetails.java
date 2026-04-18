@@ -3,9 +3,11 @@ package com.secura.dnft.request.response;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DueAmountDetails {
 
 	@JsonFormat(pattern = "d-MMM-yyyy")
@@ -19,8 +21,6 @@ public class DueAmountDetails {
 	private String paymentType;
 	private List<String> allowedPaymentModes;
 	private String paymentCapita;
-	private String totalMandatoryPaymentAmount;
-	private String totalOptionalPaymentAmount;
 	private List<AddedCharges> addedCharges;
 	private String totalAddedCharges;
 	private String gstPercentage;
@@ -113,22 +113,6 @@ public class DueAmountDetails {
 
 	public void setPaymentCapita(String paymentCapita) {
 		this.paymentCapita = paymentCapita;
-	}
-
-	public String getTotalMandatoryPaymentAmount() {
-		return totalMandatoryPaymentAmount;
-	}
-
-	public void setTotalMandatoryPaymentAmount(String totalMandatoryPaymentAmount) {
-		this.totalMandatoryPaymentAmount = totalMandatoryPaymentAmount;
-	}
-
-	public String getTotalOptionalPaymentAmount() {
-		return totalOptionalPaymentAmount;
-	}
-
-	public void setTotalOptionalPaymentAmount(String totalOptionalPaymentAmount) {
-		this.totalOptionalPaymentAmount = totalOptionalPaymentAmount;
 	}
 
 	public List<AddedCharges> getAddedCharges() {
