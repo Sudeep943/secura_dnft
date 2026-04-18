@@ -12,9 +12,9 @@ public class PayDueRequest {
 	private String dueId;
 	private String amount;
 	private String tender;
-	@JsonAlias({ "thirdPatyTransactioId" })
+	@JsonAlias({ "thirdPatyTransactioId", "thirdPartyTransactionId" })
 	private String thirdPartyTransactionId;
-	@JsonAlias({ "tarnsactionStatus", "trnsactionStatus" })
+	@JsonAlias({ "tarnsactionStatus", "trnsactionStatus", "transactionStatus" })
 	private String transactionStatus;
 	private String thirdPartyName;
 	@JsonAlias({ "noOfPersons" })
