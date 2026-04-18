@@ -15,6 +15,12 @@ public class DueAmountDetails {
 	private String amount;
 	private String gstAmount;
 	private String totalAmount;
+	private String paymentName;
+	private String paymentType;
+	private List<String> allowedPaymentModes;
+	private String paymentCapita;
+	private String totalMandatoryPaymentAmount;
+	private String totalOptionalPaymentAmount;
 	private List<AddedCharges> addedCharges;
 	private String totalAddedCharges;
 	private String gstPercentage;
@@ -75,6 +81,54 @@ public class DueAmountDetails {
 
 	public void setTotalAmount(String totalAmount) {
 		this.totalAmount = totalAmount;
+	}
+
+	public String getPaymentName() {
+		return paymentName;
+	}
+
+	public void setPaymentName(String paymentName) {
+		this.paymentName = paymentName;
+	}
+
+	public String getPaymentType() {
+		return paymentType;
+	}
+
+	public void setPaymentType(String paymentType) {
+		this.paymentType = paymentType;
+	}
+
+	public List<String> getAllowedPaymentModes() {
+		return allowedPaymentModes;
+	}
+
+	public void setAllowedPaymentModes(List<String> allowedPaymentModes) {
+		this.allowedPaymentModes = allowedPaymentModes;
+	}
+
+	public String getPaymentCapita() {
+		return paymentCapita;
+	}
+
+	public void setPaymentCapita(String paymentCapita) {
+		this.paymentCapita = paymentCapita;
+	}
+
+	public String getTotalMandatoryPaymentAmount() {
+		return totalMandatoryPaymentAmount;
+	}
+
+	public void setTotalMandatoryPaymentAmount(String totalMandatoryPaymentAmount) {
+		this.totalMandatoryPaymentAmount = totalMandatoryPaymentAmount;
+	}
+
+	public String getTotalOptionalPaymentAmount() {
+		return totalOptionalPaymentAmount;
+	}
+
+	public void setTotalOptionalPaymentAmount(String totalOptionalPaymentAmount) {
+		this.totalOptionalPaymentAmount = totalOptionalPaymentAmount;
 	}
 
 	public List<AddedCharges> getAddedCharges() {
