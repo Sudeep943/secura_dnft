@@ -41,6 +41,7 @@ import com.secura.dnft.request.response.UpdatePaymentResponse;
 @Service
 public class PaymentServices implements PaymentInterface {
 	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
+	private static final String OPTIONAL_PAYMENT_TYPE = "optional";
 
 	@Autowired
 	GenericService genericService;
@@ -374,7 +375,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 		BigDecimal totalAmount = dueAmountDetails.stream().map(DueAmountDetails::getTotalAmount).map(this::parseNumeric)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
-		boolean optionalPaymentType = paymentType != null && paymentType.trim().equalsIgnoreCase("optional");
+		boolean optionalPaymentType = paymentType != null && paymentType.trim().equalsIgnoreCase(OPTIONAL_PAYMENT_TYPE);
 		String totalMandatoryAmount = optionalPaymentType ? formatNumber(BigDecimal.ZERO) : formatNumber(totalAmount);
 		String totalOptionalAmount = optionalPaymentType ? formatNumber(totalAmount) : formatNumber(BigDecimal.ZERO);
 		for (DueAmountDetails details : dueAmountDetails) {
