@@ -354,13 +354,13 @@ public class ReceiptServices implements ReceiptInterface {
 			if (text == null) {
 				return Collections.emptyList();
 			}
-			String normalized = text.replace('', ' ').trim();
+			String normalized = text.replace("\r", " ").trim();
 			if (normalized.isEmpty()) {
 				return Collections.singletonList("");
 			}
 			List<String> lines = new ArrayList<>();
 			for (String paragraph : normalized.split("\n")) {
-				String[] words = paragraph.trim().split("\s+");
+				String[] words = paragraph.trim().split("\\s+");
 				StringBuilder line = new StringBuilder();
 				for (String word : words) {
 					String candidate = line.length() == 0 ? word : line + " " + word;
