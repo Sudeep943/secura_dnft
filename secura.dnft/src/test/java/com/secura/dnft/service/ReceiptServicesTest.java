@@ -1,0 +1,138 @@
+package com.secura.dnft.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
+
+import java.io.ByteArrayInputStream;
+import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.entity.ApartmentMaster;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.CreateReceiptRequest;
+import com.secura.dnft.request.response.CreateReceiptResponse;
+import com.secura.dnft.request.response.DiscFinReceipt;
+import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.Items;
+
+@ExtendWith(MockitoExtension.class)
+class ReceiptServicesTest {
+
+	@Mock
+	private ApartmentRepository apartmentRepository;
+
+	@InjectMocks
+	private ReceiptServices receiptServices;
+
+	@Test
+	void createReceipt_shouldBuildBase64PdfWithRequestedSections() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setUnitPriceRequired(true);
+		request.setPerheadFlag(false);
+		request.setRemarks("Paid via UPI");
+		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
+		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountAmount("100");
+		discFinReceipt.setDiscountType("percentage");
+		discFinReceipt.setDiscountPercentage("10");
+		discFinReceipt.setFineAmount("50");
+		discFinReceipt.setFineType("percentage");
+		discFinReceipt.setFinePercentage("5");
+		discFinReceipt.setFineCycleMode("cumulative");
+		request.setDiscFinReceipt(discFinReceipt);
+
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+		apartment.setAprmntName("Secura Heights");
+		apartment.setAprmntAddress("12 Main Street, Springfield");
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_34, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_34, response.getMessageCode());
+		assertNotNull(response.getReceipt());
+		assertFalse(response.getReceipt().isBlank());
+
+		String text = extractText(response.getReceipt());
+		assertTrue(text.contains("Secura Heights"));
+		assertTrue(text.contains("Maintenance"));
+		assertTrue(text.contains("UNIT PRICE"));
+		assertTrue(text.contains("Taxes And Other Charges"));
+		assertTrue(text.contains("180 (18%)"));
+		assertTrue(text.contains("Discount / Fine"));
+		assertTrue(text.contains("100 (10%)"));
+		assertTrue(text.contains("Fine (cumulative)"));
+		assertTrue(text.contains("Remarks"));
+		assertTrue(text.contains("Paid via UPI"));
+		assertTrue(text.contains("2500"));
+	}
+
+	@Test
+	void createReceipt_shouldHideUnitPriceAndRenameQuantityHeaderWhenRequested() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setUnitPriceRequired(false);
+		request.setPerheadFlag(true);
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertTrue(text.contains("NO OF PERSON"));
+		assertFalse(text.contains("UNIT PRICE"));
+		assertTrue(text.contains("2500"));
+	}
+
+	private CreateReceiptRequest createBaseRequest() {
+		CreateReceiptRequest request = new CreateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setApartmentName("Fallback Name");
+		request.setGenericHeader(header);
+		request.setReceiptType("Maintenance");
+		request.setItems(List.of(createItem("Maintenance", "1000", "2", "2000"), createItem("Parking", "500", "1", "500")));
+		request.setTotalAmount("2500");
+		return request;
+	}
+
+	private Items createItem(String itemName, String unitPrice, String quantity, String amount) {
+		Items item = new Items();
+		item.setItemName(itemName);
+		item.setUnitPrice(unitPrice);
+		item.setQuantity(quantity);
+		item.setAmount(amount);
+		return item;
+	}
+
+	private AddedCharges createCharge(String name, String type, String value, String finalChargeValue) {
+		AddedCharges addedCharges = new AddedCharges();
+		addedCharges.setChargeName(name);
+		addedCharges.setChargeType(type);
+		addedCharges.setValue(value);
+		addedCharges.setFinalChargeValue(finalChargeValue);
+		return addedCharges;
+	}
+
+	private String extractText(String base64Pdf) throws Exception {
+		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
+		try (PDDocument document = Loader.loadPDF(new ByteArrayInputStream(pdfBytes).readAllBytes())) {
+			return new PDFTextStripper().getText(document);
+		}
+	}
+}
