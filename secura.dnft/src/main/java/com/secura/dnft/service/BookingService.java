@@ -181,7 +181,7 @@ public class BookingService {
 		 }
 		 bookingRepository.save(booking);
 		 if(null!=booking.getWorklist() && !booking.getWorklist().isEmpty()) {
-			 genericService.canelWorklist(booking.getWorklist());
+			 genericService.cancelWorklist(booking.getWorklist());
 		 }
 		 
 		 bookingResponse.setBookingId(updateBookingRequest.getBookingId());

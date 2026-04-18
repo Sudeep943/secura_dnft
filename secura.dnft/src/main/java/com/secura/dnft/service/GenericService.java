@@ -88,7 +88,7 @@ public class GenericService {
 		return worklist;
 	}
 	
-	public void canelWorklist(String worklistId) {
+	public void cancelWorklist(String worklistId) {
 		Optional<Worklist> worklist=worklistRepository.findById(worklistId);
 		if(worklist.isPresent()) {
 			worklist.get().setStatus(SecuraConstants.WORKLIST_STATUS_CANCELLED);
