@@ -118,7 +118,7 @@ public class BookingService {
 			if(available) {
 				bookingServiceValidation.validateBookingRequest(bookingRequest);
 				String bookingid=createBookingID(bookingRequest);
-				Worklist worklist=genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_BOOKING, bookingRequest.getGenericHeader().getUserId(),bookingRequest.getGenericHeader().getApartmentId());
+				Worklist worklist=genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_BOOKING, bookingRequest.getGenericHeader().getUserId(),bookingRequest.getGenericHeader().getApartmentId(),null);
 				Booking bookingEnitity= new Booking(bookingRequest,bookingid,worklist.getWorklistTaskId());
 				bookingEnitity.setBkngPhnNo(mobileNumber);
 				bookingRepository.save(bookingEnitity);

@@ -42,9 +42,22 @@ public class Worklist {
 
     @Column(name = "lst_updt_usr_id")
     private String lstUpdtUsrId;
+    
+    @Column(name = "refference_id")
+    private String refferenceID;
 
     public String getWorklistsAssignFlow() {
 		return worklistsAssignFlow;
+	}
+
+
+	public String getRefferenceID() {
+		return refferenceID;
+	}
+
+
+	public void setRefferenceID(String refferenceID) {
+		this.refferenceID = refferenceID;
 	}
 
 
