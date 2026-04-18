@@ -23,6 +23,7 @@ public class CreatePaymentRequest {
 	private String bankAccountId;
 	private String status;
 	private boolean camPayment;
+	private boolean eventPayment;
 	private boolean addLeftOverPayment;
 	private String discountCode;
 	private String fineCode;
@@ -129,6 +130,12 @@ public class CreatePaymentRequest {
 	}
 	public void setCamPayment(boolean camPayment) {
 		this.camPayment = camPayment;
+	}
+	public boolean isEventPayment() {
+		return eventPayment;
+	}
+	public void setEventPayment(boolean eventPayment) {
+		this.eventPayment = eventPayment;
 	}
 	public boolean isAddLeftOverPayment() {
 		return addLeftOverPayment;

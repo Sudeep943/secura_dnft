@@ -19,6 +19,7 @@ public class DueAmountDetails {
 	private String totalAmount;
 	private String paymentName;
 	private String paymentType;
+	private boolean eventPayment;
 	private List<String> allowedPaymentModes;
 	private String paymentCapita;
 	private List<AddedCharges> addedCharges;
@@ -97,6 +98,14 @@ public class DueAmountDetails {
 
 	public void setPaymentType(String paymentType) {
 		this.paymentType = paymentType;
+	}
+
+	public boolean isEventPayment() {
+		return eventPayment;
+	}
+
+	public void setEventPayment(boolean eventPayment) {
+		this.eventPayment = eventPayment;
 	}
 
 	public List<String> getAllowedPaymentModes() {

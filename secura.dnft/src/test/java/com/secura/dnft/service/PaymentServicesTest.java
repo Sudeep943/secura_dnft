@@ -104,6 +104,7 @@ class PaymentServicesTest {
 		request.setPaymentType("MANDATORY");
 		request.setPaymentCapita("PER_FLAT");
 		request.setAllowedPaymentModes(List.of("UPI", "CARD"));
+		request.setEventPayment(true);
 		request.setPaymentAmount("1000");
 		request.setGst("10");
 		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
@@ -120,6 +121,7 @@ class PaymentServicesTest {
 		assertEquals("1100", response.getListOfDueAmountDetails().get(0).getTotalAmount());
 		assertEquals("Maintenance", response.getListOfDueAmountDetails().get(0).getPaymentName());
 		assertEquals("MANDATORY", response.getListOfDueAmountDetails().get(0).getPaymentType());
+		assertTrue(response.getListOfDueAmountDetails().get(0).isEventPayment());
 		assertEquals("PER_FLAT", response.getListOfDueAmountDetails().get(0).getPaymentCapita());
 		assertEquals(List.of("UPI", "CARD"), response.getListOfDueAmountDetails().get(0).getAllowedPaymentModes());
 		long dueIdCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueId() != null)
@@ -234,6 +236,7 @@ class PaymentServicesTest {
 		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
 		request.setPaymentCollectionCycle("monthly");
 		request.setPaymentCollectionMode("pre");
+		request.setEventPayment(true);
 		request.setAddLeftOverPayment(true);
 
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
@@ -505,6 +508,8 @@ class PaymentServicesTest {
 		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
 				.filter(d -> !"OLD1000".equals(d.getPaymentId()))
 				.allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
+				.filter(d -> !"OLD1000".equals(d.getPaymentId())).allMatch(DueAmountDetails::isEventPayment));
 	}
 
 	@Test
@@ -524,6 +529,7 @@ class PaymentServicesTest {
 		request.setPaymentCollectionCycle("half_yearly");
 		request.setPaymentCollectionMode("pre");
 		request.setCamPayment(true);
+		request.setEventPayment(true);
 		request.setDiscountCode("DISC10");
 		request.setFineCode("FINE5");
 		AddedCharges amountCharge = new AddedCharges();
@@ -543,6 +549,7 @@ class PaymentServicesTest {
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
 		assertTrue(paymentCaptor.getValue().isMaintainanceFee());
+		assertTrue(paymentCaptor.getValue().isEventPayment());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
 		assertEquals(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, paymentCaptor.getValue().getPaymentCollectionCycle());
 		assertEquals(SecuraConstants.PAYMENT_STATUS_ACTIVE, paymentCaptor.getValue().getStatus());
