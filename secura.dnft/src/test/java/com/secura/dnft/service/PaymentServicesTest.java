@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,18 +29,25 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.PayDueRequest;
+import com.secura.dnft.request.response.PayDueResponse;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServicesTest {
@@ -51,6 +60,12 @@ class PaymentServicesTest {
 
 	@Mock
 	private FlatRepository flatRepository;
+
+	@Mock
+	private FlatInterface flatInterface;
+
+	@Mock
+	private TransactionRepository transactionRepository;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -799,6 +814,107 @@ class PaymentServicesTest {
 		assertTrue(savedDueList.stream()
 				.filter(d -> d.getDueDate() != null && !d.getDueDate().isAfter(today))
 				.allMatch(d -> d.getDiscountCode() == null && d.getFineCode() == null));
+	}
+
+	@Test
+	void payDues_shouldCreateOnHoldTransactionAndWorklistForCashTender() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY1234");
+		request.setDueId("DUE-001");
+		request.setAmount("1200");
+		request.setTender(SecuraConstants.TRANSACTION_TENDER_CASH);
+		request.setTransactionStatus("PENDING");
+		request.setThirdPartyTransactionId("REF-001");
+		request.setNoOfPersons("3");
+		request.setFiles(List.of("one.pdf", "two.pdf"));
+
+		DueAmountDetails dueDetails = new DueAmountDetails();
+		dueDetails.setDueId("DUE-001");
+		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
+		dueResponse.setDuePaymentList(List.of(dueDetails));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setBankAccountId("BANK-001");
+
+		Worklist worklist = new Worklist();
+		worklist.setWorklistTaskId("WL-001");
+
+		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
+		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"), eq("APR-001"),
+				any())).thenReturn(worklist);
+		when(genericService.createWorklistAssignmentFlow("WL-001", List.of("admin"))).thenReturn(worklist);
+		when(genericService.toJson(any())).thenAnswer(invocation -> invocation.getArgument(0) instanceof DueAmountDetails
+				? "DUE_JSON"
+				: "FILES_JSON");
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		Transaction savedTransaction = transactionCaptor.getValue();
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
+		assertEquals(savedTransaction.getTrnscId(), response.getTransactionId());
+		assertEquals(SecuraConstants.TRANSACTION_STATUS_ON_HOLD, savedTransaction.getTrnsStatus());
+		assertEquals(SecuraConstants.TRANSACTION_TYPE_CREDIT, savedTransaction.getTrnsType());
+		assertEquals(SecuraConstants.PAYMENT_CURRENCY, savedTransaction.getTrnsCurrency());
+		assertEquals(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY, savedTransaction.getThirdPartyName());
+		assertEquals("BANK-001", savedTransaction.getTrnsBnkAccnt());
+		assertEquals("DUE_JSON", savedTransaction.getDueDetails());
+		assertEquals("FILES_JSON", savedTransaction.getTrnsFiles());
+		assertEquals("WL-001", savedTransaction.getWorkListId());
+		assertEquals("APR-001", savedTransaction.getAprmntId());
+		assertEquals("USR-001", savedTransaction.getTrnsBy());
+		assertTrue(savedTransaction.getTrnscId().contains("PAY1234"));
+		verify(genericService).createWorklistAssignmentFlow("WL-001", List.of("admin"));
+	}
+
+	@Test
+	void payDues_shouldSetSuccessStatusWithoutWorklistForOnlineTender() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY1234");
+		request.setDueId("DUE-001");
+		request.setAmount("1200");
+		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+
+		DueAmountDetails dueDetails = new DueAmountDetails();
+		dueDetails.setDueId("DUE-001");
+		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
+		dueResponse.setDuePaymentList(List.of(dueDetails));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setBankAccountId("BANK-001");
+
+		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
+		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenReturn("JSON");
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		Transaction savedTransaction = transactionCaptor.getValue();
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
+		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, savedTransaction.getTrnsStatus());
+		assertNull(savedTransaction.getWorkListId());
+		verify(genericService, never()).createWorklist(any(), any(), any(), any());
+		verify(genericService, never()).createWorklistAssignmentFlow(any(), any());
 	}
 
 	@SuppressWarnings("unchecked")

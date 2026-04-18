@@ -22,6 +22,7 @@ public interface SecuraConstants {
 	
 	public final String WORKLIST_TYPE_BOOKING="BOOKING" ;
 	public final String WORKLIST_TYPE_PAYMENT="PAYMENT" ;
+	public final String WORKLIST_TYPE_TRANSACTION="TRANSACTION" ;
 	
 	public final String PROFILE_ID_PREFIX="PRFL" ;
 	
@@ -49,6 +50,13 @@ public interface SecuraConstants {
 	public final String PAYMENT_STATUS_ACTIVE="ACTIVE" ;
 	public final String PAYMENT_STATUS_CANCLLED="CANCLLED" ;
 	public final String PAYMENT_STATUS_COMPLETED="COMPLETED" ;
+	public final String TRANSACTION_TYPE_CREDIT="CREDIT" ;
+	public final String TRANSACTION_STATUS_SUCCESS="SUCCESS" ;
+	public final String TRANSACTION_STATUS_ON_HOLD="ON HOLD" ;
+	public final String TRANSACTION_TENDER_ONLINE="ONLINE" ;
+	public final String TRANSACTION_TENDER_CASH="CASH" ;
+	public final String TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER="OFFLINE_BANK_TRANSFER" ;
+	public final String TRANSACTION_THIRD_PARTY_RAZOR_PAY="RAZOR PAY" ;
 	
 	public final String PAYMENT_CYCLE_MONTHLY="MONTHLY" ;
 	public final String PAYMENT_CYCLE_QUATERLY="QUATERLY" ;
