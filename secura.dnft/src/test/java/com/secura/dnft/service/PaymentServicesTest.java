@@ -100,6 +100,10 @@ class PaymentServicesTest {
 	@Test
 	void getDuePaymentAmountDetails_shouldReturnAllDueAmountDetailsFromCreatePaymentRequest() {
 		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentName("Maintenance");
+		request.setPaymentType("MANDATORY");
+		request.setPaymentCapita("PER_FLAT");
+		request.setAllowedPaymentModes(List.of("UPI", "CARD"));
 		request.setPaymentAmount("1000");
 		request.setGst("10");
 		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
@@ -114,6 +118,15 @@ class PaymentServicesTest {
 		assertEquals("10", response.getListOfDueAmountDetails().get(0).getGstPercentage());
 		assertEquals("100", response.getListOfDueAmountDetails().get(0).getGstAmount());
 		assertEquals("1100", response.getListOfDueAmountDetails().get(0).getTotalAmount());
+		assertEquals("Maintenance", response.getListOfDueAmountDetails().get(0).getPaymentName());
+		assertEquals("MANDATORY", response.getListOfDueAmountDetails().get(0).getPaymentType());
+		assertEquals("PER_FLAT", response.getListOfDueAmountDetails().get(0).getPaymentCapita());
+		assertEquals(List.of("UPI", "CARD"), response.getListOfDueAmountDetails().get(0).getAllowedPaymentModes());
+		BigDecimal totalDueAmount = response.getListOfDueAmountDetails().stream().map(DueAmountDetails::getTotalAmount)
+				.map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add).stripTrailingZeros();
+		assertEquals(totalDueAmount.toPlainString(),
+				response.getListOfDueAmountDetails().get(0).getTotalMandatoryPaymentAmount());
+		assertEquals("0", response.getListOfDueAmountDetails().get(0).getTotalOptionalPaymentAmount());
 		long dueIdCount = response.getListOfDueAmountDetails().stream().filter(d -> d.getDueId() != null)
 				.count();
 		assertEquals(0, dueIdCount);
@@ -344,7 +357,10 @@ class PaymentServicesTest {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
 		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("OPTIONAL");
 		request.setPaymentCapita("Per Sqft");
+		request.setAllowedPaymentModes(List.of("UPI", "NETBANKING"));
 		request.setPaymentAmount("2");
 		request.setGst("10");
 		request.setCollectionStartDate(Date.valueOf(today));
@@ -376,6 +392,17 @@ class PaymentServicesTest {
 		assertEquals("10", response.getFlatTypeDueAmountDetails().get("1200").get(0).getGstPercentage());
 		assertEquals("240", response.getFlatTypeDueAmountDetails().get("1200").get(0).getGstAmount());
 		assertEquals("2640", response.getFlatTypeDueAmountDetails().get("1200").get(0).getTotalAmount());
+		assertEquals("CAM", response.getFlatTypeDueAmountDetails().get("1200").get(0).getPaymentName());
+		assertEquals("OPTIONAL", response.getFlatTypeDueAmountDetails().get("1200").get(0).getPaymentType());
+		assertEquals("Per Sqft", response.getFlatTypeDueAmountDetails().get("1200").get(0).getPaymentCapita());
+		assertEquals(List.of("UPI", "NETBANKING"),
+				response.getFlatTypeDueAmountDetails().get("1200").get(0).getAllowedPaymentModes());
+		BigDecimal optionalTotalFor1200 = response.getFlatTypeDueAmountDetails().get("1200").stream()
+				.map(DueAmountDetails::getTotalAmount).map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add)
+				.stripTrailingZeros();
+		assertEquals(optionalTotalFor1200.toPlainString(),
+				response.getFlatTypeDueAmountDetails().get("1200").get(0).getTotalOptionalPaymentAmount());
+		assertEquals("0", response.getFlatTypeDueAmountDetails().get("1200").get(0).getTotalMandatoryPaymentAmount());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_28, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_28, response.getMessageCode());
 	}
