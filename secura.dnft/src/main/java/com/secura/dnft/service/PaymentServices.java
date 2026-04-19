@@ -923,16 +923,16 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
-		int noOfPersons = getPositiveNoOfPersons(request != null ? request.getNoOfPersons() : null);
+		int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPersons() : null);
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails, noOfPersons)));
+		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails, personCount)));
 		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
 		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
 		receiptRequest.setReceiptType("Payment");
-		receiptRequest.setPerheadFlag(noOfPersons > 0);
+		receiptRequest.setPerheadFlag(personCount > 0);
 		receiptRequest.setRemarks(null);
-		receiptRequest.setUnitPriceRequired(noOfPersons > 1);
+		receiptRequest.setUnitPriceRequired(personCount > 1);
 		receiptRequest.setTotalAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setTenderList(buildTenderList(request));
@@ -984,7 +984,8 @@ public class PaymentServices implements PaymentInterface {
 			return 0;
 		}
 		try {
-			return Math.max(Integer.parseInt(noOfPersons.trim()), 0);
+			int parsedNoOfPersons = Integer.parseInt(noOfPersons.trim());
+			return parsedNoOfPersons > 0 ? parsedNoOfPersons : 0;
 		} catch (NumberFormatException ex) {
 			return 0;
 		}
