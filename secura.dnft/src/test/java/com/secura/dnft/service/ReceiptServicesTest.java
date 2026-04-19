@@ -164,6 +164,26 @@ class ReceiptServicesTest {
 	}
 
 	@Test
+	void createReceipt_shouldHideQuantityAndUnitPriceColumnsWhenItemQuantityIsAbsent() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setItems(List.of(createItem("Maintenance", null, null, "1000")));
+		request.setTotalAmount("1180");
+		request.setUnitPriceRequired(false);
+		request.setPerheadFlag(false);
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertFalse(text.contains("NO OF PERSON"));
+		assertFalse(text.contains("UNIT PRICE"));
+		assertFalse(text.contains("QUANTITY"));
+		assertTrue(text.contains("₹ 1000"));
+	}
+
+	@Test
 	void createReceipt_shouldLimitSideBordersToReceiptBody() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
 		request.setRemarks("Paid via UPI");

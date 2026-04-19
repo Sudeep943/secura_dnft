@@ -44,6 +44,8 @@ import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.GetPaymentRequest;
@@ -59,7 +61,6 @@ import jakarta.persistence.EntityNotFoundException;
 @Service
 public class PaymentServices implements PaymentInterface {
 	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
-	private static final String DEFAULT_PAYMENT_QUANTITY = "1";
 
 	@Autowired
 	GenericService genericService;
@@ -923,17 +924,18 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
-		int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPersons() : null);
+		boolean perHeadPayment = hasText(request != null ? request.getNoOfPersons() : null);
+		int personCount = perHeadPayment ? resolvePerHeadPersonCount(request.getNoOfPersons()) : 0;
 		String requestedAmount = request != null ? request.getAmount() : null;
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails, personCount)));
-		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails, personCount));
-		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails, personCount));
+		receiptRequest.setItems(List.of(buildReceiptItem(request, dueDetails, personCount, perHeadPayment)));
+		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
+		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
 		receiptRequest.setReceiptType("Payment");
-		receiptRequest.setPerheadFlag(personCount > 0);
+		receiptRequest.setPerheadFlag(perHeadPayment);
 		receiptRequest.setRemarks(null);
-		receiptRequest.setUnitPriceRequired(personCount > 1);
+		receiptRequest.setUnitPriceRequired(perHeadPayment);
 		receiptRequest.setTotalAmount(hasText(requestedAmount) ? requestedAmount : dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setTenderList(buildTenderList(request));
@@ -950,27 +952,39 @@ public class PaymentServices implements PaymentInterface {
 		return List.of(tenderData);
 	}
 
-	private Items buildReceiptItem(DueAmountDetails dueDetails, int noOfPersons) {
+	private Items buildReceiptItem(PayDueRequest request, DueAmountDetails dueDetails, int noOfPersons, boolean perHeadPayment) {
 		Items item = new Items();
 		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
 		item.setType("PAYMENT");
-		if (noOfPersons > 1) {
-			String unitPrice = getReceiptUnitPrice(dueDetails);
+		if (perHeadPayment) {
+			String unitPrice = divideAmount(dueDetails != null ? dueDetails.getAmount() : null, noOfPersons);
 			item.setUnitPrice(unitPrice);
 			item.setQuantity(String.valueOf(noOfPersons));
-			item.setAmount(multiplyAmount(unitPrice, noOfPersons));
+			item.setAmount(dueDetails != null ? dueDetails.getAmount() : null);
 			return item;
 		}
-		item.setAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
-		item.setQuantity(DEFAULT_PAYMENT_QUANTITY);
+		item.setAmount(resolveNonPerHeadReceiptAmount(request, dueDetails));
 		return item;
 	}
 
-	private String getReceiptUnitPrice(DueAmountDetails dueDetails) {
+	private String resolveNonPerHeadReceiptAmount(PayDueRequest request, DueAmountDetails dueDetails) {
+		if (hasText(request != null ? request.getBaseAmount() : null)) {
+			return request.getBaseAmount();
+		}
 		if (hasText(dueDetails != null ? dueDetails.getAmount() : null)) {
 			return dueDetails.getAmount();
 		}
 		return dueDetails != null ? dueDetails.getTotalAmount() : null;
+	}
+
+	private String divideAmount(String amount, int divisor) {
+		if (!hasText(amount)) {
+			return amount;
+		}
+		if (divisor == 0) {
+			throw new IllegalArgumentException("divisor must not be zero");
+		}
+		return formatNumber(parseNumeric(amount).divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP));
 	}
 
 	private String multiplyAmount(String amount, int multiplier) {
@@ -992,39 +1006,35 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails, int personCount) {
+	private int resolvePerHeadPersonCount(String noOfPersons) {
+		return Math.max(getPositiveNoOfPersons(noOfPersons), 1);
+	}
+
+	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails) {
 		List<AddedCharges> receiptAddedCharges = cloneAddedCharges(dueDetails != null ? dueDetails.getAddedCharges() : null);
 		if (receiptAddedCharges == null) {
 			receiptAddedCharges = new ArrayList<>();
-		}
-		if (personCount > 1) {
-			for (AddedCharges charge : receiptAddedCharges) {
-				if (charge != null) {
-					charge.setFinalChargeValue(multiplyAmount(charge.getFinalChargeValue(), personCount));
-				}
-			}
 		}
 		if (dueDetails != null && hasText(dueDetails.getGstAmount())) {
 			AddedCharges gstCharge = new AddedCharges();
 			gstCharge.setChargeName("GST");
 			gstCharge.setChargeType("percentage");
 			gstCharge.setValue(dueDetails.getGstPercentage());
-			gstCharge.setFinalChargeValue(personCount > 1 ? multiplyAmount(dueDetails.getGstAmount(), personCount) : dueDetails.getGstAmount());
+			gstCharge.setFinalChargeValue(dueDetails.getGstAmount());
 			receiptAddedCharges.add(gstCharge);
 		}
 		return receiptAddedCharges.isEmpty() ? null : receiptAddedCharges;
 	}
 
-	private DiscFinReceipt buildDiscFinReceipt(DueAmountDetails dueDetails, int personCount) {
+	private DiscFinReceipt buildDiscFinReceipt(DueAmountDetails dueDetails) {
 		if (dueDetails == null) {
 			return null;
 		}
 		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
 		discFinReceipt.setDiscountCode(dueDetails.getDiscountCode());
-		discFinReceipt.setDiscountAmount(personCount > 1 ? multiplyAmount(dueDetails.getDiscountedAmount(), personCount)
-				: dueDetails.getDiscountedAmount());
+		discFinReceipt.setDiscountAmount(dueDetails.getDiscountedAmount());
 		discFinReceipt.setFineCode(dueDetails.getFineCode());
-		discFinReceipt.setFineAmount(personCount > 1 ? multiplyAmount(dueDetails.getFineAmount(), personCount) : dueDetails.getFineAmount());
+		discFinReceipt.setFineAmount(dueDetails.getFineAmount());
 		if (!hasText(discFinReceipt.getDiscountCode()) && !hasText(discFinReceipt.getDiscountAmount())
 				&& !hasText(discFinReceipt.getFineCode()) && !hasText(discFinReceipt.getFineAmount())) {
 			return null;
@@ -1033,6 +1043,19 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private DueAmountDetails getMatchingDueDetails(PayDueRequest request) {
+		if (hasText(request != null ? request.getNoOfPersons() : null)) {
+			GetDueAmountForPerHeadCalculationRequest perHeadRequest = new GetDueAmountForPerHeadCalculationRequest();
+			perHeadRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			perHeadRequest.setDueId(request != null ? request.getDueId() : null);
+			perHeadRequest.setNoOfPerson(request != null ? request.getNoOfPersons() : null);
+			GetDueAmountForPerHeadCalculationResponse perHeadResponse = flatInterface
+					.getDueAmountForPerHeadCalculation(perHeadRequest);
+			DueAmountDetails dueAmountDetails = perHeadResponse != null ? perHeadResponse.getDueAmountDetails() : null;
+			if (dueAmountDetails != null) {
+				return dueAmountDetails;
+			}
+			throw new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33);
+		}
 		GetDueAmountForFlatRequest dueRequest = new GetDueAmountForFlatRequest();
 		dueRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		dueRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);

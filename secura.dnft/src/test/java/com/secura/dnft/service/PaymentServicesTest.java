@@ -49,6 +49,7 @@ import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
@@ -843,8 +844,8 @@ class PaymentServicesTest {
 
 		DueAmountDetails dueDetails = new DueAmountDetails();
 		dueDetails.setDueId("DUE-001");
-		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
-		dueResponse.setDuePaymentList(List.of(dueDetails));
+		GetDueAmountForPerHeadCalculationResponse dueResponse = new GetDueAmountForPerHeadCalculationResponse();
+		dueResponse.setDueAmountDetails(dueDetails);
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
@@ -852,7 +853,7 @@ class PaymentServicesTest {
 		Worklist worklist = new Worklist();
 		worklist.setWorklistTaskId("WL-001");
 
-		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
+		when(flatInterface.getDueAmountForPerHeadCalculation(any())).thenReturn(dueResponse);
 		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"), eq("APR-001"),
 				any())).thenReturn(worklist);
@@ -884,6 +885,7 @@ class PaymentServicesTest {
 		assertEquals("APR-001", savedTransaction.getAprmntId());
 		assertEquals("USR-001", savedTransaction.getTrnsBy());
 		assertTrue(savedTransaction.getTrnscId().contains("PAY1234"));
+		verify(flatInterface, never()).getDueAmountForFlat(any());
 		verify(genericService).createWorklistAssignmentFlow("WL-001", List.of("admin"));
 		verify(receiptServices, never()).createReceipt(any());
 	}
@@ -899,6 +901,7 @@ class PaymentServicesTest {
 		request.setPaymentId("PAY1234");
 		request.setDueId("DUE-001");
 		request.setAmount("1801");
+		request.setBaseAmount("1000");
 		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
 		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setNoOfPersons("3");
@@ -906,8 +909,8 @@ class PaymentServicesTest {
 		DueAmountDetails dueDetails = new DueAmountDetails();
 		dueDetails.setDueId("DUE-001");
 		dueDetails.setPaymentName("Maintenance");
-		dueDetails.setAmount("400");
-		dueDetails.setTotalAmount("1200");
+		dueDetails.setAmount("1200");
+		dueDetails.setTotalAmount("1350");
 		dueDetails.setGstAmount("200");
 		dueDetails.setGstPercentage("18");
 		dueDetails.setDiscountCode("DISC10");
@@ -920,8 +923,8 @@ class PaymentServicesTest {
 		addedCharge.setValue("50");
 		addedCharge.setFinalChargeValue("50");
 		dueDetails.setAddedCharges(List.of(addedCharge));
-		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
-		dueResponse.setDuePaymentList(List.of(dueDetails));
+		GetDueAmountForPerHeadCalculationResponse dueResponse = new GetDueAmountForPerHeadCalculationResponse();
+		dueResponse.setDueAmountDetails(dueDetails);
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
@@ -929,7 +932,7 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
 		createReceiptResponse.setReceiptNumber("RCT-1001");
 
-		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
+		when(flatInterface.getDueAmountForPerHeadCalculation(any())).thenReturn(dueResponse);
 		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.toJson(any())).thenReturn("JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
@@ -947,6 +950,7 @@ class PaymentServicesTest {
 		assertEquals("RCT-1001", response.getReceiptNumber());
 		assertEquals("RCT-1001", savedTransaction.getReceiptNumber());
 		assertNull(savedTransaction.getWorkListId());
+		verify(flatInterface, never()).getDueAmountForFlat(any());
 		verify(genericService, never()).createWorklist(any(), any(), any(), any());
 		verify(genericService, never()).createWorklistAssignmentFlow(any(), any());
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
@@ -970,17 +974,106 @@ class PaymentServicesTest {
 		assertEquals("1801", tenderData.getAmountPaid());
 		assertEquals(2, receiptRequest.getAddedCharges().size());
 		assertEquals("Late Fee", receiptRequest.getAddedCharges().get(0).getChargeName());
-		assertEquals("150", receiptRequest.getAddedCharges().get(0).getFinalChargeValue());
+		assertEquals("50", receiptRequest.getAddedCharges().get(0).getFinalChargeValue());
 		assertEquals("GST", receiptRequest.getAddedCharges().get(1).getChargeName());
 		assertEquals("percentage", receiptRequest.getAddedCharges().get(1).getChargeType());
 		assertEquals("18", receiptRequest.getAddedCharges().get(1).getValue());
-		assertEquals("600", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
+		assertEquals("200", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
 		DiscFinReceipt discFinReceipt = receiptRequest.getDiscFinReceipt();
 		assertNotNull(discFinReceipt);
 		assertEquals("DISC10", discFinReceipt.getDiscountCode());
-		assertEquals("300", discFinReceipt.getDiscountAmount());
+		assertEquals("100", discFinReceipt.getDiscountAmount());
 		assertEquals("FINE5", discFinReceipt.getFineCode());
-		assertEquals("150", discFinReceipt.getFineAmount());
+		assertEquals("50", discFinReceipt.getFineAmount());
+	}
+
+	@Test
+	void payDues_shouldUseBaseAmountForNonPerHeadReceiptItem() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY1234");
+		request.setDueId("DUE-001");
+		request.setAmount("1180");
+		request.setBaseAmount("1000");
+		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+
+		DueAmountDetails dueDetails = new DueAmountDetails();
+		dueDetails.setDueId("DUE-001");
+		dueDetails.setPaymentName("Maintenance");
+		dueDetails.setAmount("1180");
+		dueDetails.setTotalAmount("1180");
+		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
+		dueResponse.setDuePaymentList(List.of(dueDetails));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setBankAccountId("BANK-001");
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-1002");
+
+		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
+		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenReturn("JSON");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.payDues(request);
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertFalse(receiptRequest.isPerheadFlag());
+		assertFalse(receiptRequest.isUnitPriceRequired());
+		assertEquals("1000", receiptRequest.getItems().get(0).getAmount());
+		assertNull(receiptRequest.getItems().get(0).getQuantity());
+		assertNull(receiptRequest.getItems().get(0).getUnitPrice());
+		verify(flatInterface, never()).getDueAmountForPerHeadCalculation(any());
+	}
+
+	@Test
+	void payDues_shouldFallbackToDueAmountWhenBaseAmountIsMissing() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY1234");
+		request.setDueId("DUE-001");
+		request.setAmount("1180");
+		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+
+		DueAmountDetails dueDetails = new DueAmountDetails();
+		dueDetails.setDueId("DUE-001");
+		dueDetails.setPaymentName("Maintenance");
+		dueDetails.setAmount("1000");
+		dueDetails.setTotalAmount("1180");
+		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
+		dueResponse.setDuePaymentList(List.of(dueDetails));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setBankAccountId("BANK-001");
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-1003");
+
+		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
+		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenReturn("JSON");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.payDues(request);
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		assertEquals("1000", receiptRequestCaptor.getValue().getItems().get(0).getAmount());
 	}
 
 	@SuppressWarnings("unchecked")
