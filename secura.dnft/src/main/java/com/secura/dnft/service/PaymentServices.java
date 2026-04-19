@@ -924,7 +924,7 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
-		boolean perHeadPayment = hasText(request != null ? request.getNoOfPersons() : null);
+		boolean perHeadPayment = isPerHeadReceiptPayment(request, dueDetails);
 		int personCount = perHeadPayment ? resolvePerHeadPersonCount(request.getNoOfPersons()) : 0;
 		String requestedAmount = request != null ? request.getAmount() : null;
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
@@ -963,14 +963,28 @@ public class PaymentServices implements PaymentInterface {
 			item.setAmount(dueDetails != null ? dueDetails.getAmount() : null);
 			return item;
 		}
-		item.setAmount(resolveNonPerHeadReceiptAmount(request, dueDetails));
+		item.setAmount(resolveNonPerHeadReceiptAmount(dueDetails));
 		return item;
 	}
 
-	private String resolveNonPerHeadReceiptAmount(PayDueRequest request, DueAmountDetails dueDetails) {
-		if (hasText(request != null ? request.getBaseAmount() : null)) {
-			return request.getBaseAmount();
+	private boolean isPerHeadReceiptPayment(PayDueRequest request, DueAmountDetails dueDetails) {
+		if (!hasText(request != null ? request.getNoOfPersons() : null)) {
+			return false;
 		}
+		if (!hasText(dueDetails != null ? dueDetails.getPaymentCapita() : null)) {
+			return true;
+		}
+		return isPerHeadPaymentCapita(dueDetails.getPaymentCapita());
+	}
+
+	private boolean isPerHeadPaymentCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return false;
+		}
+		return "perhead".equalsIgnoreCase(paymentCapita.replaceAll("[^A-Za-z0-9]", ""));
+	}
+
+	private String resolveNonPerHeadReceiptAmount(DueAmountDetails dueDetails) {
 		if (hasText(dueDetails != null ? dueDetails.getAmount() : null)) {
 			return dueDetails.getAmount();
 		}
