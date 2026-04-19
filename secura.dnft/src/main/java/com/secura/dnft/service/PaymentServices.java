@@ -50,6 +50,7 @@ import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
 
@@ -774,14 +775,18 @@ public class PaymentServices implements PaymentInterface {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		DueAmountDetails dueDetails = getMatchingDueDetails(request);
 		Transaction transaction = buildTransaction(request, dueDetails);
-		transactionRepository.save(transaction);
 		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
-			CreateReceiptResponse receiptResponse = receiptServices.createReceipt(buildReceiptRequest(request, dueDetails));
+			CreateReceiptResponse receiptResponse = receiptServices
+					.createReceipt(buildReceiptRequest(request, dueDetails, transaction.getTrnscId()));
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 		}
+		transactionRepository.save(transaction);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
 		response.setTransactionId(transaction.getTrnscId());
+		response.setReceiptNumber(transaction.getReceiptNumber());
 		return response;
 	}
 
@@ -917,7 +922,7 @@ public class PaymentServices implements PaymentInterface {
 		return transaction;
 	}
 
-	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails) {
+	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails)));
@@ -928,7 +933,19 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(false);
 		receiptRequest.setTotalAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
+		receiptRequest.setTransactionId(transactionId);
+		receiptRequest.setTenderList(buildTenderList(request));
 		return receiptRequest;
+	}
+
+	private List<PaymentTenderData> buildTenderList(PayDueRequest request) {
+		if (request == null || !hasText(request.getTender()) || !hasText(request.getAmount())) {
+			return null;
+		}
+		PaymentTenderData tenderData = new PaymentTenderData();
+		tenderData.setTenderName(request.getTender());
+		tenderData.setAmountPaid(request.getAmount());
+		return List.of(tenderData);
 	}
 
 	private Items buildReceiptItem(DueAmountDetails dueDetails) {

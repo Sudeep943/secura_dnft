@@ -131,4 +131,11 @@ class GenericServiceTest {
 
 		assertEquals("TEXT", column.columnDefinition());
 	}
+
+	@Test
+	void createWorklistId_shouldAlwaysReturnUppercaseValue() {
+		String worklistId = genericService.createWorklistId("transaction", "user-1");
+
+		assertEquals(worklistId.toUpperCase(), worklistId);
+	}
 }

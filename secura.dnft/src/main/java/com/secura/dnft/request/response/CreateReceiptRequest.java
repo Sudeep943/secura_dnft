@@ -20,6 +20,8 @@ public class CreateReceiptRequest {
 	private String remarks;
 	private boolean unitPriceRequired;
 	private String totalAmount;
+	private String transactionId;
+	private List<PaymentTenderData> tenderList;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -91,5 +93,21 @@ public class CreateReceiptRequest {
 
 	public void setTotalAmount(String totalAmount) {
 		this.totalAmount = totalAmount;
+	}
+
+	public String getTransactionId() {
+		return transactionId;
+	}
+
+	public void setTransactionId(String transactionId) {
+		this.transactionId = transactionId;
+	}
+
+	public List<PaymentTenderData> getTenderList() {
+		return tenderList;
+	}
+
+	public void setTenderList(List<PaymentTenderData> tenderList) {
+		this.tenderList = tenderList;
 	}
 }

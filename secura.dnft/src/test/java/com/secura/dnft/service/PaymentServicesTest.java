@@ -52,6 +52,7 @@ import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.PaymentTenderData;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServicesTest {
@@ -871,6 +872,7 @@ class PaymentServicesTest {
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
 		assertEquals(savedTransaction.getTrnscId(), response.getTransactionId());
 		assertNull(response.getReceipt());
+		assertNull(response.getReceiptNumber());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_ON_HOLD, savedTransaction.getTrnsStatus());
 		assertEquals(SecuraConstants.TRANSACTION_TYPE_CREDIT, savedTransaction.getTrnsType());
 		assertEquals(SecuraConstants.PAYMENT_CURRENCY, savedTransaction.getTrnsCurrency());
@@ -923,6 +925,7 @@ class PaymentServicesTest {
 		paymentEntity.setBankAccountId("BANK-001");
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-1001");
 
 		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
 		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
@@ -939,6 +942,8 @@ class PaymentServicesTest {
 		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, savedTransaction.getTrnsStatus());
 		assertEquals("RECEIPT_BASE64", response.getReceipt());
+		assertEquals("RCT-1001", response.getReceiptNumber());
+		assertEquals("RCT-1001", savedTransaction.getReceiptNumber());
 		assertNull(savedTransaction.getWorkListId());
 		verify(genericService, never()).createWorklist(any(), any(), any(), any());
 		verify(genericService, never()).createWorklistAssignmentFlow(any(), any());
@@ -950,10 +955,15 @@ class PaymentServicesTest {
 		assertFalse(receiptRequest.isUnitPriceRequired());
 		assertNull(receiptRequest.getRemarks());
 		assertEquals("1200", receiptRequest.getTotalAmount());
+		assertEquals(savedTransaction.getTrnscId(), receiptRequest.getTransactionId());
 		assertEquals(1, receiptRequest.getItems().size());
 		assertEquals("Maintenance", receiptRequest.getItems().get(0).getItemName());
 		assertEquals("1200", receiptRequest.getItems().get(0).getAmount());
 		assertEquals("PAYMENT", receiptRequest.getItems().get(0).getType());
+		assertEquals(1, receiptRequest.getTenderList().size());
+		PaymentTenderData tenderData = receiptRequest.getTenderList().get(0);
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, tenderData.getTenderName());
+		assertEquals("1200", tenderData.getAmountPaid());
 		assertEquals(2, receiptRequest.getAddedCharges().size());
 		assertEquals("Late Fee", receiptRequest.getAddedCharges().get(0).getChargeName());
 		assertEquals("GST", receiptRequest.getAddedCharges().get(1).getChargeName());

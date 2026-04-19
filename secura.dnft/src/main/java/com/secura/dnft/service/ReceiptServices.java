@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -27,8 +27,11 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
+import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.ReceiptInterface;
@@ -38,6 +41,7 @@ import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.Items;
+import com.secura.dnft.request.response.PaymentTenderData;
 
 @Service
 public class ReceiptServices implements ReceiptInterface {
@@ -53,38 +57,66 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
 	private static final float CELL_PADDING = 4f;
-	private static final float SECTION_GAP = 12f;
+	private static final float SECTION_GAP = 0f;
+	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic generated receipt required no signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
 
 	@Autowired
 	private ApartmentRepository apartmentRepository;
 
+	@Autowired
+	private ReceiptRepository receiptRepository;
+
+	@Autowired
+	private ObjectMapper objectMapper;
+
 	@Override
 	public CreateReceiptResponse createReceipt(CreateReceiptRequest request) throws Exception {
+		LocalDateTime currentTimestamp = LocalDateTime.now();
+		String receiptNumber = generateReceiptNumber();
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setReceipt(buildReceiptBase64(request));
+		response.setReceipt(buildReceiptBase64(request, receiptNumber, currentTimestamp));
+		response.setReceiptNumber(receiptNumber);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_34);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_34);
+		receiptRepository.save(buildReceiptEntity(request, receiptNumber, currentTimestamp));
 		return response;
 	}
 
-	private String buildReceiptBase64(CreateReceiptRequest request) throws Exception {
+	private String buildReceiptBase64(CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate) throws Exception {
 		try (PDDocument document = new PDDocument(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			PdfCanvas canvas = new PdfCanvas(document);
 			ApartmentMaster apartment = resolveApartment(request != null ? request.getGenericHeader() : null);
 			drawHeader(canvas, request, apartment);
-			drawMetaTable(canvas, request);
+			drawMetaTable(canvas, request, receiptNumber, receiptDate);
 			drawItemsSection(canvas, request);
 			drawAddedChargesSection(canvas, request != null ? request.getAddedCharges() : null);
 			drawDiscountFineSection(canvas, request != null ? request.getDiscFinReceipt() : null);
+			drawTenderDetailsSection(canvas, request != null ? request.getTenderList() : null);
 			drawTotal(canvas, request != null ? request.getTotalAmount() : null);
 			drawRemarks(canvas, request != null ? request.getRemarks() : null);
+			drawElectronicReceiptNote(canvas);
 			canvas.close();
 			document.save(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
+	}
+
+	private Receipt buildReceiptEntity(CreateReceiptRequest request, String receiptNumber, LocalDateTime currentTimestamp)
+			throws Exception {
+		Receipt receipt = new Receipt();
+		receipt.setAprmtId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+		receipt.setReceiptId(receiptNumber);
+		receipt.setReceiptDate(currentTimestamp);
+		receipt.setReceiptType(request != null ? request.getReceiptType() : null);
+		receipt.setReceiptData(objectMapper.writeValueAsString(request));
+		receipt.setCreatTs(currentTimestamp);
+		receipt.setCreatUsrId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		receipt.setLstUpdtTs(null);
+		receipt.setLstUpdtUsrId(null);
+		return receipt;
 	}
 
 	private ApartmentMaster resolveApartment(GenericHeader header) {
@@ -112,13 +144,16 @@ public class ReceiptServices implements ReceiptInterface {
 		canvas.addGap(SECTION_GAP);
 	}
 
-	private void drawMetaTable(PdfCanvas canvas, CreateReceiptRequest request) throws Exception {
-		float[] widths = new float[] { canvas.getUsableWidth() / 2, canvas.getUsableWidth() / 2 };
-		canvas.drawTableRow(new String[] { "Receipt Type", "Date" }, widths, true);
-		canvas.drawTableRow(new String[] { defaultValue(request != null ? request.getReceiptType() : null),
-				LocalDate.now().format(RECEIPT_DATE_FORMATTER) }, widths, false);
-		canvas.drawTableRow(new String[] { "Receipt Number", "" }, widths, true);
-		canvas.drawTableRow(new String[] { generateReceiptNumber(), "" }, widths, false);
+	private void drawMetaTable(PdfCanvas canvas, CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate)
+			throws Exception {
+		float usableWidth = canvas.getUsableWidth();
+		float[] widths = new float[] { usableWidth * 0.24f, usableWidth * 0.18f, usableWidth * 0.26f, usableWidth * 0.32f };
+		canvas.drawTableRow(
+				new String[] { "Receipt Type : " + defaultValue(request != null ? request.getReceiptType() : null),
+						"Date : " + (receiptDate != null ? receiptDate.toLocalDate().format(RECEIPT_DATE_FORMATTER) : ""),
+						"Receipt Number : " + defaultValue(receiptNumber),
+						"Transaction Id : " + defaultValue(request != null ? request.getTransactionId() : null) },
+				widths, false);
 		canvas.addGap(SECTION_GAP);
 	}
 
@@ -192,6 +227,23 @@ public class ReceiptServices implements ReceiptInterface {
 		canvas.addGap(SECTION_GAP);
 	}
 
+	private void drawTenderDetailsSection(PdfCanvas canvas, List<PaymentTenderData> tenderList) throws Exception {
+		if (tenderList == null || tenderList.isEmpty()) {
+			return;
+		}
+		canvas.drawSectionTitle("Tender Details");
+		float usableWidth = canvas.getUsableWidth();
+		float[] widths = new float[] { usableWidth * 0.12f, usableWidth * 0.58f, usableWidth * 0.30f };
+		canvas.drawTableRow(new String[] { "Sl No", "Description", "Amount" }, widths, true);
+		for (int index = 0; index < tenderList.size(); index++) {
+			PaymentTenderData tenderData = tenderList.get(index);
+			canvas.drawTableRow(new String[] { String.valueOf(index + 1),
+					defaultValue(tenderData != null ? tenderData.getTenderName() : null),
+					defaultValue(tenderData != null ? tenderData.getAmountPaid() : null) }, widths, false);
+		}
+		canvas.addGap(SECTION_GAP);
+	}
+
 	private void drawTotal(PdfCanvas canvas, String totalAmount) throws Exception {
 		float usableWidth = canvas.getUsableWidth();
 		canvas.drawTableRow(new String[] { "Total", defaultValue(totalAmount) }, new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
@@ -205,6 +257,12 @@ public class ReceiptServices implements ReceiptInterface {
 		canvas.drawSectionTitle("Remarks");
 		float width = canvas.getUsableWidth();
 		canvas.drawTableRow(new String[] { remarks.trim() }, new float[] { width }, false);
+	}
+
+	private void drawElectronicReceiptNote(PdfCanvas canvas) throws Exception {
+		canvas.addGap(LINE_HEIGHT * 3);
+		float width = canvas.getUsableWidth();
+		canvas.drawTableRow(new String[] { ELECTRONIC_RECEIPT_NOTE }, new float[] { width }, false);
 	}
 
 	private String resolveLogo(GenericHeader header, ApartmentMaster apartment) {

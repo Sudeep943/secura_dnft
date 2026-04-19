@@ -6,6 +6,7 @@ public class CreateReceiptResponse {
 	private String message;
 	private String messageCode;
 	private String receipt;
+	private String receiptNumber;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -37,5 +38,13 @@ public class CreateReceiptResponse {
 
 	public void setReceipt(String receipt) {
 		this.receipt = receipt;
+	}
+
+	public String getReceiptNumber() {
+		return receiptNumber;
+	}
+
+	public void setReceiptNumber(String receiptNumber) {
+		this.receiptNumber = receiptNumber;
 	}
 }
