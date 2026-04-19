@@ -954,8 +954,7 @@ public class PaymentServices implements PaymentInterface {
 		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
 		item.setType("PAYMENT");
 		if (noOfPersons > 1) {
-			String unitPrice = hasText(dueDetails != null ? dueDetails.getAmount() : null) ? dueDetails.getAmount()
-					: dueDetails != null ? dueDetails.getTotalAmount() : null;
+			String unitPrice = getReceiptUnitPrice(dueDetails);
 			item.setUnitPrice(unitPrice);
 			item.setQuantity(String.valueOf(noOfPersons));
 			item.setAmount(multiplyAmount(unitPrice, noOfPersons));
@@ -964,6 +963,13 @@ public class PaymentServices implements PaymentInterface {
 		item.setAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
 		item.setQuantity(DEFAULT_PAYMENT_QUANTITY);
 		return item;
+	}
+
+	private String getReceiptUnitPrice(DueAmountDetails dueDetails) {
+		if (hasText(dueDetails != null ? dueDetails.getAmount() : null)) {
+			return dueDetails.getAmount();
+		}
+		return dueDetails != null ? dueDetails.getTotalAmount() : null;
 	}
 
 	private String multiplyAmount(String amount, int multiplier) {
