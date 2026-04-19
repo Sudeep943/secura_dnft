@@ -181,6 +181,34 @@ class ReceiptServicesTest {
 		}
 	}
 
+	@Test
+	void createReceipt_shouldLimitSideBordersWithAllReceiptSections() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setUnitPriceRequired(true);
+		request.setTransactionId("TXN-1001");
+		request.setRemarks("Paid via UPI");
+		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
+		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountCode("DISC10");
+		discFinReceipt.setDiscountAmount("100");
+		discFinReceipt.setDiscountType("percentage");
+		discFinReceipt.setDiscountPercentage("10");
+		request.setDiscFinReceipt(discFinReceipt);
+		request.setTenderList(List.of(createTender("Online", "2500")));
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		byte[] pdfBytes = Base64.getDecoder().decode(response.getReceipt());
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			float rightBorderX = document.getPage(0).getMediaBox().getWidth() - 40f;
+			assertEquals(5, countVerticalSegments(document.getPage(0), 40f, 18f));
+			assertEquals(5, countVerticalSegments(document.getPage(0), rightBorderX, 18f));
+		}
+	}
+
 	private CreateReceiptRequest createBaseRequest() {
 		CreateReceiptRequest request = new CreateReceiptRequest();
 		GenericHeader header = new GenericHeader();
