@@ -898,7 +898,7 @@ class PaymentServicesTest {
 		request.setGenericHeader(header);
 		request.setPaymentId("PAY1234");
 		request.setDueId("DUE-001");
-		request.setAmount("1200");
+		request.setAmount("1801");
 		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
 		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setNoOfPersons("3");
