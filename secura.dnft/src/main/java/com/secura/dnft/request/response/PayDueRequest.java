@@ -19,7 +19,6 @@ public class PayDueRequest {
 	private String thirdPartyName;
 	@JsonAlias({ "noOfPersons" })
 	private String noOfPersons;
-	private String baseAmount;
 	@JsonAlias({ "listOfFiles" })
 	private List<String> files;
 
@@ -93,14 +92,6 @@ public class PayDueRequest {
 
 	public void setNoOfPersons(String noOfPersons) {
 		this.noOfPersons = noOfPersons;
-	}
-
-	public String getBaseAmount() {
-		return baseAmount;
-	}
-
-	public void setBaseAmount(String baseAmount) {
-		this.baseAmount = baseAmount;
 	}
 
 	public List<String> getFiles() {

@@ -901,7 +901,6 @@ class PaymentServicesTest {
 		request.setPaymentId("PAY1234");
 		request.setDueId("DUE-001");
 		request.setAmount("1801");
-		request.setBaseAmount("1000");
 		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
 		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setNoOfPersons("3");
@@ -910,6 +909,7 @@ class PaymentServicesTest {
 		dueDetails.setDueId("DUE-001");
 		dueDetails.setPaymentName("Maintenance");
 		dueDetails.setAmount("1200");
+		dueDetails.setPaymentCapita("PER_HEAD");
 		dueDetails.setTotalAmount("1350");
 		dueDetails.setGstAmount("200");
 		dueDetails.setGstPercentage("18");
@@ -988,7 +988,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void payDues_shouldUseBaseAmountForNonPerHeadReceiptItem() throws Exception {
+	void payDues_shouldUseDueAmountForNonPerHeadReceiptItem() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -998,14 +998,14 @@ class PaymentServicesTest {
 		request.setPaymentId("PAY1234");
 		request.setDueId("DUE-001");
 		request.setAmount("1180");
-		request.setBaseAmount("1000");
 		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
 		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 
 		DueAmountDetails dueDetails = new DueAmountDetails();
 		dueDetails.setDueId("DUE-001");
 		dueDetails.setPaymentName("Maintenance");
-		dueDetails.setAmount("1180");
+		dueDetails.setAmount("1000");
+		dueDetails.setPaymentCapita("PER_FLAT");
 		dueDetails.setTotalAmount("1180");
 		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
 		dueResponse.setDuePaymentList(List.of(dueDetails));
@@ -1074,6 +1074,54 @@ class PaymentServicesTest {
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
 		assertEquals("1000", receiptRequestCaptor.getValue().getItems().get(0).getAmount());
+	}
+
+	@Test
+	void payDues_shouldNotBuildPerHeadReceiptWhenDuePaymentCapitaIsNotPerHead() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY1234");
+		request.setDueId("DUE-001");
+		request.setAmount("1180");
+		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setNoOfPersons("3");
+
+		DueAmountDetails dueDetails = new DueAmountDetails();
+		dueDetails.setDueId("DUE-001");
+		dueDetails.setPaymentName("Maintenance");
+		dueDetails.setAmount("1000");
+		dueDetails.setTotalAmount("1180");
+		dueDetails.setPaymentCapita("PER_FLAT");
+		GetDueAmountForPerHeadCalculationResponse dueResponse = new GetDueAmountForPerHeadCalculationResponse();
+		dueResponse.setDueAmountDetails(dueDetails);
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setBankAccountId("BANK-001");
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-1004");
+
+		when(flatInterface.getDueAmountForPerHeadCalculation(any())).thenReturn(dueResponse);
+		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenReturn("JSON");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.payDues(request);
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertFalse(receiptRequest.isPerheadFlag());
+		assertFalse(receiptRequest.isUnitPriceRequired());
+		assertEquals("1000", receiptRequest.getItems().get(0).getAmount());
+		assertNull(receiptRequest.getItems().get(0).getQuantity());
+		assertNull(receiptRequest.getItems().get(0).getUnitPrice());
 	}
 
 	@SuppressWarnings("unchecked")
