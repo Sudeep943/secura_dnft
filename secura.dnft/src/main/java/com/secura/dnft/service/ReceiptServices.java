@@ -27,7 +27,6 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
@@ -68,8 +67,10 @@ public class ReceiptServices implements ReceiptInterface {
 	@Autowired
 	private ReceiptRepository receiptRepository;
 
+
+	
 	@Autowired
-	private ObjectMapper objectMapper;
+	private GenericService genericServices;
 
 	@Override
 	public CreateReceiptResponse createReceipt(CreateReceiptRequest request) throws Exception {
@@ -111,7 +112,7 @@ public class ReceiptServices implements ReceiptInterface {
 		receipt.setReceiptId(receiptNumber);
 		receipt.setReceiptDate(currentTimestamp);
 		receipt.setReceiptType(request != null ? request.getReceiptType() : null);
-		receipt.setReceiptData(objectMapper.writeValueAsString(request));
+		receipt.setReceiptData(genericServices.toJson(request));
 		receipt.setCreatTs(currentTimestamp);
 		receipt.setCreatUsrId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		receipt.setLstUpdtTs(null);
