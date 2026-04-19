@@ -67,10 +67,13 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float LEFT_MARGIN = 40f;
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
+	private static final float CENTERED_TEXT_BOTTOM_PADDING = 4f;
+	private static final float UNDERLINED_TEXT_BOTTOM_PADDING = 8f;
 	private static final float HEADER_LINE_GAP = LINE_HEIGHT * 3;
 	private static final float CELL_PADDING = 4f;
-	private static final float HEADER_ADDRESS_TO_RECEIPT_GAP = HEADER_LINE_GAP - (TEXT_FONT_SIZE + 4f);
-	private static final float HEADER_RECEIPT_TO_META_GAP = HEADER_LINE_GAP - ((TITLE_FONT_SIZE + 8f) + CELL_PADDING + SMALL_FONT_SIZE);
+	private static final float HEADER_ADDRESS_TO_RECEIPT_GAP = HEADER_LINE_GAP - (TEXT_FONT_SIZE + CENTERED_TEXT_BOTTOM_PADDING);
+	private static final float HEADER_RECEIPT_TO_META_GAP = HEADER_LINE_GAP
+			- ((TITLE_FONT_SIZE + UNDERLINED_TEXT_BOTTOM_PADDING) + CELL_PADDING + SMALL_FONT_SIZE);
 	private static final float SECTION_TITLE_HEIGHT = 18f;
 	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
 	private static final float BORDER_LINE_WIDTH = 0.75f;
@@ -495,7 +498,7 @@ public class ReceiptServices implements ReceiptInterface {
 			float textWidth = font.getStringWidth(text) / 1000f * fontSize;
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
 			drawText(text, x, y, font, fontSize);
-			y -= fontSize + 4f;
+			y -= fontSize + CENTERED_TEXT_BOTTOM_PADDING;
 		}
 
 		private void drawCenteredUnderlinedText(String text, PDFont font, float fontSize, float underlineOffset) throws IOException {
@@ -507,7 +510,7 @@ public class ReceiptServices implements ReceiptInterface {
 			stream.moveTo(x, underlineY);
 			stream.lineTo(x + textWidth, underlineY);
 			stream.stroke();
-			y -= fontSize + 8f;
+			y -= fontSize + UNDERLINED_TEXT_BOTTOM_PADDING;
 		}
 
 		private void drawSectionTitle(String title) throws IOException {

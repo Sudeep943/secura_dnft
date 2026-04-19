@@ -50,6 +50,10 @@ import com.secura.dnft.request.response.PaymentTenderData;
 @ExtendWith(MockitoExtension.class)
 class ReceiptServicesTest {
 
+	private static final String RECEIPT_TITLE = "RECEIPT";
+	private static final String RECEIPT_TYPE_LABEL = "Receipt Type :";
+	private static final String SINGLE_LINE_ADDRESS = "12 Main Street";
+
 	@Mock
 	private ApartmentRepository apartmentRepository;
 
@@ -169,8 +173,8 @@ class ReceiptServicesTest {
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
 		String text = extractText(response.getReceipt());
-		assertTrue(text.contains("RECEIPT"));
-		assertTrue(text.indexOf("RECEIPT") < text.indexOf("Receipt Type :"));
+		assertTrue(text.contains(RECEIPT_TITLE));
+		assertTrue(text.indexOf(RECEIPT_TITLE) < text.indexOf(RECEIPT_TYPE_LABEL));
 		assertTrue(hasImage(Base64.getDecoder().decode(response.getReceipt())));
 	}
 
@@ -180,14 +184,14 @@ class ReceiptServicesTest {
 		ApartmentMaster apartment = new ApartmentMaster();
 		apartment.setAprmntId("APR-1");
 		apartment.setAprmntName("Secura Heights");
-		apartment.setAprmntAddress("12 Main Street");
+		apartment.setAprmntAddress(SINGLE_LINE_ADDRESS);
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericServices.toJson(any())).thenReturn("{}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
-		HeaderTextPositions positions = extractHeaderTextPositions(response.getReceipt(), "12 Main Street", "RECEIPT", "Receipt Type :");
+		HeaderTextPositions positions = extractHeaderTextPositions(response.getReceipt(), SINGLE_LINE_ADDRESS, RECEIPT_TITLE, RECEIPT_TYPE_LABEL);
 		assertEquals(36f, positions.receiptY() - positions.addressY(), 1f);
 		assertEquals(36f, positions.receiptTypeY() - positions.receiptY(), 1f);
 	}
