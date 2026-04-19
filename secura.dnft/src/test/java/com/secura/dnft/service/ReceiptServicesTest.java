@@ -53,6 +53,7 @@ class ReceiptServicesTest {
 	private static final String RECEIPT_TITLE = "RECEIPT";
 	private static final String RECEIPT_TYPE_LABEL = "Receipt Type :";
 	private static final String SINGLE_LINE_ADDRESS = "12 Main Street";
+	private static final float TWO_LINE_HEADER_BASELINE_GAP = 12f * 3f;
 
 	@Mock
 	private ApartmentRepository apartmentRepository;
@@ -192,8 +193,8 @@ class ReceiptServicesTest {
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
 		HeaderTextPositions positions = extractHeaderTextPositions(response.getReceipt(), SINGLE_LINE_ADDRESS, RECEIPT_TITLE, RECEIPT_TYPE_LABEL);
-		assertEquals(36f, positions.receiptY() - positions.addressY(), 1f);
-		assertEquals(36f, positions.receiptTypeY() - positions.receiptY(), 1f);
+		assertEquals(TWO_LINE_HEADER_BASELINE_GAP, positions.receiptY() - positions.addressY(), 1f);
+		assertEquals(TWO_LINE_HEADER_BASELINE_GAP, positions.receiptTypeY() - positions.receiptY(), 1f);
 	}
 
 	@Test

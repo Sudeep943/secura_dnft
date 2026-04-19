@@ -69,10 +69,13 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float LINE_HEIGHT = 12f;
 	private static final float CENTERED_TEXT_BOTTOM_PADDING = 4f;
 	private static final float UNDERLINED_TEXT_BOTTOM_PADDING = 8f;
-	private static final float HEADER_LINE_GAP = LINE_HEIGHT * 3;
 	private static final float CELL_PADDING = 4f;
-	private static final float HEADER_ADDRESS_TO_RECEIPT_GAP = HEADER_LINE_GAP - (TEXT_FONT_SIZE + CENTERED_TEXT_BOTTOM_PADDING);
-	private static final float HEADER_RECEIPT_TO_META_GAP = HEADER_LINE_GAP
+	// Keep three line-heights between header text baselines, which leaves two blank lines visually.
+	private static final float HEADER_BASELINE_GAP = LINE_HEIGHT * 3;
+	// drawCenteredText already advances by the text height plus its bottom padding, so only the remainder is added here.
+	private static final float HEADER_ADDRESS_TO_RECEIPT_GAP = HEADER_BASELINE_GAP - (TEXT_FONT_SIZE + CENTERED_TEXT_BOTTOM_PADDING);
+	// The meta row text sits below the table top by cell padding and text height, so subtract those existing offsets.
+	private static final float HEADER_RECEIPT_TO_META_GAP = HEADER_BASELINE_GAP
 			- ((TITLE_FONT_SIZE + UNDERLINED_TEXT_BOTTOM_PADDING) + CELL_PADDING + SMALL_FONT_SIZE);
 	private static final float SECTION_TITLE_HEIGHT = 18f;
 	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
