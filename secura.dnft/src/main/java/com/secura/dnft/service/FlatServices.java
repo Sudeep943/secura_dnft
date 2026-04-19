@@ -319,9 +319,6 @@ public class FlatServices implements FlatInterface {
 			DueAmountDetails dueAmountDetails = findDueAmountDetailsByDueId(request);
 			DueAmountDetails calculatedDueAmountDetails = cloneDueAmountDetails(dueAmountDetails);
 			int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPerson() : null);
-			if (personCount <= 0) {
-				personCount = 1;
-			}
 			BigDecimal finalAmount = applyDiscountAndFineIfApplicable(calculatedDueAmountDetails, LocalDate.now());
 			scaleDueAmountDetails(calculatedDueAmountDetails, personCount);
 			BigDecimal scaledFinalAmount = finalAmount.multiply(BigDecimal.valueOf(personCount));
@@ -417,13 +414,12 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private List<AddedCharges> cloneAddedCharges(List<AddedCharges> addedCharges) {
-		if (addedCharges == null) {
-			return null;
-		}
 		List<AddedCharges> cloned = new ArrayList<>();
+		if (addedCharges == null) {
+			return cloned;
+		}
 		for (AddedCharges charge : addedCharges) {
 			if (charge == null) {
-				cloned.add(null);
 				continue;
 			}
 			AddedCharges copy = new AddedCharges();
@@ -465,13 +461,13 @@ public class FlatServices implements FlatInterface {
 
 	private int getPositiveNoOfPersons(String noOfPerson) {
 		if (!hasText(noOfPerson)) {
-			return 0;
+			return 1;
 		}
 		try {
 			int parsedNoOfPersons = Integer.parseInt(noOfPerson.trim());
-			return parsedNoOfPersons > 0 ? parsedNoOfPersons : 0;
+			return parsedNoOfPersons > 0 ? parsedNoOfPersons : 1;
 		} catch (NumberFormatException e) {
-			return 0;
+			return 1;
 		}
 	}
 
