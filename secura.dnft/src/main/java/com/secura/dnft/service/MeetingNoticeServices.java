@@ -10,8 +10,10 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.NoticeRepository;
+import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.NoticeEntity;
 import com.secura.dnft.generic.bean.SecuraConstants;
@@ -45,6 +47,9 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
 	
 	@Autowired
 	DocumentRepository documentRepository;
+
+	@Autowired
+	ApartmentRepository apartmentRepository;
 	
 	@Override
 	public CreateNoticeResponse createNotice(CreateNoticeRequest createNoticeRequest) throws Exception{
@@ -115,8 +120,20 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
 
 	@Override
 	public GetLetterHeadResponse getLetterHead(GetLetterHeadRequest getLetterHeadRequest)throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		GetLetterHeadResponse response = new GetLetterHeadResponse();
+		response.setGenericHeader(getLetterHeadRequest != null ? getLetterHeadRequest.getGenericHeader() : null);
+		String apartmentId = getLetterHeadRequest != null && getLetterHeadRequest.getGenericHeader() != null
+				? getLetterHeadRequest.getGenericHeader().getApartmentId()
+				: null;
+		if (apartmentId != null && !apartmentId.isBlank()) {
+			ApartmentMaster apartment = apartmentRepository.findById(apartmentId).orElse(null);
+			if (apartment != null) {
+				response.setLetterHead(apartment.getAprmntLetterHead());
+			}
+		}
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_36);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_36);
+		return response;
 	}
 
 	@Override

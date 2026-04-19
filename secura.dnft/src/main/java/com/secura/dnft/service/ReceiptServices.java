@@ -1,5 +1,6 @@
 package com.secura.dnft.service;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +67,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float LEFT_MARGIN = 40f;
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
+	private static final float HEADER_LINE_GAP = LINE_HEIGHT * 3;
 	private static final float CELL_PADDING = 4f;
 	private static final float SECTION_TITLE_HEIGHT = 18f;
 	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
@@ -152,6 +155,7 @@ public class ReceiptServices implements ReceiptInterface {
 		String logo = resolveLogo(request != null ? request.getGenericHeader() : null, apartment);
 		if (hasText(logo)) {
 			canvas.drawCenteredImage(logo, 110f, 55f);
+			canvas.addGap(HEADER_LINE_GAP);
 		}
 		canvas.drawCenteredText(defaultValue(apartment != null ? apartment.getAprmntName() : request != null && request.getGenericHeader() != null
 				? request.getGenericHeader().getApartmentName() : null), canvas.getBoldFont(), TITLE_FONT_SIZE);
@@ -163,7 +167,8 @@ public class ReceiptServices implements ReceiptInterface {
 		for (String line : addressLines) {
 			canvas.drawCenteredText(line, canvas.getFont(), TEXT_FONT_SIZE);
 		}
-		canvas.addGap(SECTION_GAP);
+		canvas.drawCenteredUnderlinedText("RECEIPT", canvas.getBoldFont(), TITLE_FONT_SIZE, 2f);
+		canvas.addGap(HEADER_LINE_GAP);
 	}
 
 	private String resolveApartmentAddress(ApartmentMaster apartment) {
@@ -312,11 +317,11 @@ public class ReceiptServices implements ReceiptInterface {
 	}
 
 	private String resolveLogo(GenericHeader header, ApartmentMaster apartment) {
-		if (header != null && hasText(header.getProfilepic())) {
-			return header.getProfilepic();
-		}
 		if (apartment != null && hasText(apartment.getAprmnt_logo())) {
 			return apartment.getAprmnt_logo();
+		}
+		if (header != null && hasText(header.getProfilepic())) {
+			return header.getProfilepic();
 		}
 		return null;
 	}
@@ -457,10 +462,23 @@ public class ReceiptServices implements ReceiptInterface {
 				return;
 			}
 			ensureSpace(maxHeight + 10f);
-			if (ImageIO.read(new ByteArrayInputStream(imageBytes)) == null) {
+			BufferedImage bufferedImage;
+			try {
+				bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+				if (bufferedImage == null) {
+					return;
+				}
+			} catch (IOException exception) {
+				LOGGER.debug("Failed to read image data for receipt logo.", exception);
 				return;
 			}
-			PDImageXObject image = PDImageXObject.createFromByteArray(document, imageBytes, "receipt-logo");
+			PDImageXObject image;
+			try {
+				image = LosslessFactory.createFromImage(document, bufferedImage);
+			} catch (IOException | RuntimeException exception) {
+				LOGGER.debug("Failed to create PDImageXObject from BufferedImage for receipt logo.", exception);
+				return;
+			}
 			float scale = Math.min(maxWidth / image.getWidth(), maxHeight / image.getHeight());
 			float width = image.getWidth() * scale;
 			float height = image.getHeight() * scale;
@@ -475,6 +493,18 @@ public class ReceiptServices implements ReceiptInterface {
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
 			drawText(text, x, y, font, fontSize);
 			y -= fontSize + 4f;
+		}
+
+		private void drawCenteredUnderlinedText(String text, PDFont font, float fontSize, float underlineOffset) throws IOException {
+			ensureSpace(fontSize + 10f);
+			float textWidth = font.getStringWidth(text) / 1000f * fontSize;
+			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
+			drawText(text, x, y, font, fontSize);
+			float underlineY = y - underlineOffset;
+			stream.moveTo(x, underlineY);
+			stream.lineTo(x + textWidth, underlineY);
+			stream.stroke();
+			y -= fontSize + 8f;
 		}
 
 		private void drawSectionTitle(String title) throws IOException {

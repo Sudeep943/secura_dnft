@@ -8,10 +8,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+
+import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.COSNumber;
@@ -146,6 +150,27 @@ class ReceiptServicesTest {
 
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("12 Main Street ,Springfield"));
+	}
+
+	@Test
+	void createReceipt_shouldUseApartmentLogoAndRenderReceiptHeading() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.getGenericHeader().setProfilepic("not-base64");
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+		apartment.setAprmntName("Secura Heights");
+		apartment.setAprmntAddress("12 Main Street, Springfield");
+		apartment.setAprmnt_logo(createBase64Image());
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertTrue(text.contains("RECEIPT"));
+		assertTrue(text.indexOf("RECEIPT") < text.indexOf("Receipt Type :"));
+		assertTrue(hasImage(Base64.getDecoder().decode(response.getReceipt())));
 	}
 
 	@Test
@@ -333,5 +358,21 @@ class ReceiptServicesTest {
 			}
 		}
 		return false;
+	}
+
+	private boolean hasImage(byte[] pdfBytes) throws Exception {
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			PDFStreamParser parser = new PDFStreamParser(document.getPage(0));
+			List<Object> tokens = parser.parse();
+			return tokens.stream().anyMatch(token -> token instanceof Operator operator && "Do".equals(operator.getName()));
+		}
+	}
+
+	private String createBase64Image() throws Exception {
+		BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+		image.setRGB(0, 0, 0xFFFFFF);
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+		ImageIO.write(image, "png", outputStream);
+		return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 	}
 }

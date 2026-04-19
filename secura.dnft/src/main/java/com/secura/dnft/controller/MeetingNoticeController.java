@@ -68,10 +68,11 @@ public class MeetingNoticeController {
 	
 	@PostMapping("/getLetterHead")
 	@CrossOrigin(origins = "*")
-	public GetLetterHeadResponse getLetterHead(GetLetterHeadRequest getLetterHeadRequest) {
+	public GetLetterHeadResponse getLetterHead(@RequestBody GetLetterHeadRequest getLetterHeadRequest) {
 		GetLetterHeadResponse response = new GetLetterHeadResponse();
+		response.setGenericHeader(getLetterHeadRequest != null ? getLetterHeadRequest.getGenericHeader() : null);
 		try {
-			//response=meetingNoticeServices.getNotice(getNoticeRequest);
+			response=meetingNoticeServices.getLetterHead(getLetterHeadRequest);
 		}
 		catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
