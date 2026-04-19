@@ -70,9 +70,11 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float CENTERED_TEXT_BOTTOM_PADDING = 4f;
 	private static final float UNDERLINED_TEXT_BOTTOM_PADDING = 8f;
 	private static final float CELL_PADDING = 4f;
+	private static final float RECEIPT_LOGO_BASE_WIDTH = 110f;
+	private static final float RECEIPT_LOGO_BASE_HEIGHT = 55f;
 	private static final float RECEIPT_LOGO_SCALE_MULTIPLIER = 2.5f;
-	private static final float RECEIPT_LOGO_MAX_WIDTH = 110f * RECEIPT_LOGO_SCALE_MULTIPLIER;
-	private static final float RECEIPT_LOGO_MAX_HEIGHT = 55f * RECEIPT_LOGO_SCALE_MULTIPLIER;
+	private static final float RECEIPT_LOGO_MAX_WIDTH = RECEIPT_LOGO_BASE_WIDTH * RECEIPT_LOGO_SCALE_MULTIPLIER;
+	private static final float RECEIPT_LOGO_MAX_HEIGHT = RECEIPT_LOGO_BASE_HEIGHT * RECEIPT_LOGO_SCALE_MULTIPLIER;
 	// Keep three line-heights between header text baselines, which leaves two blank lines visually.
 	private static final float HEADER_BASELINE_GAP = LINE_HEIGHT * 3;
 	// drawCenteredText already advances by the text height plus its bottom padding, so only the remainder is added here.

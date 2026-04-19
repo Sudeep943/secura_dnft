@@ -54,7 +54,11 @@ class ReceiptServicesTest {
 	private static final String RECEIPT_TYPE_LABEL = "Receipt Type :";
 	private static final String SINGLE_LINE_ADDRESS = "12 Main Street";
 	private static final float TWO_LINE_HEADER_BASELINE_GAP = 12f * 3f;
-	private static final float RECEIPT_LOGO_RENDER_SIZE = 55f * 2.5f;
+	private static final float RECEIPT_LOGO_BASE_WIDTH = 110f;
+	private static final float RECEIPT_LOGO_BASE_HEIGHT = 55f;
+	private static final float RECEIPT_LOGO_SCALE_MULTIPLIER = 2.5f;
+	private static final float RECEIPT_LOGO_RENDER_WIDTH = RECEIPT_LOGO_BASE_WIDTH * RECEIPT_LOGO_SCALE_MULTIPLIER;
+	private static final float RECEIPT_LOGO_RENDER_HEIGHT = RECEIPT_LOGO_BASE_HEIGHT * RECEIPT_LOGO_SCALE_MULTIPLIER;
 
 	@Mock
 	private ApartmentRepository apartmentRepository;
@@ -179,8 +183,8 @@ class ReceiptServicesTest {
 		assertTrue(text.contains(RECEIPT_TITLE));
 		assertTrue(text.indexOf(RECEIPT_TITLE) < text.indexOf(RECEIPT_TYPE_LABEL));
 		assertTrue(hasImage(Base64.getDecoder().decode(response.getReceipt())));
-		assertEquals(RECEIPT_LOGO_RENDER_SIZE, imageDimensions.width(), 0.01f);
-		assertEquals(RECEIPT_LOGO_RENDER_SIZE, imageDimensions.height(), 0.01f);
+		assertEquals(RECEIPT_LOGO_RENDER_WIDTH, imageDimensions.width(), 0.01f);
+		assertEquals(RECEIPT_LOGO_RENDER_HEIGHT, imageDimensions.height(), 0.01f);
 	}
 
 	@Test
@@ -437,8 +441,9 @@ class ReceiptServicesTest {
 	}
 
 	private String createBase64Image() throws Exception {
-		BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+		BufferedImage image = new BufferedImage(2, 1, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, 0xFFFFFF);
+		image.setRGB(1, 0, 0xFFFFFF);
 		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 		ImageIO.write(image, "png", outputStream);
 		return Base64.getEncoder().encodeToString(outputStream.toByteArray());
