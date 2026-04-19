@@ -460,7 +460,12 @@ public class ReceiptServices implements ReceiptInterface {
 				return;
 			}
 			ensureSpace(maxHeight + 10f);
-			if (ImageIO.read(new ByteArrayInputStream(imageBytes)) == null) {
+			try {
+				if (ImageIO.read(new ByteArrayInputStream(imageBytes)) == null) {
+					return;
+				}
+			} catch (IOException exception) {
+				LOGGER.debug("Unable to render receipt logo image.", exception);
 				return;
 			}
 			PDImageXObject image = PDImageXObject.createFromByteArray(document, imageBytes, "receipt-logo");

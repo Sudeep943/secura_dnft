@@ -156,7 +156,7 @@ class ReceiptServicesTest {
 		apartment.setAprmntId("APR-1");
 		apartment.setAprmntName("Secura Heights");
 		apartment.setAprmntAddress("12 Main Street, Springfield");
-		apartment.setAprmnt_logo("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s2cN+0AAAAASUVORK5CYII=");
+		apartment.setAprmnt_logo("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mP8/5+hHgAHggJ/P6Ky/QAAAABJRU5ErkJggg==");
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericServices.toJson(any())).thenReturn("{}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
