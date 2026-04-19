@@ -84,6 +84,7 @@ class ApartmentServiceTest {
 		request.setGenericHeader(buildHeader());
 		ApartmentMaster apartment = new ApartmentMaster();
 		apartment.setAprmntId("APR-1");
+		apartment.setAprmntName("Secura Heights");
 		apartment.setAprmnt_logo("logo-data");
 		apartment.setAprmntAddress("{\"city\":\"Springfield\"}");
 		apartment.setAprmnt_bank_acccount_list("encrypted-bank-json");
@@ -111,6 +112,7 @@ class ApartmentServiceTest {
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_36, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_36, response.getMessageCode());
+		assertEquals("Secura Heights", response.getApartmentName());
 		assertEquals("logo-data", response.getApartmentLogo());
 		assertSame(address, response.getAddress());
 		assertEquals("ABC Bank", response.getBankAccountDetails().get(0).getBankName());

@@ -87,6 +87,7 @@ public class ApartmentService {
 	    			return response;
 	    		}
 	    		ApartmentMaster apartment = apartmentOptional.get();
+	    		response.setApartmentName(apartment.getAprmntName());
 	    		response.setApartmentLogo(apartment.getAprmnt_logo());
 	    		response.setAddress(genericService.fromJson(apartment.getAprmntAddress(),
 	    				com.secura.dnft.generic.bean.Address.class));

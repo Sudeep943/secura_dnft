@@ -11,6 +11,7 @@ import com.secura.dnft.generic.bean.Address;
 public class GetApartmentDetailsResponse {
 
 	private GenericHeader genericHeader;
+	private String apartmentName;
 	private String apartmentLogo;
 	private List<BankAccountDetails> bankAccountDetails;
 	private Address address;
@@ -27,6 +28,14 @@ public class GetApartmentDetailsResponse {
 
 	public void setGenericHeader(GenericHeader genericHeader) {
 		this.genericHeader = genericHeader;
+	}
+
+	public String getApartmentName() {
+		return apartmentName;
+	}
+
+	public void setApartmentName(String apartmentName) {
+		this.apartmentName = apartmentName;
 	}
 
 	public String getApartmentLogo() {
