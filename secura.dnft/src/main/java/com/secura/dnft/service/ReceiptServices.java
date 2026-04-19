@@ -28,6 +28,8 @@ import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +51,7 @@ import com.secura.dnft.request.response.PaymentTenderData;
 @Service
 public class ReceiptServices implements ReceiptInterface {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(ReceiptServices.class);
 	private static final PDFont FALLBACK_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 	private static final PDFont FALLBACK_BOLD_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
 	private static final String RUPEE_SYMBOL = "\u20B9";
@@ -66,9 +69,11 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf" };
+			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
+			"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf" };
 	private static final String[] BOLD_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-			"/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" };
+			"/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf", "/Library/Fonts/Arial Bold.ttf",
+			"/System/Library/Fonts/Supplemental/Arial Bold.ttf", "C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/seguisb.ttf" };
 
 	@Autowired
 	private ApartmentRepository apartmentRepository;
@@ -333,9 +338,10 @@ public class ReceiptServices implements ReceiptInterface {
 			try (InputStream stream = Files.newInputStream(path)) {
 				return PDType0Font.load(document, stream);
 			} catch (IOException ex) {
-				// try next candidate
+				LOGGER.debug("Unable to load receipt font from {}", candidate, ex);
 			}
 		}
+		LOGGER.warn("Falling back to built-in PDF font; rupee symbol rendering may be limited");
 		return fallback;
 	}
 
