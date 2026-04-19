@@ -233,7 +233,7 @@ class ReceiptServicesTest {
 
 	private PDDocument loadDocument(String base64Pdf) throws Exception {
 		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
-		return Loader.loadPDF(new ByteArrayInputStream(pdfBytes).readAllBytes());
+		return Loader.loadPDF(pdfBytes);
 	}
 
 	private boolean hasVerticalGapBorder(PDPage page, float expectedX, float expectedGap) throws Exception {
