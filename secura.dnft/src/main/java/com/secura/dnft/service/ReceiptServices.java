@@ -67,6 +67,8 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float SECTION_TITLE_HEIGHT = 18f;
 	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
 	private static final float BORDER_LINE_WIDTH = 0.75f;
+	private static final int LINE_JOIN_BEVEL = 2;
+	private static final int LINE_CAP_BUTT = 0;
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic generated receipt required no signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
@@ -413,8 +415,8 @@ public class ReceiptServices implements ReceiptInterface {
 			document.addPage(page);
 			stream = new PDPageContentStream(document, page);
 			stream.setLineWidth(BORDER_LINE_WIDTH);
-			stream.setLineJoinStyle(2);
-			stream.setLineCapStyle(0);
+			stream.setLineJoinStyle(LINE_JOIN_BEVEL);
+			stream.setLineCapStyle(LINE_CAP_BUTT);
 			y = TOP_MARGIN;
 		}
 
