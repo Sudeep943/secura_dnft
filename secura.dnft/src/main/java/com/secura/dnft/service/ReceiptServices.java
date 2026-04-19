@@ -70,6 +70,11 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float CENTERED_TEXT_BOTTOM_PADDING = 4f;
 	private static final float UNDERLINED_TEXT_BOTTOM_PADDING = 8f;
 	private static final float CELL_PADDING = 4f;
+	private static final float RECEIPT_LOGO_BASE_WIDTH = 110f;
+	private static final float RECEIPT_LOGO_BASE_HEIGHT = 55f;
+	private static final float RECEIPT_LOGO_SCALE_MULTIPLIER = 2.5f;
+	private static final float RECEIPT_LOGO_MAX_WIDTH = RECEIPT_LOGO_BASE_WIDTH * RECEIPT_LOGO_SCALE_MULTIPLIER;
+	private static final float RECEIPT_LOGO_MAX_HEIGHT = RECEIPT_LOGO_BASE_HEIGHT * RECEIPT_LOGO_SCALE_MULTIPLIER;
 	// Keep three line-heights between header text baselines, which leaves two blank lines visually.
 	private static final float HEADER_BASELINE_GAP = LINE_HEIGHT * 3;
 	// drawCenteredText already advances by the text height plus its bottom padding, so only the remainder is added here.
@@ -162,7 +167,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private void drawHeader(PdfCanvas canvas, CreateReceiptRequest request, ApartmentMaster apartment) throws Exception {
 		String logo = resolveLogo(request != null ? request.getGenericHeader() : null, apartment);
 		if (hasText(logo)) {
-			canvas.drawCenteredImage(logo, 110f, 55f);
+			canvas.drawCenteredImage(logo, RECEIPT_LOGO_MAX_WIDTH, RECEIPT_LOGO_MAX_HEIGHT);
 			canvas.addGap(HEADER_BASELINE_GAP);
 		}
 		canvas.drawCenteredText(defaultValue(apartment != null ? apartment.getAprmntName() : request != null && request.getGenericHeader() != null
