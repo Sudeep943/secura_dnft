@@ -64,7 +64,9 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
 	private static final float CELL_PADDING = 4f;
-	private static final float SECTION_GAP = LINE_HEIGHT;
+	private static final float SECTION_TITLE_HEIGHT = 18f;
+	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
+	private static final float BORDER_LINE_WIDTH = 0.75f;
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic generated receipt required no signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
@@ -410,6 +412,9 @@ public class ReceiptServices implements ReceiptInterface {
 			page = new PDPage(PDRectangle.A4);
 			document.addPage(page);
 			stream = new PDPageContentStream(document, page);
+			stream.setLineWidth(BORDER_LINE_WIDTH);
+			stream.setLineJoinStyle(2);
+			stream.setLineCapStyle(0);
 			y = TOP_MARGIN;
 		}
 
@@ -446,13 +451,13 @@ public class ReceiptServices implements ReceiptInterface {
 		}
 
 		private void drawSectionTitle(String title) throws IOException {
-			ensureSpace(24f);
-			stream.addRect(LEFT_MARGIN, y - 18f, getUsableWidth(), 18f);
+			ensureSpace(SECTION_TITLE_HEIGHT + 6f);
+			stream.addRect(LEFT_MARGIN, y - SECTION_TITLE_HEIGHT, getUsableWidth(), SECTION_TITLE_HEIGHT);
 			stream.stroke();
 			float textWidth = boldFont.getStringWidth(title) / 1000f * TEXT_FONT_SIZE;
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
 			drawText(title, x, y - 13f, boldFont, TEXT_FONT_SIZE);
-			y -= 18f;
+			y -= SECTION_TITLE_HEIGHT;
 		}
 
 		private void drawTableRow(String[] values, float[] widths, boolean bold) throws IOException {
