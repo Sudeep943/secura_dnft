@@ -1,6 +1,7 @@
 package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +40,8 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.CreateReceiptRequest;
+import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
@@ -66,6 +69,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private TransactionRepository transactionRepository;
+
+	@Mock
+	private ReceiptServices receiptServices;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -863,6 +869,7 @@ class PaymentServicesTest {
 		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
 		assertEquals(savedTransaction.getTrnscId(), response.getTransactionId());
+		assertNull(response.getReceipt());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_ON_HOLD, savedTransaction.getTrnsStatus());
 		assertEquals(SecuraConstants.TRANSACTION_TYPE_CREDIT, savedTransaction.getTrnsType());
 		assertEquals(SecuraConstants.PAYMENT_CURRENCY, savedTransaction.getTrnsCurrency());
@@ -875,10 +882,11 @@ class PaymentServicesTest {
 		assertEquals("USR-001", savedTransaction.getTrnsBy());
 		assertTrue(savedTransaction.getTrnscId().contains("PAY1234"));
 		verify(genericService).createWorklistAssignmentFlow("WL-001", List.of("admin"));
+		verify(receiptServices, never()).createReceipt(any());
 	}
 
 	@Test
-	void payDues_shouldSetSuccessStatusWithoutWorklistForOnlineTender() throws Exception {
+	void payDues_shouldSetSuccessStatusWithoutWorklistForOnlineTenderAndAttachReceipt() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -893,15 +901,28 @@ class PaymentServicesTest {
 
 		DueAmountDetails dueDetails = new DueAmountDetails();
 		dueDetails.setDueId("DUE-001");
+		dueDetails.setPaymentName("Maintenance");
+		dueDetails.setTotalAmount("1200");
+		dueDetails.setGstAmount("200");
+		dueDetails.setGstPercentage("18");
+		AddedCharges addedCharge = new AddedCharges();
+		addedCharge.setChargeName("Late Fee");
+		addedCharge.setChargeType("amount");
+		addedCharge.setValue("50");
+		addedCharge.setFinalChargeValue("50");
+		dueDetails.setAddedCharges(List.of(addedCharge));
 		GetDueAmountForFlatResponse dueResponse = new GetDueAmountForFlatResponse();
 		dueResponse.setDuePaymentList(List.of(dueDetails));
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
 
 		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
 		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.toJson(any())).thenReturn("JSON");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		PayDueResponse response = paymentServices.payDues(request);
@@ -912,9 +933,28 @@ class PaymentServicesTest {
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, savedTransaction.getTrnsStatus());
+		assertEquals("RECEIPT_BASE64", response.getReceipt());
 		assertNull(savedTransaction.getWorkListId());
 		verify(genericService, never()).createWorklist(any(), any(), any(), any());
 		verify(genericService, never()).createWorklistAssignmentFlow(any(), any());
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertEquals("Payment", receiptRequest.getReceiptType());
+		assertFalse(receiptRequest.isPerheadFlag());
+		assertFalse(receiptRequest.isUnitPriceRequired());
+		assertNull(receiptRequest.getRemarks());
+		assertEquals("1200", receiptRequest.getTotalAmount());
+		assertEquals(1, receiptRequest.getItems().size());
+		assertEquals("Maintenance", receiptRequest.getItems().get(0).getItemName());
+		assertEquals("1200", receiptRequest.getItems().get(0).getAmount());
+		assertEquals("PAYMENT", receiptRequest.getItems().get(0).getType());
+		assertEquals(2, receiptRequest.getAddedCharges().size());
+		assertEquals("Late Fee", receiptRequest.getAddedCharges().get(0).getChargeName());
+		assertEquals("GST", receiptRequest.getAddedCharges().get(1).getChargeName());
+		assertEquals("percentage", receiptRequest.getAddedCharges().get(1).getChargeType());
+		assertEquals("18", receiptRequest.getAddedCharges().get(1).getValue());
+		assertEquals("200", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
 	}
 
 	@SuppressWarnings("unchecked")
