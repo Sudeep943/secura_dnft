@@ -225,7 +225,7 @@ class ReceiptServicesTest {
 		}
 	}
 
-	private int countVerticalSegments(PDPage page, float expectedX, float expectedHeight) throws Exception {
+	private int countVerticalSegments(PDPage page, float expectedX, float expectedGap) throws Exception {
 		PDFStreamParser parser = new PDFStreamParser(page);
 		List<Object> tokens = parser.parse();
 		int matchCount = 0;
@@ -242,7 +242,7 @@ class ReceiptServicesTest {
 				continue;
 			}
 			if (Math.abs(moveX.floatValue() - expectedX) < 0.01f && Math.abs(lineX.floatValue() - expectedX) < 0.01f
-					&& Math.abs(Math.abs(moveY.floatValue() - lineY.floatValue()) - expectedHeight) < 0.01f) {
+					&& Math.abs(Math.abs(moveY.floatValue() - lineY.floatValue()) - expectedGap) < 0.01f) {
 				matchCount++;
 			}
 		}
