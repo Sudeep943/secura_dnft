@@ -978,8 +978,11 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String divideAmount(String amount, int divisor) {
-		if (!hasText(amount) || divisor == 0) {
+		if (!hasText(amount)) {
 			return amount;
+		}
+		if (divisor == 0) {
+			throw new IllegalArgumentException("divisor must not be zero");
 		}
 		return formatNumber(parseNumeric(amount).divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP));
 	}
