@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -20,8 +22,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
+import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
@@ -30,12 +35,19 @@ import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.Items;
+import com.secura.dnft.request.response.PaymentTenderData;
 
 @ExtendWith(MockitoExtension.class)
 class ReceiptServicesTest {
 
 	@Mock
 	private ApartmentRepository apartmentRepository;
+
+	@Mock
+	private ReceiptRepository receiptRepository;
+
+	@Mock
+	private ObjectMapper objectMapper;
 
 	@InjectMocks
 	private ReceiptServices receiptServices;
@@ -46,6 +58,8 @@ class ReceiptServicesTest {
 		request.setUnitPriceRequired(true);
 		request.setPerheadFlag(false);
 		request.setRemarks("Paid via UPI");
+		request.setTransactionId("TXN-1001");
+		request.setTenderList(List.of(createTender("Online", "2500")));
 		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
 		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
 		discFinReceipt.setDiscountCode("DISC10");
@@ -64,17 +78,22 @@ class ReceiptServicesTest {
 		apartment.setAprmntName("Secura Heights");
 		apartment.setAprmntAddress("12 Main Street, Springfield");
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(objectMapper.writeValueAsString(any())).thenReturn("{\"receiptType\":\"Maintenance\"}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_34, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_34, response.getMessageCode());
 		assertNotNull(response.getReceipt());
+		assertNotNull(response.getReceiptNumber());
 		assertFalse(response.getReceipt().isBlank());
 
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("Secura Heights"));
-		assertTrue(text.contains("Maintenance"));
+		assertTrue(text.contains("Receipt Type : Maintenance"));
+		assertTrue(text.contains("Transaction Id : TXN-1001"));
+		assertTrue(text.contains("Receipt Number : " + response.getReceiptNumber()));
 		assertTrue(text.contains("UNIT PRICE"));
 		assertTrue(text.contains("Taxes And Other Charges"));
 		assertTrue(text.contains("180 (18%)"));
@@ -82,9 +101,18 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("Discount (CODE: DISC10)"));
 		assertTrue(text.contains("100 (10%)"));
 		assertTrue(text.contains("Fine (cumulative) (CODE: FINE5)"));
+		assertTrue(text.contains("Tender Details"));
+		assertTrue(text.contains("Online"));
 		assertTrue(text.contains("Remarks"));
 		assertTrue(text.contains("Paid via UPI"));
 		assertTrue(text.contains("2500"));
+		assertTrue(text.contains("This is an Electronic generated receipt required no signature"));
+		ArgumentCaptor<Receipt> receiptCaptor = ArgumentCaptor.forClass(Receipt.class);
+		verify(receiptRepository).save(receiptCaptor.capture());
+		assertEquals("APR-1", receiptCaptor.getValue().getAprmtId());
+		assertEquals(response.getReceiptNumber(), receiptCaptor.getValue().getReceiptId());
+		assertEquals("Maintenance", receiptCaptor.getValue().getReceiptType());
+		assertEquals("{\"receiptType\":\"Maintenance\"}", receiptCaptor.getValue().getReceiptData());
 	}
 
 	@Test
@@ -93,6 +121,8 @@ class ReceiptServicesTest {
 		request.setUnitPriceRequired(false);
 		request.setPerheadFlag(true);
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
@@ -112,6 +142,13 @@ class ReceiptServicesTest {
 		request.setItems(List.of(createItem("Maintenance", "1000", "2", "2000"), createItem("Parking", "500", "1", "500")));
 		request.setTotalAmount("2500");
 		return request;
+	}
+
+	private PaymentTenderData createTender(String tenderName, String amountPaid) {
+		PaymentTenderData tenderData = new PaymentTenderData();
+		tenderData.setTenderName(tenderName);
+		tenderData.setAmountPaid(amountPaid);
+		return tenderData;
 	}
 
 	private Items createItem(String itemName, String unitPrice, String quantity, String amount) {

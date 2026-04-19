@@ -66,6 +66,9 @@ public class Transaction {
 	@Column(name = "worklist_id")
 	private String workListId;
 
+	@Column(name = "receipt_number")
+	private String receiptNumber;
+
 	@Column(name = "creat_ts")
 	private LocalDateTime creatTs;
 
@@ -220,6 +223,14 @@ public class Transaction {
 
 	public void setWorkListId(String workListId) {
 		this.workListId = workListId;
+	}
+
+	public String getReceiptNumber() {
+		return receiptNumber;
+	}
+
+	public void setReceiptNumber(String receiptNumber) {
+		this.receiptNumber = receiptNumber;
 	}
 
 	public LocalDateTime getCreatTs() {

@@ -138,7 +138,7 @@ public class GenericService {
 		worklistId.append(createdBy +"_");
 		Random random = new Random();
 		worklistId.append( 1000 + random.nextInt(9000));
-		return worklistId.toString();
+		return worklistId.toString().toUpperCase();
 	}
 	
     public  <T> String toJson(T object) {
