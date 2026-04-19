@@ -981,7 +981,7 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(paymentCapita)) {
 			return false;
 		}
-		return "perhead".equalsIgnoreCase(paymentCapita.replaceAll("[^A-Za-z0-9]", ""));
+		return "PER_HEAD".equalsIgnoreCase(paymentCapita.trim());
 	}
 
 	private String resolveNonPerHeadReceiptAmount(DueAmountDetails dueDetails) {
