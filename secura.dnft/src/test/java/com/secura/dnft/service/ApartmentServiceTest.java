@@ -52,7 +52,7 @@ class ApartmentServiceTest {
 	private ApartmentService apartmentService;
 
 	@Test
-	void updateApatrmentdetails_shouldSerializeEncryptAndPersist() throws Exception {
+	void updateApartmentDetails_shouldSerializeEncryptAndPersist() throws Exception {
 		UpdateApartmentDetailsRequest request = buildUpdateRequest();
 		ApartmentMaster apartment = new ApartmentMaster();
 		apartment.setAprmntId("APR-1");
@@ -62,9 +62,9 @@ class ApartmentServiceTest {
 		when(genericService.toJson(request.getAddress())).thenReturn("{\"city\":\"Springfield\"}");
 		when(genericService.toJson(request.getBankAccountDetails())).thenReturn("[{\"bankName\":\"ABC Bank\"}]");
 		when(genericService.encrypt("[{\"bankName\":\"ABC Bank\"}]")).thenReturn("encrypted-bank-json");
-		when(genericService.toJson(request.getExcutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
+		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
 
-		UpdateApartmentDetailsResponse response = apartmentService.updateApatrmentdetails(request);
+		UpdateApartmentDetailsResponse response = apartmentService.updateApartmentDetails(request);
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_35, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_35, response.getMessageCode());
@@ -79,7 +79,7 @@ class ApartmentServiceTest {
 	}
 
 	@Test
-	void getApatrmentdetails_shouldDecryptAndDeserializeStoredValues() throws Exception {
+	void getApartmentDetails_shouldDecryptAndDeserializeStoredValues() throws Exception {
 		GetApartmentDetailsRequest request = new GetApartmentDetailsRequest();
 		request.setGenericHeader(buildHeader());
 		ApartmentMaster apartment = new ApartmentMaster();
@@ -107,26 +107,26 @@ class ApartmentServiceTest {
 		when(genericService.fromJson(eq("[{\"memberId\":\"MEM-1\"}]"), any(TypeReference.class)))
 				.thenReturn(List.of(executiveMember));
 
-		GetApartmentDetailsResponse response = apartmentService.getApatrmentdetails(request);
+		GetApartmentDetailsResponse response = apartmentService.getApartmentDetails(request);
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_36, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_36, response.getMessageCode());
 		assertEquals("logo-data", response.getApartmentLogo());
 		assertSame(address, response.getAddress());
 		assertEquals("ABC Bank", response.getBankAccountDetails().get(0).getBankName());
-		assertEquals("MEM-1", response.getExcutiveMemberList().get(0).getMemberId());
+		assertEquals("MEM-1", response.getExecutiveMemberList().get(0).getMemberId());
 		assertEquals("letter-head-data", response.getApartmentLetterHead());
 	}
 
 	@Test
-	void getApatrmentdetails_shouldReturnNotFoundWhenApartmentMissing() throws Exception {
+	void getApartmentDetails_shouldReturnNotFoundWhenApartmentMissing() throws Exception {
 		GetApartmentDetailsRequest request = new GetApartmentDetailsRequest();
 		request.setGenericHeader(buildHeader());
 
 		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
 		when(repository.findById("APR-1")).thenReturn(Optional.empty());
 
-		GetApartmentDetailsResponse response = apartmentService.getApatrmentdetails(request);
+		GetApartmentDetailsResponse response = apartmentService.getApartmentDetails(request);
 
 		assertEquals(ErrorMessage.ERR_MESSAGE_47, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_47, response.getMessageCode());
@@ -151,7 +151,7 @@ class ApartmentServiceTest {
 		executiveMember.setPositiontype("EXEC");
 		executiveMember.setStatus("ACTIVE");
 		executiveMember.setStartDate(LocalDate.of(2025, 1, 1));
-		request.setExcutiveMemberList(List.of(executiveMember));
+		request.setExecutiveMemberList(List.of(executiveMember));
 		return request;
 	}
 

@@ -42,7 +42,7 @@ public class ApartmentService {
 	        return repository.findAll();
 	    }
 
-	    public UpdateApartmentDetailsResponse updateApatrmentdetails(UpdateApartmentDetailsRequest request) {
+	    public UpdateApartmentDetailsResponse updateApartmentDetails(UpdateApartmentDetailsRequest request) {
 	    	UpdateApartmentDetailsResponse response = new UpdateApartmentDetailsResponse();
 	    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 	    	try {
@@ -61,7 +61,7 @@ public class ApartmentService {
 	    		apartment.setAprmntAddress(genericService.toJson(request.getAddress()));
 	    		apartment.setAprmnt_bank_acccount_list(
 	    				genericService.encrypt(genericService.toJson(defaultIfNull(request.getBankAccountDetails()))));
-	    		apartment.setAprmnt_executive_role_list(genericService.toJson(defaultIfNull(request.getExcutiveMemberList())));
+	    		apartment.setAprmnt_executive_role_list(genericService.toJson(defaultIfNull(request.getExecutiveMemberList())));
 	    		apartment.setAprmntLetterHead(request.getApartmentLetterHead());
 	    		apartment.setLst_updt_ts(LocalDateTime.now());
 	    		apartment.setLst_updt_usrid(request.getGenericHeader().getUserId());
@@ -75,7 +75,7 @@ public class ApartmentService {
 	    	return response;
 	    }
 
-	    public GetApartmentDetailsResponse getApatrmentdetails(GetApartmentDetailsRequest request) {
+	    public GetApartmentDetailsResponse getApartmentDetails(GetApartmentDetailsRequest request) {
 	    	GetApartmentDetailsResponse response = new GetApartmentDetailsResponse();
 	    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 	    	try {
@@ -90,7 +90,7 @@ public class ApartmentService {
 	    		response.setApartmentLogo(apartment.getAprmnt_logo());
 	    		response.setAddress(genericService.fromJson(apartment.getAprmntAddress(),
 	    				com.secura.dnft.generic.bean.Address.class));
-	    		response.setExcutiveMemberList(readExecutiveMembers(apartment.getAprmnt_executive_role_list()));
+	    		response.setExecutiveMemberList(readExecutiveMembers(apartment.getAprmnt_executive_role_list()));
 	    		response.setBankAccountDetails(readBankAccounts(apartment.getAprmnt_bank_acccount_list()));
 	    		response.setApartmentLetterHead(apartment.getAprmntLetterHead());
 	    		response.setMessage(SuccessMessage.SUCC_MESSAGE_36);

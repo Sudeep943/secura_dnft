@@ -28,7 +28,7 @@ class ApartmentControllerTest {
 	private ApartmentController apartmentController;
 
 	@Test
-	void updateApatrmentdetails_shouldReturnServiceResponse() {
+	void updateApartmentDetails_shouldReturnServiceResponse() {
 		UpdateApartmentDetailsRequest request = new UpdateApartmentDetailsRequest();
 		GenericHeader header = buildHeader();
 		request.setGenericHeader(header);
@@ -36,21 +36,21 @@ class ApartmentControllerTest {
 		expected.setGenericHeader(header);
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
-		when(apartmentService.updateApatrmentdetails(request)).thenReturn(expected);
+		when(apartmentService.updateApartmentDetails(request)).thenReturn(expected);
 
-		UpdateApartmentDetailsResponse actual = apartmentController.updateApatrmentdetails(request);
+		UpdateApartmentDetailsResponse actual = apartmentController.updateApartmentDetails(request);
 
 		assertEquals(expected, actual);
 	}
 
 	@Test
-	void getApatrmentdetails_shouldReturnGenericErrorWhenServiceThrows() {
+	void getApartmentDetails_shouldReturnGenericErrorWhenServiceThrows() {
 		GetApartmentDetailsRequest request = new GetApartmentDetailsRequest();
 		GenericHeader header = buildHeader();
 		request.setGenericHeader(header);
-		when(apartmentService.getApatrmentdetails(request)).thenThrow(new RuntimeException("boom"));
+		when(apartmentService.getApartmentDetails(request)).thenThrow(new RuntimeException("boom"));
 
-		GetApartmentDetailsResponse actual = apartmentController.getApatrmentdetails(request);
+		GetApartmentDetailsResponse actual = apartmentController.getApartmentDetails(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());

@@ -2,6 +2,8 @@ package com.secura.dnft.request.response;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.secura.dnft.bean.BankAccountDetails;
 import com.secura.dnft.bean.ExecutiveMember;
 import com.secura.dnft.generic.bean.Address;
@@ -12,7 +14,9 @@ public class UpdateApartmentDetailsRequest {
 	private String apartmentLogo;
 	private List<BankAccountDetails> bankAccountDetails;
 	private Address address;
-	private List<ExecutiveMember> excutiveMemberList;
+	@JsonProperty("excutiveMemberList")
+	@JsonAlias("executiveMemberList")
+	private List<ExecutiveMember> executiveMemberList;
 	private String apartmentLetterHead;
 
 	public GenericHeader getGenericHeader() {
@@ -47,12 +51,12 @@ public class UpdateApartmentDetailsRequest {
 		this.address = address;
 	}
 
-	public List<ExecutiveMember> getExcutiveMemberList() {
-		return excutiveMemberList;
+	public List<ExecutiveMember> getExecutiveMemberList() {
+		return executiveMemberList;
 	}
 
-	public void setExcutiveMemberList(List<ExecutiveMember> excutiveMemberList) {
-		this.excutiveMemberList = excutiveMemberList;
+	public void setExecutiveMemberList(List<ExecutiveMember> executiveMemberList) {
+		this.executiveMemberList = executiveMemberList;
 	}
 
 	public String getApartmentLetterHead() {

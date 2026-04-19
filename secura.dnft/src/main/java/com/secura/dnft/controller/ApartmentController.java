@@ -36,13 +36,13 @@ public class ApartmentController {
         return list;
     }
 
-    @PostMapping("/updateApatrmentdetails")
+    @PostMapping({"/updateApartmentDetails", "/updateApatrmentdetails"})
     @CrossOrigin(origins = "*")
-    public UpdateApartmentDetailsResponse updateApatrmentdetails(@RequestBody UpdateApartmentDetailsRequest request) {
+    public UpdateApartmentDetailsResponse updateApartmentDetails(@RequestBody UpdateApartmentDetailsRequest request) {
     	UpdateApartmentDetailsResponse response = new UpdateApartmentDetailsResponse();
     	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
     	try {
-    		return service.updateApatrmentdetails(request);
+    		return service.updateApartmentDetails(request);
     	} catch (Exception e) {
     		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
     		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
@@ -50,13 +50,13 @@ public class ApartmentController {
     	return response;
     }
 
-    @PostMapping("/getApatrmentdetails")
+    @PostMapping({"/getApartmentDetails", "/getApatrmentdetails"})
     @CrossOrigin(origins = "*")
-    public GetApartmentDetailsResponse getApatrmentdetails(@RequestBody GetApartmentDetailsRequest request) {
+    public GetApartmentDetailsResponse getApartmentDetails(@RequestBody GetApartmentDetailsRequest request) {
     	GetApartmentDetailsResponse response = new GetApartmentDetailsResponse();
     	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
     	try {
-    		return service.getApatrmentdetails(request);
+    		return service.getApartmentDetails(request);
     	} catch (Exception e) {
     		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
     		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
