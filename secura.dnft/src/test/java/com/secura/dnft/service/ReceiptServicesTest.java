@@ -24,6 +24,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.text.TextPosition;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -174,6 +175,24 @@ class ReceiptServicesTest {
 	}
 
 	@Test
+	void createReceipt_shouldKeepTwoLineHeaderGapsAroundReceiptTitle() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+		apartment.setAprmntName("Secura Heights");
+		apartment.setAprmntAddress("12 Main Street");
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		HeaderTextPositions positions = extractHeaderTextPositions(response.getReceipt(), "12 Main Street", "RECEIPT", "Receipt Type :");
+		assertEquals(36f, positions.receiptY() - positions.addressY(), 1f);
+		assertEquals(36f, positions.receiptTypeY() - positions.receiptY(), 1f);
+	}
+
+	@Test
 	void createReceipt_shouldHideUnitPriceAndRenameQuantityHeaderWhenRequested() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
 		request.setUnitPriceRequired(false);
@@ -321,6 +340,16 @@ class ReceiptServicesTest {
 		}
 	}
 
+	private HeaderTextPositions extractHeaderTextPositions(String base64Pdf, String addressText, String receiptText, String receiptTypeText)
+			throws Exception {
+		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			HeaderTextStripper stripper = new HeaderTextStripper(addressText, receiptText, receiptTypeText);
+			stripper.getText(document);
+			return stripper.getPositions();
+		}
+	}
+
 	private int countVerticalSegments(PDPage page, float expectedX, float expectedGap) throws Exception {
 		PDFStreamParser parser = new PDFStreamParser(page);
 		List<Object> tokens = parser.parse();
@@ -374,5 +403,49 @@ class ReceiptServicesTest {
 		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 		ImageIO.write(image, "png", outputStream);
 		return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+	}
+
+	private record HeaderTextPositions(float addressY, float receiptY, float receiptTypeY) {
+	}
+
+	private static class HeaderTextStripper extends PDFTextStripper {
+
+		private final String addressText;
+		private final String receiptText;
+		private final String receiptTypeText;
+		private Float addressY;
+		private Float receiptY;
+		private Float receiptTypeY;
+
+		private HeaderTextStripper(String addressText, String receiptText, String receiptTypeText) throws Exception {
+			this.addressText = addressText;
+			this.receiptText = receiptText;
+			this.receiptTypeText = receiptTypeText;
+			setSortByPosition(true);
+		}
+
+		@Override
+		protected void writeString(String text, List<TextPosition> textPositions) throws java.io.IOException {
+			super.writeString(text, textPositions);
+			if (textPositions.isEmpty()) {
+				return;
+			}
+			if (addressY == null && addressText.equals(text)) {
+				addressY = textPositions.get(0).getYDirAdj();
+			}
+			if (receiptY == null && receiptText.equals(text)) {
+				receiptY = textPositions.get(0).getYDirAdj();
+			}
+			if (receiptTypeY == null && receiptTypeText.equals(text)) {
+				receiptTypeY = textPositions.get(0).getYDirAdj();
+			}
+		}
+
+		private HeaderTextPositions getPositions() {
+			assertNotNull(addressY);
+			assertNotNull(receiptY);
+			assertNotNull(receiptTypeY);
+			return new HeaderTextPositions(addressY, receiptY, receiptTypeY);
+		}
 	}
 }

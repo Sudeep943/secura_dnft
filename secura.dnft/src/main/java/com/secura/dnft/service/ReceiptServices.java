@@ -68,6 +68,8 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
 	private static final float HEADER_LINE_GAP = LINE_HEIGHT * 3;
+	private static final float HEADER_ADDRESS_TO_RECEIPT_GAP = HEADER_LINE_GAP - (TEXT_FONT_SIZE + 4f);
+	private static final float HEADER_RECEIPT_TO_META_GAP = HEADER_LINE_GAP - ((TITLE_FONT_SIZE + 8f) + CELL_PADDING + SMALL_FONT_SIZE);
 	private static final float CELL_PADDING = 4f;
 	private static final float SECTION_TITLE_HEIGHT = 18f;
 	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
@@ -167,8 +169,9 @@ public class ReceiptServices implements ReceiptInterface {
 		for (String line : addressLines) {
 			canvas.drawCenteredText(line, canvas.getFont(), TEXT_FONT_SIZE);
 		}
+		canvas.addGap(HEADER_ADDRESS_TO_RECEIPT_GAP);
 		canvas.drawCenteredUnderlinedText("RECEIPT", canvas.getBoldFont(), TITLE_FONT_SIZE, 2f);
-		canvas.addGap(HEADER_LINE_GAP);
+		canvas.addGap(HEADER_RECEIPT_TO_META_GAP);
 	}
 
 	private String resolveApartmentAddress(ApartmentMaster apartment) {
