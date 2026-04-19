@@ -149,6 +149,27 @@ class ReceiptServicesTest {
 	}
 
 	@Test
+	void createReceipt_shouldUseApartmentLogoAndRenderReceiptHeading() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.getGenericHeader().setProfilepic("not-base64");
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+		apartment.setAprmntName("Secura Heights");
+		apartment.setAprmntAddress("12 Main Street, Springfield");
+		apartment.setAprmnt_logo("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s2cN+0AAAAASUVORK5CYII=");
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertTrue(text.contains("RECEIPT"));
+		assertTrue(text.indexOf("RECEIPT") < text.indexOf("Receipt Type :"));
+		assertTrue(hasImage(Base64.getDecoder().decode(response.getReceipt())));
+	}
+
+	@Test
 	void createReceipt_shouldHideUnitPriceAndRenameQuantityHeaderWhenRequested() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
 		request.setUnitPriceRequired(false);
@@ -333,5 +354,13 @@ class ReceiptServicesTest {
 			}
 		}
 		return false;
+	}
+
+	private boolean hasImage(byte[] pdfBytes) throws Exception {
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			PDFStreamParser parser = new PDFStreamParser(document.getPage(0));
+			List<Object> tokens = parser.parse();
+			return tokens.stream().anyMatch(token -> token instanceof Operator operator && "Do".equals(operator.getName()));
+		}
 	}
 }

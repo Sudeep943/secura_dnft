@@ -2,6 +2,7 @@ package com.secura.dnft.request.response;
 
 public class GetLetterHeadResponse {
 	private GenericHeader genericHeader;
+	private String letterHead;
 	private String message;
     private String messageCode;
 	public GenericHeader getGenericHeader() {
@@ -9,6 +10,12 @@ public class GetLetterHeadResponse {
 	}
 	public void setGenericHeader(GenericHeader genericHeader) {
 		this.genericHeader = genericHeader;
+	}
+	public String getLetterHead() {
+		return letterHead;
+	}
+	public void setLetterHead(String letterHead) {
+		this.letterHead = letterHead;
 	}
 	public String getMessage() {
 		return message;
