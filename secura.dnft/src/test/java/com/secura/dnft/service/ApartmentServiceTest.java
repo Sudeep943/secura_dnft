@@ -52,7 +52,7 @@ class ApartmentServiceTest {
 	private ApartmentService apartmentService;
 
 	@Test
-	void updateApatrmentdetails_shouldSerializeEncryptAndPersist() {
+	void updateApatrmentdetails_shouldSerializeEncryptAndPersist() throws Exception {
 		UpdateApartmentDetailsRequest request = buildUpdateRequest();
 		ApartmentMaster apartment = new ApartmentMaster();
 		apartment.setAprmntId("APR-1");
@@ -79,7 +79,7 @@ class ApartmentServiceTest {
 	}
 
 	@Test
-	void getApatrmentdetails_shouldDecryptAndDeserializeStoredValues() {
+	void getApatrmentdetails_shouldDecryptAndDeserializeStoredValues() throws Exception {
 		GetApartmentDetailsRequest request = new GetApartmentDetailsRequest();
 		request.setGenericHeader(buildHeader());
 		ApartmentMaster apartment = new ApartmentMaster();
@@ -119,7 +119,7 @@ class ApartmentServiceTest {
 	}
 
 	@Test
-	void getApatrmentdetails_shouldReturnNotFoundWhenApartmentMissing() {
+	void getApatrmentdetails_shouldReturnNotFoundWhenApartmentMissing() throws Exception {
 		GetApartmentDetailsRequest request = new GetApartmentDetailsRequest();
 		request.setGenericHeader(buildHeader());
 
