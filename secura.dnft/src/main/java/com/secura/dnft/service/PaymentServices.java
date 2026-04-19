@@ -924,6 +924,7 @@ public class PaymentServices implements PaymentInterface {
 
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
 		int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPersons() : null);
+		String requestedAmount = request != null ? request.getAmount() : null;
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails, personCount)));
@@ -933,8 +934,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setPerheadFlag(personCount > 0);
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(personCount > 1);
-		receiptRequest.setTotalAmount(hasText(request != null ? request.getAmount() : null) ? request.getAmount()
-				: dueDetails != null ? dueDetails.getTotalAmount() : null);
+		receiptRequest.setTotalAmount(hasText(requestedAmount) ? requestedAmount : dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setTenderList(buildTenderList(request));
 		return receiptRequest;
