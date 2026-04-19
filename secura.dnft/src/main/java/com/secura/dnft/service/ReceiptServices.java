@@ -163,7 +163,7 @@ public class ReceiptServices implements ReceiptInterface {
 		String logo = resolveLogo(request != null ? request.getGenericHeader() : null, apartment);
 		if (hasText(logo)) {
 			canvas.drawCenteredImage(logo, 110f, 55f);
-			canvas.addGap(HEADER_LINE_GAP);
+			canvas.addGap(HEADER_BASELINE_GAP);
 		}
 		canvas.drawCenteredText(defaultValue(apartment != null ? apartment.getAprmntName() : request != null && request.getGenericHeader() != null
 				? request.getGenericHeader().getApartmentName() : null), canvas.getBoldFont(), TITLE_FONT_SIZE);
