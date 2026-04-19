@@ -13,8 +13,12 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
+import org.apache.pdfbox.contentstream.operator.Operator;
+import org.apache.pdfbox.cos.COSNumber;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -158,6 +162,33 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("₹ 1200"));
 	}
 
+	@Test
+	void createReceipt_shouldKeepOuterBordersContinuousAcrossSectionGaps() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setUnitPriceRequired(true);
+		request.setTransactionId("TXN-1001");
+		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
+		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountCode("DISC10");
+		discFinReceipt.setDiscountAmount("100");
+		discFinReceipt.setDiscountType("percentage");
+		discFinReceipt.setDiscountPercentage("10");
+		request.setDiscFinReceipt(discFinReceipt);
+		request.setTenderList(List.of(createTender("Online", "2500")));
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		byte[] pdfBytes = Base64.getDecoder().decode(response.getReceipt());
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			float rightBorderX = document.getPage(0).getMediaBox().getWidth() - 40f;
+			assertTrue(hasVerticalGapBorder(document.getPage(0), 40f, 12f));
+			assertTrue(hasVerticalGapBorder(document.getPage(0), rightBorderX, 12f));
+		}
+	}
+
 	private CreateReceiptRequest createBaseRequest() {
 		CreateReceiptRequest request = new CreateReceiptRequest();
 		GenericHeader header = new GenericHeader();
@@ -197,8 +228,31 @@ class ReceiptServicesTest {
 
 	private String extractText(String base64Pdf) throws Exception {
 		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
-		try (PDDocument document = Loader.loadPDF(new ByteArrayInputStream(pdfBytes).readAllBytes())) {
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
 			return new PDFTextStripper().getText(document);
 		}
+	}
+
+	private boolean hasVerticalGapBorder(PDPage page, float expectedX, float expectedGap) throws Exception {
+		PDFStreamParser parser = new PDFStreamParser(page);
+		List<Object> tokens = parser.parse();
+		for (int index = 0; index + 5 < tokens.size(); index++) {
+			if (!(tokens.get(index) instanceof COSNumber moveX)
+					|| !(tokens.get(index + 1) instanceof COSNumber moveY)
+					|| !(tokens.get(index + 2) instanceof Operator moveOperator)
+					|| !(tokens.get(index + 3) instanceof COSNumber lineX)
+					|| !(tokens.get(index + 4) instanceof COSNumber lineY)
+					|| !(tokens.get(index + 5) instanceof Operator lineOperator)) {
+				continue;
+			}
+			if (!"m".equals(moveOperator.getName()) || !"l".equals(lineOperator.getName())) {
+				continue;
+			}
+			if (Math.abs(moveX.floatValue() - expectedX) < 0.01f && Math.abs(lineX.floatValue() - expectedX) < 0.01f
+					&& Math.abs(Math.abs(moveY.floatValue() - lineY.floatValue()) - expectedGap) < 0.01f) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

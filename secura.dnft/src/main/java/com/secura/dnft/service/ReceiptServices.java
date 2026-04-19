@@ -64,7 +64,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
 	private static final float CELL_PADDING = 4f;
-	private static final float SECTION_GAP = 0f;
+	private static final float SECTION_GAP = LINE_HEIGHT;
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic generated receipt required no signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
@@ -157,7 +157,7 @@ public class ReceiptServices implements ReceiptInterface {
 		for (String line : addressLines) {
 			canvas.drawCenteredText(line, canvas.getFont(), TEXT_FONT_SIZE);
 		}
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawMetaTable(PdfCanvas canvas, CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate)
@@ -172,7 +172,7 @@ public class ReceiptServices implements ReceiptInterface {
 				new boolean[] { true, false });
 		canvas.drawTableRow(new String[] { "Transaction Id :", defaultValue(request != null ? request.getTransactionId() : null) },
 				new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawItemsSection(PdfCanvas canvas, CreateReceiptRequest request) throws Exception {
@@ -195,7 +195,7 @@ public class ReceiptServices implements ReceiptInterface {
 							defaultValue(item != null ? item.getQuantity() : null), formatCurrency(item != null ? item.getAmount() : null) };
 			canvas.drawTableRow(values, widths, false);
 		}
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawAddedChargesSection(PdfCanvas canvas, List<AddedCharges> addedCharges) throws Exception {
@@ -212,7 +212,7 @@ public class ReceiptServices implements ReceiptInterface {
 					formatAmountWithPercentage(charge != null ? charge.getFinalChargeValue() : null, charge != null ? charge.getChargeType() : null,
 							charge != null ? charge.getValue() : null) }, widths, false);
 		}
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawDiscountFineSection(PdfCanvas canvas, DiscFinReceipt discFinReceipt) throws Exception {
@@ -242,7 +242,7 @@ public class ReceiptServices implements ReceiptInterface {
 			String[] row = rows.get(index);
 			canvas.drawTableRow(new String[] { String.valueOf(index + 1), row[0], row[1] }, widths, false);
 		}
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawTenderDetailsSection(PdfCanvas canvas, List<PaymentTenderData> tenderList) throws Exception {
@@ -259,13 +259,13 @@ public class ReceiptServices implements ReceiptInterface {
 					defaultValue(tenderData != null ? tenderData.getTenderName() : null),
 					formatCurrency(tenderData != null ? tenderData.getAmountPaid() : null) }, widths, false);
 		}
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawTotal(PdfCanvas canvas, String totalAmount) throws Exception {
 		float usableWidth = canvas.getUsableWidth();
 		canvas.drawTableRow(new String[] { "Total", formatCurrency(totalAmount) }, new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
-		canvas.addGap(SECTION_GAP);
+		canvas.drawSectionGap(SECTION_GAP);
 	}
 
 	private void drawRemarks(PdfCanvas canvas, String remarks) throws Exception {
@@ -380,6 +380,20 @@ public class ReceiptServices implements ReceiptInterface {
 		}
 
 		private void addGap(float gap) {
+			y -= gap;
+		}
+
+		private void drawSectionGap(float gap) throws IOException {
+			if (gap <= 0f) {
+				return;
+			}
+			ensureSpace(gap);
+			float rightX = LEFT_MARGIN + getUsableWidth();
+			stream.moveTo(LEFT_MARGIN, y);
+			stream.lineTo(LEFT_MARGIN, y - gap);
+			stream.moveTo(rightX, y);
+			stream.lineTo(rightX, y - gap);
+			stream.stroke();
 			y -= gap;
 		}
 
