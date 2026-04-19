@@ -68,9 +68,9 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float RIGHT_MARGIN = 40f;
 	private static final float LINE_HEIGHT = 12f;
 	private static final float HEADER_LINE_GAP = LINE_HEIGHT * 3;
+	private static final float CELL_PADDING = 4f;
 	private static final float HEADER_ADDRESS_TO_RECEIPT_GAP = HEADER_LINE_GAP - (TEXT_FONT_SIZE + 4f);
 	private static final float HEADER_RECEIPT_TO_META_GAP = HEADER_LINE_GAP - ((TITLE_FONT_SIZE + 8f) + CELL_PADDING + SMALL_FONT_SIZE);
-	private static final float CELL_PADDING = 4f;
 	private static final float SECTION_TITLE_HEIGHT = 18f;
 	private static final float SECTION_GAP = SECTION_TITLE_HEIGHT;
 	private static final float BORDER_LINE_WIDTH = 0.75f;
