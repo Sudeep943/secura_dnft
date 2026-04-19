@@ -69,7 +69,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final float BORDER_LINE_WIDTH = 0.75f;
 	private static final int LINE_JOIN_BEVEL = 2;
 	private static final int LINE_CAP_BUTT = 0;
-	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic generated receipt required no signature";
+	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic Generated Receipt and Required No Signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -268,7 +268,8 @@ public class ReceiptServices implements ReceiptInterface {
 
 	private void drawTotal(PdfCanvas canvas, String totalAmount) throws Exception {
 		float usableWidth = canvas.getUsableWidth();
-		canvas.drawTableRow(new String[] { "Total", formatCurrency(totalAmount) }, new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
+		canvas.drawTableRow(new String[] { "Total Amount Paid (After Rounding)", formatCurrency(totalAmount) },
+				new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
 		canvas.addGap(SECTION_GAP);
 	}
 

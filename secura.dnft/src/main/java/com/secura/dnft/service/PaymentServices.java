@@ -924,16 +924,17 @@ public class PaymentServices implements PaymentInterface {
 
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
 		int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPersons() : null);
+		String requestedAmount = request != null ? request.getAmount() : null;
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails, personCount)));
-		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
-		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
+		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails, personCount));
+		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails, personCount));
 		receiptRequest.setReceiptType("Payment");
 		receiptRequest.setPerheadFlag(personCount > 0);
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(personCount > 1);
-		receiptRequest.setTotalAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
+		receiptRequest.setTotalAmount(hasText(requestedAmount) ? requestedAmount : dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setTenderList(buildTenderList(request));
 		return receiptRequest;
@@ -991,31 +992,39 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails) {
+	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails, int personCount) {
 		List<AddedCharges> receiptAddedCharges = cloneAddedCharges(dueDetails != null ? dueDetails.getAddedCharges() : null);
 		if (receiptAddedCharges == null) {
 			receiptAddedCharges = new ArrayList<>();
+		}
+		if (personCount > 1) {
+			for (AddedCharges charge : receiptAddedCharges) {
+				if (charge != null) {
+					charge.setFinalChargeValue(multiplyAmount(charge.getFinalChargeValue(), personCount));
+				}
+			}
 		}
 		if (dueDetails != null && hasText(dueDetails.getGstAmount())) {
 			AddedCharges gstCharge = new AddedCharges();
 			gstCharge.setChargeName("GST");
 			gstCharge.setChargeType("percentage");
 			gstCharge.setValue(dueDetails.getGstPercentage());
-			gstCharge.setFinalChargeValue(dueDetails.getGstAmount());
+			gstCharge.setFinalChargeValue(personCount > 1 ? multiplyAmount(dueDetails.getGstAmount(), personCount) : dueDetails.getGstAmount());
 			receiptAddedCharges.add(gstCharge);
 		}
 		return receiptAddedCharges.isEmpty() ? null : receiptAddedCharges;
 	}
 
-	private DiscFinReceipt buildDiscFinReceipt(DueAmountDetails dueDetails) {
+	private DiscFinReceipt buildDiscFinReceipt(DueAmountDetails dueDetails, int personCount) {
 		if (dueDetails == null) {
 			return null;
 		}
 		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
 		discFinReceipt.setDiscountCode(dueDetails.getDiscountCode());
-		discFinReceipt.setDiscountAmount(dueDetails.getDiscountedAmount());
+		discFinReceipt.setDiscountAmount(personCount > 1 ? multiplyAmount(dueDetails.getDiscountedAmount(), personCount)
+				: dueDetails.getDiscountedAmount());
 		discFinReceipt.setFineCode(dueDetails.getFineCode());
-		discFinReceipt.setFineAmount(dueDetails.getFineAmount());
+		discFinReceipt.setFineAmount(personCount > 1 ? multiplyAmount(dueDetails.getFineAmount(), personCount) : dueDetails.getFineAmount());
 		if (!hasText(discFinReceipt.getDiscountCode()) && !hasText(discFinReceipt.getDiscountAmount())
 				&& !hasText(discFinReceipt.getFineCode()) && !hasText(discFinReceipt.getFineAmount())) {
 			return null;
