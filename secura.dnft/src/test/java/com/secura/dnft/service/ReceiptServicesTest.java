@@ -181,7 +181,8 @@ class ReceiptServicesTest {
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
-		try (PDDocument document = loadDocument(response.getReceipt())) {
+		byte[] pdfBytes = Base64.getDecoder().decode(response.getReceipt());
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
 			float rightBorderX = document.getPage(0).getMediaBox().getWidth() - 40f;
 			assertTrue(hasVerticalGapBorder(document.getPage(0), 40f, 12f));
 			assertTrue(hasVerticalGapBorder(document.getPage(0), rightBorderX, 12f));
@@ -226,14 +227,10 @@ class ReceiptServicesTest {
 	}
 
 	private String extractText(String base64Pdf) throws Exception {
-		try (PDDocument document = loadDocument(base64Pdf)) {
+		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
 			return new PDFTextStripper().getText(document);
 		}
-	}
-
-	private PDDocument loadDocument(String base64Pdf) throws Exception {
-		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
-		return Loader.loadPDF(pdfBytes);
 	}
 
 	private boolean hasVerticalGapBorder(PDPage page, float expectedX, float expectedGap) throws Exception {
