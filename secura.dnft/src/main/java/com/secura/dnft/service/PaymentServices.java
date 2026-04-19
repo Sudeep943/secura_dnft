@@ -962,9 +962,9 @@ public class PaymentServices implements PaymentInterface {
 			return false;
 		}
 		try {
-			return Double.parseDouble(noOfPersons.trim()) != 0d;
+			return Integer.parseInt(noOfPersons.trim()) != 0;
 		} catch (NumberFormatException ex) {
-			return true;
+			return false;
 		}
 	}
 
