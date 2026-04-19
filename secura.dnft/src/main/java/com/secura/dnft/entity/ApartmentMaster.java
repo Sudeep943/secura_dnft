@@ -20,17 +20,20 @@ public class ApartmentMaster {
     @Column(name = "aprmnt_name")
     private String aprmntName;
 
-    @Column(name = "aprmnt_address")
+    @Column(name = "aprmnt_address", columnDefinition = "TEXT")
     private String aprmntAddress;
     
-    @Column(name = "aprmnt_bank_acccount_list")
+    @Column(name = "aprmnt_bank_acccount_list", columnDefinition = "TEXT")
     private String aprmnt_bank_acccount_list;
     
-    @Column(name = "aprmnt_executive_role_list")
+    @Column(name = "aprmnt_executive_role_list", columnDefinition = "TEXT")
     private String aprmnt_executive_role_list;
     
-    @Column(name = "aprmnt_logo")
+    @Column(name = "aprmnt_logo", columnDefinition = "TEXT")
     private String aprmnt_logo;
+
+    @Column(name = "aprmnt_letter_head", columnDefinition = "TEXT")
+    private String aprmntLetterHead;
     
     @Column(name = "creat_ts")
     private LocalDateTime  creat_ts;
@@ -123,8 +126,16 @@ public class ApartmentMaster {
 	public void setAprmnt_logo(String aprmnt_logo) {
 		this.aprmnt_logo = aprmnt_logo;
 	}
-    
-    
-    
-    
+
+	public String getAprmntLetterHead() {
+		return aprmntLetterHead;
+	}
+
+	public void setAprmntLetterHead(String aprmntLetterHead) {
+		this.aprmntLetterHead = aprmntLetterHead;
+	}
+     
+     
+     
+     
 }
