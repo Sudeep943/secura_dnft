@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -63,6 +64,8 @@ import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -307,6 +310,32 @@ public class FlatServices implements FlatInterface {
 		return response;
 	}
 
+	@Override
+	public GetDueAmountForPerHeadCalculationResponse getDueAmountForPerHeadCalculation(
+			GetDueAmountForPerHeadCalculationRequest request) {
+		GetDueAmountForPerHeadCalculationResponse response = new GetDueAmountForPerHeadCalculationResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			DueAmountDetails dueAmountDetails = findDueAmountDetailsByDueId(request);
+			DueAmountDetails calculatedDueAmountDetails = cloneDueAmountDetails(dueAmountDetails);
+			int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPerson() : null);
+			if (personCount <= 0) {
+				personCount = 1;
+			}
+			BigDecimal finalAmount = applyDiscountAndFineIfApplicable(calculatedDueAmountDetails, LocalDate.now());
+			scaleDueAmountDetails(calculatedDueAmountDetails, personCount);
+			BigDecimal scaledFinalAmount = finalAmount.multiply(BigDecimal.valueOf(personCount));
+			calculatedDueAmountDetails.setTotalAmount(formatNumber(roundAmountByThreshold(scaledFinalAmount)));
+			response.setDueAmountDetails(calculatedDueAmountDetails);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
+		}
+		return response;
+	}
+
 	private Flat buildFlatEntity(AddFlatDetailsRequest addRequest, UpdateFlatDetailsRequest updateRequest) {
 		Flat flat = new Flat();
 		boolean isAddRequest = addRequest != null;
@@ -336,6 +365,113 @@ public class FlatServices implements FlatInterface {
 			return existing != null ? new ArrayList<>(existing) : new ArrayList<>();
 		} catch (RuntimeException e) {
 			return new ArrayList<>();
+		}
+	}
+
+	private DueAmountDetails findDueAmountDetailsByDueId(GetDueAmountForPerHeadCalculationRequest request) {
+		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		String dueId = request != null ? request.getDueId() : null;
+		if (!hasText(dueId)) {
+			throw new IllegalArgumentException("dueId is required");
+		}
+		List<Flat> apartmentFlats = hasText(apartmentId) ? flatRepository.findByAprmntId(apartmentId) : flatRepository.findAll();
+		for (Flat flat : apartmentFlats) {
+			DueAmountDetails matched = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst()).stream()
+					.filter(Objects::nonNull)
+					.filter(details -> dueId.equals(details.getDueId()))
+					.findFirst()
+					.orElse(null);
+			if (matched != null) {
+				return matched;
+			}
+		}
+		throw new IllegalArgumentException("Due amount details not found");
+	}
+
+	private DueAmountDetails cloneDueAmountDetails(DueAmountDetails details) {
+		if (details == null) {
+			return null;
+		}
+		DueAmountDetails copy = new DueAmountDetails();
+		copy.setDueDate(details.getDueDate());
+		copy.setPaymentId(details.getPaymentId());
+		copy.setDueId(details.getDueId());
+		copy.setAmount(details.getAmount());
+		copy.setGstAmount(details.getGstAmount());
+		copy.setTotalAmount(details.getTotalAmount());
+		copy.setPaymentName(details.getPaymentName());
+		copy.setPaymentType(details.getPaymentType());
+		copy.setEventPayment(details.isEventPayment());
+		copy.setAllowedPaymentModes(details.getAllowedPaymentModes() == null ? null : new ArrayList<>(details.getAllowedPaymentModes()));
+		copy.setPaymentCapita(details.getPaymentCapita());
+		copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
+		copy.setTotalAddedCharges(details.getTotalAddedCharges());
+		copy.setGstPercentage(details.getGstPercentage());
+		copy.setDiscountCode(details.getDiscountCode());
+		copy.setFineCode(details.getFineCode());
+		copy.setDiscFnValue(details.getDiscFnValue());
+		copy.setDiscountedAmount(details.getDiscountedAmount());
+		copy.setFineAmount(details.getFineAmount());
+		copy.setFineType(details.getFineType());
+		return copy;
+	}
+
+	private List<AddedCharges> cloneAddedCharges(List<AddedCharges> addedCharges) {
+		if (addedCharges == null) {
+			return null;
+		}
+		List<AddedCharges> cloned = new ArrayList<>();
+		for (AddedCharges charge : addedCharges) {
+			if (charge == null) {
+				cloned.add(null);
+				continue;
+			}
+			AddedCharges copy = new AddedCharges();
+			copy.setChargeName(charge.getChargeName());
+			copy.setChargeType(charge.getChargeType());
+			copy.setValue(charge.getValue());
+			copy.setFinalChargeValue(charge.getFinalChargeValue());
+			cloned.add(copy);
+		}
+		return cloned;
+	}
+
+	private void scaleDueAmountDetails(DueAmountDetails details, int personCount) {
+		if (details == null || personCount <= 1) {
+			return;
+		}
+		BigDecimal multiplier = BigDecimal.valueOf(personCount);
+		details.setAmount(multiplyAndFormat(details.getAmount(), multiplier));
+		details.setGstAmount(multiplyAndFormat(details.getGstAmount(), multiplier));
+		details.setTotalAddedCharges(multiplyAndFormat(details.getTotalAddedCharges(), multiplier));
+		details.setDiscountedAmount(multiplyAndFormat(details.getDiscountedAmount(), multiplier));
+		details.setFineAmount(multiplyAndFormat(details.getFineAmount(), multiplier));
+		List<AddedCharges> addedCharges = details.getAddedCharges();
+		if (addedCharges != null) {
+			for (AddedCharges charge : addedCharges) {
+				if (charge != null) {
+					charge.setFinalChargeValue(multiplyAndFormat(charge.getFinalChargeValue(), multiplier));
+				}
+			}
+		}
+	}
+
+	private String multiplyAndFormat(String value, BigDecimal multiplier) {
+		if (!hasText(value)) {
+			return value;
+		}
+		return formatNumber(parseNumeric(value).multiply(multiplier));
+	}
+
+	private int getPositiveNoOfPersons(String noOfPerson) {
+		if (!hasText(noOfPerson)) {
+			return 0;
+		}
+		try {
+			int parsedNoOfPersons = Integer.parseInt(noOfPerson.trim());
+			return parsedNoOfPersons > 0 ? parsedNoOfPersons : 0;
+		} catch (NumberFormatException e) {
+			return 0;
 		}
 	}
 
@@ -600,6 +736,10 @@ public class FlatServices implements FlatInterface {
 		RoundingMode roundingMode = decimalPart.compareTo(BigDecimal.valueOf(0.5)) > 0 ? RoundingMode.UP
 				: RoundingMode.DOWN;
 		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
+	}
+
+	private boolean hasText(String value) {
+		return value != null && !value.trim().isEmpty();
 	}
 
 	private List<GetAllFlatsResponse.BlockDetails> buildBlockHierarchy(List<Flat> apartmentFlats) {

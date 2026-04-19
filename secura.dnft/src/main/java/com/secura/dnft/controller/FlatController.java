@@ -16,6 +16,8 @@ import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
@@ -96,6 +98,20 @@ public class FlatController {
 			return flatServices.getDueAmountForFlat(request);
 		} catch (Exception e) {
 			GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+	}
+
+	@PostMapping("/getDueAmountForPerHeadCalculation")
+	@CrossOrigin(origins = "*")
+	public GetDueAmountForPerHeadCalculationResponse getDueAmountForPerHeadCalculation(
+			@RequestBody GetDueAmountForPerHeadCalculationRequest request) {
+		try {
+			return flatServices.getDueAmountForPerHeadCalculation(request);
+		} catch (Exception e) {
+			GetDueAmountForPerHeadCalculationResponse response = new GetDueAmountForPerHeadCalculationResponse();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
