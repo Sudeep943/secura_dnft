@@ -3,6 +3,9 @@ package com.secura.dnft.service;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,9 +24,12 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -45,8 +51,10 @@ import com.secura.dnft.request.response.PaymentTenderData;
 @Service
 public class ReceiptServices implements ReceiptInterface {
 
-	private static final PDFont FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
-	private static final PDFont BOLD_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+	private static final Logger LOGGER = LoggerFactory.getLogger(ReceiptServices.class);
+	private static final PDFont FALLBACK_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+	private static final PDFont FALLBACK_BOLD_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+	private static final String RUPEE_SYMBOL = "\u20B9";
 	private static final float TITLE_FONT_SIZE = 12f;
 	private static final float TEXT_FONT_SIZE = 10f;
 	private static final float SMALL_FONT_SIZE = 9f;
@@ -60,6 +68,12 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic generated receipt required no signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
+	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
+			"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf" };
+	private static final String[] BOLD_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+			"/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf", "/Library/Fonts/Arial Bold.ttf",
+			"/System/Library/Fonts/Supplemental/Arial Bold.ttf", "C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/seguisb.ttf" };
 
 	@Autowired
 	private ApartmentRepository apartmentRepository;
@@ -134,13 +148,14 @@ public class ReceiptServices implements ReceiptInterface {
 			canvas.drawCenteredImage(logo, 110f, 55f);
 		}
 		canvas.drawCenteredText(defaultValue(apartment != null ? apartment.getAprmntName() : request != null && request.getGenericHeader() != null
-				? request.getGenericHeader().getApartmentName() : null), BOLD_FONT, TITLE_FONT_SIZE);
-		List<String> addressLines = canvas.wrapText(defaultValue(apartment != null ? apartment.getAprmntAddress() : null), FONT, TEXT_FONT_SIZE, canvas.getUsableWidth());
+				? request.getGenericHeader().getApartmentName() : null), canvas.getBoldFont(), TITLE_FONT_SIZE);
+		List<String> addressLines = canvas.wrapText(defaultValue(apartment != null ? apartment.getAprmntAddress() : null), canvas.getFont(), TEXT_FONT_SIZE,
+				canvas.getUsableWidth());
 		if (addressLines.isEmpty()) {
 			addressLines = Collections.singletonList("");
 		}
 		for (String line : addressLines) {
-			canvas.drawCenteredText(line, FONT, TEXT_FONT_SIZE);
+			canvas.drawCenteredText(line, canvas.getFont(), TEXT_FONT_SIZE);
 		}
 		canvas.addGap(SECTION_GAP);
 	}
@@ -148,13 +163,15 @@ public class ReceiptServices implements ReceiptInterface {
 	private void drawMetaTable(PdfCanvas canvas, CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate)
 			throws Exception {
 		float usableWidth = canvas.getUsableWidth();
-		float[] widths = new float[] { usableWidth * 0.24f, usableWidth * 0.18f, usableWidth * 0.26f, usableWidth * 0.32f };
 		canvas.drawTableRow(
-				new String[] { "Receipt Type : " + defaultValue(request != null ? request.getReceiptType() : null),
-						"Date : " + (receiptDate != null ? receiptDate.toLocalDate().format(RECEIPT_DATE_FORMATTER) : ""),
-						"Receipt Number : " + defaultValue(receiptNumber),
-						"Transaction Id : " + defaultValue(request != null ? request.getTransactionId() : null) },
-				widths, false);
+				new String[] { "Receipt Type :", defaultValue(request != null ? request.getReceiptType() : null), "Date :",
+						receiptDate != null ? receiptDate.toLocalDate().format(RECEIPT_DATE_FORMATTER) : "" },
+				new float[] { usableWidth * 0.20f, usableWidth * 0.34f, usableWidth * 0.12f, usableWidth * 0.34f },
+				new boolean[] { true, false, true, false });
+		canvas.drawTableRow(new String[] { "Receipt Number :", defaultValue(receiptNumber) }, new float[] { usableWidth * 0.20f, usableWidth * 0.80f },
+				new boolean[] { true, false });
+		canvas.drawTableRow(new String[] { "Transaction Id :", defaultValue(request != null ? request.getTransactionId() : null) },
+				new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		canvas.addGap(SECTION_GAP);
 	}
 
@@ -172,10 +189,10 @@ public class ReceiptServices implements ReceiptInterface {
 			Items item = items.get(index);
 			String[] values = unitPriceRequired
 					? new String[] { String.valueOf(index + 1), defaultValue(item != null ? item.getItemName() : null),
-							defaultValue(item != null ? item.getUnitPrice() : null), defaultValue(item != null ? item.getQuantity() : null),
-							defaultValue(item != null ? item.getAmount() : null) }
+							formatCurrency(item != null ? item.getUnitPrice() : null), defaultValue(item != null ? item.getQuantity() : null),
+							formatCurrency(item != null ? item.getAmount() : null) }
 					: new String[] { String.valueOf(index + 1), defaultValue(item != null ? item.getItemName() : null),
-							defaultValue(item != null ? item.getQuantity() : null), defaultValue(item != null ? item.getAmount() : null) };
+							defaultValue(item != null ? item.getQuantity() : null), formatCurrency(item != null ? item.getAmount() : null) };
 			canvas.drawTableRow(values, widths, false);
 		}
 		canvas.addGap(SECTION_GAP);
@@ -240,14 +257,14 @@ public class ReceiptServices implements ReceiptInterface {
 			PaymentTenderData tenderData = tenderList.get(index);
 			canvas.drawTableRow(new String[] { String.valueOf(index + 1),
 					defaultValue(tenderData != null ? tenderData.getTenderName() : null),
-					defaultValue(tenderData != null ? tenderData.getAmountPaid() : null) }, widths, false);
+					formatCurrency(tenderData != null ? tenderData.getAmountPaid() : null) }, widths, false);
 		}
 		canvas.addGap(SECTION_GAP);
 	}
 
 	private void drawTotal(PdfCanvas canvas, String totalAmount) throws Exception {
 		float usableWidth = canvas.getUsableWidth();
-		canvas.drawTableRow(new String[] { "Total", defaultValue(totalAmount) }, new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
+		canvas.drawTableRow(new String[] { "Total", formatCurrency(totalAmount) }, new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
 		canvas.addGap(SECTION_GAP);
 	}
 
@@ -262,8 +279,7 @@ public class ReceiptServices implements ReceiptInterface {
 
 	private void drawElectronicReceiptNote(PdfCanvas canvas) throws Exception {
 		canvas.addGap(LINE_HEIGHT * 3);
-		float width = canvas.getUsableWidth();
-		canvas.drawTableRow(new String[] { ELECTRONIC_RECEIPT_NOTE }, new float[] { width }, false);
+		canvas.drawTextBlock(ELECTRONIC_RECEIPT_NOTE, canvas.getFont(), SMALL_FONT_SIZE);
 	}
 
 	private String resolveLogo(GenericHeader header, ApartmentMaster apartment) {
@@ -285,7 +301,7 @@ public class ReceiptServices implements ReceiptInterface {
 	}
 
 	private String formatAmountWithPercentage(String amount, String type, String percentage) {
-		String formattedAmount = defaultValue(amount);
+		String formattedAmount = formatCurrency(amount);
 		if (!hasText(formattedAmount)) {
 			return formattedAmount;
 		}
@@ -302,6 +318,33 @@ public class ReceiptServices implements ReceiptInterface {
 		return label + " (CODE: " + code.trim() + ")";
 	}
 
+	private String formatCurrency(String amount) {
+		String formattedAmount = defaultValue(amount);
+		if (!hasText(formattedAmount)) {
+			return formattedAmount;
+		}
+		if (formattedAmount.startsWith(RUPEE_SYMBOL)) {
+			return formattedAmount;
+		}
+		return RUPEE_SYMBOL + " " + formattedAmount;
+	}
+
+	private static PDFont loadFont(PDDocument document, String[] candidates, PDFont fallback) {
+		for (String candidate : candidates) {
+			Path path = Path.of(candidate);
+			if (!Files.isRegularFile(path)) {
+				continue;
+			}
+			try (InputStream stream = Files.newInputStream(path)) {
+				return PDType0Font.load(document, stream);
+			} catch (IOException ex) {
+				LOGGER.debug("Unable to load receipt font from {}", candidate, ex);
+			}
+		}
+		LOGGER.warn("Falling back to built-in PDF font; rupee symbol rendering may be limited");
+		return fallback;
+	}
+
 	private String generateReceiptNumber() {
 		long candidate = Instant.now().toEpochMilli() % 10_000_000_000L;
 		long next = LAST_RECEIPT_NUMBER.updateAndGet(previous -> candidate > previous ? candidate : previous + 1);
@@ -311,13 +354,25 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final class PdfCanvas {
 
 		private final PDDocument document;
+		private final PDFont font;
+		private final PDFont boldFont;
 		private PDPage page;
 		private PDPageContentStream stream;
 		private float y;
 
 		private PdfCanvas(PDDocument document) throws IOException {
 			this.document = document;
+			this.font = loadFont(document, REGULAR_FONT_PATHS, FALLBACK_FONT);
+			this.boldFont = loadFont(document, BOLD_FONT_PATHS, FALLBACK_BOLD_FONT);
 			newPage();
+		}
+
+		private PDFont getFont() {
+			return font;
+		}
+
+		private PDFont getBoldFont() {
+			return boldFont;
 		}
 
 		private float getUsableWidth() {
@@ -380,17 +435,25 @@ public class ReceiptServices implements ReceiptInterface {
 			ensureSpace(24f);
 			stream.addRect(LEFT_MARGIN, y - 18f, getUsableWidth(), 18f);
 			stream.stroke();
-			float textWidth = BOLD_FONT.getStringWidth(title) / 1000f * TEXT_FONT_SIZE;
+			float textWidth = boldFont.getStringWidth(title) / 1000f * TEXT_FONT_SIZE;
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
-			drawText(title, x, y - 13f, BOLD_FONT, TEXT_FONT_SIZE);
+			drawText(title, x, y - 13f, boldFont, TEXT_FONT_SIZE);
 			y -= 18f;
 		}
 
 		private void drawTableRow(String[] values, float[] widths, boolean bold) throws IOException {
+			boolean[] boldFlags = new boolean[values.length];
+			for (int index = 0; index < boldFlags.length; index++) {
+				boldFlags[index] = bold;
+			}
+			drawTableRow(values, widths, boldFlags);
+		}
+
+		private void drawTableRow(String[] values, float[] widths, boolean[] boldFlags) throws IOException {
 			List<List<String>> wrappedValues = new ArrayList<>();
 			int maxLines = 1;
 			for (int index = 0; index < values.length; index++) {
-				List<String> lines = wrapText(values[index], bold ? BOLD_FONT : FONT, SMALL_FONT_SIZE, widths[index] - (CELL_PADDING * 2));
+				List<String> lines = wrapText(values[index], boldFlags[index] ? boldFont : font, SMALL_FONT_SIZE, widths[index] - (CELL_PADDING * 2));
 				if (lines.isEmpty()) {
 					lines = Collections.singletonList("");
 				}
@@ -410,12 +473,26 @@ public class ReceiptServices implements ReceiptInterface {
 			for (int index = 0; index < widths.length; index++) {
 				float textY = y - CELL_PADDING - SMALL_FONT_SIZE;
 				for (String line : wrappedValues.get(index)) {
-					drawText(line, currentX + CELL_PADDING, textY, bold ? BOLD_FONT : FONT, SMALL_FONT_SIZE);
+					drawText(line, currentX + CELL_PADDING, textY, boldFlags[index] ? boldFont : font, SMALL_FONT_SIZE);
 					textY -= LINE_HEIGHT;
 				}
 				currentX += widths[index];
 			}
 			y -= rowHeight;
+		}
+
+		private void drawTextBlock(String text, PDFont font, float fontSize) throws IOException {
+			List<String> lines = wrapText(text, font, fontSize, getUsableWidth());
+			if (lines.isEmpty()) {
+				return;
+			}
+			ensureSpace((lines.size() * LINE_HEIGHT) + CELL_PADDING);
+			float textY = y - fontSize;
+			for (String line : lines) {
+				drawText(line, LEFT_MARGIN, textY, font, fontSize);
+				textY -= LINE_HEIGHT;
+			}
+			y = textY;
 		}
 
 		private List<String> wrapText(String text, PDFont font, float fontSize, float maxWidth) throws IOException {

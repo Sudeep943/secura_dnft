@@ -901,6 +901,7 @@ class PaymentServicesTest {
 		request.setAmount("1200");
 		request.setTender(SecuraConstants.TRANSACTION_TENDER_ONLINE);
 		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setNoOfPersons("3");
 
 		DueAmountDetails dueDetails = new DueAmountDetails();
 		dueDetails.setDueId("DUE-001");
@@ -951,7 +952,7 @@ class PaymentServicesTest {
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
 		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
 		assertEquals("Payment", receiptRequest.getReceiptType());
-		assertFalse(receiptRequest.isPerheadFlag());
+		assertTrue(receiptRequest.isPerheadFlag());
 		assertFalse(receiptRequest.isUnitPriceRequired());
 		assertNull(receiptRequest.getRemarks());
 		assertEquals("1200", receiptRequest.getTotalAmount());
