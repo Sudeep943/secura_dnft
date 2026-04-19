@@ -1,5 +1,8 @@
 package com.secura.dnft.generic.bean;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Address {
 
 	
@@ -83,6 +86,28 @@ public class Address {
 		this.pin = pin;
 	}
 	
+	@Override
+	public String toString() {
+		List<String> parts = new ArrayList<>();
+		addIfPresent(parts, addressLine1);
+		addIfPresent(parts, addressLine2);
+		addIfPresent(parts, addressLine3);
+		addIfPresent(parts, addressLine4);
+		addIfPresent(parts, landmark);
+		addIfPresent(parts, city);
+		addIfPresent(parts, state);
+		addIfPresent(parts, postOffice);
+		addIfPresent(parts, policeStation);
+		addIfPresent(parts, pin);
+		addIfPresent(parts, addressType);
+		return String.join(" ,", parts);
+	}
+
+	private void addIfPresent(List<String> parts, String value) {
+		if (value != null && !value.isBlank()) {
+			parts.add(value);
+		}
+	}
 	
 	
 }

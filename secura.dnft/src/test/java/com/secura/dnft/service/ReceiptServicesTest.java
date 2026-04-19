@@ -31,6 +31,7 @@ import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
+import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
@@ -124,6 +125,27 @@ class ReceiptServicesTest {
 		assertEquals(response.getReceiptNumber(), receiptCaptor.getValue().getReceiptId());
 		assertEquals("Maintenance", receiptCaptor.getValue().getReceiptType());
 		assertEquals("{\"receiptType\":\"Maintenance\"}", receiptCaptor.getValue().getReceiptData());
+	}
+
+	@Test
+	void createReceipt_shouldRenderApartmentAddressFromStoredJson() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+		apartment.setAprmntName("Secura Heights");
+		apartment.setAprmntAddress("{\"addressLine1\":\"12 Main Street\",\"city\":\"Springfield\"}");
+		Address address = new Address();
+		address.setAddressLine1("12 Main Street");
+		address.setCity("Springfield");
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericServices.fromJson(apartment.getAprmntAddress(), Address.class)).thenReturn(address);
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertTrue(text.contains("12 Main Street ,Springfield"));
 	}
 
 	@Test

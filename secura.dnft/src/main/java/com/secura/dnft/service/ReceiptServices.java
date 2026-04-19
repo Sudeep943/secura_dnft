@@ -38,6 +38,7 @@ import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
+import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.ReceiptInterface;
@@ -154,7 +155,7 @@ public class ReceiptServices implements ReceiptInterface {
 		}
 		canvas.drawCenteredText(defaultValue(apartment != null ? apartment.getAprmntName() : request != null && request.getGenericHeader() != null
 				? request.getGenericHeader().getApartmentName() : null), canvas.getBoldFont(), TITLE_FONT_SIZE);
-		List<String> addressLines = canvas.wrapText(defaultValue(apartment != null ? apartment.getAprmntAddress() : null), canvas.getFont(), TEXT_FONT_SIZE,
+		List<String> addressLines = canvas.wrapText(defaultValue(resolveApartmentAddress(apartment)), canvas.getFont(), TEXT_FONT_SIZE,
 				canvas.getUsableWidth());
 		if (addressLines.isEmpty()) {
 			addressLines = Collections.singletonList("");
@@ -163,6 +164,19 @@ public class ReceiptServices implements ReceiptInterface {
 			canvas.drawCenteredText(line, canvas.getFont(), TEXT_FONT_SIZE);
 		}
 		canvas.addGap(SECTION_GAP);
+	}
+
+	private String resolveApartmentAddress(ApartmentMaster apartment) {
+		if (apartment == null || !hasText(apartment.getAprmntAddress())) {
+			return null;
+		}
+		try {
+			Address address = genericServices.fromJson(apartment.getAprmntAddress(), Address.class);
+			return address != null ? address.toString() : apartment.getAprmntAddress();
+		} catch (RuntimeException exception) {
+			LOGGER.debug("Unable to deserialize apartment address for receipt. Falling back to stored value.");
+			return apartment.getAprmntAddress();
+		}
 	}
 
 	private void drawMetaTable(PdfCanvas canvas, CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate)

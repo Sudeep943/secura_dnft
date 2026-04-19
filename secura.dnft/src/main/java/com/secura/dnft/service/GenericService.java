@@ -43,6 +43,9 @@ public class GenericService {
 	
 	@Autowired
 	WorklistRepository worklistRepository;
+
+	@Autowired
+	DataPrivacyService dataPrivacyService;
 	
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -177,7 +180,29 @@ public class GenericService {
         Random random = new Random();
         documentId.append(1000 + random.nextInt(9000));
 		return documentId.toString().toUpperCase();
-    }
+     }
+
+	public String encrypt(String value) {
+		if (value == null) {
+			return null;
+		}
+		try {
+			return dataPrivacyService.encrypt(value);
+		} catch (Exception e) {
+			throw new RuntimeException("Error encrypting data", e);
+		}
+	}
+
+	public String decrypt(String value) {
+		if (value == null) {
+			return null;
+		}
+		try {
+			return dataPrivacyService.decrypt(value);
+		} catch (Exception e) {
+			throw new RuntimeException("Error decrypting data", e);
+		}
+	}
 
 
 public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {

@@ -49,5 +49,6 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_44="Please provide DiscFin Id" ;
 	public final String ERR_MESSAGE_45="You Are Not Allowed To Delete This DiscFin" ;
 	public final String ERR_MESSAGE_46="DiscFin Details Not Found" ;
+	public final String ERR_MESSAGE_47="Apartment Details Not Found" ;
 	
 }
