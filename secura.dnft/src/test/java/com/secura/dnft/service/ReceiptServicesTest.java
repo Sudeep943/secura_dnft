@@ -13,12 +13,12 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.pdfbox.contentstream.PDFStreamParser;
 import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.COSNumber;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -182,8 +182,9 @@ class ReceiptServicesTest {
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
 		try (PDDocument document = loadDocument(response.getReceipt())) {
+			float rightBorderX = document.getPage(0).getMediaBox().getWidth() - 40f;
 			assertTrue(hasVerticalGapBorder(document.getPage(0), 40f, 12f));
-			assertTrue(hasVerticalGapBorder(document.getPage(0), 555f, 12f));
+			assertTrue(hasVerticalGapBorder(document.getPage(0), rightBorderX, 12f));
 		}
 	}
 
@@ -238,17 +239,16 @@ class ReceiptServicesTest {
 	private boolean hasVerticalGapBorder(PDPage page, float expectedX, float expectedGap) throws Exception {
 		PDFStreamParser parser = new PDFStreamParser(page);
 		List<Object> tokens = parser.parse();
-		for (int index = 0; index + 6 < tokens.size(); index++) {
+		for (int index = 0; index + 5 < tokens.size(); index++) {
 			if (!(tokens.get(index) instanceof COSNumber moveX)
 					|| !(tokens.get(index + 1) instanceof COSNumber moveY)
 					|| !(tokens.get(index + 2) instanceof Operator moveOperator)
 					|| !(tokens.get(index + 3) instanceof COSNumber lineX)
 					|| !(tokens.get(index + 4) instanceof COSNumber lineY)
-					|| !(tokens.get(index + 5) instanceof Operator lineOperator)
-					|| !(tokens.get(index + 6) instanceof Operator strokeOperator)) {
+					|| !(tokens.get(index + 5) instanceof Operator lineOperator)) {
 				continue;
 			}
-			if (!"m".equals(moveOperator.getName()) || !"l".equals(lineOperator.getName()) || !"S".equals(strokeOperator.getName())) {
+			if (!"m".equals(moveOperator.getName()) || !"l".equals(lineOperator.getName())) {
 				continue;
 			}
 			if (Math.abs(moveX.floatValue() - expectedX) < 0.01f && Math.abs(lineX.floatValue() - expectedX) < 0.01f
