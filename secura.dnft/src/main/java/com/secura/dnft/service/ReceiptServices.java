@@ -469,14 +469,14 @@ public class ReceiptServices implements ReceiptInterface {
 					return;
 				}
 			} catch (IOException exception) {
-				LOGGER.debug("Unable to render receipt logo image.", exception);
+				LOGGER.debug("Failed to read image data for receipt logo.", exception);
 				return;
 			}
 			PDImageXObject image;
 			try {
 				image = LosslessFactory.createFromImage(document, bufferedImage);
 			} catch (IOException | RuntimeException exception) {
-				LOGGER.debug("Unable to create receipt logo image object.", exception);
+				LOGGER.debug("Failed to create PDImageXObject from BufferedImage for receipt logo.", exception);
 				return;
 			}
 			float scale = Math.min(maxWidth / image.getWidth(), maxHeight / image.getHeight());
