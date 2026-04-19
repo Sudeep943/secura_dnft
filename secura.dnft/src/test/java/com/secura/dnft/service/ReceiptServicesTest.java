@@ -138,6 +138,26 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("₹ 2500"));
 	}
 
+	@Test
+	void createReceipt_shouldShowUnitPriceForPerheadItemsWhenRequested() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setItems(List.of(createItem("Maintenance", "400", "3", "1200")));
+		request.setTotalAmount("1200");
+		request.setUnitPriceRequired(true);
+		request.setPerheadFlag(true);
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertTrue(text.contains("NO OF PERSON"));
+		assertTrue(text.contains("UNIT PRICE"));
+		assertTrue(text.contains("₹ 400"));
+		assertTrue(text.contains("₹ 1200"));
+	}
+
 	private CreateReceiptRequest createBaseRequest() {
 		CreateReceiptRequest request = new CreateReceiptRequest();
 		GenericHeader header = new GenericHeader();

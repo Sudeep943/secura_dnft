@@ -906,6 +906,7 @@ class PaymentServicesTest {
 		DueAmountDetails dueDetails = new DueAmountDetails();
 		dueDetails.setDueId("DUE-001");
 		dueDetails.setPaymentName("Maintenance");
+		dueDetails.setAmount("400");
 		dueDetails.setTotalAmount("1200");
 		dueDetails.setGstAmount("200");
 		dueDetails.setGstPercentage("18");
@@ -953,12 +954,14 @@ class PaymentServicesTest {
 		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
 		assertEquals("Payment", receiptRequest.getReceiptType());
 		assertTrue(receiptRequest.isPerheadFlag());
-		assertFalse(receiptRequest.isUnitPriceRequired());
+		assertTrue(receiptRequest.isUnitPriceRequired());
 		assertNull(receiptRequest.getRemarks());
 		assertEquals("1200", receiptRequest.getTotalAmount());
 		assertEquals(savedTransaction.getTrnscId(), receiptRequest.getTransactionId());
 		assertEquals(1, receiptRequest.getItems().size());
 		assertEquals("Maintenance", receiptRequest.getItems().get(0).getItemName());
+		assertEquals("400", receiptRequest.getItems().get(0).getUnitPrice());
+		assertEquals("3", receiptRequest.getItems().get(0).getQuantity());
 		assertEquals("1200", receiptRequest.getItems().get(0).getAmount());
 		assertEquals("PAYMENT", receiptRequest.getItems().get(0).getType());
 		assertEquals(1, receiptRequest.getTenderList().size());
