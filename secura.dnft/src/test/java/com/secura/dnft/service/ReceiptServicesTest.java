@@ -8,10 +8,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+
+import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.COSNumber;
@@ -156,7 +160,7 @@ class ReceiptServicesTest {
 		apartment.setAprmntId("APR-1");
 		apartment.setAprmntName("Secura Heights");
 		apartment.setAprmntAddress("12 Main Street, Springfield");
-		apartment.setAprmnt_logo("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mP8/5+hHgAHggJ/P6Ky/QAAAABJRU5ErkJggg==");
+		apartment.setAprmnt_logo(createBase64Image());
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericServices.toJson(any())).thenReturn("{}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -362,5 +366,13 @@ class ReceiptServicesTest {
 			List<Object> tokens = parser.parse();
 			return tokens.stream().anyMatch(token -> token instanceof Operator operator && "Do".equals(operator.getName()));
 		}
+	}
+
+	private String createBase64Image() throws Exception {
+		BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
+		image.setRGB(0, 0, 0xFFFFFF);
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+		ImageIO.write(image, "png", outputStream);
+		return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 	}
 }

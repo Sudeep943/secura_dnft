@@ -468,7 +468,13 @@ public class ReceiptServices implements ReceiptInterface {
 				LOGGER.debug("Unable to render receipt logo image.", exception);
 				return;
 			}
-			PDImageXObject image = PDImageXObject.createFromByteArray(document, imageBytes, "receipt-logo");
+			PDImageXObject image;
+			try {
+				image = PDImageXObject.createFromByteArray(document, imageBytes, "receipt-logo");
+			} catch (IOException | RuntimeException exception) {
+				LOGGER.debug("Unable to create receipt logo image object.", exception);
+				return;
+			}
 			float scale = Math.min(maxWidth / image.getWidth(), maxHeight / image.getHeight());
 			float width = image.getWidth() * scale;
 			float height = image.getHeight() * scale;
