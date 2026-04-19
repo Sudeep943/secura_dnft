@@ -929,7 +929,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
 		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
 		receiptRequest.setReceiptType("Payment");
-		receiptRequest.setPerheadFlag(false);
+		receiptRequest.setPerheadFlag(hasNonZeroNoOfPersons(request != null ? request.getNoOfPersons() : null));
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(false);
 		receiptRequest.setTotalAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
@@ -955,6 +955,17 @@ public class PaymentServices implements PaymentInterface {
 		item.setType("PAYMENT");
 		item.setQuantity(DEFAULT_PAYMENT_QUANTITY);
 		return item;
+	}
+
+	private boolean hasNonZeroNoOfPersons(String noOfPersons) {
+		if (!hasText(noOfPersons)) {
+			return false;
+		}
+		try {
+			return Double.parseDouble(noOfPersons.trim()) != 0d;
+		} catch (NumberFormatException ex) {
+			return true;
+		}
 	}
 
 	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails) {

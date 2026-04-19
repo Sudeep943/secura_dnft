@@ -23,7 +23,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
@@ -48,7 +47,7 @@ class ReceiptServicesTest {
 	private ReceiptRepository receiptRepository;
 
 	@Mock
-	private ObjectMapper objectMapper;
+	private GenericService genericServices;
 
 	@InjectMocks
 	private ReceiptServices receiptServices;
@@ -79,7 +78,7 @@ class ReceiptServicesTest {
 		apartment.setAprmntName("Secura Heights");
 		apartment.setAprmntAddress("12 Main Street, Springfield");
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
-		when(objectMapper.writeValueAsString(any())).thenReturn("{\"receiptType\":\"Maintenance\"}");
+		when(genericServices.toJson(any())).thenReturn("{\"receiptType\":\"Maintenance\"}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
@@ -92,21 +91,27 @@ class ReceiptServicesTest {
 
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("Secura Heights"));
-		assertTrue(text.contains("Receipt Type : Maintenance"));
-		assertTrue(text.contains("Transaction Id : TXN-1001"));
-		assertTrue(text.contains("Receipt Number : " + response.getReceiptNumber()));
+		assertTrue(text.contains("Receipt Type :"));
+		assertTrue(text.contains("Maintenance"));
+		assertTrue(text.contains("Date :"));
+		assertTrue(text.contains("Transaction Id :"));
+		assertTrue(text.contains("TXN-1001"));
+		assertTrue(text.contains("Receipt Number :"));
+		assertTrue(text.contains(response.getReceiptNumber()));
 		assertTrue(text.contains("UNIT PRICE"));
 		assertTrue(text.contains("Taxes And Other Charges"));
-		assertTrue(text.contains("180 (18%)"));
+		assertTrue(text.contains("₹ 1000"));
+		assertTrue(text.contains("₹ 2000"));
+		assertTrue(text.contains("₹ 180 (18%)"));
 		assertTrue(text.contains("Discount / Fine"));
 		assertTrue(text.contains("Discount (CODE: DISC10)"));
-		assertTrue(text.contains("100 (10%)"));
+		assertTrue(text.contains("₹ 100 (10%)"));
 		assertTrue(text.contains("Fine (cumulative) (CODE: FINE5)"));
 		assertTrue(text.contains("Tender Details"));
 		assertTrue(text.contains("Online"));
 		assertTrue(text.contains("Remarks"));
 		assertTrue(text.contains("Paid via UPI"));
-		assertTrue(text.contains("2500"));
+		assertTrue(text.contains("₹ 2500"));
 		assertTrue(text.contains("This is an Electronic generated receipt required no signature"));
 		ArgumentCaptor<Receipt> receiptCaptor = ArgumentCaptor.forClass(Receipt.class);
 		verify(receiptRepository).save(receiptCaptor.capture());
@@ -122,7 +127,7 @@ class ReceiptServicesTest {
 		request.setUnitPriceRequired(false);
 		request.setPerheadFlag(true);
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
-		when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+		when(genericServices.toJson(any())).thenReturn("{}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
@@ -130,7 +135,7 @@ class ReceiptServicesTest {
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("NO OF PERSON"));
 		assertFalse(text.contains("UNIT PRICE"));
-		assertTrue(text.contains("2500"));
+		assertTrue(text.contains("₹ 2500"));
 	}
 
 	private CreateReceiptRequest createBaseRequest() {
