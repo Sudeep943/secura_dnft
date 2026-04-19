@@ -43,6 +43,7 @@ import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
+import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
@@ -905,6 +906,10 @@ class PaymentServicesTest {
 		dueDetails.setTotalAmount("1200");
 		dueDetails.setGstAmount("200");
 		dueDetails.setGstPercentage("18");
+		dueDetails.setDiscountCode("DISC10");
+		dueDetails.setDiscountedAmount("100");
+		dueDetails.setFineCode("FINE5");
+		dueDetails.setFineAmount("50");
 		AddedCharges addedCharge = new AddedCharges();
 		addedCharge.setChargeName("Late Fee");
 		addedCharge.setChargeType("amount");
@@ -955,6 +960,12 @@ class PaymentServicesTest {
 		assertEquals("percentage", receiptRequest.getAddedCharges().get(1).getChargeType());
 		assertEquals("18", receiptRequest.getAddedCharges().get(1).getValue());
 		assertEquals("200", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
+		DiscFinReceipt discFinReceipt = receiptRequest.getDiscFinReceipt();
+		assertNotNull(discFinReceipt);
+		assertEquals("DISC10", discFinReceipt.getDiscountCode());
+		assertEquals("100", discFinReceipt.getDiscountAmount());
+		assertEquals("FINE5", discFinReceipt.getFineCode());
+		assertEquals("50", discFinReceipt.getFineAmount());
 	}
 
 	@SuppressWarnings("unchecked")

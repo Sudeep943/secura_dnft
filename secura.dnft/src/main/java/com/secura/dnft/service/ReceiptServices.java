@@ -165,16 +165,18 @@ public class ReceiptServices implements ReceiptInterface {
 	private void drawDiscountFineSection(PdfCanvas canvas, DiscFinReceipt discFinReceipt) throws Exception {
 		List<String[]> rows = new ArrayList<>();
 		if (discFinReceipt != null && hasText(discFinReceipt.getDiscountAmount())) {
-			rows.add(new String[] { "Discount", formatAmountWithPercentage(discFinReceipt.getDiscountAmount(), discFinReceipt.getDiscountType(),
-					discFinReceipt.getDiscountPercentage()) });
+			rows.add(new String[] { appendCodeLabel("Discount", discFinReceipt.getDiscountCode()),
+					formatAmountWithPercentage(discFinReceipt.getDiscountAmount(), discFinReceipt.getDiscountType(),
+							discFinReceipt.getDiscountPercentage()) });
 		}
 		if (discFinReceipt != null && hasText(discFinReceipt.getFineAmount())) {
 			String fineLabel = "Fine";
 			if (hasText(discFinReceipt.getFineCycleMode()) && "cumulative".equalsIgnoreCase(discFinReceipt.getFineCycleMode().trim())) {
 				fineLabel = "Fine (" + discFinReceipt.getFineCycleMode().trim() + ")";
 			}
-			rows.add(new String[] { fineLabel, formatAmountWithPercentage(discFinReceipt.getFineAmount(), discFinReceipt.getFineType(),
-					discFinReceipt.getFinePercentage()) });
+			rows.add(new String[] { appendCodeLabel(fineLabel, discFinReceipt.getFineCode()),
+					formatAmountWithPercentage(discFinReceipt.getFineAmount(), discFinReceipt.getFineType(),
+							discFinReceipt.getFinePercentage()) });
 		}
 		if (rows.isEmpty()) {
 			return;
@@ -232,6 +234,13 @@ public class ReceiptServices implements ReceiptInterface {
 			return formattedAmount + " (" + percentage.trim() + "%)";
 		}
 		return formattedAmount;
+	}
+
+	private String appendCodeLabel(String label, String code) {
+		if (!hasText(code)) {
+			return label;
+		}
+		return label + " (CODE: " + code.trim() + ")";
 	}
 
 	private String generateReceiptNumber() {

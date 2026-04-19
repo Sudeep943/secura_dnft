@@ -38,6 +38,7 @@ import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
@@ -921,6 +922,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails)));
 		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
+		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
 		receiptRequest.setReceiptType("Payment");
 		receiptRequest.setPerheadFlag(false);
 		receiptRequest.setRemarks(null);
@@ -952,6 +954,22 @@ public class PaymentServices implements PaymentInterface {
 			receiptAddedCharges.add(gstCharge);
 		}
 		return receiptAddedCharges.isEmpty() ? null : receiptAddedCharges;
+	}
+
+	private DiscFinReceipt buildDiscFinReceipt(DueAmountDetails dueDetails) {
+		if (dueDetails == null) {
+			return null;
+		}
+		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountCode(dueDetails.getDiscountCode());
+		discFinReceipt.setDiscountAmount(dueDetails.getDiscountedAmount());
+		discFinReceipt.setFineCode(dueDetails.getFineCode());
+		discFinReceipt.setFineAmount(dueDetails.getFineAmount());
+		if (!hasText(discFinReceipt.getDiscountCode()) && !hasText(discFinReceipt.getDiscountAmount())
+				&& !hasText(discFinReceipt.getFineCode()) && !hasText(discFinReceipt.getFineAmount())) {
+			return null;
+		}
+		return discFinReceipt;
 	}
 
 	private DueAmountDetails getMatchingDueDetails(PayDueRequest request) {

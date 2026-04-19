@@ -5,13 +5,23 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class DiscFinReceipt {
 
+	private String discountCode;
 	private String discountPercentage;
 	private String discountType;
 	private String discountAmount;
+	private String fineCode;
 	private String finePercentage;
 	private String fineType;
 	private String fineAmount;
 	private String fineCycleMode;
+
+	public String getDiscountCode() {
+		return discountCode;
+	}
+
+	public void setDiscountCode(String discountCode) {
+		this.discountCode = discountCode;
+	}
 
 	public String getDiscountPercentage() {
 		return discountPercentage;
@@ -35,6 +45,14 @@ public class DiscFinReceipt {
 
 	public void setDiscountAmount(String discountAmount) {
 		this.discountAmount = discountAmount;
+	}
+
+	public String getFineCode() {
+		return fineCode;
+	}
+
+	public void setFineCode(String fineCode) {
+		this.fineCode = fineCode;
 	}
 
 	public String getFinePercentage() {
