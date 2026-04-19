@@ -184,8 +184,9 @@ class ReceiptServicesTest {
 		byte[] pdfBytes = Base64.getDecoder().decode(response.getReceipt());
 		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
 			float rightBorderX = document.getPage(0).getMediaBox().getWidth() - 40f;
-			assertTrue(hasVerticalGapBorder(document.getPage(0), 40f, 12f));
-			assertTrue(hasVerticalGapBorder(document.getPage(0), rightBorderX, 12f));
+			assertTrue(hasVerticalGapBorder(document.getPage(0), 40f, 18f));
+			assertTrue(hasVerticalGapBorder(document.getPage(0), rightBorderX, 18f));
+			assertTrue(hasLineJoinStyle(document.getPage(0), 2));
 		}
 	}
 
@@ -250,6 +251,21 @@ class ReceiptServicesTest {
 			}
 			if (Math.abs(moveX.floatValue() - expectedX) < 0.01f && Math.abs(lineX.floatValue() - expectedX) < 0.01f
 					&& Math.abs(Math.abs(moveY.floatValue() - lineY.floatValue()) - expectedGap) < 0.01f) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean hasLineJoinStyle(PDPage page, int expectedLineJoinStyle) throws Exception {
+		PDFStreamParser parser = new PDFStreamParser(page);
+		List<Object> tokens = parser.parse();
+		for (int index = 0; index + 1 < tokens.size(); index++) {
+			if (!(tokens.get(index) instanceof COSNumber lineJoinStyle)
+					|| !(tokens.get(index + 1) instanceof Operator operator)) {
+				continue;
+			}
+			if ("j".equals(operator.getName()) && lineJoinStyle.intValue() == expectedLineJoinStyle) {
 				return true;
 			}
 		}
