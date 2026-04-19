@@ -834,7 +834,7 @@ class PaymentServicesTest {
 		request.setGenericHeader(header);
 		request.setPaymentId("PAY1234");
 		request.setDueId("DUE-001");
-		request.setAmount("1200");
+		request.setAmount("1801");
 		request.setTender(SecuraConstants.TRANSACTION_TENDER_CASH);
 		request.setTransactionStatus("PENDING");
 		request.setThirdPartyTransactionId("REF-001");
@@ -956,7 +956,7 @@ class PaymentServicesTest {
 		assertTrue(receiptRequest.isPerheadFlag());
 		assertTrue(receiptRequest.isUnitPriceRequired());
 		assertNull(receiptRequest.getRemarks());
-		assertEquals("1200", receiptRequest.getTotalAmount());
+		assertEquals("1801", receiptRequest.getTotalAmount());
 		assertEquals(savedTransaction.getTrnscId(), receiptRequest.getTransactionId());
 		assertEquals(1, receiptRequest.getItems().size());
 		assertEquals("Maintenance", receiptRequest.getItems().get(0).getItemName());
@@ -967,19 +967,20 @@ class PaymentServicesTest {
 		assertEquals(1, receiptRequest.getTenderList().size());
 		PaymentTenderData tenderData = receiptRequest.getTenderList().get(0);
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, tenderData.getTenderName());
-		assertEquals("1200", tenderData.getAmountPaid());
+		assertEquals("1801", tenderData.getAmountPaid());
 		assertEquals(2, receiptRequest.getAddedCharges().size());
 		assertEquals("Late Fee", receiptRequest.getAddedCharges().get(0).getChargeName());
+		assertEquals("150", receiptRequest.getAddedCharges().get(0).getFinalChargeValue());
 		assertEquals("GST", receiptRequest.getAddedCharges().get(1).getChargeName());
 		assertEquals("percentage", receiptRequest.getAddedCharges().get(1).getChargeType());
 		assertEquals("18", receiptRequest.getAddedCharges().get(1).getValue());
-		assertEquals("200", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
+		assertEquals("600", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
 		DiscFinReceipt discFinReceipt = receiptRequest.getDiscFinReceipt();
 		assertNotNull(discFinReceipt);
 		assertEquals("DISC10", discFinReceipt.getDiscountCode());
-		assertEquals("100", discFinReceipt.getDiscountAmount());
+		assertEquals("300", discFinReceipt.getDiscountAmount());
 		assertEquals("FINE5", discFinReceipt.getFineCode());
-		assertEquals("50", discFinReceipt.getFineAmount());
+		assertEquals("150", discFinReceipt.getFineAmount());
 	}
 
 	@SuppressWarnings("unchecked")

@@ -116,7 +116,8 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("Remarks"));
 		assertTrue(text.contains("Paid via UPI"));
 		assertTrue(text.contains("₹ 2500"));
-		assertTrue(text.contains("This is an Electronic generated receipt required no signature"));
+		assertTrue(text.contains("Total Amount Paid (After Rounding)"));
+		assertTrue(text.contains("This is an Electronic Generated Receipt and Required No Signature"));
 		ArgumentCaptor<Receipt> receiptCaptor = ArgumentCaptor.forClass(Receipt.class);
 		verify(receiptRepository).save(receiptCaptor.capture());
 		assertEquals("APR-1", receiptCaptor.getValue().getAprmtId());
