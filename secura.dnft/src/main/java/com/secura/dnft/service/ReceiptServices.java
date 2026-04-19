@@ -1,5 +1,6 @@
 package com.secura.dnft.service;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -460,8 +462,10 @@ public class ReceiptServices implements ReceiptInterface {
 				return;
 			}
 			ensureSpace(maxHeight + 10f);
+			BufferedImage bufferedImage;
 			try {
-				if (ImageIO.read(new ByteArrayInputStream(imageBytes)) == null) {
+				bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+				if (bufferedImage == null) {
 					return;
 				}
 			} catch (IOException exception) {
@@ -470,7 +474,7 @@ public class ReceiptServices implements ReceiptInterface {
 			}
 			PDImageXObject image;
 			try {
-				image = PDImageXObject.createFromByteArray(document, imageBytes, "receipt-logo");
+				image = LosslessFactory.createFromImage(document, bufferedImage);
 			} catch (IOException | RuntimeException exception) {
 				LOGGER.debug("Unable to create receipt logo image object.", exception);
 				return;
