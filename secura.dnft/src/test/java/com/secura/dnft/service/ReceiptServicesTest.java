@@ -48,9 +48,11 @@ class ReceiptServicesTest {
 		request.setRemarks("Paid via UPI");
 		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
 		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountCode("DISC10");
 		discFinReceipt.setDiscountAmount("100");
 		discFinReceipt.setDiscountType("percentage");
 		discFinReceipt.setDiscountPercentage("10");
+		discFinReceipt.setFineCode("FINE5");
 		discFinReceipt.setFineAmount("50");
 		discFinReceipt.setFineType("percentage");
 		discFinReceipt.setFinePercentage("5");
@@ -77,8 +79,9 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("Taxes And Other Charges"));
 		assertTrue(text.contains("180 (18%)"));
 		assertTrue(text.contains("Discount / Fine"));
+		assertTrue(text.contains("Discount (CODE: DISC10)"));
 		assertTrue(text.contains("100 (10%)"));
-		assertTrue(text.contains("Fine (cumulative)"));
+		assertTrue(text.contains("Fine (cumulative) (CODE: FINE5)"));
 		assertTrue(text.contains("Remarks"));
 		assertTrue(text.contains("Paid via UPI"));
 		assertTrue(text.contains("2500"));
