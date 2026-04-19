@@ -163,18 +163,9 @@ class ReceiptServicesTest {
 	}
 
 	@Test
-	void createReceipt_shouldKeepOuterBordersContinuousAcrossSectionGaps() throws Exception {
+	void createReceipt_shouldLimitSideBordersToReceiptBody() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
-		request.setUnitPriceRequired(true);
-		request.setTransactionId("TXN-1001");
-		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
-		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
-		discFinReceipt.setDiscountCode("DISC10");
-		discFinReceipt.setDiscountAmount("100");
-		discFinReceipt.setDiscountType("percentage");
-		discFinReceipt.setDiscountPercentage("10");
-		request.setDiscFinReceipt(discFinReceipt);
-		request.setTenderList(List.of(createTender("Online", "2500")));
+		request.setRemarks("Paid via UPI");
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
 		when(genericServices.toJson(any())).thenReturn("{}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -184,8 +175,8 @@ class ReceiptServicesTest {
 		byte[] pdfBytes = Base64.getDecoder().decode(response.getReceipt());
 		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
 			float rightBorderX = document.getPage(0).getMediaBox().getWidth() - 40f;
-			assertTrue(hasVerticalGapBorder(document.getPage(0), 40f, 18f));
-			assertTrue(hasVerticalGapBorder(document.getPage(0), rightBorderX, 18f));
+			assertEquals(2, countVerticalSegments(document.getPage(0), 40f, 18f));
+			assertEquals(2, countVerticalSegments(document.getPage(0), rightBorderX, 18f));
 			assertTrue(hasLineJoinStyle(document.getPage(0), 2));
 		}
 	}
@@ -234,9 +225,10 @@ class ReceiptServicesTest {
 		}
 	}
 
-	private boolean hasVerticalGapBorder(PDPage page, float expectedX, float expectedGap) throws Exception {
+	private int countVerticalSegments(PDPage page, float expectedX, float expectedHeight) throws Exception {
 		PDFStreamParser parser = new PDFStreamParser(page);
 		List<Object> tokens = parser.parse();
+		int matchCount = 0;
 		for (int index = 0; index + 5 < tokens.size(); index++) {
 			if (!(tokens.get(index) instanceof COSNumber moveX)
 					|| !(tokens.get(index + 1) instanceof COSNumber moveY)
@@ -250,11 +242,11 @@ class ReceiptServicesTest {
 				continue;
 			}
 			if (Math.abs(moveX.floatValue() - expectedX) < 0.01f && Math.abs(lineX.floatValue() - expectedX) < 0.01f
-					&& Math.abs(Math.abs(moveY.floatValue() - lineY.floatValue()) - expectedGap) < 0.01f) {
-				return true;
+					&& Math.abs(Math.abs(moveY.floatValue() - lineY.floatValue()) - expectedHeight) < 0.01f) {
+				matchCount++;
 			}
 		}
-		return false;
+		return matchCount;
 	}
 
 	private boolean hasLineJoinStyle(PDPage page, int expectedLineJoinStyle) throws Exception {

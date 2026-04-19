@@ -161,7 +161,7 @@ public class ReceiptServices implements ReceiptInterface {
 		for (String line : addressLines) {
 			canvas.drawCenteredText(line, canvas.getFont(), TEXT_FONT_SIZE);
 		}
-		canvas.drawSectionGap(SECTION_GAP);
+		canvas.addGap(SECTION_GAP);
 	}
 
 	private void drawMetaTable(PdfCanvas canvas, CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate)
@@ -269,16 +269,16 @@ public class ReceiptServices implements ReceiptInterface {
 	private void drawTotal(PdfCanvas canvas, String totalAmount) throws Exception {
 		float usableWidth = canvas.getUsableWidth();
 		canvas.drawTableRow(new String[] { "Total", formatCurrency(totalAmount) }, new float[] { usableWidth * 0.70f, usableWidth * 0.30f }, true);
-		canvas.drawSectionGap(SECTION_GAP);
+		canvas.addGap(SECTION_GAP);
 	}
 
 	private void drawRemarks(PdfCanvas canvas, String remarks) throws Exception {
 		if (!hasText(remarks)) {
 			return;
 		}
-		canvas.drawSectionTitle("Remarks");
-		float width = canvas.getUsableWidth();
-		canvas.drawTableRow(new String[] { remarks.trim() }, new float[] { width }, false);
+		canvas.addGap(LINE_HEIGHT);
+		canvas.drawTextBlock("Remarks", canvas.getBoldFont(), TEXT_FONT_SIZE);
+		canvas.drawTextBlock(remarks.trim(), canvas.getFont(), SMALL_FONT_SIZE);
 	}
 
 	private void drawElectronicReceiptNote(PdfCanvas canvas) throws Exception {
