@@ -180,23 +180,32 @@ public class ReceiptServices implements ReceiptInterface {
 	}
 
 	private void drawItemsSection(PdfCanvas canvas, CreateReceiptRequest request) throws Exception {
+		List<Items> items = request != null && request.getItems() != null ? request.getItems() : Collections.emptyList();
 		boolean unitPriceRequired = request != null && request.isUnitPriceRequired();
+		boolean quantityRequired = request != null && (request.isPerheadFlag()
+				|| items.stream().filter(Objects::nonNull).anyMatch(item -> hasText(item.getQuantity())));
 		String quantityHeader = request != null && request.isPerheadFlag() ? "NO OF PERSON" : "QUANTITY";
 		float usableWidth = canvas.getUsableWidth();
-		float[] widths = unitPriceRequired ? new float[] { usableWidth * 0.12f, usableWidth * 0.34f, usableWidth * 0.17f, usableWidth * 0.17f, usableWidth * 0.20f }
-				: new float[] { usableWidth * 0.12f, usableWidth * 0.44f, usableWidth * 0.22f, usableWidth * 0.22f };
-		String[] headers = unitPriceRequired ? new String[] { "Sl No", "ITEM NAME", "UNIT PRICE", quantityHeader, "AMOUNT" }
-				: new String[] { "Sl No", "ITEM NAME", quantityHeader, "AMOUNT" };
+		float[] widths = unitPriceRequired
+				? new float[] { usableWidth * 0.12f, usableWidth * 0.34f, usableWidth * 0.17f, usableWidth * 0.17f, usableWidth * 0.20f }
+				: quantityRequired ? new float[] { usableWidth * 0.12f, usableWidth * 0.44f, usableWidth * 0.22f, usableWidth * 0.22f }
+						: new float[] { usableWidth * 0.12f, usableWidth * 0.58f, usableWidth * 0.30f };
+		String[] headers = unitPriceRequired
+				? new String[] { "Sl No", "ITEM NAME", "UNIT PRICE", quantityHeader, "AMOUNT" }
+				: quantityRequired ? new String[] { "Sl No", "ITEM NAME", quantityHeader, "AMOUNT" }
+						: new String[] { "Sl No", "ITEM NAME", "AMOUNT" };
 		canvas.drawTableRow(headers, widths, true);
-		List<Items> items = request != null && request.getItems() != null ? request.getItems() : Collections.emptyList();
 		for (int index = 0; index < items.size(); index++) {
 			Items item = items.get(index);
 			String[] values = unitPriceRequired
 					? new String[] { String.valueOf(index + 1), defaultValue(item != null ? item.getItemName() : null),
 							formatCurrency(item != null ? item.getUnitPrice() : null), defaultValue(item != null ? item.getQuantity() : null),
 							formatCurrency(item != null ? item.getAmount() : null) }
-					: new String[] { String.valueOf(index + 1), defaultValue(item != null ? item.getItemName() : null),
-							defaultValue(item != null ? item.getQuantity() : null), formatCurrency(item != null ? item.getAmount() : null) };
+					: quantityRequired
+							? new String[] { String.valueOf(index + 1), defaultValue(item != null ? item.getItemName() : null),
+									defaultValue(item != null ? item.getQuantity() : null), formatCurrency(item != null ? item.getAmount() : null) }
+							: new String[] { String.valueOf(index + 1), defaultValue(item != null ? item.getItemName() : null),
+									formatCurrency(item != null ? item.getAmount() : null) };
 			canvas.drawTableRow(values, widths, false);
 		}
 		canvas.drawSectionGap(SECTION_GAP);
