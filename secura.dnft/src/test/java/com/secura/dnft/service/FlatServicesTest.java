@@ -52,6 +52,8 @@ import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
+import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
@@ -563,6 +565,95 @@ class FlatServicesTest {
 		assertNotNull(response);
 		assertEquals("1050", response.getDuePaymentList().get(0).getTotalAmount());
 		assertEquals("50", response.getDuePaymentList().get(0).getFineAmount());
+	}
+
+	@Test
+	void getDueAmountForPerHeadCalculation_shouldScaleDiscountGstAndAddedChargesAndRoundTotalOnly() {
+		GetDueAmountForPerHeadCalculationRequest request = new GetDueAmountForPerHeadCalculationRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+		request.setNoOfPerson("3");
+		request.setDueId("DUE001");
+
+		AddedCharges addedCharge = new AddedCharges();
+		addedCharge.setChargeType("amount");
+		addedCharge.setFinalChargeValue("20");
+
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueId("DUE001");
+		details.setDueDate(LocalDate.now().minusDays(1));
+		details.setAmount("100");
+		details.setGstPercentage("18");
+		details.setGstAmount("18");
+		details.setTotalAddedCharges("20");
+		details.setTotalAmount("138");
+		details.setDiscountCode("DFNDISCOUNT1234");
+		details.setAddedCharges(List.of(addedCharge));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		DiscFin discount = new DiscFin();
+		discount.setDiscFnId("DFNDISCOUNT1234");
+		discount.setDiscFnType("DISCOUNT");
+		discount.setDueDateAsStartDateFlag(true);
+		discount.setDiscFnMode("PERCENTAGE");
+		discount.setDiscFinValue("10");
+
+		when(flatRepository.findByAprmntId("APRT001")).thenReturn(List.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
+		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
+
+		GetDueAmountForPerHeadCalculationResponse response = flatServices.getDueAmountForPerHeadCalculation(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getDueAmountDetails());
+		assertEquals("300", response.getDueAmountDetails().getAmount());
+		assertEquals("54", response.getDueAmountDetails().getGstAmount());
+		assertEquals("60", response.getDueAmountDetails().getTotalAddedCharges());
+		assertEquals("60", response.getDueAmountDetails().getAddedCharges().get(0).getFinalChargeValue());
+		assertEquals("35.4", response.getDueAmountDetails().getDiscountedAmount());
+		assertEquals("379", response.getDueAmountDetails().getTotalAmount());
+	}
+
+	@Test
+	void getDueAmountForPerHeadCalculation_shouldScaleFineAmount() {
+		GetDueAmountForPerHeadCalculationRequest request = new GetDueAmountForPerHeadCalculationRequest();
+		request.setNoOfPerson("2");
+		request.setDueId("DUE002");
+
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueId("DUE002");
+		details.setDueDate(LocalDate.now().minusDays(2));
+		details.setAmount("100");
+		details.setTotalAmount("100");
+		details.setFineCode("DFNFINE1234");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("DUE_JSON");
+
+		DiscFin fine = new DiscFin();
+		fine.setDiscFnId("DFNFINE1234");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("SIMPLE");
+		fine.setDiscFnMode("AMOUNT");
+		fine.setDiscFinValue("50");
+		fine.setDiscFnStrtDt(LocalDateTime.now().minusDays(3));
+		fine.setDiscFnEndDt(LocalDateTime.now().plusDays(5));
+
+		when(flatRepository.findAll()).thenReturn(List.of(flat));
+		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
+		when(discFinRepository.findById("DFNFINE1234")).thenReturn(java.util.Optional.of(fine));
+
+		GetDueAmountForPerHeadCalculationResponse response = flatServices.getDueAmountForPerHeadCalculation(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getDueAmountDetails());
+		assertEquals("100", response.getDueAmountDetails().getFineAmount());
+		assertEquals("300", response.getDueAmountDetails().getTotalAmount());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {

@@ -738,10 +738,6 @@ public class FlatServices implements FlatInterface {
 		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 
-	private boolean hasText(String value) {
-		return value != null && !value.trim().isEmpty();
-	}
-
 	private List<GetAllFlatsResponse.BlockDetails> buildBlockHierarchy(List<Flat> apartmentFlats) {
 		Map<String, List<Flat>> groupedByBlock = apartmentFlats.stream()
 				.collect(Collectors.groupingBy(flat -> normalizeHierarchyKey(flat.getFlatBlock()), LinkedHashMap::new,
