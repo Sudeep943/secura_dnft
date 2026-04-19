@@ -939,7 +939,7 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private List<PaymentTenderData> buildTenderList(PayDueRequest request) {
-		if (request == null || (!hasText(request.getTender()) && !hasText(request.getAmount()))) {
+		if (request == null || !hasText(request.getTender()) || !hasText(request.getAmount())) {
 			return null;
 		}
 		PaymentTenderData tenderData = new PaymentTenderData();
