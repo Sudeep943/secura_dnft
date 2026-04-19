@@ -324,7 +324,7 @@ public class ReceiptServices implements ReceiptInterface {
 		return RUPEE_SYMBOL + " " + formattedAmount;
 	}
 
-	private PDFont loadFont(PDDocument document, String[] candidates, PDFont fallback) {
+	private static PDFont loadFont(PDDocument document, String[] candidates, PDFont fallback) {
 		for (String candidate : candidates) {
 			Path path = Path.of(candidate);
 			if (!Files.isRegularFile(path)) {
