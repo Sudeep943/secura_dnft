@@ -923,15 +923,16 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
+		int noOfPersons = getPositiveNoOfPersons(request != null ? request.getNoOfPersons() : null);
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails)));
+		receiptRequest.setItems(List.of(buildReceiptItem(dueDetails, noOfPersons)));
 		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
 		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
 		receiptRequest.setReceiptType("Payment");
-		receiptRequest.setPerheadFlag(hasNonZeroNoOfPersons(request != null ? request.getNoOfPersons() : null));
+		receiptRequest.setPerheadFlag(noOfPersons > 0);
 		receiptRequest.setRemarks(null);
-		receiptRequest.setUnitPriceRequired(false);
+		receiptRequest.setUnitPriceRequired(noOfPersons > 1);
 		receiptRequest.setTotalAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setTenderList(buildTenderList(request));
@@ -948,23 +949,38 @@ public class PaymentServices implements PaymentInterface {
 		return List.of(tenderData);
 	}
 
-	private Items buildReceiptItem(DueAmountDetails dueDetails) {
+	private Items buildReceiptItem(DueAmountDetails dueDetails, int noOfPersons) {
 		Items item = new Items();
 		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
-		item.setAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
 		item.setType("PAYMENT");
+		if (noOfPersons > 1) {
+			String unitPrice = hasText(dueDetails != null ? dueDetails.getAmount() : null) ? dueDetails.getAmount()
+					: dueDetails != null ? dueDetails.getTotalAmount() : null;
+			item.setUnitPrice(unitPrice);
+			item.setQuantity(String.valueOf(noOfPersons));
+			item.setAmount(multiplyAmount(unitPrice, noOfPersons));
+			return item;
+		}
+		item.setAmount(dueDetails != null ? dueDetails.getTotalAmount() : null);
 		item.setQuantity(DEFAULT_PAYMENT_QUANTITY);
 		return item;
 	}
 
-	private boolean hasNonZeroNoOfPersons(String noOfPersons) {
+	private String multiplyAmount(String amount, int multiplier) {
+		if (!hasText(amount)) {
+			return amount;
+		}
+		return formatNumber(parseNumeric(amount).multiply(BigDecimal.valueOf(multiplier)));
+	}
+
+	private int getPositiveNoOfPersons(String noOfPersons) {
 		if (!hasText(noOfPersons)) {
-			return false;
+			return 0;
 		}
 		try {
-			return Integer.parseInt(noOfPersons.trim()) != 0;
+			return Math.max(Integer.parseInt(noOfPersons.trim()), 0);
 		} catch (NumberFormatException ex) {
-			return false;
+			return 0;
 		}
 	}
 
