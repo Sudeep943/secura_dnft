@@ -54,6 +54,7 @@ class ReceiptServicesTest {
 	private static final String RECEIPT_TYPE_LABEL = "Receipt Type :";
 	private static final String SINGLE_LINE_ADDRESS = "12 Main Street";
 	private static final float TWO_LINE_HEADER_BASELINE_GAP = 12f * 3f;
+	private static final float RECEIPT_LOGO_RENDER_SIZE = 55f * 2.5f;
 
 	@Mock
 	private ApartmentRepository apartmentRepository;
@@ -177,6 +178,8 @@ class ReceiptServicesTest {
 		assertTrue(text.contains(RECEIPT_TITLE));
 		assertTrue(text.indexOf(RECEIPT_TITLE) < text.indexOf(RECEIPT_TYPE_LABEL));
 		assertTrue(hasImage(Base64.getDecoder().decode(response.getReceipt())));
+		assertEquals(RECEIPT_LOGO_RENDER_SIZE, extractImageDimensions(response.getReceipt()).width(), 0.01f);
+		assertEquals(RECEIPT_LOGO_RENDER_SIZE, extractImageDimensions(response.getReceipt()).height(), 0.01f);
 	}
 
 	@Test
@@ -402,6 +405,35 @@ class ReceiptServicesTest {
 		}
 	}
 
+	private ImageDimensions extractImageDimensions(String base64Pdf) throws Exception {
+		byte[] pdfBytes = Base64.getDecoder().decode(base64Pdf);
+		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+			PDFStreamParser parser = new PDFStreamParser(document.getPage(0));
+			List<Object> tokens = parser.parse();
+			for (int index = 0; index + 7 < tokens.size(); index++) {
+				if (!(tokens.get(index) instanceof COSNumber width)
+						|| !(tokens.get(index + 1) instanceof COSNumber shearY)
+						|| !(tokens.get(index + 2) instanceof COSNumber shearX)
+						|| !(tokens.get(index + 3) instanceof COSNumber height)
+						|| !(tokens.get(index + 4) instanceof COSNumber translateX)
+						|| !(tokens.get(index + 5) instanceof COSNumber translateY)
+						|| !(tokens.get(index + 6) instanceof Operator transformOperator)
+						|| !(tokens.get(index + 7) instanceof Operator drawOperator)) {
+					continue;
+				}
+				if (!"cm".equals(transformOperator.getName()) || !"Do".equals(drawOperator.getName())) {
+					continue;
+				}
+				assertEquals(0f, shearY.floatValue(), 0.01f);
+				assertEquals(0f, shearX.floatValue(), 0.01f);
+				assertTrue(translateX.floatValue() > 0f);
+				assertTrue(translateY.floatValue() > 0f);
+				return new ImageDimensions(Math.abs(width.floatValue()), Math.abs(height.floatValue()));
+			}
+		}
+		throw new AssertionError("Expected receipt logo image transform in PDF content stream");
+	}
+
 	private String createBase64Image() throws Exception {
 		BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, 0xFFFFFF);
@@ -411,6 +443,9 @@ class ReceiptServicesTest {
 	}
 
 	private record HeaderTextPositions(float addressY, float receiptY, float receiptTypeY) {
+	}
+
+	private record ImageDimensions(float width, float height) {
 	}
 
 	private static class HeaderTextStripper extends PDFTextStripper {
