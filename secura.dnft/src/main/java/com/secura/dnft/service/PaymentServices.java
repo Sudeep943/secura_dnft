@@ -978,7 +978,7 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String divideAmount(String amount, int divisor) {
-		if (!hasText(amount) || divisor <= 0) {
+		if (!hasText(amount) || divisor == 0) {
 			return amount;
 		}
 		return formatNumber(parseNumeric(amount).divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP));
