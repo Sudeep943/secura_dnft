@@ -839,7 +839,7 @@ public class PaymentServices implements PaymentInterface {
 		List<Transaction> transactions = buildLedgerTransactions(request, tenderList, currentTimestamp, documentIdList);
 		if (shouldCreateLedgerReceipt(request)) {
 			CreateReceiptResponse receiptResponse = receiptServices
-					.createReceipt(buildLedgerReceiptRequest(request, transactions.get(0).getTrnscId(), tenderList));
+					.createReceipt(buildLedgerReceiptRequest(request, transactions.get(0).getTrnscId()));
 			String receiptNumber = receiptResponse != null ? receiptResponse.getReceiptNumber() : null;
 			transactions.forEach(transaction -> transaction.setReceiptNumber(receiptNumber));
 			transactionRepository.saveAll(transactions);
@@ -985,11 +985,12 @@ public class PaymentServices implements PaymentInterface {
 		return transaction;
 	}
 
-	private List<String> normalizeTenderList(List<String> tenderList) {
+	private List<String> normalizeTenderList(List<PaymentTenderData> tenderList) {
 		if (tenderList == null || tenderList.isEmpty()) {
 			return List.of();
 		}
-		return tenderList.stream().filter(tender -> tender != null).map(String::trim).filter(tender -> !tender.isEmpty())
+		return tenderList.stream().filter(tender -> tender != null && tender.getTenderName() != null)
+				.map(PaymentTenderData::getTenderName).map(String::trim).filter(tender -> !tender.isEmpty())
 				.collect(Collectors.toList());
 	}
 
@@ -1079,8 +1080,7 @@ public class PaymentServices implements PaymentInterface {
 				&& SecuraConstants.TRANSACTION_TYPE_CREDIT.equalsIgnoreCase(trimValue(request.getTrnsType()));
 	}
 
-	private CreateReceiptRequest buildLedgerReceiptRequest(LedgerEntryRequest request, String transactionId,
-			List<String> tenderList) {
+	private CreateReceiptRequest buildLedgerReceiptRequest(LedgerEntryRequest request, String transactionId) {
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		receiptRequest.setItems(List.of(buildLedgerReceiptItem(request)));
@@ -1092,7 +1092,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setUnitPriceRequired(false);
 		receiptRequest.setTotalAmount(request != null ? request.getTrnsAmt() : null);
 		receiptRequest.setTransactionId(transactionId);
-		receiptRequest.setTenderList(buildLedgerTenderList(tenderList, request != null ? request.getTrnsAmt() : null));
+		receiptRequest.setTenderList(request != null ? request.getTrnsTenderList() : null);
 		return receiptRequest;
 	}
 
@@ -1104,19 +1104,6 @@ public class PaymentServices implements PaymentInterface {
 		return item;
 	}
 
-	private List<PaymentTenderData> buildLedgerTenderList(List<String> tenderList, String amount) {
-		if (tenderList == null || tenderList.isEmpty()) {
-			return null;
-		}
-		boolean singleTender = tenderList.size() == 1;
-		return tenderList.stream().map(tender -> {
-			PaymentTenderData tenderData = new PaymentTenderData();
-			tenderData.setTenderName(tender);
-			tenderData.setAmountPaid(singleTender ? amount : null);
-			return tenderData;
-		}).collect(Collectors.toList());
-	}
-
 	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
 		boolean perHeadPayment = isPerHeadReceiptPayment(request, dueDetails);
 		int personCount = perHeadPayment ? resolvePerHeadPersonCount(request.getNoOfPersons()) : 0;
@@ -1126,7 +1113,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setItems(List.of(buildReceiptItem(request, dueDetails, personCount, perHeadPayment)));
 		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
 		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
-		receiptRequest.setReceiptType("Payment");
+		receiptRequest.setReceiptType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setPerheadFlag(perHeadPayment);
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(perHeadPayment);
@@ -1149,7 +1136,7 @@ public class PaymentServices implements PaymentInterface {
 	private Items buildReceiptItem(PayDueRequest request, DueAmountDetails dueDetails, int noOfPersons, boolean perHeadPayment) {
 		Items item = new Items();
 		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
-		item.setType("PAYMENT");
+		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		if (perHeadPayment) {
 			String unitPrice = divideAmount(dueDetails != null ? dueDetails.getAmount() : null, noOfPersons);
 			item.setUnitPrice(unitPrice);
