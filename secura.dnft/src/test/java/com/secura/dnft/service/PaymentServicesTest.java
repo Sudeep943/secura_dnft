@@ -1230,7 +1230,8 @@ class PaymentServicesTest {
 		request.setTrnsAmt("5000");
 		request.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setCause("CAUSE");
-		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "one.pdf"), createLedgerDocument("IMG", "two.pdf")));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "one.pdf", "PDF_DATA"),
+				createLedgerDocument("IMG", "two.pdf", "IMG_DATA")));
 		request.setRequiredReceiptFlag(true);
 
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
@@ -1280,6 +1281,8 @@ class PaymentServicesTest {
 		assertEquals("IMGLEDGER1002", savedDocuments.get(1).getDocumentId());
 		assertEquals("PDF", savedDocuments.get(0).getDocumentType());
 		assertEquals("IMG", savedDocuments.get(1).getDocumentType());
+		assertEquals("one.pdf", savedDocuments.get(0).getDocumentName());
+		assertEquals("two.pdf", savedDocuments.get(1).getDocumentName());
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
@@ -1314,7 +1317,7 @@ class PaymentServicesTest {
 		request.setTrnsAmt("2500");
 		request.setTrnsStatus("PENDING");
 		request.setCause("EVENT");
-		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "receipt.pdf")));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "receipt.pdf", "RECEIPT_DATA")));
 		request.setRequiredReceiptFlag(true);
 
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
@@ -1372,7 +1375,7 @@ class PaymentServicesTest {
 		request.setTrnsTenderList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_CASH, "1500")));
 		request.setTrnsType("DEBIT");
 		request.setTrnsAmt("1500");
-		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "doc")));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "doc.pdf", "DOC_DATA")));
 		request.setRequiredReceiptFlag(false);
 
 		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER3001");
@@ -1382,15 +1385,21 @@ class PaymentServicesTest {
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DocumentEntity>> documentCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(documentRepository).saveAll(documentCaptor.capture());
+		assertEquals("doc.pdf", documentCaptor.getValue().get(0).getDocumentName());
+
 		verify(transactionRepository, times(1)).saveAll(any());
 		verify(receiptServices, never()).createReceipt(any(CreateReceiptRequest.class));
 		assertNull(response.getReceipt());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
 	}
 
-	private DocumentEntity createLedgerDocument(String documentType, String documentData) {
+	private DocumentEntity createLedgerDocument(String documentType, String documentName, String documentData) {
 		DocumentEntity documentEntity = new DocumentEntity();
 		documentEntity.setDocumentType(documentType);
+		documentEntity.setDocumentName(documentName);
 		documentEntity.setDocumentData(documentData);
 		return documentEntity;
 	}
