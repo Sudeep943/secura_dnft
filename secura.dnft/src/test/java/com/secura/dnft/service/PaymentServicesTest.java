@@ -1230,7 +1230,8 @@ class PaymentServicesTest {
 		request.setTrnsAmt("5000");
 		request.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setCause("CAUSE");
-		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "one.pdf"), createLedgerDocument("IMG", "two.pdf")));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "one.pdf", "PDF_DATA"),
+				createLedgerDocument("IMG", "two.pdf", "IMG_DATA")));
 		request.setRequiredReceiptFlag(true);
 
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
@@ -1316,7 +1317,7 @@ class PaymentServicesTest {
 		request.setTrnsAmt("2500");
 		request.setTrnsStatus("PENDING");
 		request.setCause("EVENT");
-		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "receipt.pdf")));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "receipt.pdf", "RECEIPT_DATA")));
 		request.setRequiredReceiptFlag(true);
 
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
@@ -1374,7 +1375,7 @@ class PaymentServicesTest {
 		request.setTrnsTenderList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_CASH, "1500")));
 		request.setTrnsType("DEBIT");
 		request.setTrnsAmt("1500");
-		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "doc")));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "doc.pdf", "DOC_DATA")));
 		request.setRequiredReceiptFlag(false);
 
 		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER3001");
@@ -1390,10 +1391,10 @@ class PaymentServicesTest {
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
 	}
 
-	private DocumentEntity createLedgerDocument(String documentType, String documentData) {
+	private DocumentEntity createLedgerDocument(String documentType, String documentName, String documentData) {
 		DocumentEntity documentEntity = new DocumentEntity();
 		documentEntity.setDocumentType(documentType);
-		documentEntity.setDocumentName(documentData);
+		documentEntity.setDocumentName(documentName);
 		documentEntity.setDocumentData(documentData);
 		return documentEntity;
 	}
