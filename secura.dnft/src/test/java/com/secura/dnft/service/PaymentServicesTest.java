@@ -143,6 +143,17 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void getPayments_shouldRequireApartmentId() throws Exception {
+		GetPaymentRequest request = new GetPaymentRequest();
+
+		GetPaymentResponse response = paymentServices.getPayments(request);
+
+		assertTrue(response.getPaymentList().isEmpty());
+		assertEquals(com.secura.dnft.generic.bean.ErrorMessage.ERR_MESSAGE_05, response.getMessage());
+		assertEquals(com.secura.dnft.generic.bean.ErrorMessageCode.ERR_MESSAGE_05, response.getMessageCode());
+	}
+
+	@Test
 	void getDuePaymentAmountDetails_shouldReturnPostYearlyDueDateAsEndPlusOneDayAndGstAmounts() {
 		DuePaymentAmountDetailsRequest request = new DuePaymentAmountDetailsRequest();
 		request.setPaymentAmount("15000");

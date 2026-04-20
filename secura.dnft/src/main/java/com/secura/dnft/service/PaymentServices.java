@@ -29,6 +29,7 @@ import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
@@ -727,17 +728,20 @@ public class PaymentServices implements PaymentInterface {
 		String apartmentId = request != null && request.getGenericHeader() != null
 				? request.getGenericHeader().getApartmentId()
 				: null;
+		if (apartmentId == null || apartmentId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			response.setPaymentList(new ArrayList<>());
+			return response;
+		}
 		List<PaymentEntity> paymentList = new ArrayList<>();
 		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
 			Optional<PaymentEntity> payment = paymentRepository.findById(request.getPaymentId());
-			if (payment.isPresent()
-					&& (apartmentId == null || apartmentId.isBlank() || apartmentId.equals(payment.get().getAprmtId()))) {
+			if (payment.isPresent() && apartmentId.equals(payment.get().getAprmtId())) {
 				paymentList.add(payment.get());
 			}
-		} else if (apartmentId != null && !apartmentId.isBlank()) {
-			paymentList = paymentRepository.findByAprmtId(apartmentId);
 		} else {
-			paymentList = paymentRepository.findAll();
+			paymentList = paymentRepository.findByAprmtId(apartmentId);
 		}
 		response.setPaymentList(paymentList);
 		if (paymentList.isEmpty()) {

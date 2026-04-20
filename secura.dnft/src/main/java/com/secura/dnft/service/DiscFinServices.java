@@ -169,15 +169,7 @@ public class DiscFinServices implements DiscFinInterface {
 			return response;
 		}
 
-		DiscFin discfinEntity = request.getDiscfinEntity();
-		existingDiscFin.setDiscFnType(discfinEntity.getDiscFnType());
-		existingDiscFin.setDueDateAsStartDateFlag(discfinEntity.getDueDateAsStartDateFlag());
-		existingDiscFin.setDiscFnStrtDt(discfinEntity.getDiscFnStrtDt());
-		existingDiscFin.setDiscFnEndDt(discfinEntity.getDiscFnEndDt());
-		existingDiscFin.setDiscFnMode(discfinEntity.getDiscFnMode());
-		existingDiscFin.setDiscFnCumlatonCycle(discfinEntity.getDiscFnCumlatonCycle());
-		existingDiscFin.setDiscFnCycleType(discfinEntity.getDiscFnCycleType());
-		existingDiscFin.setDiscFinValue(discfinEntity.getDiscFinValue());
+		applyDiscfinUpdates(existingDiscFin, request.getDiscfinEntity());
 		existingDiscFin.setLstUpdtUsrId(
 				request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		discFinRepository.save(existingDiscFin);
@@ -185,6 +177,17 @@ public class DiscFinServices implements DiscFinInterface {
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_39);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_39);
 		return response;
+	}
+
+	private void applyDiscfinUpdates(DiscFin target, DiscFin source) {
+		target.setDiscFnType(source.getDiscFnType());
+		target.setDueDateAsStartDateFlag(source.getDueDateAsStartDateFlag());
+		target.setDiscFnStrtDt(source.getDiscFnStrtDt());
+		target.setDiscFnEndDt(source.getDiscFnEndDt());
+		target.setDiscFnMode(source.getDiscFnMode());
+		target.setDiscFnCumlatonCycle(source.getDiscFnCumlatonCycle());
+		target.setDiscFnCycleType(source.getDiscFnCycleType());
+		target.setDiscFinValue(source.getDiscFinValue());
 	}
 
 	private String createDiscFnId(String discFnType) {
