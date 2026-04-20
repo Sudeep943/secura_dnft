@@ -37,6 +37,7 @@ public interface SecuraConstants {
 	public final String NOTICE_ID_PREFIX="NOTC" ;
 	public final String NOTICE_DOC_TYPE="PDF" ;
 	public final String NOTICE_DOC_FOR="NOTICE" ;
+	public final String LEDGER_DOC_FOR="LEDGER" ;
 	
 	public final String NOTICE_OPERATION_SAVE="SAVE" ;
 	public final String NOTICE_OPERATION_DELETE="DELETE" ;

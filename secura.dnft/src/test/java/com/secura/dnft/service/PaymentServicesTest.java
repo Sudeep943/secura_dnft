@@ -28,9 +28,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
@@ -76,6 +78,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private TransactionRepository transactionRepository;
+
+	@Mock
+	private DocumentRepository documentRepository;
 
 	@Mock
 	private ReceiptServices receiptServices;
@@ -1225,27 +1230,29 @@ class PaymentServicesTest {
 		request.setTrnsAmt("5000");
 		request.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setCause("CAUSE");
-		request.setSupportedFile(List.of("one.pdf", "two.pdf"));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "one.pdf"), createLedgerDocument("IMG", "two.pdf")));
 		request.setRequiredReceiptFlag(true);
 
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
 		createReceiptResponse.setReceiptNumber("RCT-2001");
 
-		when(genericService.toJson(any())).thenReturn("FILES_JSON");
+		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER1001");
+		when(genericService.createDocumentId("IMG", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("IMGLEDGER1002");
+		when(genericService.toJson(List.of("PDFLEDGER1001", "IMGLEDGER1002"))).thenReturn("FILES_JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<Transaction>> transactionsCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(transactionRepository, times(2)).saveAll(transactionsCaptor.capture());
+		verify(transactionRepository).saveAll(transactionsCaptor.capture());
 		List<List<Transaction>> savedBatches = transactionsCaptor.getAllValues();
-		assertEquals(2, savedBatches.size());
+		assertEquals(1, savedBatches.size());
 		assertEquals(1, savedBatches.get(0).size());
 		Transaction createdTransaction = savedBatches.get(0).get(0);
-		Transaction updatedTransaction = savedBatches.get(1).get(0);
 		assertEquals("APR-001", createdTransaction.getAprmntId());
 		assertEquals("USR-001", createdTransaction.getTrnsBy());
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, createdTransaction.getTrnsTender());
@@ -1259,10 +1266,20 @@ class PaymentServicesTest {
 		assertEquals("FILES_JSON", createdTransaction.getTrnsFiles());
 		assertEquals(LocalDate.parse("2026-04-20").atStartOfDay(), createdTransaction.getTrnsDate());
 		assertNull(createdTransaction.getParentTransactionId());
-		assertEquals("RCT-2001", updatedTransaction.getReceiptNumber());
+		assertEquals("RCT-2001", createdTransaction.getReceiptNumber());
 		assertEquals("RECEIPT_BASE64", response.getReceipt());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_40, response.getMessageCode());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DocumentEntity>> documentCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(documentRepository).saveAll(documentCaptor.capture());
+		List<DocumentEntity> savedDocuments = documentCaptor.getValue();
+		assertEquals(2, savedDocuments.size());
+		assertEquals("PDFLEDGER1001", savedDocuments.get(0).getDocumentId());
+		assertEquals("IMGLEDGER1002", savedDocuments.get(1).getDocumentId());
+		assertEquals("PDF", savedDocuments.get(0).getDocumentType());
+		assertEquals("IMG", savedDocuments.get(1).getDocumentType());
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
@@ -1296,24 +1313,26 @@ class PaymentServicesTest {
 		request.setTrnsAmt("2500");
 		request.setTrnsStatus("PENDING");
 		request.setCause("EVENT");
-		request.setSupportedFile(List.of("receipt.pdf"));
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "receipt.pdf")));
 		request.setRequiredReceiptFlag(true);
 
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_MULTI");
 		createReceiptResponse.setReceiptNumber("RCT-2002");
 
-		when(genericService.toJson(any())).thenReturn("FILES_JSON");
+		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER2001");
+		when(genericService.toJson(List.of("PDFLEDGER2001"))).thenReturn("FILES_JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<Transaction>> transactionsCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(transactionRepository, times(2)).saveAll(transactionsCaptor.capture());
+		verify(transactionRepository).saveAll(transactionsCaptor.capture());
 		List<List<Transaction>> savedBatches = transactionsCaptor.getAllValues();
-		assertEquals(2, savedBatches.size());
+		assertEquals(1, savedBatches.size());
 		assertEquals(2, savedBatches.get(0).size());
 		Transaction parentTransaction = savedBatches.get(0).get(0);
 		Transaction childTransaction = savedBatches.get(0).get(1);
@@ -1323,8 +1342,8 @@ class PaymentServicesTest {
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, childTransaction.getTrnsTender());
 		assertEquals("FILES_JSON", parentTransaction.getTrnsFiles());
 		assertEquals("FILES_JSON", childTransaction.getTrnsFiles());
-		assertEquals("RCT-2002", savedBatches.get(1).get(0).getReceiptNumber());
-		assertEquals("RCT-2002", savedBatches.get(1).get(1).getReceiptNumber());
+		assertEquals("RCT-2002", parentTransaction.getReceiptNumber());
+		assertEquals("RCT-2002", childTransaction.getReceiptNumber());
 		assertEquals("RECEIPT_MULTI", response.getReceipt());
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
@@ -1339,6 +1358,40 @@ class PaymentServicesTest {
 		assertEquals("Event Collection", receiptRequest.getItems().get(0).getItemName());
 		assertEquals("2500", receiptRequest.getItems().get(0).getAmount());
 		assertEquals("EVENT", receiptRequest.getItems().get(0).getType());
+	}
+
+	@Test
+	void ledgerEntry_shouldSaveTransactionsOnceWhenReceiptNotRequired() throws Exception {
+		LedgerEntryRequest request = new LedgerEntryRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		request.setGenericHeader(header);
+		request.setLedgerfor("Corpus Fund");
+		request.setTrnsTenderList(List.of(SecuraConstants.TRANSACTION_TENDER_CASH));
+		request.setTrnsType("DEBIT");
+		request.setTrnsAmt("1500");
+		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "doc")));
+		request.setRequiredReceiptFlag(false);
+
+		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER3001");
+		when(genericService.toJson(List.of("PDFLEDGER3001"))).thenReturn("FILES_JSON");
+		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
+
+		verify(transactionRepository, times(1)).saveAll(any());
+		verify(receiptServices, never()).createReceipt(any(CreateReceiptRequest.class));
+		assertNull(response.getReceipt());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
+	}
+
+	private DocumentEntity createLedgerDocument(String documentType, String documentData) {
+		DocumentEntity documentEntity = new DocumentEntity();
+		documentEntity.setDocumentType(documentType);
+		documentEntity.setDocumentData(documentData);
+		return documentEntity;
 	}
 
 	@SuppressWarnings("unchecked")
