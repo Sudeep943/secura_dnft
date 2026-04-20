@@ -15,6 +15,8 @@ import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GetPaymentRequest;
+import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
@@ -91,9 +93,25 @@ public class PaymentController {
 			return response;
 			
 		
- 	            }
+  	            }
 
-	 @PostMapping("/payDues")
+	 @PostMapping("/getPayment")
+	    @CrossOrigin(origins = "*")
+	    public GetPaymentResponse getPayment(@RequestBody GetPaymentRequest request) {
+		 GetPaymentResponse response = new GetPaymentResponse();
+		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		 try {
+			 return paymentServices.getPayments(request);
+			}
+			catch (Exception e) {
+				e.printStackTrace();
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			}
+		 return response;
+	            }
+
+ 	 @PostMapping("/payDues")
 	    @CrossOrigin(origins = "*")
 	    public PayDueResponse payDues(@RequestBody PayDueRequest request) {
 		 PayDueResponse response = new PayDueResponse();

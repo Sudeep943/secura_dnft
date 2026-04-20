@@ -722,7 +722,30 @@ public class PaymentServices implements PaymentInterface {
 	@Override
 	public GetPaymentResponse getPayments(GetPaymentRequest request) throws Exception {
 		GetPaymentResponse response = new GetPaymentResponse();
-		response.setGenericHeader(request.getGenericHeader());
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+		List<PaymentEntity> paymentList = new ArrayList<>();
+		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
+			Optional<PaymentEntity> payment = paymentRepository.findById(request.getPaymentId());
+			if (payment.isPresent()
+					&& (apartmentId == null || apartmentId.isBlank() || apartmentId.equals(payment.get().getAprmtId()))) {
+				paymentList.add(payment.get());
+			}
+		} else if (apartmentId != null && !apartmentId.isBlank()) {
+			paymentList = paymentRepository.findByAprmtId(apartmentId);
+		} else {
+			paymentList = paymentRepository.findAll();
+		}
+		response.setPaymentList(paymentList);
+		if (paymentList.isEmpty()) {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_38);
+		} else {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_37);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
+		}
 		return response;
 	}
 

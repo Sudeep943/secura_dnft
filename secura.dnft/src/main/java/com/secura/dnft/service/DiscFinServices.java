@@ -21,6 +21,8 @@ import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
+import com.secura.dnft.request.response.UpdateDiscfinRequest;
+import com.secura.dnft.request.response.UpdateDiscfinResponse;
 
 @Service
 public class DiscFinServices implements DiscFinInterface {
@@ -125,6 +127,63 @@ public class DiscFinServices implements DiscFinInterface {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_32);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_32);
 		}
+		return response;
+	}
+
+	@Override
+	public UpdateDiscfinResponse updateDiscfin(UpdateDiscfinRequest request) throws Exception {
+		UpdateDiscfinResponse response = new UpdateDiscfinResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+		String discFinId = request != null ? request.getDiscFinId() : null;
+
+		if (discFinId == null || discFinId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_44);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_44);
+			return response;
+		}
+		if (apartmentId == null || apartmentId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+		if (request.getDiscfinEntity() == null) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+
+		Optional<DiscFin> discFinOptional = discFinRepository.findById(discFinId);
+		if (discFinOptional.isEmpty()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_46);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_46);
+			return response;
+		}
+
+		DiscFin existingDiscFin = discFinOptional.get();
+		if (!apartmentId.equals(existingDiscFin.getAprmtId())) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_48);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_48);
+			return response;
+		}
+
+		DiscFin discfinEntity = request.getDiscfinEntity();
+		existingDiscFin.setDiscFnType(discfinEntity.getDiscFnType());
+		existingDiscFin.setDueDateAsStartDateFlag(discfinEntity.getDueDateAsStartDateFlag());
+		existingDiscFin.setDiscFnStrtDt(discfinEntity.getDiscFnStrtDt());
+		existingDiscFin.setDiscFnEndDt(discfinEntity.getDiscFnEndDt());
+		existingDiscFin.setDiscFnMode(discfinEntity.getDiscFnMode());
+		existingDiscFin.setDiscFnCumlatonCycle(discfinEntity.getDiscFnCumlatonCycle());
+		existingDiscFin.setDiscFnCycleType(discfinEntity.getDiscFnCycleType());
+		existingDiscFin.setDiscFinValue(discfinEntity.getDiscFinValue());
+		existingDiscFin.setLstUpdtUsrId(
+				request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		discFinRepository.save(existingDiscFin);
+
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_39);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_39);
 		return response;
 	}
 

@@ -40,6 +40,9 @@ public interface SuccessMessageCode {
 	public final String SUCC_MESSAGE_34="SUCC_MESSAGE_34" ;
 	public final String SUCC_MESSAGE_35="SUCC_MESSAGE_35" ;
 	public final String SUCC_MESSAGE_36="SUCC_MESSAGE_36" ;
+	public final String SUCC_MESSAGE_37="SUCC_MESSAGE_37" ;
+	public final String SUCC_MESSAGE_38="SUCC_MESSAGE_38" ;
+	public final String SUCC_MESSAGE_39="SUCC_MESSAGE_39" ;
 	
 }
 

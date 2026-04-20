@@ -15,6 +15,8 @@ import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
+import com.secura.dnft.request.response.UpdateDiscfinRequest;
+import com.secura.dnft.request.response.UpdateDiscfinResponse;
 import com.secura.dnft.service.DiscFinServices;
 
 @CrossOrigin(origins = "*")
@@ -54,6 +56,19 @@ public class DiscFinController {
 		DeleteDiscfinResponse response = new DeleteDiscfinResponse();
 		try {
 			response = discFinServices.deleteDiscfin(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/updateDiscfin")
+	public UpdateDiscfinResponse updateDiscfin(@RequestBody UpdateDiscfinRequest request) {
+		UpdateDiscfinResponse response = new UpdateDiscfinResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			response = discFinServices.updateDiscfin(request);
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
