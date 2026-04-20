@@ -57,6 +57,9 @@ public interface SecuraConstants {
 	public final String TRANSACTION_TENDER_CASH="CASH" ;
 	public final String TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER="OFFLINE_BANK_TRANSFER" ;
 	public final String TRANSACTION_THIRD_PARTY_RAZOR_PAY="RAZOR PAY" ;
+	public final String TRANSACTION_CAUSE_MAINTENANCE="MAINTENANCE" ;
+	public final String TRANSACTION_CAUSE_EVENT="EVENT" ;
+	public final String TRANSACTION_CAUSE_OTHERS="OTHERS" ;
 	
 	public final String PAYMENT_CYCLE_MONTHLY="MONTHLY" ;
 	public final String PAYMENT_CYCLE_QUATERLY="QUATERLY" ;

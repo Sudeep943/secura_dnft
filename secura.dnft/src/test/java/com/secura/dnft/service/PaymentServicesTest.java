@@ -923,6 +923,8 @@ class PaymentServicesTest {
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
+		paymentEntity.setMaintainanceFee(true);
+		paymentEntity.setEventPayment(true);
 
 		Worklist worklist = new Worklist();
 		worklist.setWorklistTaskId("WL-001");
@@ -955,6 +957,7 @@ class PaymentServicesTest {
 		assertEquals("BANK-001", savedTransaction.getTrnsBnkAccnt());
 		assertEquals("DUE_JSON", savedTransaction.getDueDetails());
 		assertEquals("FILES_JSON", savedTransaction.getTrnsFiles());
+		assertEquals(SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE, savedTransaction.getCause());
 		assertEquals("WL-001", savedTransaction.getWorkListId());
 		assertEquals("APR-001", savedTransaction.getAprmntId());
 		assertEquals("USR-001", savedTransaction.getTrnsBy());
@@ -1002,6 +1005,7 @@ class PaymentServicesTest {
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
+		paymentEntity.setEventPayment(true);
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
 		createReceiptResponse.setReceiptNumber("RCT-1001");
@@ -1023,6 +1027,7 @@ class PaymentServicesTest {
 		assertEquals("RECEIPT_BASE64", response.getReceipt());
 		assertEquals("RCT-1001", response.getReceiptNumber());
 		assertEquals("RCT-1001", savedTransaction.getReceiptNumber());
+		assertEquals(SecuraConstants.TRANSACTION_CAUSE_EVENT, savedTransaction.getCause());
 		assertNull(savedTransaction.getWorkListId());
 		verify(flatInterface, never()).getDueAmountForFlat(any());
 		verify(genericService, never()).createWorklist(any(), any(), any(), any());
@@ -1097,6 +1102,10 @@ class PaymentServicesTest {
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.payDues(request);
+
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		assertEquals(SecuraConstants.TRANSACTION_CAUSE_OTHERS, transactionCaptor.getValue().getCause());
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
