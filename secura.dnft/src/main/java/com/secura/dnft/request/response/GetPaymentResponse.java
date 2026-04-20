@@ -1,6 +1,9 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.util.List;
+
+import com.secura.dnft.entity.PaymentEntity;
 
 public class GetPaymentResponse {
 	
@@ -10,6 +13,7 @@ public class GetPaymentResponse {
     private Date dueDate;
     private String amount;
     private String capita;
+    private List<PaymentEntity> paymentList;
     
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -47,8 +51,16 @@ public class GetPaymentResponse {
 	public void setCapita(String capita) {
 		this.capita = capita;
 	}
-    
+
+	public List<PaymentEntity> getPaymentList() {
+		return paymentList;
+	}
+
+	public void setPaymentList(List<PaymentEntity> paymentList) {
+		this.paymentList = paymentList;
+	}
+     
 	
-    
+     
     
 }

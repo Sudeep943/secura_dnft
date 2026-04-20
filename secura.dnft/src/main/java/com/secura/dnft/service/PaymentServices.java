@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
@@ -722,7 +724,33 @@ public class PaymentServices implements PaymentInterface {
 	@Override
 	public GetPaymentResponse getPayments(GetPaymentRequest request) throws Exception {
 		GetPaymentResponse response = new GetPaymentResponse();
-		response.setGenericHeader(request.getGenericHeader());
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+		if (apartmentId == null || apartmentId.isBlank()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			response.setPaymentList(new ArrayList<>());
+			return response;
+		}
+		List<PaymentEntity> paymentList = new ArrayList<>();
+		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
+			Optional<PaymentEntity> payment = paymentRepository.findById(request.getPaymentId());
+			if (payment.isPresent() && apartmentId.equals(payment.get().getAprmtId())) {
+				paymentList.add(payment.get());
+			}
+		} else {
+			paymentList = paymentRepository.findByAprmtId(apartmentId);
+		}
+		response.setPaymentList(paymentList);
+		if (paymentList.isEmpty()) {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_38);
+		} else {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_37);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
+		}
 		return response;
 	}
 

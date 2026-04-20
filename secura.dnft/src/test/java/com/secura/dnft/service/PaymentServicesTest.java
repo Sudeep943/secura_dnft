@@ -51,6 +51,8 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GetPaymentRequest;
+import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -78,6 +80,78 @@ class PaymentServicesTest {
 
 	@InjectMocks
 	private PaymentServices paymentServices;
+
+	@Test
+	void getPayments_shouldReturnApartmentPaymentsWhenPaymentIdMissing() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		GetPaymentRequest request = new GetPaymentRequest();
+		request.setGenericHeader(header);
+
+		PaymentEntity payment = new PaymentEntity();
+		payment.setPaymentId("PAY-1");
+		payment.setAprmtId("APR-1");
+		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment));
+
+		GetPaymentResponse response = paymentServices.getPayments(request);
+
+		assertEquals(1, response.getPaymentList().size());
+		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
+	}
+
+	@Test
+	void getPayments_shouldReturnMatchingPaymentWhenPaymentIdPresent() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		GetPaymentRequest request = new GetPaymentRequest();
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+
+		PaymentEntity payment = new PaymentEntity();
+		payment.setPaymentId("PAY-1");
+		payment.setAprmtId("APR-1");
+		when(paymentRepository.findById("PAY-1")).thenReturn(Optional.of(payment));
+
+		GetPaymentResponse response = paymentServices.getPayments(request);
+
+		assertEquals(1, response.getPaymentList().size());
+		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
+	}
+
+	@Test
+	void getPayments_shouldReturnNoDataMessageWhenPaymentDoesNotMatchApartment() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		GetPaymentRequest request = new GetPaymentRequest();
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+
+		PaymentEntity payment = new PaymentEntity();
+		payment.setPaymentId("PAY-1");
+		payment.setAprmtId("APR-2");
+		when(paymentRepository.findById("PAY-1")).thenReturn(Optional.of(payment));
+
+		GetPaymentResponse response = paymentServices.getPayments(request);
+
+		assertTrue(response.getPaymentList().isEmpty());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_38, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_38, response.getMessageCode());
+	}
+
+	@Test
+	void getPayments_shouldRequireApartmentId() throws Exception {
+		GetPaymentRequest request = new GetPaymentRequest();
+
+		GetPaymentResponse response = paymentServices.getPayments(request);
+
+		assertTrue(response.getPaymentList().isEmpty());
+		assertEquals(com.secura.dnft.generic.bean.ErrorMessage.ERR_MESSAGE_05, response.getMessage());
+		assertEquals(com.secura.dnft.generic.bean.ErrorMessageCode.ERR_MESSAGE_05, response.getMessageCode());
+	}
 
 	@Test
 	void getDuePaymentAmountDetails_shouldReturnPostYearlyDueDateAsEndPlusOneDayAndGstAmounts() {

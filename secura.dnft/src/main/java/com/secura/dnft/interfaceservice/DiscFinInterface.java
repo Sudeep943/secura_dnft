@@ -6,6 +6,8 @@ import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
+import com.secura.dnft.request.response.UpdateDiscfinRequest;
+import com.secura.dnft.request.response.UpdateDiscfinResponse;
 
 public interface DiscFinInterface {
 
@@ -14,4 +16,6 @@ public interface DiscFinInterface {
 	GetDiscfinResponse getDiscfin(GetDiscfinRequest request) throws Exception;
 
 	DeleteDiscfinResponse deleteDiscfin(DeleteDiscfinRequest request) throws Exception;
+
+	UpdateDiscfinResponse updateDiscfin(UpdateDiscfinRequest request) throws Exception;
 }
