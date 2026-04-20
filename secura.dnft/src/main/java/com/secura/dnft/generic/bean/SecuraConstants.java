@@ -12,6 +12,7 @@ public interface SecuraConstants {
 	public final String ACCESS_ADMIN="ADMIN" ;
 
 	public final String RECIPT_TYPE_BOOKING="BOOKING" ;
+	public final String RECEIPT_TYPE_BOOKING=RECIPT_TYPE_BOOKING ;
 	public final String RECEIPT_TYPE_PAYMENT="PAYMENT" ;
 	
 	public final String WORKLIST_STATUS_PENDING="PENDING" ;
