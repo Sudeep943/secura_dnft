@@ -253,6 +253,7 @@ CREATE TABLE secura_notice (
 CREATE TABLE secura_doc (
     document_id      VARCHAR(255) PRIMARY KEY,
     document_type    VARCHAR(255),
+    document_name    VARCHAR(255),
     document_data    TEXT,
     creat_ts         TIMESTAMP,
     creat_usr_id     VARCHAR(255),

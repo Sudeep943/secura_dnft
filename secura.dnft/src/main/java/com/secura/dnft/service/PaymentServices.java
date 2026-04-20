@@ -1015,6 +1015,7 @@ public class PaymentServices implements PaymentInterface {
 		String documentType = resolveLedgerDocumentType(document);
 		documentEntity.setDocumentId(genericService.createDocumentId(documentType, SecuraConstants.LEDGER_DOC_FOR));
 		documentEntity.setDocumentType(documentType);
+		documentEntity.setDocumentName(document != null ? document.getDocumentName() : null);
 		documentEntity.setDocumentData(document != null ? document.getDocumentData() : null);
 		documentEntity.setCreatTs(currentTimestamp);
 		documentEntity

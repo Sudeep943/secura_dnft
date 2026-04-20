@@ -1280,6 +1280,8 @@ class PaymentServicesTest {
 		assertEquals("IMGLEDGER1002", savedDocuments.get(1).getDocumentId());
 		assertEquals("PDF", savedDocuments.get(0).getDocumentType());
 		assertEquals("IMG", savedDocuments.get(1).getDocumentType());
+		assertEquals("one.pdf", savedDocuments.get(0).getDocumentName());
+		assertEquals("two.pdf", savedDocuments.get(1).getDocumentName());
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
@@ -1391,6 +1393,7 @@ class PaymentServicesTest {
 	private DocumentEntity createLedgerDocument(String documentType, String documentData) {
 		DocumentEntity documentEntity = new DocumentEntity();
 		documentEntity.setDocumentType(documentType);
+		documentEntity.setDocumentName(documentData);
 		documentEntity.setDocumentData(documentData);
 		return documentEntity;
 	}

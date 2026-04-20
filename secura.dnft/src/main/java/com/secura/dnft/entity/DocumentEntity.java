@@ -23,6 +23,9 @@ public class DocumentEntity {
 	    
 	    @Column(name = "document_type")
 	    private String documentType;
+
+	    @Column(name = "document_name")
+	    private String documentName;
 	    
 	    @Column(name = "document_data" , columnDefinition = "TEXT")
 	    private String documentData;
@@ -63,6 +66,14 @@ public class DocumentEntity {
 
 		public void setDocumentData(String documentData) {
 			this.documentData = documentData;
+		}
+
+		public String getDocumentName() {
+			return documentName;
+		}
+
+		public void setDocumentName(String documentName) {
+			this.documentName = documentName;
 		}
 
 		public LocalDateTime getCreatTs() {
