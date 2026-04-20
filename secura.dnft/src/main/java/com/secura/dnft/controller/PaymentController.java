@@ -17,6 +17,8 @@ import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.LedgerEntryRequest;
+import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
@@ -111,7 +113,7 @@ public class PaymentController {
 		 return response;
 	            }
 
- 	 @PostMapping("/payDues")
+	 @PostMapping("/payDues")
 	    @CrossOrigin(origins = "*")
 	    public PayDueResponse payDues(@RequestBody PayDueRequest request) {
 		 PayDueResponse response = new PayDueResponse();
@@ -124,6 +126,22 @@ public class PaymentController {
 				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			}
-			return response;
+ 			return response;
+ 	            }
+ 	 
+ 	 @PostMapping("/ledgerEntry")
+	    @CrossOrigin(origins = "*")
+	    public LedgerEntryResponse ledgerEntry(@RequestBody LedgerEntryRequest request) {
+ 		 LedgerEntryResponse response = new LedgerEntryResponse();
+ 		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+ 		 try {
+ 			 return paymentServices.ledgerEntry(request);
+ 			}
+ 			catch (Exception e) {
+ 				e.printStackTrace();
+ 				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+ 				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+ 			}
+ 			return response;
 	            }
 }

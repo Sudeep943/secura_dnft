@@ -41,4 +41,5 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_37="Payment Details Fetched Successfully" ;
 	public final String SUCC_MESSAGE_38="No Payment Details Found" ;
 	public final String SUCC_MESSAGE_39="DiscFin Updated Successfully" ;
+	public final String SUCC_MESSAGE_40="Ledger Entry Created Successfully" ;
 }
