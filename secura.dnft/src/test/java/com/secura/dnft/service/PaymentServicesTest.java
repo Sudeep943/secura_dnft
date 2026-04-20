@@ -1385,6 +1385,11 @@ class PaymentServicesTest {
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DocumentEntity>> documentCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(documentRepository).saveAll(documentCaptor.capture());
+		assertEquals("doc.pdf", documentCaptor.getValue().get(0).getDocumentName());
+
 		verify(transactionRepository, times(1)).saveAll(any());
 		verify(receiptServices, never()).createReceipt(any(CreateReceiptRequest.class));
 		assertNull(response.getReceipt());
