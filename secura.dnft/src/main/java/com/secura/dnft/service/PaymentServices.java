@@ -936,6 +936,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
 		transaction.setDueDetails(genericService.toJson(dueDetails));
+		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setLstUpdtTs(null);
@@ -1131,6 +1132,16 @@ public class PaymentServices implements PaymentInterface {
 			return SecuraConstants.TRANSACTION_STATUS_SUCCESS;
 		}
 		return SecuraConstants.TRANSACTION_STATUS_ON_HOLD;
+	}
+
+	private String resolveTransactionCause(PaymentEntity paymentEntity) {
+		if (paymentEntity != null && paymentEntity.isMaintainanceFee()) {
+			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
+		}
+		if (paymentEntity != null && paymentEntity.isEventPayment()) {
+			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
+		}
+		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
 	}
 
 	private boolean requiresWorklist(String tender) {

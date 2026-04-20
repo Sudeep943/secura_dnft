@@ -63,6 +63,15 @@ public class Transaction {
 	@Column(name = "due_details", columnDefinition = "TEXT")
 	private String dueDetails;
 
+	@Column(name = "cause")
+	private String cause;
+
+	@Column(name = "bank_instrument_tender_details", columnDefinition = "TEXT")
+	private String bankInstrumentTenderDetails;
+
+	@Column(name = "parent_transaction_id")
+	private String parentTransactionId;
+
 	@Column(name = "worklist_id")
 	private String workListId;
 
@@ -215,6 +224,30 @@ public class Transaction {
 
 	public void setDueDetails(String dueDetails) {
 		this.dueDetails = dueDetails;
+	}
+
+	public String getCause() {
+		return cause;
+	}
+
+	public void setCause(String cause) {
+		this.cause = cause;
+	}
+
+	public String getBankInstrumentTenderDetails() {
+		return bankInstrumentTenderDetails;
+	}
+
+	public void setBankInstrumentTenderDetails(String bankInstrumentTenderDetails) {
+		this.bankInstrumentTenderDetails = bankInstrumentTenderDetails;
+	}
+
+	public String getParentTransactionId() {
+		return parentTransactionId;
+	}
+
+	public void setParentTransactionId(String parentTransactionId) {
+		this.parentTransactionId = parentTransactionId;
 	}
 
 	public String getWorkListId() {
