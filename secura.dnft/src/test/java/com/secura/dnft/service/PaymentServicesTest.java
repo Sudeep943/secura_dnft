@@ -53,6 +53,8 @@ import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRespons
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.LedgerEntryRequest;
+import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -1205,6 +1207,138 @@ class PaymentServicesTest {
 		assertEquals("1000", receiptRequest.getItems().get(0).getAmount());
 		assertNull(receiptRequest.getItems().get(0).getQuantity());
 		assertNull(receiptRequest.getItems().get(0).getUnitPrice());
+	}
+
+	@Test
+	void ledgerEntry_shouldCreateSingleTransactionAndAttachReceipt() throws Exception {
+		LedgerEntryRequest request = new LedgerEntryRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		request.setGenericHeader(header);
+		request.setTrnsDate(Date.valueOf(LocalDate.parse("2026-04-20")));
+		request.setLedgerfor("Corpus Fund");
+		request.setTrnsTenderList(List.of(SecuraConstants.TRANSACTION_TENDER_ONLINE));
+		request.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
+		request.setTrnsShrtDesc("Ledger entry");
+		request.setTrnsBnkAccnt("BANK-001");
+		request.setTrnsAmt("5000");
+		request.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setCause("CAUSE");
+		request.setSupportedFile(List.of("one.pdf", "two.pdf"));
+		request.setRequiredReceiptFlag(true);
+
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-2001");
+
+		when(genericService.toJson(any())).thenReturn("FILES_JSON");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Transaction>> transactionsCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(transactionRepository, times(2)).saveAll(transactionsCaptor.capture());
+		List<List<Transaction>> savedBatches = transactionsCaptor.getAllValues();
+		assertEquals(2, savedBatches.size());
+		assertEquals(1, savedBatches.get(0).size());
+		Transaction createdTransaction = savedBatches.get(0).get(0);
+		Transaction updatedTransaction = savedBatches.get(1).get(0);
+		assertEquals("APR-001", createdTransaction.getAprmntId());
+		assertEquals("USR-001", createdTransaction.getTrnsBy());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, createdTransaction.getTrnsTender());
+		assertEquals(SecuraConstants.TRANSACTION_TYPE_CREDIT, createdTransaction.getTrnsType());
+		assertEquals("Ledger entry", createdTransaction.getTrnsShrtDesc());
+		assertEquals("BANK-001", createdTransaction.getTrnsBnkAccnt());
+		assertEquals("5000", createdTransaction.getTrnsAmt());
+		assertEquals(SecuraConstants.PAYMENT_CURRENCY, createdTransaction.getTrnsCurrency());
+		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, createdTransaction.getTrnsStatus());
+		assertEquals("CAUSE", createdTransaction.getCause());
+		assertEquals("FILES_JSON", createdTransaction.getTrnsFiles());
+		assertEquals(LocalDate.parse("2026-04-20").atStartOfDay(), createdTransaction.getTrnsDate());
+		assertNull(createdTransaction.getParentTransactionId());
+		assertEquals("RCT-2001", updatedTransaction.getReceiptNumber());
+		assertEquals("RECEIPT_BASE64", response.getReceipt());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_40, response.getMessageCode());
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertEquals("Ledger Entry", receiptRequest.getReceiptType());
+		assertFalse(receiptRequest.isPerheadFlag());
+		assertFalse(receiptRequest.isUnitPriceRequired());
+		assertEquals("5000", receiptRequest.getTotalAmount());
+		assertEquals(createdTransaction.getTrnscId(), receiptRequest.getTransactionId());
+		assertEquals("Corpus Fund", receiptRequest.getItems().get(0).getItemName());
+		assertEquals("5000", receiptRequest.getItems().get(0).getAmount());
+		assertEquals("CAUSE", receiptRequest.getItems().get(0).getType());
+		assertEquals(1, receiptRequest.getTenderList().size());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, receiptRequest.getTenderList().get(0).getTenderName());
+		assertEquals("5000", receiptRequest.getTenderList().get(0).getAmountPaid());
+		assertTrue(receiptRequest.getAddedCharges().isEmpty());
+		assertNull(receiptRequest.getDiscFinReceipt());
+	}
+
+	@Test
+	void ledgerEntry_shouldCreateMultipleTransactionsWithParentAndSharedReceipt() throws Exception {
+		LedgerEntryRequest request = new LedgerEntryRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		request.setGenericHeader(header);
+		request.setLedgerfor("Event Collection");
+		request.setTrnsTenderList(List.of(SecuraConstants.TRANSACTION_TENDER_CASH, SecuraConstants.TRANSACTION_TENDER_ONLINE));
+		request.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
+		request.setTrnsBnkAccnt("BANK-001");
+		request.setTrnsAmt("2500");
+		request.setTrnsStatus("PENDING");
+		request.setCause("EVENT");
+		request.setSupportedFile(List.of("receipt.pdf"));
+		request.setRequiredReceiptFlag(true);
+
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_MULTI");
+		createReceiptResponse.setReceiptNumber("RCT-2002");
+
+		when(genericService.toJson(any())).thenReturn("FILES_JSON");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Transaction>> transactionsCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(transactionRepository, times(2)).saveAll(transactionsCaptor.capture());
+		List<List<Transaction>> savedBatches = transactionsCaptor.getAllValues();
+		assertEquals(2, savedBatches.size());
+		assertEquals(2, savedBatches.get(0).size());
+		Transaction parentTransaction = savedBatches.get(0).get(0);
+		Transaction childTransaction = savedBatches.get(0).get(1);
+		assertNull(parentTransaction.getParentTransactionId());
+		assertEquals(parentTransaction.getTrnscId(), childTransaction.getParentTransactionId());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_CASH, parentTransaction.getTrnsTender());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, childTransaction.getTrnsTender());
+		assertEquals("FILES_JSON", parentTransaction.getTrnsFiles());
+		assertEquals("FILES_JSON", childTransaction.getTrnsFiles());
+		assertEquals("RCT-2002", savedBatches.get(1).get(0).getReceiptNumber());
+		assertEquals("RCT-2002", savedBatches.get(1).get(1).getReceiptNumber());
+		assertEquals("RECEIPT_MULTI", response.getReceipt());
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertEquals(parentTransaction.getTrnscId(), receiptRequest.getTransactionId());
+		assertEquals(2, receiptRequest.getTenderList().size());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_CASH, receiptRequest.getTenderList().get(0).getTenderName());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, receiptRequest.getTenderList().get(1).getTenderName());
+		assertNull(receiptRequest.getTenderList().get(0).getAmountPaid());
+		assertNull(receiptRequest.getTenderList().get(1).getAmountPaid());
+		assertEquals("Event Collection", receiptRequest.getItems().get(0).getItemName());
+		assertEquals("2500", receiptRequest.getItems().get(0).getAmount());
+		assertEquals("EVENT", receiptRequest.getItems().get(0).getType());
 	}
 
 	@SuppressWarnings("unchecked")
