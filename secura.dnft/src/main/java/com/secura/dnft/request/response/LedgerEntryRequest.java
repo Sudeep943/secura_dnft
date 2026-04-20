@@ -3,6 +3,10 @@ package com.secura.dnft.request.response;
 import java.sql.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.secura.dnft.entity.DocumentEntity;
+
 public class LedgerEntryRequest {
 
 	private GenericHeader genericHeader;
@@ -15,7 +19,9 @@ public class LedgerEntryRequest {
 	private String trnsAmt;
 	private String trnsStatus;
 	private String cause;
-	private List<String> supportedFile;
+	@JsonProperty("supportedFileList")
+	@JsonAlias("supportedFile")
+	private List<DocumentEntity> supportedFileList;
 	private boolean requiredReceiptFlag;
 
 	public GenericHeader getGenericHeader() {
@@ -98,12 +104,12 @@ public class LedgerEntryRequest {
 		this.cause = cause;
 	}
 
-	public List<String> getSupportedFile() {
-		return supportedFile;
+	public List<DocumentEntity> getSupportedFileList() {
+		return supportedFileList;
 	}
 
-	public void setSupportedFile(List<String> supportedFile) {
-		this.supportedFile = supportedFile;
+	public void setSupportedFileList(List<DocumentEntity> supportedFileList) {
+		this.supportedFileList = supportedFileList;
 	}
 
 	public boolean isRequiredReceiptFlag() {

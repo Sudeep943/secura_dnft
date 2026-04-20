@@ -21,9 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
@@ -80,6 +82,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	TransactionRepository transactionRepository;
+
+	@Autowired
+	DocumentRepository documentRepository;
 
 	@Autowired
 	ReceiptServices receiptServices;
@@ -830,8 +835,8 @@ public class PaymentServices implements PaymentInterface {
 			throw new IllegalArgumentException("At least one tender is required");
 		}
 		LocalDateTime currentTimestamp = LocalDateTime.now();
-		List<Transaction> transactions = buildLedgerTransactions(request, tenderList, currentTimestamp);
-		transactionRepository.saveAll(transactions);
+		List<String> documentIdList = saveLedgerDocuments(request, currentTimestamp);
+		List<Transaction> transactions = buildLedgerTransactions(request, tenderList, currentTimestamp, documentIdList);
 		if (shouldCreateLedgerReceipt(request)) {
 			CreateReceiptResponse receiptResponse = receiptServices
 					.createReceipt(buildLedgerReceiptRequest(request, transactions.get(0).getTrnscId(), tenderList));
@@ -839,6 +844,8 @@ public class PaymentServices implements PaymentInterface {
 			transactions.forEach(transaction -> transaction.setReceiptNumber(receiptNumber));
 			transactionRepository.saveAll(transactions);
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+		} else {
+			transactionRepository.saveAll(transactions);
 		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_40);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_40);
@@ -986,13 +993,48 @@ public class PaymentServices implements PaymentInterface {
 				.collect(Collectors.toList());
 	}
 
-	private List<Transaction> buildLedgerTransactions(LedgerEntryRequest request, List<String> tenderList,
+	private List<String> saveLedgerDocuments(LedgerEntryRequest request, LocalDateTime currentTimestamp) {
+		if (request == null || request.getSupportedFileList() == null || request.getSupportedFileList().isEmpty()) {
+			return null;
+		}
+		List<DocumentEntity> documentList = request.getSupportedFileList().stream().filter(document -> document != null)
+				.map(document -> buildLedgerDocument(request, document, currentTimestamp)).collect(Collectors.toList());
+		if (documentList.isEmpty()) {
+			return null;
+		}
+		documentRepository.saveAll(documentList);
+		return documentList.stream().map(DocumentEntity::getDocumentId).collect(Collectors.toList());
+	}
+
+	private DocumentEntity buildLedgerDocument(LedgerEntryRequest request, DocumentEntity document,
 			LocalDateTime currentTimestamp) {
+		DocumentEntity documentEntity = new DocumentEntity();
+		documentEntity
+				.setAprmtId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+		String documentType = resolveLedgerDocumentType(document);
+		documentEntity.setDocumentId(genericService.createDocumentId(documentType, SecuraConstants.LEDGER_DOC_FOR));
+		documentEntity.setDocumentType(documentType);
+		documentEntity.setDocumentData(document != null ? document.getDocumentData() : null);
+		documentEntity.setCreatTs(currentTimestamp);
+		documentEntity
+				.setCreatUsrId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		documentEntity.setLstUpdtTs(null);
+		documentEntity.setLstUpdtUsrId(null);
+		return documentEntity;
+	}
+
+	private String resolveLedgerDocumentType(DocumentEntity document) {
+		String documentType = trimValue(document != null ? document.getDocumentType() : null);
+		return hasText(documentType) ? documentType : "DOC";
+	}
+
+	private List<Transaction> buildLedgerTransactions(LedgerEntryRequest request, List<String> tenderList,
+			LocalDateTime currentTimestamp, List<String> documentIdList) {
 		List<Transaction> transactions = new ArrayList<>();
 		LocalDateTime transactionDate = resolveLedgerTransactionDate(request, currentTimestamp);
 		String parentTransactionId = null;
 		for (String tender : tenderList) {
-			Transaction transaction = buildLedgerTransaction(request, tender, transactionDate, currentTimestamp);
+			Transaction transaction = buildLedgerTransaction(request, tender, transactionDate, currentTimestamp, documentIdList);
 			if (parentTransactionId == null) {
 				parentTransactionId = transaction.getTrnscId();
 			} else {
@@ -1011,7 +1053,7 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private Transaction buildLedgerTransaction(LedgerEntryRequest request, String tender, LocalDateTime transactionDate,
-			LocalDateTime currentTimestamp) {
+			LocalDateTime currentTimestamp, List<String> documentIdList) {
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 		transaction.setTrnscId(createTransactionId(tender, request != null ? request.getTrnsAmt() : null,
@@ -1021,7 +1063,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setTrnsTender(tender);
 		transaction.setTrnsType(trimValue(request != null ? request.getTrnsType() : null));
 		transaction.setTrnsShrtDesc(request != null ? request.getTrnsShrtDesc() : null);
-		transaction.setTrnsFiles(genericService.toJson(request != null ? request.getSupportedFile() : null));
+		transaction.setTrnsFiles(genericService.toJson(documentIdList));
 		transaction.setTrnsBnkAccnt(request != null ? request.getTrnsBnkAccnt() : null);
 		transaction.setTrnsAmt(request != null ? request.getTrnsAmt() : null);
 		transaction.setTrnsCurrency(SecuraConstants.PAYMENT_CURRENCY);
