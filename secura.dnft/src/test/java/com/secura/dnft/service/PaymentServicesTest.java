@@ -1042,7 +1042,7 @@ class PaymentServicesTest {
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
 		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
-		assertEquals("Payment", receiptRequest.getReceiptType());
+		assertEquals(SecuraConstants.RECEIPT_TYPE_PAYMENT, receiptRequest.getReceiptType());
 		assertTrue(receiptRequest.isPerheadFlag());
 		assertTrue(receiptRequest.isUnitPriceRequired());
 		assertNull(receiptRequest.getRemarks());
@@ -1053,7 +1053,7 @@ class PaymentServicesTest {
 		assertEquals("400", receiptRequest.getItems().get(0).getUnitPrice());
 		assertEquals("3", receiptRequest.getItems().get(0).getQuantity());
 		assertEquals("1200", receiptRequest.getItems().get(0).getAmount());
-		assertEquals("PAYMENT", receiptRequest.getItems().get(0).getType());
+		assertEquals(SecuraConstants.RECEIPT_TYPE_PAYMENT, receiptRequest.getItems().get(0).getType());
 		assertEquals(1, receiptRequest.getTenderList().size());
 		PaymentTenderData tenderData = receiptRequest.getTenderList().get(0);
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, tenderData.getTenderName());
@@ -1223,7 +1223,7 @@ class PaymentServicesTest {
 		request.setGenericHeader(header);
 		request.setTrnsDate(Date.valueOf(LocalDate.parse("2026-04-20")));
 		request.setLedgerfor("Corpus Fund");
-		request.setTrnsTenderList(List.of(SecuraConstants.TRANSACTION_TENDER_ONLINE));
+		request.setTrnsTenderList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "5000")));
 		request.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		request.setTrnsShrtDesc("Ledger entry");
 		request.setTrnsBnkAccnt("BANK-001");
@@ -1307,7 +1307,8 @@ class PaymentServicesTest {
 		header.setUserId("USR-001");
 		request.setGenericHeader(header);
 		request.setLedgerfor("Event Collection");
-		request.setTrnsTenderList(List.of(SecuraConstants.TRANSACTION_TENDER_CASH, SecuraConstants.TRANSACTION_TENDER_ONLINE));
+		request.setTrnsTenderList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_CASH, "1000"),
+				createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "1500")));
 		request.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		request.setTrnsBnkAccnt("BANK-001");
 		request.setTrnsAmt("2500");
@@ -1353,8 +1354,8 @@ class PaymentServicesTest {
 		assertEquals(2, receiptRequest.getTenderList().size());
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_CASH, receiptRequest.getTenderList().get(0).getTenderName());
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, receiptRequest.getTenderList().get(1).getTenderName());
-		assertNull(receiptRequest.getTenderList().get(0).getAmountPaid());
-		assertNull(receiptRequest.getTenderList().get(1).getAmountPaid());
+		assertEquals("1000", receiptRequest.getTenderList().get(0).getAmountPaid());
+		assertEquals("1500", receiptRequest.getTenderList().get(1).getAmountPaid());
 		assertEquals("Event Collection", receiptRequest.getItems().get(0).getItemName());
 		assertEquals("2500", receiptRequest.getItems().get(0).getAmount());
 		assertEquals("EVENT", receiptRequest.getItems().get(0).getType());
@@ -1368,7 +1369,7 @@ class PaymentServicesTest {
 		header.setUserId("USR-001");
 		request.setGenericHeader(header);
 		request.setLedgerfor("Corpus Fund");
-		request.setTrnsTenderList(List.of(SecuraConstants.TRANSACTION_TENDER_CASH));
+		request.setTrnsTenderList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_CASH, "1500")));
 		request.setTrnsType("DEBIT");
 		request.setTrnsAmt("1500");
 		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "doc")));
@@ -1392,6 +1393,13 @@ class PaymentServicesTest {
 		documentEntity.setDocumentType(documentType);
 		documentEntity.setDocumentData(documentData);
 		return documentEntity;
+	}
+
+	private PaymentTenderData createTender(String tenderName, String amountPaid) {
+		PaymentTenderData tenderData = new PaymentTenderData();
+		tenderData.setTenderName(tenderName);
+		tenderData.setAmountPaid(amountPaid);
+		return tenderData;
 	}
 
 	@SuppressWarnings("unchecked")

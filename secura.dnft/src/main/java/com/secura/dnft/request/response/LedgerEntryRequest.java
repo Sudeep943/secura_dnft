@@ -12,7 +12,7 @@ public class LedgerEntryRequest {
 	private GenericHeader genericHeader;
 	private Date trnsDate;
 	private String ledgerfor;
-	private List<String> trnsTenderList;
+	private List<PaymentTenderData> trnsTenderList;
 	private String trnsType;
 	private String trnsShrtDesc;
 	private String trnsBnkAccnt;
@@ -48,11 +48,11 @@ public class LedgerEntryRequest {
 		this.ledgerfor = ledgerfor;
 	}
 
-	public List<String> getTrnsTenderList() {
+	public List<PaymentTenderData> getTrnsTenderList() {
 		return trnsTenderList;
 	}
 
-	public void setTrnsTenderList(List<String> trnsTenderList) {
+	public void setTrnsTenderList(List<PaymentTenderData> trnsTenderList) {
 		this.trnsTenderList = trnsTenderList;
 	}
 
