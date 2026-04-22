@@ -24,7 +24,7 @@ public class Transaction {
 	@Column(name = "trns_by")
 	private String trnsBy;
 
-	@Column(name = "trns_tender")
+	@Column(name = "trns_tender", columnDefinition = "TEXT")
 	private String trnsTender;
 
 	@Column(name = "trns_type")
@@ -68,9 +68,6 @@ public class Transaction {
 
 	@Column(name = "bank_instrument_tender_details", columnDefinition = "TEXT")
 	private String bankInstrumentTenderDetails;
-
-	@Column(name = "parent_transaction_id")
-	private String parentTransactionId;
 
 	@Column(name = "worklist_id")
 	private String workListId;
@@ -240,14 +237,6 @@ public class Transaction {
 
 	public void setBankInstrumentTenderDetails(String bankInstrumentTenderDetails) {
 		this.bankInstrumentTenderDetails = bankInstrumentTenderDetails;
-	}
-
-	public String getParentTransactionId() {
-		return parentTransactionId;
-	}
-
-	public void setParentTransactionId(String parentTransactionId) {
-		this.parentTransactionId = parentTransactionId;
 	}
 
 	public String getWorkListId() {

@@ -21,7 +21,8 @@ public class CreateReceiptRequest {
 	private boolean unitPriceRequired;
 	private String totalAmount;
 	private String transactionId;
-	private List<PaymentTenderData> tenderList;
+	@JsonAlias({ "tenderList" })
+	private List<PaymentTenderData> paymentTenderDataList;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -103,11 +104,11 @@ public class CreateReceiptRequest {
 		this.transactionId = transactionId;
 	}
 
-	public List<PaymentTenderData> getTenderList() {
-		return tenderList;
+	public List<PaymentTenderData> getPaymentTenderDataList() {
+		return paymentTenderDataList;
 	}
 
-	public void setTenderList(List<PaymentTenderData> tenderList) {
-		this.tenderList = tenderList;
+	public void setPaymentTenderDataList(List<PaymentTenderData> paymentTenderDataList) {
+		this.paymentTenderDataList = paymentTenderDataList;
 	}
 }
