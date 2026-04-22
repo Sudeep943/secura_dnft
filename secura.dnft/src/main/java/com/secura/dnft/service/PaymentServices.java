@@ -830,22 +830,24 @@ public class PaymentServices implements PaymentInterface {
 	public LedgerEntryResponse ledgerEntry(LedgerEntryRequest request) throws Exception {
 		LedgerEntryResponse response = new LedgerEntryResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		List<String> tenderList = normalizeTenderList(request != null ? request.getTrnsTenderList() : null);
-		if (tenderList.isEmpty()) {
+		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
+				request != null ? request.getTrnsTenderList() : null);
+		if (paymentTenderDataList.isEmpty()) {
 			throw new IllegalArgumentException("At least one tender is required");
 		}
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		List<String> documentIdList = saveLedgerDocuments(request, currentTimestamp);
-		List<Transaction> transactions = buildLedgerTransactions(request, tenderList, currentTimestamp, documentIdList);
+		LocalDateTime transactionDate = resolveLedgerTransactionDate(request, currentTimestamp);
+		Transaction transaction = buildLedgerTransaction(request, paymentTenderDataList, transactionDate, currentTimestamp,
+				documentIdList);
 		if (shouldCreateLedgerReceipt(request)) {
 			CreateReceiptResponse receiptResponse = receiptServices
-					.createReceipt(buildLedgerReceiptRequest(request, transactions.get(0).getTrnscId()));
-			String receiptNumber = receiptResponse != null ? receiptResponse.getReceiptNumber() : null;
-			transactions.forEach(transaction -> transaction.setReceiptNumber(receiptNumber));
-			transactionRepository.saveAll(transactions);
+					.createReceipt(buildLedgerReceiptRequest(request, transaction.getTrnscId(), paymentTenderDataList));
+			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+			transactionRepository.save(transaction);
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
 		} else {
-			transactionRepository.saveAll(transactions);
+			transactionRepository.save(transaction);
 		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_40);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_40);
@@ -956,7 +958,8 @@ public class PaymentServices implements PaymentInterface {
 				currentTimestamp.toLocalDate()));
 		transaction.setTrnsDate(currentTimestamp);
 		transaction.setTrnsBy(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		transaction.setTrnsTender(request.getTender());
+		List<PaymentTenderData> paymentTenderDataList = buildPaymentTenderDataList(request.getTender(), request.getAmount());
+		transaction.setTrnsTender(paymentTenderDataList == null ? null : genericService.toJson(paymentTenderDataList));
 		transaction.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		transaction.setTrnsShrtDesc("");
 		transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
@@ -985,12 +988,17 @@ public class PaymentServices implements PaymentInterface {
 		return transaction;
 	}
 
-	private List<String> normalizeTenderList(List<PaymentTenderData> tenderList) {
-		if (tenderList == null || tenderList.isEmpty()) {
+	private List<PaymentTenderData> normalizePaymentTenderDataList(List<PaymentTenderData> paymentTenderDataList) {
+		if (paymentTenderDataList == null || paymentTenderDataList.isEmpty()) {
 			return List.of();
 		}
-		return tenderList.stream().filter(tender -> tender != null && tender.getTenderName() != null)
-				.map(PaymentTenderData::getTenderName).map(String::trim).filter(tender -> !tender.isEmpty())
+		return paymentTenderDataList.stream().filter(tender -> tender != null && hasText(tender.getTenderName()))
+				.map(tender -> {
+					PaymentTenderData data = new PaymentTenderData();
+					data.setTenderName(trimValue(tender.getTenderName()));
+					data.setAmountPaid(trimValue(tender.getAmountPaid()));
+					return data;
+				})
 				.collect(Collectors.toList());
 	}
 
@@ -1030,23 +1038,6 @@ public class PaymentServices implements PaymentInterface {
 		return hasText(documentType) ? documentType : "DOC";
 	}
 
-	private List<Transaction> buildLedgerTransactions(LedgerEntryRequest request, List<String> tenderList,
-			LocalDateTime currentTimestamp, List<String> documentIdList) {
-		List<Transaction> transactions = new ArrayList<>();
-		LocalDateTime transactionDate = resolveLedgerTransactionDate(request, currentTimestamp);
-		String parentTransactionId = null;
-		for (String tender : tenderList) {
-			Transaction transaction = buildLedgerTransaction(request, tender, transactionDate, currentTimestamp, documentIdList);
-			if (parentTransactionId == null) {
-				parentTransactionId = transaction.getTrnscId();
-			} else {
-				transaction.setParentTransactionId(parentTransactionId);
-			}
-			transactions.add(transaction);
-		}
-		return transactions;
-	}
-
 	private LocalDateTime resolveLedgerTransactionDate(LedgerEntryRequest request, LocalDateTime currentTimestamp) {
 		if (request != null && request.getTrnsDate() != null) {
 			return request.getTrnsDate().toLocalDate().atStartOfDay();
@@ -1054,15 +1045,16 @@ public class PaymentServices implements PaymentInterface {
 		return currentTimestamp;
 	}
 
-	private Transaction buildLedgerTransaction(LedgerEntryRequest request, String tender, LocalDateTime transactionDate,
-			LocalDateTime currentTimestamp, List<String> documentIdList) {
+	private Transaction buildLedgerTransaction(LedgerEntryRequest request, List<PaymentTenderData> paymentTenderDataList,
+			LocalDateTime transactionDate, LocalDateTime currentTimestamp, List<String> documentIdList) {
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-		transaction.setTrnscId(createTransactionId(tender, request != null ? request.getTrnsAmt() : null,
+		transaction.setTrnscId(createTransactionId(resolvePrimaryTender(paymentTenderDataList),
+				request != null ? request.getTrnsAmt() : null,
 				request != null ? request.getLedgerfor() : null, transactionDate.toLocalDate()));
 		transaction.setTrnsDate(transactionDate);
 		transaction.setTrnsBy(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		transaction.setTrnsTender(tender);
+		transaction.setTrnsTender(genericService.toJson(paymentTenderDataList));
 		transaction.setTrnsType(trimValue(request != null ? request.getTrnsType() : null));
 		transaction.setTrnsShrtDesc(request != null ? request.getTrnsShrtDesc() : null);
 		transaction.setTrnsFiles(genericService.toJson(documentIdList));
@@ -1081,7 +1073,8 @@ public class PaymentServices implements PaymentInterface {
 				&& SecuraConstants.TRANSACTION_TYPE_CREDIT.equalsIgnoreCase(trimValue(request.getTrnsType()));
 	}
 
-	private CreateReceiptRequest buildLedgerReceiptRequest(LedgerEntryRequest request, String transactionId) {
+	private CreateReceiptRequest buildLedgerReceiptRequest(LedgerEntryRequest request, String transactionId,
+			List<PaymentTenderData> paymentTenderDataList) {
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		receiptRequest.setItems(List.of(buildLedgerReceiptItem(request)));
@@ -1093,7 +1086,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setUnitPriceRequired(false);
 		receiptRequest.setTotalAmount(request != null ? request.getTrnsAmt() : null);
 		receiptRequest.setTransactionId(transactionId);
-		receiptRequest.setTenderList(request != null ? request.getTrnsTenderList() : null);
+		receiptRequest.setPaymentTenderDataList(paymentTenderDataList);
 		return receiptRequest;
 	}
 
@@ -1120,18 +1113,29 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setUnitPriceRequired(perHeadPayment);
 		receiptRequest.setTotalAmount(hasText(requestedAmount) ? requestedAmount : dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
-		receiptRequest.setTenderList(buildTenderList(request));
+		receiptRequest.setPaymentTenderDataList(buildPaymentTenderDataList(request));
 		return receiptRequest;
 	}
 
-	private List<PaymentTenderData> buildTenderList(PayDueRequest request) {
-		if (request == null || !hasText(request.getTender()) || !hasText(request.getAmount())) {
+	private List<PaymentTenderData> buildPaymentTenderDataList(PayDueRequest request) {
+		return buildPaymentTenderDataList(request != null ? request.getTender() : null, request != null ? request.getAmount() : null);
+	}
+
+	private List<PaymentTenderData> buildPaymentTenderDataList(String tender, String amount) {
+		if (!hasText(tender) || !hasText(amount)) {
 			return null;
 		}
 		PaymentTenderData tenderData = new PaymentTenderData();
-		tenderData.setTenderName(request.getTender());
-		tenderData.setAmountPaid(request.getAmount());
+		tenderData.setTenderName(tender);
+		tenderData.setAmountPaid(amount);
 		return List.of(tenderData);
+	}
+
+	private String resolvePrimaryTender(List<PaymentTenderData> paymentTenderDataList) {
+		if (paymentTenderDataList == null || paymentTenderDataList.isEmpty()) {
+			return null;
+		}
+		return paymentTenderDataList.get(0) != null ? paymentTenderDataList.get(0).getTenderName() : null;
 	}
 
 	private Items buildReceiptItem(PayDueRequest request, DueAmountDetails dueDetails, int noOfPersons, boolean perHeadPayment) {

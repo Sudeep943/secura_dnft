@@ -79,7 +79,7 @@ class ReceiptServicesTest {
 		request.setPerheadFlag(false);
 		request.setRemarks("Paid via UPI");
 		request.setTransactionId("TXN-1001");
-		request.setTenderList(List.of(createTender("Online", "2500")));
+		request.setPaymentTenderDataList(List.of(createTender("Online", "2500")));
 		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
 		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
 		discFinReceipt.setDiscountCode("DISC10");
@@ -294,7 +294,7 @@ class ReceiptServicesTest {
 		discFinReceipt.setDiscountType("percentage");
 		discFinReceipt.setDiscountPercentage("10");
 		request.setDiscFinReceipt(discFinReceipt);
-		request.setTenderList(List.of(createTender("Online", "2500")));
+		request.setPaymentTenderDataList(List.of(createTender("Online", "2500")));
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
 		when(genericServices.toJson(any())).thenReturn("{}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));

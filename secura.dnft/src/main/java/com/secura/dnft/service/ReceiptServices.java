@@ -131,7 +131,7 @@ public class ReceiptServices implements ReceiptInterface {
 			drawItemsSection(canvas, request);
 			drawAddedChargesSection(canvas, request != null ? request.getAddedCharges() : null);
 			drawDiscountFineSection(canvas, request != null ? request.getDiscFinReceipt() : null);
-			drawTenderDetailsSection(canvas, request != null ? request.getTenderList() : null);
+			drawTenderDetailsSection(canvas, request != null ? request.getPaymentTenderDataList() : null);
 			drawTotal(canvas, request != null ? request.getTotalAmount() : null);
 			drawRemarks(canvas, request != null ? request.getRemarks() : null);
 			drawElectronicReceiptNote(canvas);

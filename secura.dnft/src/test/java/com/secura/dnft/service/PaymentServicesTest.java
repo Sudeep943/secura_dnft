@@ -1054,8 +1054,8 @@ class PaymentServicesTest {
 		assertEquals("3", receiptRequest.getItems().get(0).getQuantity());
 		assertEquals("1200", receiptRequest.getItems().get(0).getAmount());
 		assertEquals(SecuraConstants.RECEIPT_TYPE_PAYMENT, receiptRequest.getItems().get(0).getType());
-		assertEquals(1, receiptRequest.getTenderList().size());
-		PaymentTenderData tenderData = receiptRequest.getTenderList().get(0);
+		assertEquals(1, receiptRequest.getPaymentTenderDataList().size());
+		PaymentTenderData tenderData = receiptRequest.getPaymentTenderDataList().get(0);
 		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, tenderData.getTenderName());
 		assertEquals("1801", tenderData.getAmountPaid());
 		assertEquals(2, receiptRequest.getAddedCharges().size());
@@ -1240,23 +1240,20 @@ class PaymentServicesTest {
 
 		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER1001");
 		when(genericService.createDocumentId("IMG", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("IMGLEDGER1002");
+		when(genericService.toJson(any())).thenReturn("JSON");
 		when(genericService.toJson(List.of("PDFLEDGER1001", "IMGLEDGER1002"))).thenReturn("FILES_JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<List<Transaction>> transactionsCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(transactionRepository).saveAll(transactionsCaptor.capture());
-		List<List<Transaction>> savedBatches = transactionsCaptor.getAllValues();
-		assertEquals(1, savedBatches.size());
-		assertEquals(1, savedBatches.get(0).size());
-		Transaction createdTransaction = savedBatches.get(0).get(0);
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		Transaction createdTransaction = transactionCaptor.getValue();
 		assertEquals("APR-001", createdTransaction.getAprmntId());
 		assertEquals("USR-001", createdTransaction.getTrnsBy());
-		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, createdTransaction.getTrnsTender());
+		assertEquals("JSON", createdTransaction.getTrnsTender());
 		assertEquals(SecuraConstants.TRANSACTION_TYPE_CREDIT, createdTransaction.getTrnsType());
 		assertEquals("Ledger entry", createdTransaction.getTrnsShrtDesc());
 		assertEquals("BANK-001", createdTransaction.getTrnsBnkAccnt());
@@ -1266,7 +1263,6 @@ class PaymentServicesTest {
 		assertEquals("CAUSE", createdTransaction.getCause());
 		assertEquals("FILES_JSON", createdTransaction.getTrnsFiles());
 		assertEquals(LocalDate.parse("2026-04-20").atStartOfDay(), createdTransaction.getTrnsDate());
-		assertNull(createdTransaction.getParentTransactionId());
 		assertEquals("RCT-2001", createdTransaction.getReceiptNumber());
 		assertEquals("RECEIPT_BASE64", response.getReceipt());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
@@ -1295,9 +1291,10 @@ class PaymentServicesTest {
 		assertEquals("Corpus Fund", receiptRequest.getItems().get(0).getItemName());
 		assertEquals("5000", receiptRequest.getItems().get(0).getAmount());
 		assertEquals("CAUSE", receiptRequest.getItems().get(0).getType());
-		assertEquals(1, receiptRequest.getTenderList().size());
-		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, receiptRequest.getTenderList().get(0).getTenderName());
-		assertEquals("5000", receiptRequest.getTenderList().get(0).getAmountPaid());
+		assertEquals(1, receiptRequest.getPaymentTenderDataList().size());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE,
+				receiptRequest.getPaymentTenderDataList().get(0).getTenderName());
+		assertEquals("5000", receiptRequest.getPaymentTenderDataList().get(0).getAmountPaid());
 		assertTrue(receiptRequest.getAddedCharges().isEmpty());
 		assertNull(receiptRequest.getDiscFinReceipt());
 	}
@@ -1325,40 +1322,33 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceiptNumber("RCT-2002");
 
 		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER2001");
+		when(genericService.toJson(any())).thenReturn("JSON");
 		when(genericService.toJson(List.of("PDFLEDGER2001"))).thenReturn("FILES_JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<List<Transaction>> transactionsCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(transactionRepository).saveAll(transactionsCaptor.capture());
-		List<List<Transaction>> savedBatches = transactionsCaptor.getAllValues();
-		assertEquals(1, savedBatches.size());
-		assertEquals(2, savedBatches.get(0).size());
-		Transaction parentTransaction = savedBatches.get(0).get(0);
-		Transaction childTransaction = savedBatches.get(0).get(1);
-		assertNull(parentTransaction.getParentTransactionId());
-		assertEquals(parentTransaction.getTrnscId(), childTransaction.getParentTransactionId());
-		assertEquals(SecuraConstants.TRANSACTION_TENDER_CASH, parentTransaction.getTrnsTender());
-		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, childTransaction.getTrnsTender());
-		assertEquals("FILES_JSON", parentTransaction.getTrnsFiles());
-		assertEquals("FILES_JSON", childTransaction.getTrnsFiles());
-		assertEquals("RCT-2002", parentTransaction.getReceiptNumber());
-		assertEquals("RCT-2002", childTransaction.getReceiptNumber());
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		Transaction createdTransaction = transactionCaptor.getValue();
+		assertEquals("JSON", createdTransaction.getTrnsTender());
+		assertEquals("FILES_JSON", createdTransaction.getTrnsFiles());
+		assertEquals("RCT-2002", createdTransaction.getReceiptNumber());
 		assertEquals("RECEIPT_MULTI", response.getReceipt());
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
 		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
-		assertEquals(parentTransaction.getTrnscId(), receiptRequest.getTransactionId());
-		assertEquals(2, receiptRequest.getTenderList().size());
-		assertEquals(SecuraConstants.TRANSACTION_TENDER_CASH, receiptRequest.getTenderList().get(0).getTenderName());
-		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE, receiptRequest.getTenderList().get(1).getTenderName());
-		assertEquals("1000", receiptRequest.getTenderList().get(0).getAmountPaid());
-		assertEquals("1500", receiptRequest.getTenderList().get(1).getAmountPaid());
+		assertEquals(createdTransaction.getTrnscId(), receiptRequest.getTransactionId());
+		assertEquals(2, receiptRequest.getPaymentTenderDataList().size());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_CASH,
+				receiptRequest.getPaymentTenderDataList().get(0).getTenderName());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE,
+				receiptRequest.getPaymentTenderDataList().get(1).getTenderName());
+		assertEquals("1000", receiptRequest.getPaymentTenderDataList().get(0).getAmountPaid());
+		assertEquals("1500", receiptRequest.getPaymentTenderDataList().get(1).getAmountPaid());
 		assertEquals("Event Collection", receiptRequest.getItems().get(0).getItemName());
 		assertEquals("2500", receiptRequest.getItems().get(0).getAmount());
 		assertEquals("EVENT", receiptRequest.getItems().get(0).getType());
@@ -1379,9 +1369,10 @@ class PaymentServicesTest {
 		request.setRequiredReceiptFlag(false);
 
 		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER3001");
+		when(genericService.toJson(any())).thenReturn("JSON");
 		when(genericService.toJson(List.of("PDFLEDGER3001"))).thenReturn("FILES_JSON");
 		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-		when(transactionRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		LedgerEntryResponse response = paymentServices.ledgerEntry(request);
 
@@ -1390,7 +1381,7 @@ class PaymentServicesTest {
 		verify(documentRepository).saveAll(documentCaptor.capture());
 		assertEquals("doc.pdf", documentCaptor.getValue().get(0).getDocumentName());
 
-		verify(transactionRepository, times(1)).saveAll(any());
+		verify(transactionRepository, times(1)).save(any(Transaction.class));
 		verify(receiptServices, never()).createReceipt(any(CreateReceiptRequest.class));
 		assertNull(response.getReceipt());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());

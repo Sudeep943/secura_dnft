@@ -53,7 +53,7 @@ CREATE TABLE secura_trnsac (
     trnsc_id VARCHAR PRIMARY KEY,
     trns_date TIMESTAMP,
     trns_by VARCHAR,
-    trns_tender VARCHAR,
+    trns_tender TEXT,
     trns_type VARCHAR,
     trns_shrt_desc VARCHAR,
     trns_files TEXT,
