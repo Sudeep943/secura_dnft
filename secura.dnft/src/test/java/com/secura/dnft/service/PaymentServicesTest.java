@@ -1408,7 +1408,7 @@ class PaymentServicesTest {
 
 	private BankInstrumentTenderDetails createBankInstrumentTenderDetails(String ddPayAtBranch) {
 		BankInstrumentTenderDetails bankInstrumentTenderDetails = new BankInstrumentTenderDetails();
-		bankInstrumentTenderDetails.setTenderType(SecuraConstants.TRANSACTION_TENDER_DD);
+		bankInstrumentTenderDetails.setTenderType("DD");
 		bankInstrumentTenderDetails.setDdPayAtBranch(ddPayAtBranch);
 		return bankInstrumentTenderDetails;
 	}
