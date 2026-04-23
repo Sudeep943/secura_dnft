@@ -10,7 +10,7 @@ public class BankInstrumentTenderDetails {
 	private String bankName;
 	private String accountHolderName;
 	private String amount;
-	private String branchName;
+	private String ddPayAtBranch;
 	private String ddNumber;
 	private Date ddIssueDate;
 	private String remarks;
@@ -63,12 +63,12 @@ public class BankInstrumentTenderDetails {
 		this.amount = amount;
 	}
 
-	public String getBranchName() {
-		return branchName;
+	public String getDdPayAtBranch() {
+		return ddPayAtBranch;
 	}
 
-	public void setBranchName(String branchName) {
-		this.branchName = branchName;
+	public void setDdPayAtBranch(String ddPayAtBranch) {
+		this.ddPayAtBranch = ddPayAtBranch;
 	}
 
 	public String getDdNumber() {

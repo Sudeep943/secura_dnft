@@ -42,6 +42,7 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -1230,6 +1231,7 @@ class PaymentServicesTest {
 		request.setTrnsAmt("5000");
 		request.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setCause("CAUSE");
+		request.setBankInstrumentTenderDetails(List.of(createBankInstrumentTenderDetails("DDPAB-001")));
 		request.setSupportedFileList(List.of(createLedgerDocument("PDF", "one.pdf", "PDF_DATA"),
 				createLedgerDocument("IMG", "two.pdf", "IMG_DATA")));
 		request.setRequiredReceiptFlag(true);
@@ -1241,6 +1243,7 @@ class PaymentServicesTest {
 		when(genericService.createDocumentId("PDF", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("PDFLEDGER1001");
 		when(genericService.createDocumentId("IMG", SecuraConstants.LEDGER_DOC_FOR)).thenReturn("IMGLEDGER1002");
 		when(genericService.toJson(any())).thenReturn("JSON");
+		when(genericService.toJson(request.getBankInstrumentTenderDetails())).thenReturn("BANK_INSTR_JSON");
 		when(genericService.toJson(List.of("PDFLEDGER1001", "IMGLEDGER1002"))).thenReturn("FILES_JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(documentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1261,6 +1264,7 @@ class PaymentServicesTest {
 		assertEquals(SecuraConstants.PAYMENT_CURRENCY, createdTransaction.getTrnsCurrency());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, createdTransaction.getTrnsStatus());
 		assertEquals("CAUSE", createdTransaction.getCause());
+		assertEquals("BANK_INSTR_JSON", createdTransaction.getBankInstrumentTenderDetails());
 		assertEquals("FILES_JSON", createdTransaction.getTrnsFiles());
 		assertEquals(LocalDate.parse("2026-04-20").atStartOfDay(), createdTransaction.getTrnsDate());
 		assertEquals("RCT-2001", createdTransaction.getReceiptNumber());
@@ -1400,6 +1404,13 @@ class PaymentServicesTest {
 		tenderData.setTenderName(tenderName);
 		tenderData.setAmountPaid(amountPaid);
 		return tenderData;
+	}
+
+	private BankInstrumentTenderDetails createBankInstrumentTenderDetails(String ddPayAtBranch) {
+		BankInstrumentTenderDetails bankInstrumentTenderDetails = new BankInstrumentTenderDetails();
+		bankInstrumentTenderDetails.setTenderType("DD");
+		bankInstrumentTenderDetails.setDdPayAtBranch(ddPayAtBranch);
+		return bankInstrumentTenderDetails;
 	}
 
 	@SuppressWarnings("unchecked")

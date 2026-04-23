@@ -38,6 +38,7 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -1063,9 +1064,18 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setTrnsCurrency(SecuraConstants.PAYMENT_CURRENCY);
 		transaction.setTrnsStatus(request != null ? request.getTrnsStatus() : null);
 		transaction.setCause(request != null ? request.getCause() : null);
+		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
+				request != null ? request.getBankInstrumentTenderDetails() : null));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		return transaction;
+	}
+
+	private String serializeBankInstrumentTenderDetails(List<BankInstrumentTenderDetails> bankInstrumentTenderDetails) {
+		if (bankInstrumentTenderDetails == null || bankInstrumentTenderDetails.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(bankInstrumentTenderDetails);
 	}
 
 	private boolean shouldCreateLedgerReceipt(LedgerEntryRequest request) {
