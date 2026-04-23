@@ -22,6 +22,7 @@ public class LedgerEntryRequest {
 	@JsonProperty("supportedFileList")
 	@JsonAlias("supportedFile")
 	private List<DocumentEntity> supportedFileList;
+	private List<BankInstrumentTenderDetails> bankInstrumentTenderDetails;
 	private boolean requiredReceiptFlag;
 
 	public GenericHeader getGenericHeader() {
@@ -110,6 +111,14 @@ public class LedgerEntryRequest {
 
 	public void setSupportedFileList(List<DocumentEntity> supportedFileList) {
 		this.supportedFileList = supportedFileList;
+	}
+
+	public List<BankInstrumentTenderDetails> getBankInstrumentTenderDetails() {
+		return bankInstrumentTenderDetails;
+	}
+
+	public void setBankInstrumentTenderDetails(List<BankInstrumentTenderDetails> bankInstrumentTenderDetails) {
+		this.bankInstrumentTenderDetails = bankInstrumentTenderDetails;
 	}
 
 	public boolean isRequiredReceiptFlag() {
