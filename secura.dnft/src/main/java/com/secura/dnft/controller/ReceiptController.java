@@ -33,4 +33,17 @@ public class ReceiptController {
 		}
 		return response;
 	}
+
+	@PostMapping("/previewReceipt")
+	public CreateReceiptResponse previewReceipt(@RequestBody CreateReceiptRequest request) {
+		CreateReceiptResponse response = new CreateReceiptResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return receiptServices.previewReceipt(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
 }

@@ -122,6 +122,16 @@ public class ReceiptServices implements ReceiptInterface {
 		return response;
 	}
 
+	public CreateReceiptResponse previewReceipt(CreateReceiptRequest request) throws Exception {
+		LocalDateTime currentTimestamp = LocalDateTime.now();
+		CreateReceiptResponse response = new CreateReceiptResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setReceipt(buildReceiptBase64(request, null, currentTimestamp));
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_34);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_34);
+		return response;
+	}
+
 	private String buildReceiptBase64(CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate) throws Exception {
 		try (PDDocument document = new PDDocument(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			PdfCanvas canvas = new PdfCanvas(document);

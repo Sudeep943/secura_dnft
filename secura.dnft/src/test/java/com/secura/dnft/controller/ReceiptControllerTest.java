@@ -57,4 +57,37 @@ class ReceiptControllerTest {
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
 	}
+
+	@Test
+	void previewReceipt_shouldReturnServiceResponse() throws Exception {
+		CreateReceiptRequest request = new CreateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+
+		CreateReceiptResponse expected = new CreateReceiptResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(receiptServices.previewReceipt(request)).thenReturn(expected);
+
+		CreateReceiptResponse actual = receiptController.previewReceipt(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void previewReceipt_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		CreateReceiptRequest request = new CreateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		when(receiptServices.previewReceipt(request)).thenThrow(new RuntimeException("boom"));
+
+		CreateReceiptResponse actual = receiptController.previewReceipt(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
 }
