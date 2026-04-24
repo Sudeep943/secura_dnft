@@ -324,12 +324,10 @@ class ReceiptServicesTest {
 		assertFalse(response.getReceipt().isBlank());
 		assertNull(response.getReceiptNumber());
 		byte[] imageBytes = Base64.getDecoder().decode(response.getReceipt());
-		try (ByteArrayOutputStream ignored = new ByteArrayOutputStream()) {
-			BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
-			assertNotNull(image);
-			assertTrue(image.getWidth() > 0);
-			assertTrue(image.getHeight() > 0);
-		}
+		BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+		assertNotNull(image);
+		assertTrue(image.getWidth() > 0);
+		assertTrue(image.getHeight() > 0);
 		verify(receiptRepository, never()).save(any());
 	}
 
