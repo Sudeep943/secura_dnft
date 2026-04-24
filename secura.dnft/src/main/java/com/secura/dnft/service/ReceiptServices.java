@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -23,6 +24,8 @@ import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
@@ -41,6 +44,8 @@ import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.generic.bean.Address;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.ReceiptInterface;
@@ -48,6 +53,7 @@ import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.DiscFinReceipt;
+import com.secura.dnft.request.response.GenerateReceiptRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -126,26 +132,62 @@ public class ReceiptServices implements ReceiptInterface {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setReceipt(buildReceiptBase64(request, null, currentTimestamp));
+		response.setReceipt(buildReceiptImageBase64(request, currentTimestamp));
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_34);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_34);
 		return response;
 	}
 
+	@Override
+	public CreateReceiptResponse generateReceipt(GenerateReceiptRequest request) throws Exception {
+		CreateReceiptResponse response = new CreateReceiptResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		String receiptNumber = request != null ? request.getReceiptNumber() : null;
+		Optional<Receipt> receiptOptional = receiptNumber != null ? receiptRepository.findById(receiptNumber) : Optional.empty();
+		if (receiptOptional.isEmpty()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_49);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_49);
+			return response;
+		}
+		Receipt receiptEntity = receiptOptional.get();
+		CreateReceiptRequest createReceiptRequest = genericServices.fromJson(receiptEntity.getReceiptData(), CreateReceiptRequest.class);
+		response.setReceipt(buildReceiptBase64(createReceiptRequest, receiptNumber, receiptEntity.getReceiptDate()));
+		response.setReceiptNumber(receiptNumber);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_43);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_43);
+		return response;
+	}
+
+	private PDDocument buildPdfDocument(CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate) throws Exception {
+		PDDocument document = new PDDocument();
+		PdfCanvas canvas = new PdfCanvas(document);
+		ApartmentMaster apartment = resolveApartment(request != null ? request.getGenericHeader() : null);
+		drawHeader(canvas, request, apartment);
+		drawMetaTable(canvas, request, receiptNumber, receiptDate);
+		drawItemsSection(canvas, request);
+		drawAddedChargesSection(canvas, request != null ? request.getAddedCharges() : null);
+		drawDiscountFineSection(canvas, request != null ? request.getDiscFinReceipt() : null);
+		drawTenderDetailsSection(canvas, request != null ? request.getPaymentTenderDataList() : null);
+		drawTotal(canvas, request != null ? request.getTotalAmount() : null);
+		drawElectronicReceiptNote(canvas);
+		canvas.close();
+		return document;
+	}
+
 	private String buildReceiptBase64(CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate) throws Exception {
-		try (PDDocument document = new PDDocument(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-			PdfCanvas canvas = new PdfCanvas(document);
-			ApartmentMaster apartment = resolveApartment(request != null ? request.getGenericHeader() : null);
-			drawHeader(canvas, request, apartment);
-			drawMetaTable(canvas, request, receiptNumber, receiptDate);
-			drawItemsSection(canvas, request);
-			drawAddedChargesSection(canvas, request != null ? request.getAddedCharges() : null);
-			drawDiscountFineSection(canvas, request != null ? request.getDiscFinReceipt() : null);
-			drawTenderDetailsSection(canvas, request != null ? request.getPaymentTenderDataList() : null);
-			drawTotal(canvas, request != null ? request.getTotalAmount() : null);
-			drawElectronicReceiptNote(canvas);
-			canvas.close();
+		try (PDDocument document = buildPdfDocument(request, receiptNumber, receiptDate);
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			document.save(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
+	}
+
+	private String buildReceiptImageBase64(CreateReceiptRequest request, LocalDateTime receiptDate) throws Exception {
+		try (PDDocument document = buildPdfDocument(request, null, receiptDate);
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			PDFRenderer renderer = new PDFRenderer(document);
+			BufferedImage image = renderer.renderImageWithDPI(0, 300, ImageType.RGB);
+			ImageIO.write(image, "JPEG", outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
 	}
@@ -281,12 +323,12 @@ public class ReceiptServices implements ReceiptInterface {
 
 	private void drawDiscountFineSection(PdfCanvas canvas, DiscFinReceipt discFinReceipt) throws Exception {
 		List<String[]> rows = new ArrayList<>();
-		if (discFinReceipt != null && hasText(discFinReceipt.getDiscountAmount())) {
+		if (discFinReceipt != null && isNonZeroAmount(discFinReceipt.getDiscountAmount())) {
 			rows.add(new String[] { appendCodeLabel("Discount", discFinReceipt.getDiscountCode()),
 					formatAmountWithPercentage(discFinReceipt.getDiscountAmount(), discFinReceipt.getDiscountType(),
 							discFinReceipt.getDiscountPercentage()) });
 		}
-		if (discFinReceipt != null && hasText(discFinReceipt.getFineAmount())) {
+		if (discFinReceipt != null && isNonZeroAmount(discFinReceipt.getFineAmount())) {
 			String fineLabel = "Fine";
 			if (hasText(discFinReceipt.getFineCycleMode()) && "cumulative".equalsIgnoreCase(discFinReceipt.getFineCycleMode().trim())) {
 				fineLabel = "Fine (" + discFinReceipt.getFineCycleMode().trim() + ")";
@@ -363,6 +405,17 @@ public class ReceiptServices implements ReceiptInterface {
 
 	private boolean hasText(String value) {
 		return value != null && !value.trim().isEmpty();
+	}
+
+	private boolean isNonZeroAmount(String value) {
+		if (!hasText(value)) {
+			return false;
+		}
+		try {
+			return new BigDecimal(value.trim()).compareTo(BigDecimal.ZERO) != 0;
+		} catch (NumberFormatException e) {
+			return false;
+		}
 	}
 
 	private String formatAmountWithPercentage(String amount, String type, String percentage) {

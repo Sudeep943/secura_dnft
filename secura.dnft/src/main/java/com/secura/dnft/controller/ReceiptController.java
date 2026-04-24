@@ -11,6 +11,7 @@ import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
+import com.secura.dnft.request.response.GenerateReceiptRequest;
 import com.secura.dnft.service.ReceiptServices;
 
 @CrossOrigin(origins = "*")
@@ -40,6 +41,19 @@ public class ReceiptController {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
 			return receiptServices.previewReceipt(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/generateReceipt")
+	public CreateReceiptResponse generateReceipt(@RequestBody GenerateReceiptRequest request) {
+		CreateReceiptResponse response = new CreateReceiptResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return receiptServices.generateReceipt(request);
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
