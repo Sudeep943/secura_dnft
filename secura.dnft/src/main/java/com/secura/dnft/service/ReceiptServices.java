@@ -140,6 +140,10 @@ public class ReceiptServices implements ReceiptInterface {
 
 	public CreateReceiptResponse previewReceipt(CreateReceiptRequest request) throws Exception {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
+		if (request != null && !hasText(request.getCreatedBy())) {
+			String userId = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
+			request.setCreatedBy(Name.toStringWithProfileID(userId, null, profileRepository, genericServices));
+		}
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		response.setReceipt(buildReceiptImageBase64(request, currentTimestamp));
