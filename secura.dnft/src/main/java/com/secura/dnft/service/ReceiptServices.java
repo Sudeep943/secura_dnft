@@ -384,7 +384,7 @@ public class ReceiptServices implements ReceiptInterface {
 		try {
 			return new BigDecimal(value.trim()).compareTo(BigDecimal.ZERO) != 0;
 		} catch (NumberFormatException e) {
-			return true;
+			return false;
 		}
 	}
 
