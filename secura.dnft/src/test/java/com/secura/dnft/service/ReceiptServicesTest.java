@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.List;
@@ -311,7 +312,7 @@ class ReceiptServicesTest {
 	}
 
 	@Test
-	void previewReceipt_shouldReturnBase64PdfWithoutSavingToRepository() throws Exception {
+	void previewReceipt_shouldReturnBase64JpegImageWithoutSavingToRepository() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
 
@@ -322,9 +323,12 @@ class ReceiptServicesTest {
 		assertNotNull(response.getReceipt());
 		assertFalse(response.getReceipt().isBlank());
 		assertNull(response.getReceiptNumber());
-		byte[] pdfBytes = Base64.getDecoder().decode(response.getReceipt());
-		try (PDDocument document = Loader.loadPDF(pdfBytes)) {
-			assertTrue(document.getNumberOfPages() > 0);
+		byte[] imageBytes = Base64.getDecoder().decode(response.getReceipt());
+		try (ByteArrayOutputStream ignored = new ByteArrayOutputStream()) {
+			BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+			assertNotNull(image);
+			assertTrue(image.getWidth() > 0);
+			assertTrue(image.getHeight() > 0);
 		}
 		verify(receiptRepository, never()).save(any());
 	}
