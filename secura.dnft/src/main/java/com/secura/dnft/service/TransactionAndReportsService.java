@@ -1,8 +1,12 @@
 package com.secura.dnft.service;
 
+import java.sql.Date;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,6 +18,8 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.DueAmountDetails;
+import com.secura.dnft.request.response.GetBalanceSheetRequest;
+import com.secura.dnft.request.response.GetBalanceSheetResponse;
 import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -55,6 +61,43 @@ public class TransactionAndReportsService {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_41);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_41);
 		}
+		return response;
+	}
+
+	public GetBalanceSheetResponse getBalanceSheet(GetBalanceSheetRequest request) {
+		GetBalanceSheetResponse response = new GetBalanceSheetResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+
+		Date fromDate = request != null ? request.getFromDate() : null;
+		Date toDate = request != null ? request.getToDate() : null;
+		response.setFromDate(fromDate);
+		response.setToDate(toDate);
+
+		String aprmntId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+
+		List<Transaction> transactions = new ArrayList<>();
+		if (aprmntId != null && !aprmntId.isBlank() && fromDate != null && toDate != null) {
+			LocalDateTime from = fromDate.toLocalDate().atStartOfDay();
+			LocalDateTime to = toDate.toLocalDate().atTime(LocalTime.MAX);
+			transactions = transactionRepository.findByAprmntIdAndTrnsDateBetween(aprmntId, from, to);
+		}
+
+		List<TransactionResponseItem> creditPaymentData = transactions.stream()
+				.filter(t -> "CREDIT".equalsIgnoreCase(t.getTrnsType()))
+				.map(this::toResponseItem)
+				.collect(Collectors.toList());
+
+		List<TransactionResponseItem> debitPaymentData = transactions.stream()
+				.filter(t -> "DEBIT".equalsIgnoreCase(t.getTrnsType()))
+				.map(this::toResponseItem)
+				.collect(Collectors.toList());
+
+		response.setCreditPaymentData(creditPaymentData);
+		response.setDebitPaymentData(debitPaymentData);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_44);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_44);
 		return response;
 	}
 
