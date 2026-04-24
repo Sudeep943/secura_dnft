@@ -174,18 +174,18 @@ public class ReceiptServices implements ReceiptInterface {
 				maxWidth = Math.max(maxWidth, pageImage.getWidth());
 			}
 			if (maxWidth <= 0 || totalHeight <= 0) {
-				return Base64.getEncoder().encodeToString(new byte[0]);
+				throw new IllegalStateException("Failed to generate receipt image: invalid dimensions");
 			}
 			BufferedImage combined = new BufferedImage(maxWidth, totalHeight, BufferedImage.TYPE_INT_RGB);
-			Graphics2D g = combined.createGraphics();
+			Graphics2D graphics = combined.createGraphics();
 			try {
 				int yOffset = 0;
 				for (BufferedImage pageImage : pageImages) {
-					g.drawImage(pageImage, 0, yOffset, null);
+					graphics.drawImage(pageImage, 0, yOffset, null);
 					yOffset += pageImage.getHeight();
 				}
 			} finally {
-				g.dispose();
+				graphics.dispose();
 			}
 			ImageIO.write(combined, "PNG", imageOut);
 			return Base64.getEncoder().encodeToString(imageOut.toByteArray());
