@@ -267,24 +267,24 @@ public class ReceiptServices implements ReceiptInterface {
 			throws Exception {
 		float usableWidth = canvas.getUsableWidth();
 		canvas.drawTableRow(
-				new String[] { "Receipt Type :", defaultValue(request != null ? request.getReceiptType() : null), "Date :",
+				new String[] { "Receipt Type", defaultValue(request != null ? request.getReceiptType() : null), "Date",
 						receiptDate != null ? receiptDate.toLocalDate().format(RECEIPT_DATE_FORMATTER) : "" },
 				new float[] { usableWidth * 0.20f, usableWidth * 0.34f, usableWidth * 0.12f, usableWidth * 0.34f },
 				new boolean[] { true, false, true, false });
-		canvas.drawTableRow(new String[] { "Receipt Number :", defaultValue(receiptNumber) }, new float[] { usableWidth * 0.20f, usableWidth * 0.80f },
+		canvas.drawTableRow(new String[] { "Receipt Number", defaultValue(receiptNumber) }, new float[] { usableWidth * 0.20f, usableWidth * 0.80f },
 				new boolean[] { true, false });
-		canvas.drawTableRow(new String[] { "Transaction Id :", defaultValue(request != null ? request.getTransactionId() : null) },
+		canvas.drawTableRow(new String[] { "Transaction Id", defaultValue(request != null ? request.getTransactionId() : null) },
 				new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		if (request != null && hasText(request.getFlatId())) {
-			canvas.drawTableRow(new String[] { "Flat Id :", defaultValue(request.getFlatId()) },
+			canvas.drawTableRow(new String[] { "Flat Id", defaultValue(request.getFlatId()) },
 					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		}
 		if (request != null && hasText(request.getCreatedBy())) {
-			canvas.drawTableRow(new String[] { "Receipt Created By :", defaultValue(request.getCreatedBy()) },
+			canvas.drawTableRow(new String[] { "Receipt Created By", defaultValue(request.getCreatedBy()) },
 					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		}
 		if (request != null && hasText(request.getRemarks())) {
-			canvas.drawTableRow(new String[] { "Remarks :", defaultValue(request.getRemarks()) },
+			canvas.drawTableRow(new String[] { "Remarks", defaultValue(request.getRemarks()) },
 					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		}
 		canvas.drawSectionGap(SECTION_GAP);
