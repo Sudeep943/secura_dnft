@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -292,12 +293,12 @@ public class ReceiptServices implements ReceiptInterface {
 
 	private void drawDiscountFineSection(PdfCanvas canvas, DiscFinReceipt discFinReceipt) throws Exception {
 		List<String[]> rows = new ArrayList<>();
-		if (discFinReceipt != null && hasText(discFinReceipt.getDiscountAmount())) {
+		if (discFinReceipt != null && isNonZeroAmount(discFinReceipt.getDiscountAmount())) {
 			rows.add(new String[] { appendCodeLabel("Discount", discFinReceipt.getDiscountCode()),
 					formatAmountWithPercentage(discFinReceipt.getDiscountAmount(), discFinReceipt.getDiscountType(),
 							discFinReceipt.getDiscountPercentage()) });
 		}
-		if (discFinReceipt != null && hasText(discFinReceipt.getFineAmount())) {
+		if (discFinReceipt != null && isNonZeroAmount(discFinReceipt.getFineAmount())) {
 			String fineLabel = "Fine";
 			if (hasText(discFinReceipt.getFineCycleMode()) && "cumulative".equalsIgnoreCase(discFinReceipt.getFineCycleMode().trim())) {
 				fineLabel = "Fine (" + discFinReceipt.getFineCycleMode().trim() + ")";
@@ -374,6 +375,17 @@ public class ReceiptServices implements ReceiptInterface {
 
 	private boolean hasText(String value) {
 		return value != null && !value.trim().isEmpty();
+	}
+
+	private boolean isNonZeroAmount(String value) {
+		if (!hasText(value)) {
+			return false;
+		}
+		try {
+			return new BigDecimal(value.trim()).compareTo(BigDecimal.ZERO) != 0;
+		} catch (NumberFormatException e) {
+			return false;
+		}
 	}
 
 	private String formatAmountWithPercentage(String amount, String type, String percentage) {

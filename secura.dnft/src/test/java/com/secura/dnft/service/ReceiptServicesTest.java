@@ -312,6 +312,49 @@ class ReceiptServicesTest {
 	}
 
 	@Test
+	void createReceipt_shouldSkipDiscountFineSectionWhenAmountsAreZero() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountCode("DISC10");
+		discFinReceipt.setDiscountAmount("0");
+		discFinReceipt.setDiscountType("percentage");
+		discFinReceipt.setDiscountPercentage("10");
+		discFinReceipt.setFineCode("FINE5");
+		discFinReceipt.setFineAmount("0.00");
+		discFinReceipt.setFineType("flat");
+		request.setDiscFinReceipt(discFinReceipt);
+
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertFalse(text.contains("Discount / Fine"));
+		assertFalse(text.contains("Discount (CODE: DISC10)"));
+		assertFalse(text.contains("Fine (CODE: FINE5)"));
+	}
+
+	@Test
+	void createReceipt_shouldSkipDiscountFineSectionWhenAmountsAreNull() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
+		discFinReceipt.setDiscountCode("DISC10");
+		discFinReceipt.setFineCode("FINE5");
+		request.setDiscFinReceipt(discFinReceipt);
+
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String text = extractText(response.getReceipt());
+		assertFalse(text.contains("Discount / Fine"));
+	}
+
+	@Test
 	void previewReceipt_shouldReturnBase64JpegImageWithoutSavingToRepository() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
