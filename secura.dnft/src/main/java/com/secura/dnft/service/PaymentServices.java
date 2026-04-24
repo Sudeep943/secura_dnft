@@ -976,6 +976,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		transaction.setLstUpdtTs(null);
 		transaction.setLstUpdtUsrId(null);
 		if (requiresWorklist(request.getTender())) {
@@ -1066,6 +1067,9 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setCause(request != null ? request.getCause() : null);
 		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
 				request != null ? request.getBankInstrumentTenderDetails() : null));
+		if (request != null && request.getFlatId() != null) {
+			transaction.setFlatId(request.getFlatId());
+		}
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		return transaction;

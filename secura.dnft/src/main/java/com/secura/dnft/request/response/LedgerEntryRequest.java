@@ -24,6 +24,8 @@ public class LedgerEntryRequest {
 	private List<DocumentEntity> supportedFileList;
 	private List<BankInstrumentTenderDetails> bankInstrumentTenderDetails;
 	private boolean requiredReceiptFlag;
+	@JsonProperty("flat_id")
+	private String flatId;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -127,5 +129,13 @@ public class LedgerEntryRequest {
 
 	public void setRequiredReceiptFlag(boolean requiredReceiptFlag) {
 		this.requiredReceiptFlag = requiredReceiptFlag;
+	}
+
+	public String getFlatId() {
+		return flatId;
+	}
+
+	public void setFlatId(String flatId) {
+		this.flatId = flatId;
 	}
 }
