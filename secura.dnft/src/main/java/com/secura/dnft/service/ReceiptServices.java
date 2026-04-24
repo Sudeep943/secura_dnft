@@ -1,6 +1,5 @@
 package com.secura.dnft.service;
 
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -32,8 +31,6 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
-import org.apache.pdfbox.rendering.ImageType;
-import org.apache.pdfbox.rendering.PDFRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,7 +126,7 @@ public class ReceiptServices implements ReceiptInterface {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setReceipt(buildReceiptImageBase64(request, null, currentTimestamp));
+		response.setReceipt(buildReceiptBase64(request, null, currentTimestamp));
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_34);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_34);
 		return response;
@@ -157,38 +154,6 @@ public class ReceiptServices implements ReceiptInterface {
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			document.save(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
-		}
-	}
-
-	private String buildReceiptImageBase64(CreateReceiptRequest request, String receiptNumber, LocalDateTime receiptDate) throws Exception {
-		try (PDDocument document = buildPdfDocument(request, receiptNumber, receiptDate);
-				ByteArrayOutputStream imageOut = new ByteArrayOutputStream()) {
-			PDFRenderer renderer = new PDFRenderer(document);
-			List<BufferedImage> pageImages = new ArrayList<>();
-			int totalHeight = 0;
-			int maxWidth = 0;
-			for (int i = 0; i < document.getNumberOfPages(); i++) {
-				BufferedImage pageImage = renderer.renderImageWithDPI(i, 150, ImageType.RGB);
-				pageImages.add(pageImage);
-				totalHeight += pageImage.getHeight();
-				maxWidth = Math.max(maxWidth, pageImage.getWidth());
-			}
-			if (maxWidth <= 0 || totalHeight <= 0) {
-				throw new IllegalStateException("Failed to generate receipt image: invalid dimensions");
-			}
-			BufferedImage combined = new BufferedImage(maxWidth, totalHeight, BufferedImage.TYPE_INT_RGB);
-			Graphics2D graphics = combined.createGraphics();
-			try {
-				int yOffset = 0;
-				for (BufferedImage pageImage : pageImages) {
-					graphics.drawImage(pageImage, 0, yOffset, null);
-					yOffset += pageImage.getHeight();
-				}
-			} finally {
-				graphics.dispose();
-			}
-			ImageIO.write(combined, "PNG", imageOut);
-			return Base64.getEncoder().encodeToString(imageOut.toByteArray());
 		}
 	}
 
