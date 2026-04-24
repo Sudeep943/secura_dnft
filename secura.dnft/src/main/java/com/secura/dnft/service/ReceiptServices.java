@@ -44,6 +44,8 @@ import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.generic.bean.Address;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.ReceiptInterface;
@@ -51,6 +53,7 @@ import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.DiscFinReceipt;
+import com.secura.dnft.request.response.GenerateReceiptRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -132,6 +135,26 @@ public class ReceiptServices implements ReceiptInterface {
 		response.setReceipt(buildReceiptImageBase64(request, currentTimestamp));
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_34);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_34);
+		return response;
+	}
+
+	@Override
+	public CreateReceiptResponse generateReceipt(GenerateReceiptRequest request) throws Exception {
+		CreateReceiptResponse response = new CreateReceiptResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		String receiptNumber = request != null ? request.getReceiptNumber() : null;
+		Optional<Receipt> receiptOptional = receiptNumber != null ? receiptRepository.findById(receiptNumber) : Optional.empty();
+		if (receiptOptional.isEmpty()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_49);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_49);
+			return response;
+		}
+		Receipt receiptEntity = receiptOptional.get();
+		CreateReceiptRequest createReceiptRequest = genericServices.fromJson(receiptEntity.getReceiptData(), CreateReceiptRequest.class);
+		response.setReceipt(buildReceiptBase64(createReceiptRequest, receiptNumber, receiptEntity.getReceiptDate()));
+		response.setReceiptNumber(receiptNumber);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_43);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_43);
 		return response;
 	}
 

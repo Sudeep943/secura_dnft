@@ -41,10 +41,13 @@ import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.DiscFinReceipt;
+import com.secura.dnft.request.response.GenerateReceiptRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -372,6 +375,67 @@ class ReceiptServicesTest {
 		assertTrue(image.getWidth() > 0);
 		assertTrue(image.getHeight() > 0);
 		verify(receiptRepository, never()).save(any());
+	}
+
+	@Test
+	void generateReceipt_shouldReturnPdfWhenReceiptFound() throws Exception {
+		CreateReceiptRequest createRequest = createBaseRequest();
+		String receiptJson = "{\"receiptType\":\"Maintenance\"}";
+		Receipt receiptEntity = new Receipt();
+		receiptEntity.setReceiptId("RCP-001");
+		receiptEntity.setReceiptData(receiptJson);
+		receiptEntity.setReceiptDate(java.time.LocalDateTime.of(2026, 1, 15, 10, 0));
+		receiptEntity.setAprmtId("APR-1");
+
+		when(receiptRepository.findById("RCP-001")).thenReturn(Optional.of(receiptEntity));
+		when(genericServices.fromJson(receiptJson, CreateReceiptRequest.class)).thenReturn(createRequest);
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+
+		GenerateReceiptRequest request = new GenerateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setReceiptNumber("RCP-001");
+
+		CreateReceiptResponse response = receiptServices.generateReceipt(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_43, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_43, response.getMessageCode());
+		assertEquals("RCP-001", response.getReceiptNumber());
+		assertNotNull(response.getReceipt());
+		assertFalse(response.getReceipt().isBlank());
+	}
+
+	@Test
+	void generateReceipt_shouldReturnErrorWhenReceiptNotFound() throws Exception {
+		when(receiptRepository.findById("UNKNOWN")).thenReturn(Optional.empty());
+
+		GenerateReceiptRequest request = new GenerateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setReceiptNumber("UNKNOWN");
+
+		CreateReceiptResponse response = receiptServices.generateReceipt(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_49, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_49, response.getMessageCode());
+		assertNull(response.getReceipt());
+	}
+
+	@Test
+	void generateReceipt_shouldReturnErrorWhenReceiptNumberIsNull() throws Exception {
+		GenerateReceiptRequest request = new GenerateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setReceiptNumber(null);
+
+		CreateReceiptResponse response = receiptServices.generateReceipt(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_49, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_49, response.getMessageCode());
+		assertNull(response.getReceipt());
 	}
 
 	private CreateReceiptRequest createBaseRequest() {
