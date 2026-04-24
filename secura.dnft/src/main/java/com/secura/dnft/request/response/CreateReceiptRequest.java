@@ -22,6 +22,7 @@ public class CreateReceiptRequest {
 	private String totalAmount;
 	private String transactionId;
 	private String flatId;
+	private String createdBy;
 	@JsonAlias({ "tenderList" })
 	private List<PaymentTenderData> paymentTenderDataList;
 
@@ -111,6 +112,14 @@ public class CreateReceiptRequest {
 
 	public void setFlatId(String flatId) {
 		this.flatId = flatId;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
 	}
 
 	public List<PaymentTenderData> getPaymentTenderDataList() {

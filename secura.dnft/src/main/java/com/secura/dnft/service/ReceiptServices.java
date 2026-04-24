@@ -40,10 +40,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.generic.bean.Address;
+import com.secura.dnft.generic.bean.Name;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
@@ -109,8 +111,10 @@ public class ReceiptServices implements ReceiptInterface {
 	@Autowired
 	private ReceiptRepository receiptRepository;
 
+	@Autowired
+	private ProfileRepository profileRepository;
 
-	
+
 	@Autowired
 	private GenericService genericServices;
 
@@ -118,6 +122,10 @@ public class ReceiptServices implements ReceiptInterface {
 	public CreateReceiptResponse createReceipt(CreateReceiptRequest request) throws Exception {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		String receiptNumber = generateReceiptNumber();
+		if (request != null && !hasText(request.getCreatedBy())) {
+			String userId = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
+			request.setCreatedBy(Name.toStringWithProfileID(userId, null, profileRepository, genericServices));
+		}
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		response.setReceipt(buildReceiptBase64(request, receiptNumber, currentTimestamp));
@@ -263,6 +271,10 @@ public class ReceiptServices implements ReceiptInterface {
 				new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		if (request != null && hasText(request.getFlatId())) {
 			canvas.drawTableRow(new String[] { "Flat Id :", defaultValue(request.getFlatId()) },
+					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
+		}
+		if (request != null && hasText(request.getCreatedBy())) {
+			canvas.drawTableRow(new String[] { "Receipt Created By :", defaultValue(request.getCreatedBy()) },
 					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
 		}
 		if (request != null && hasText(request.getRemarks())) {

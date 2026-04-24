@@ -1128,6 +1128,7 @@ public class PaymentServices implements PaymentInterface {
 		receiptRequest.setTotalAmount(hasText(requestedAmount) ? requestedAmount : dueDetails != null ? dueDetails.getTotalAmount() : null);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
+		receiptRequest.setCreatedBy("Auto Generated");
 		receiptRequest.setPaymentTenderDataList(buildPaymentTenderDataList(request));
 		return receiptRequest;
 	}
