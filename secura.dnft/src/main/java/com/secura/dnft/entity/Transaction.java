@@ -69,6 +69,9 @@ public class Transaction {
 	@Column(name = "bank_instrument_tender_details", columnDefinition = "TEXT")
 	private String bankInstrumentTenderDetails;
 
+	@Column(name = "flat_id")
+	private String flatId;
+
 	@Column(name = "worklist_id")
 	private String workListId;
 
@@ -237,6 +240,14 @@ public class Transaction {
 
 	public void setBankInstrumentTenderDetails(String bankInstrumentTenderDetails) {
 		this.bankInstrumentTenderDetails = bankInstrumentTenderDetails;
+	}
+
+	public String getFlatId() {
+		return flatId;
+	}
+
+	public void setFlatId(String flatId) {
+		this.flatId = flatId;
 	}
 
 	public String getWorkListId() {
