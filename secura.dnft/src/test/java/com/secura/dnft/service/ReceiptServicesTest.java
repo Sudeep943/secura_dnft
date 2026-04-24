@@ -78,6 +78,7 @@ class ReceiptServicesTest {
 		request.setUnitPriceRequired(true);
 		request.setPerheadFlag(false);
 		request.setRemarks("Paid via UPI");
+		request.setFlatId("A-101");
 		request.setTransactionId("TXN-1001");
 		request.setPaymentTenderDataList(List.of(createTender("Online", "2500")));
 		request.setAddedCharges(List.of(createCharge("GST", "percentage", "18", "180")));
@@ -116,6 +117,10 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("Date :"));
 		assertTrue(text.contains("Transaction Id :"));
 		assertTrue(text.contains("TXN-1001"));
+		assertTrue(text.contains("Flat Id :"));
+		assertTrue(text.contains("A-101"));
+		assertTrue(text.contains("Remarks :"));
+		assertTrue(text.contains("Paid via UPI"));
 		assertTrue(text.contains("Receipt Number :"));
 		assertTrue(text.contains(response.getReceiptNumber()));
 		assertTrue(text.contains("UNIT PRICE"));

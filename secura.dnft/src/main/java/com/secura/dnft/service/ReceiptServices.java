@@ -143,7 +143,6 @@ public class ReceiptServices implements ReceiptInterface {
 			drawDiscountFineSection(canvas, request != null ? request.getDiscFinReceipt() : null);
 			drawTenderDetailsSection(canvas, request != null ? request.getPaymentTenderDataList() : null);
 			drawTotal(canvas, request != null ? request.getTotalAmount() : null);
-			drawRemarks(canvas, request != null ? request.getRemarks() : null);
 			drawElectronicReceiptNote(canvas);
 			canvas.close();
 			document.save(outputStream);
@@ -220,6 +219,14 @@ public class ReceiptServices implements ReceiptInterface {
 				new boolean[] { true, false });
 		canvas.drawTableRow(new String[] { "Transaction Id :", defaultValue(request != null ? request.getTransactionId() : null) },
 				new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
+		if (request != null && hasText(request.getFlatId())) {
+			canvas.drawTableRow(new String[] { "Flat Id :", defaultValue(request.getFlatId()) },
+					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
+		}
+		if (request != null && hasText(request.getRemarks())) {
+			canvas.drawTableRow(new String[] { "Remarks :", defaultValue(request.getRemarks()) },
+					new float[] { usableWidth * 0.20f, usableWidth * 0.80f }, new boolean[] { true, false });
+		}
 		canvas.drawSectionGap(SECTION_GAP);
 	}
 

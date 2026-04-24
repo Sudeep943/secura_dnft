@@ -1047,6 +1047,7 @@ class PaymentServicesTest {
 		assertTrue(receiptRequest.isPerheadFlag());
 		assertTrue(receiptRequest.isUnitPriceRequired());
 		assertNull(receiptRequest.getRemarks());
+		assertEquals("A-101", receiptRequest.getFlatId());
 		assertEquals("1801", receiptRequest.getTotalAmount());
 		assertEquals(savedTransaction.getTrnscId(), receiptRequest.getTransactionId());
 		assertEquals(1, receiptRequest.getItems().size());
