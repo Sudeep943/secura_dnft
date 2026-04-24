@@ -21,6 +21,7 @@ public class CreateReceiptRequest {
 	private boolean unitPriceRequired;
 	private String totalAmount;
 	private String transactionId;
+	private String flatId;
 	@JsonAlias({ "tenderList" })
 	private List<PaymentTenderData> paymentTenderDataList;
 
@@ -102,6 +103,14 @@ public class CreateReceiptRequest {
 
 	public void setTransactionId(String transactionId) {
 		this.transactionId = transactionId;
+	}
+
+	public String getFlatId() {
+		return flatId;
+	}
+
+	public void setFlatId(String flatId) {
+		this.flatId = flatId;
 	}
 
 	public List<PaymentTenderData> getPaymentTenderDataList() {
