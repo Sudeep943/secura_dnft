@@ -44,4 +44,5 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_40="Ledger Entry Created Successfully" ;
 	public final String SUCC_MESSAGE_41="Transactions Fetched Successfully" ;
 	public final String SUCC_MESSAGE_42="No Transactions Found" ;
+	public final String SUCC_MESSAGE_43="Receipt Generated Successfully" ;
 }

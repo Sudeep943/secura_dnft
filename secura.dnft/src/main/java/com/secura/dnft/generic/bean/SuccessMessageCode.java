@@ -46,6 +46,7 @@ public interface SuccessMessageCode {
 	public final String SUCC_MESSAGE_40="SUCC_MESSAGE_40" ;
 	public final String SUCC_MESSAGE_41="SUCC_MESSAGE_41" ;
 	public final String SUCC_MESSAGE_42="SUCC_MESSAGE_42" ;
+	public final String SUCC_MESSAGE_43="SUCC_MESSAGE_43" ;
 	
 }
 

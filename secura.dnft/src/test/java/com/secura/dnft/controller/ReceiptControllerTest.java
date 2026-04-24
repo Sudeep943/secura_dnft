@@ -13,6 +13,7 @@ import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
+import com.secura.dnft.request.response.GenerateReceiptRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.service.ReceiptServices;
 
@@ -85,6 +86,42 @@ class ReceiptControllerTest {
 		when(receiptServices.previewReceipt(request)).thenThrow(new RuntimeException("boom"));
 
 		CreateReceiptResponse actual = receiptController.previewReceipt(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void generateReceipt_shouldReturnServiceResponse() throws Exception {
+		GenerateReceiptRequest request = new GenerateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setReceiptNumber("RCP-001");
+
+		CreateReceiptResponse expected = new CreateReceiptResponse();
+		expected.setGenericHeader(header);
+		expected.setReceiptNumber("RCP-001");
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(receiptServices.generateReceipt(request)).thenReturn(expected);
+
+		CreateReceiptResponse actual = receiptController.generateReceipt(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void generateReceipt_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		GenerateReceiptRequest request = new GenerateReceiptRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setReceiptNumber("RCP-001");
+		when(receiptServices.generateReceipt(request)).thenThrow(new RuntimeException("boom"));
+
+		CreateReceiptResponse actual = receiptController.generateReceipt(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
