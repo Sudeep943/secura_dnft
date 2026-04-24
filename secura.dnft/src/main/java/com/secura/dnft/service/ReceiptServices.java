@@ -23,6 +23,8 @@ import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
@@ -126,7 +128,7 @@ public class ReceiptServices implements ReceiptInterface {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setReceipt(buildReceiptBase64(request, null, currentTimestamp));
+		response.setReceipt(buildReceiptImageBase64(request, currentTimestamp));
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_34);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_34);
 		return response;
@@ -153,6 +155,16 @@ public class ReceiptServices implements ReceiptInterface {
 		try (PDDocument document = buildPdfDocument(request, receiptNumber, receiptDate);
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			document.save(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
+	}
+
+	private String buildReceiptImageBase64(CreateReceiptRequest request, LocalDateTime receiptDate) throws Exception {
+		try (PDDocument document = buildPdfDocument(request, null, receiptDate);
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			PDFRenderer renderer = new PDFRenderer(document);
+			BufferedImage image = renderer.renderImageWithDPI(0, 300, ImageType.RGB);
+			ImageIO.write(image, "JPEG", outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
 	}
