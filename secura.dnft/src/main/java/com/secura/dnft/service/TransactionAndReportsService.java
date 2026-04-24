@@ -146,7 +146,7 @@ public class TransactionAndReportsService {
 			BigDecimal gstAmount = due != null ? parseBigDecimal(due.getGstAmount()) : BigDecimal.ZERO;
 
 			BigDecimal totalAmountIncludingTax = trnsAmt;
-			BigDecimal totalAmountExcludingTax = roundUp(trnsAmt.subtract(totalAddedCharges).subtract(gstAmount));
+			BigDecimal totalAmountExcludingTax = trnsAmt.subtract(totalAddedCharges).subtract(gstAmount);
 			BigDecimal taxCollected = totalAddedCharges.add(gstAmount);
 
 			BigDecimal[] sums = accumulator.computeIfAbsent(paymentId, k -> new BigDecimal[]{
@@ -163,10 +163,8 @@ public class TransactionAndReportsService {
 			BigDecimal[] sums = entry.getValue();
 
 			ReportPaymentData data = new ReportPaymentData();
-			if (OTHERS_KEY.equals(paymentId)) {
-				data.setPaymentId(OTHERS_KEY);
-			} else {
-				data.setPaymentId(paymentId);
+			data.setPaymentId(paymentId);
+			if (!OTHERS_KEY.equals(paymentId)) {
 				Optional<PaymentEntity> paymentOpt = paymentRepository.findById(paymentId);
 				if (paymentOpt.isPresent()) {
 					data.setPaymentName(paymentOpt.get().getPaymentName());
@@ -174,7 +172,7 @@ public class TransactionAndReportsService {
 				}
 			}
 			data.setTotalAddedCharges(sums[0].toPlainString());
-			data.setTotalAmountExcludingTax(sums[1].toPlainString());
+			data.setTotalAmountExcludingTax(roundUp(sums[1]).toPlainString());
 			data.setTotalAmountIncludingTax(sums[2].toPlainString());
 			data.setTaxCollected(sums[3].toPlainString());
 			result.add(data);
