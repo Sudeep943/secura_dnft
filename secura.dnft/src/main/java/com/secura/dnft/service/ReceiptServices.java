@@ -173,14 +173,20 @@ public class ReceiptServices implements ReceiptInterface {
 				totalHeight += pageImage.getHeight();
 				maxWidth = Math.max(maxWidth, pageImage.getWidth());
 			}
+			if (maxWidth <= 0 || totalHeight <= 0) {
+				return Base64.getEncoder().encodeToString(new byte[0]);
+			}
 			BufferedImage combined = new BufferedImage(maxWidth, totalHeight, BufferedImage.TYPE_INT_RGB);
 			Graphics2D g = combined.createGraphics();
-			int yOffset = 0;
-			for (BufferedImage pageImage : pageImages) {
-				g.drawImage(pageImage, 0, yOffset, null);
-				yOffset += pageImage.getHeight();
+			try {
+				int yOffset = 0;
+				for (BufferedImage pageImage : pageImages) {
+					g.drawImage(pageImage, 0, yOffset, null);
+					yOffset += pageImage.getHeight();
+				}
+			} finally {
+				g.dispose();
 			}
-			g.dispose();
 			ImageIO.write(combined, "PNG", imageOut);
 			return Base64.getEncoder().encodeToString(imageOut.toByteArray());
 		}
