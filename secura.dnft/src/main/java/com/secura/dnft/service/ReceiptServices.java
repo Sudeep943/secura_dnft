@@ -122,6 +122,8 @@ public class ReceiptServices implements ReceiptInterface {
 	public CreateReceiptResponse createReceipt(CreateReceiptRequest request) throws Exception {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		String receiptNumber = generateReceiptNumber();
+		// Resolve createdBy before serialization so the value is persisted in receipt data
+		// and available when the receipt is regenerated later.
 		if (request != null && !hasText(request.getCreatedBy())) {
 			String userId = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
 			request.setCreatedBy(Name.toStringWithProfileID(userId, null, profileRepository, genericServices));

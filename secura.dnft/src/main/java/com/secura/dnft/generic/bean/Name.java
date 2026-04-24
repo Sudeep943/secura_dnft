@@ -2,13 +2,17 @@ package com.secura.dnft.generic.bean;
 
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.service.GenericService;
 
 public class Name {
 
-	
+	private static final Logger LOGGER = LoggerFactory.getLogger(Name.class);
+
 	private String firstName;
 	private String middleName;
 	private String lastName;
@@ -58,6 +62,7 @@ public class Name {
 					resolvedName = genericService.fromJson(profileOpt.get().getPrflName(), Name.class);
 				}
 			} catch (RuntimeException e) {
+				LOGGER.debug("Unable to resolve name from profile for id '{}'. Falling back to empty name.", profileId, e);
 				resolvedName = null;
 			}
 		}
