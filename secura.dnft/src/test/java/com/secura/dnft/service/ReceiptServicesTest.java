@@ -35,6 +35,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
@@ -70,6 +71,9 @@ class ReceiptServicesTest {
 
 	@Mock
 	private ReceiptRepository receiptRepository;
+
+	@Mock
+	private ProfileRepository profileRepository;
 
 	@Mock
 	private GenericService genericServices;
