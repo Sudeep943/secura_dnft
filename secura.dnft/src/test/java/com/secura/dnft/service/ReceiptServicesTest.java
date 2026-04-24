@@ -3,8 +3,10 @@ package com.secura.dnft.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -307,6 +309,26 @@ class ReceiptServicesTest {
 			assertEquals(5, countVerticalSegments(document.getPage(0), 40f, 18f));
 			assertEquals(5, countVerticalSegments(document.getPage(0), rightBorderX, 18f));
 		}
+	}
+
+	@Test
+	void previewReceipt_shouldReturnBase64ImageWithoutSavingToRepository() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+
+		CreateReceiptResponse response = receiptServices.previewReceipt(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_34, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_34, response.getMessageCode());
+		assertNotNull(response.getReceipt());
+		assertFalse(response.getReceipt().isBlank());
+		assertNull(response.getReceiptNumber());
+		byte[] imageBytes = Base64.getDecoder().decode(response.getReceipt());
+		BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+		assertNotNull(image);
+		assertTrue(image.getWidth() > 0);
+		assertTrue(image.getHeight() > 0);
+		verify(receiptRepository, never()).save(any());
 	}
 
 	private CreateReceiptRequest createBaseRequest() {
