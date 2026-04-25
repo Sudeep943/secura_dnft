@@ -124,20 +124,30 @@ public class TransactionAndReportsService {
 		return result;
 	}
 
+	private static final String KEY_PREFIX_PAYMENT = "P:";
+	private static final String KEY_PREFIX_CAUSE = "C:";
+	private static final String KEY_PREFIX_OTHERS = "O:";
+
 	private List<ReportPaymentData> buildCreditPaymentData(String aprmntId, LocalDateTime from, LocalDateTime to) {
 		List<Transaction> creditTrns = aprmntId != null
 				? transactionRepository.findByAprmntIdAndTrnsTypeAndTrnsStatusAndTrnsDateBetween(
 						aprmntId, TRNS_TYPE_CREDIT, TRNS_STATUS_SUCCESS, from, to)
 				: new ArrayList<>();
 
-		// Accumulate per-row sums keyed by paymentId (null -> "Others")
-		Map<String, BigDecimal[]> accumulator = new LinkedHashMap<>();
+		// Accumulate per-row sums. Keys are prefixed to distinguish grouping type:
+		// "P:<paymentId>" for payment-based, "C:<cause>" for cause-based, "O:Others" for fallback.
 		// index: 0=totalAddedCharges, 1=totalAmountExcludingTax, 2=totalAmountIncludingTax, 3=taxCollected
+		Map<String, BigDecimal[]> accumulator = new LinkedHashMap<>();
 
 		for (Transaction trns : creditTrns) {
-			String paymentId = trns.getPymntId() != null && !trns.getPymntId().isBlank()
-					? trns.getPymntId()
-					: OTHERS_KEY;
+			String effectiveKey;
+			if (trns.getPymntId() != null && !trns.getPymntId().isBlank()) {
+				effectiveKey = KEY_PREFIX_PAYMENT + trns.getPymntId();
+			} else if (trns.getCause() != null && !trns.getCause().isBlank()) {
+				effectiveKey = KEY_PREFIX_CAUSE + trns.getCause();
+			} else {
+				effectiveKey = KEY_PREFIX_OTHERS + OTHERS_KEY;
+			}
 
 			BigDecimal trnsAmt = parseBigDecimal(trns.getTrnsAmt());
 			DueAmountDetails due = genericService.fromJson(trns.getDueDetails(), DueAmountDetails.class);
@@ -149,7 +159,7 @@ public class TransactionAndReportsService {
 			BigDecimal totalAmountExcludingTax = trnsAmt.subtract(totalAddedCharges).subtract(gstAmount);
 			BigDecimal taxCollected = totalAddedCharges.add(gstAmount);
 
-			BigDecimal[] sums = accumulator.computeIfAbsent(paymentId, k -> new BigDecimal[]{
+			BigDecimal[] sums = accumulator.computeIfAbsent(effectiveKey, k -> new BigDecimal[]{
 					BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
 			sums[0] = sums[0].add(totalAddedCharges);
 			sums[1] = sums[1].add(totalAmountExcludingTax);
@@ -159,17 +169,25 @@ public class TransactionAndReportsService {
 
 		List<ReportPaymentData> result = new ArrayList<>();
 		for (Map.Entry<String, BigDecimal[]> entry : accumulator.entrySet()) {
-			String paymentId = entry.getKey();
+			String effectiveKey = entry.getKey();
 			BigDecimal[] sums = entry.getValue();
 
 			ReportPaymentData data = new ReportPaymentData();
-			data.setPaymentId(paymentId);
-			if (!OTHERS_KEY.equals(paymentId)) {
+			if (effectiveKey.startsWith(KEY_PREFIX_PAYMENT)) {
+				String paymentId = effectiveKey.substring(KEY_PREFIX_PAYMENT.length());
+				data.setPaymentId(paymentId);
 				Optional<PaymentEntity> paymentOpt = paymentRepository.findById(paymentId);
 				if (paymentOpt.isPresent()) {
 					data.setPaymentName(paymentOpt.get().getPaymentName());
 					data.setPaymentAmount(paymentOpt.get().getPaymentAmount());
 				}
+			} else if (effectiveKey.startsWith(KEY_PREFIX_CAUSE)) {
+				String cause = effectiveKey.substring(KEY_PREFIX_CAUSE.length());
+				data.setPaymentId(cause);
+				data.setPaymentName(cause);
+			} else {
+				data.setPaymentId(OTHERS_KEY);
+				data.setPaymentName(OTHERS_KEY);
 			}
 			data.setTotalAddedCharges(sums[0].toPlainString());
 			data.setTotalAmountExcludingTax(roundUp(sums[1]).toPlainString());
@@ -177,7 +195,6 @@ public class TransactionAndReportsService {
 			data.setTaxCollected(sums[3].toPlainString());
 			result.add(data);
 		}
-		result.stream().filter(rs->rs.getPaymentId().equals(OTHERS_KEY)).findFirst().ifPresent(rs->rs.setPaymentName(OTHERS_KEY));
 		return result;
 	}
 
