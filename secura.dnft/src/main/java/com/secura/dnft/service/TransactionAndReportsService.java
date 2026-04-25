@@ -82,8 +82,8 @@ public class TransactionAndReportsService {
 		GetBalanceSheetResponse response = new GetBalanceSheetResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 
-		LocalDate toDate = LocalDate.now();
-		LocalDate fromDate = toDate.minusYears(1);
+		LocalDate toDate = (request != null && request.getToDate() != null) ? request.getToDate() : LocalDate.now();
+		LocalDate fromDate = (request != null && request.getFromDate() != null) ? request.getFromDate() : toDate.minusYears(1);
 		response.setFromDate(fromDate);
 		response.setToDate(toDate);
 
