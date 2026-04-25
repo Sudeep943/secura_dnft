@@ -177,6 +177,7 @@ public class TransactionAndReportsService {
 			data.setTaxCollected(sums[3].toPlainString());
 			result.add(data);
 		}
+		result.stream().filter(rs->rs.getPaymentId().equals(OTHERS_KEY)).findFirst().ifPresent(rs->rs.setPaymentName(OTHERS_KEY));
 		return result;
 	}
 
