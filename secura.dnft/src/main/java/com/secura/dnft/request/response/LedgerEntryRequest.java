@@ -26,6 +26,7 @@ public class LedgerEntryRequest {
 	private boolean requiredReceiptFlag;
 	@JsonProperty("flat_id")
 	private String flatId;
+	private String paymentId;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -137,5 +138,13 @@ public class LedgerEntryRequest {
 
 	public void setFlatId(String flatId) {
 		this.flatId = flatId;
+	}
+
+	public String getPaymentId() {
+		return paymentId;
+	}
+
+	public void setPaymentId(String paymentId) {
+		this.paymentId = paymentId;
 	}
 }

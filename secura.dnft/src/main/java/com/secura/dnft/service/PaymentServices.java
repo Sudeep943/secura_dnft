@@ -1070,6 +1070,9 @@ public class PaymentServices implements PaymentInterface {
 		if (request != null && request.getFlatId() != null) {
 			transaction.setFlatId(request.getFlatId());
 		}
+		if (request != null && request.getPaymentId() != null) {
+			transaction.setPymntId(request.getPaymentId());
+		}
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		return transaction;
