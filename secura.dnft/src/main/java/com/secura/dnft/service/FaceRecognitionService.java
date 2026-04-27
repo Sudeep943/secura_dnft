@@ -2,29 +2,43 @@ package com.secura.dnft.service;
 
 import java.security.MessageDigest;
 import java.util.Base64;
-import java.util.Random;
+import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * FaceRecognitionService provides face embedding extraction and comparison.
  *
- * NOTE: The current implementation is a deterministic stub that derives a
- * 512-dimensional unit-norm vector from the SHA-256 hash of the image bytes.
- * This means the same image will always produce the same embedding, which
- * allows the attendance matching logic to function end-to-end.
+ * When {@code face.recognition.service.url} is configured, embedding extraction
+ * delegates to that external service (e.g. a Python microservice using
+ * InsightFace/DeepFace, or AWS Rekognition). The service must expose:
+ *   POST {url}/extract-embedding
+ *   Body:     {"image_base64": "<base64>"}
+ *   Response: float[] JSON array  (e.g. [0.12, -0.34, ...])
  *
- * For production, replace extractEmbedding() with a call to a real face
- * recognition backend (e.g. a Python microservice using InsightFace/DeepFace,
- * or a cloud service such as AWS Rekognition).
+ * When the property is not set, a deterministic stub is used: SHA-256 of the
+ * image bytes is expanded via counter-mode hashing to fill a 512-D unit vector.
+ * The stub is collision-resistant (uses all 256 hash bits) and allows end-to-end
+ * testing when the SAME image bytes are submitted at enrolment and attendance.
+ * It will NOT match different photos of the same face — configure the external
+ * service for real face recognition.
  */
 @Service
 public class FaceRecognitionService {
 
     private static final int EMBEDDING_DIM = 512;
     private static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+    @Value("${face.recognition.service.url:}")
+    private String faceServiceUrl;
+
+    @Autowired
+    private RestTemplate restTemplate;
 
     /**
      * Decodes a base64 image string, validates it, and returns a 512-d float
@@ -60,29 +74,83 @@ public class FaceRecognitionService {
             throw new IllegalArgumentException("Image exceeds maximum allowed size of 10 MB");
         }
 
+        if (faceServiceUrl != null && !faceServiceUrl.isBlank()) {
+            return extractEmbeddingFromService(raw);
+        }
         return buildEmbedding(imageBytes);
     }
 
     /**
+     * Calls the configured external face recognition service to obtain a real
+     * face embedding for the given image.
+     *
+     * @param imageBase64 raw base64 string (data-URI prefix already stripped)
+     * @return 512-d float embedding returned by the service
+     */
+    private float[] extractEmbeddingFromService(String imageBase64) {
+        try {
+            Map<String, String> request = Map.of("image_base64", imageBase64);
+            float[] embedding = restTemplate.postForObject(
+                    faceServiceUrl + "/extract-embedding", request, float[].class);
+            if (embedding == null || embedding.length == 0) {
+                throw new IllegalArgumentException("External face service returned an empty embedding");
+            }
+            if (embedding.length != EMBEDDING_DIM) {
+                throw new IllegalArgumentException(
+                        "External face service returned an embedding of unexpected dimension: "
+                        + embedding.length + " (expected " + EMBEDDING_DIM + ")");
+            }
+            return embedding;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to contact face recognition service: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Derives a deterministic 512-d unit vector from the raw image bytes using
-     * SHA-256 hashing and a seeded PRNG.
+     * SHA-256 counter-mode expansion.
+     *
+     * <p>The full 32-byte SHA-256 digest of the image is used as a seed. The
+     * seed is then expanded to the required number of bytes by repeatedly
+     * computing SHA-256(seed || counter) for counter = 0, 1, 2, … This uses
+     * all 256 bits of hash entropy and avoids the 48-bit seed limitation of
+     * {@link java.util.Random}.
      */
     private float[] buildEmbedding(byte[] imageBytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(imageBytes);
+            byte[] seed = digest.digest(imageBytes); // full 32-byte seed
 
-            // Convert first 8 bytes of hash to a long seed
-            long seed = 0;
-            for (int i = 0; i < 8; i++) {
-                seed = (seed << 8) | (hash[i] & 0xFF);
+            // Expand seed to EMBEDDING_DIM * 4 bytes via SHA-256 counter mode
+            int bytesNeeded = EMBEDDING_DIM * 4;
+            byte[] randomBytes = new byte[bytesNeeded];
+            int offset = 0;
+            int counter = 0;
+            while (offset < bytesNeeded) {
+                digest.reset();
+                digest.update(seed);
+                digest.update((byte) (counter >>> 24));
+                digest.update((byte) (counter >>> 16));
+                digest.update((byte) (counter >>> 8));
+                digest.update((byte) counter);
+                byte[] block = digest.digest(); // 32 bytes per round
+                int toCopy = Math.min(block.length, bytesNeeded - offset);
+                System.arraycopy(block, 0, randomBytes, offset, toCopy);
+                offset += toCopy;
+                counter++;
             }
 
-            Random rng = new Random(seed);
+            // Interpret each 4-byte group as a signed 32-bit integer, cast to float
             float[] embedding = new float[EMBEDDING_DIM];
             double sumSq = 0.0;
             for (int i = 0; i < EMBEDDING_DIM; i++) {
-                embedding[i] = (float) rng.nextGaussian();
+                int raw = ((randomBytes[i * 4] & 0xFF) << 24)
+                        | ((randomBytes[i * 4 + 1] & 0xFF) << 16)
+                        | ((randomBytes[i * 4 + 2] & 0xFF) << 8)
+                        | (randomBytes[i * 4 + 3] & 0xFF);
+                embedding[i] = (float) raw;
                 sumSq += (double) embedding[i] * embedding[i];
             }
 
