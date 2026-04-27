@@ -5,12 +5,15 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.AttendanceLogRepository;
 import com.secura.dnft.dao.AuditLogRepository;
 import com.secura.dnft.dao.EmployeeRepository;
@@ -28,7 +31,10 @@ import com.secura.dnft.request.response.TodayAttendanceResponse;
 @Service
 public class AdminAttendanceService {
 
-    private static final int MIN_FACE_IMAGES = 3;
+    @Value("${attendance.face.min.images:3}")
+    private int minFaceImages;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Autowired
     private EmployeeRepository employeeRepository;
@@ -52,9 +58,9 @@ public class AdminAttendanceService {
     public OnboardEmployeeResponse onboardEmployee(OnboardEmployeeRequest request) {
         OnboardEmployeeResponse response = new OnboardEmployeeResponse();
 
-        if (request.getImagesBase64() == null || request.getImagesBase64().size() < MIN_FACE_IMAGES) {
+        if (request.getImagesBase64() == null || request.getImagesBase64().size() < minFaceImages) {
             response.setSuccess(false);
-            response.setMessage("At least " + MIN_FACE_IMAGES + " face images required");
+            response.setMessage("At least " + minFaceImages + " face images required");
             return response;
         }
 
@@ -209,9 +215,21 @@ public class AdminAttendanceService {
     // -----------------------------------------------------------------------
 
     private List<AttendanceRecordItem> buildRecordItems(List<AttendanceLogEntity> logs) {
+        if (logs.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Batch-load all relevant employees to avoid N+1
+        List<Long> employeeIds = logs.stream()
+                .map(AttendanceLogEntity::getEmployeeId)
+                .distinct()
+                .toList();
+        Map<Long, EmployeeEntity> employeeMap = new HashMap<>();
+        employeeRepository.findAllById(employeeIds)
+                .forEach(emp -> employeeMap.put(emp.getId(), emp));
+
         List<AttendanceRecordItem> items = new ArrayList<>();
         for (AttendanceLogEntity log : logs) {
-            Optional<EmployeeEntity> empOpt = employeeRepository.findById(log.getEmployeeId());
             AttendanceRecordItem item = new AttendanceRecordItem();
             item.setLogId(log.getId());
             item.setEmployeeId(log.getEmployeeId());
@@ -220,10 +238,11 @@ public class AdminAttendanceService {
             item.setDeviceId(log.getDeviceId());
             item.setMatchScoreEntry(log.getMatchScoreEntry());
             item.setMatchScoreExit(log.getMatchScoreExit());
-            if (empOpt.isPresent()) {
-                item.setEmployeeCode(empOpt.get().getEmployeeCode());
-                item.setEmployeeName(empOpt.get().getFullName());
-                item.setDepartment(empOpt.get().getDepartment());
+            EmployeeEntity emp = employeeMap.get(log.getEmployeeId());
+            if (emp != null) {
+                item.setEmployeeCode(emp.getEmployeeCode());
+                item.setEmployeeName(emp.getFullName());
+                item.setDepartment(emp.getDepartment());
             }
             items.add(item);
         }
@@ -232,10 +251,12 @@ public class AdminAttendanceService {
 
     private void saveAuditLog(String eventType, Long employeeId, String detail, String status) {
         try {
+            Map<String, String> details = new HashMap<>();
+            details.put("detail", detail != null ? detail : "");
             AuditLogEntity audit = new AuditLogEntity();
             audit.setEventType(eventType);
             audit.setEmployeeId(employeeId);
-            audit.setDetailsJson("{\"detail\":\"" + detail.replace("\"", "'") + "\"}");
+            audit.setDetailsJson(OBJECT_MAPPER.writeValueAsString(details));
             audit.setStatus(status);
             audit.setCreatedAt(LocalDateTime.now());
             auditLogRepository.save(audit);

@@ -6,6 +6,8 @@ import java.util.Random;
 
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * FaceRecognitionService provides face embedding extraction and comparison.
  *
@@ -114,6 +116,8 @@ public class FaceRecognitionService {
         return dot;
     }
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     /**
      * Parses a stored JSON array string back to a float[].
      * Expected format: [0.123, -0.456, ...]
@@ -122,31 +126,25 @@ public class FaceRecognitionService {
         if (json == null || json.isBlank()) {
             throw new IllegalArgumentException("Embedding JSON must not be empty");
         }
-        String trimmed = json.trim();
-        if (trimmed.startsWith("[")) {
-            trimmed = trimmed.substring(1);
+        try {
+            float[] result = OBJECT_MAPPER.readValue(json, float[].class);
+            if (result == null || result.length == 0) {
+                throw new IllegalArgumentException("Embedding array is empty");
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to parse embedding JSON: " + e.getMessage(), e);
         }
-        if (trimmed.endsWith("]")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1);
-        }
-        String[] parts = trimmed.split(",");
-        float[] result = new float[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            result[i] = Float.parseFloat(parts[i].trim());
-        }
-        return result;
     }
 
     /**
-     * Serialises a float[] to a compact JSON array string.
+     * Serialises a float[] to a compact JSON array string using Jackson.
      */
     public String embeddingToJson(float[] embedding) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) sb.append(',');
-            sb.append(embedding[i]);
+        try {
+            return OBJECT_MAPPER.writeValueAsString(embedding);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialise embedding", e);
         }
-        sb.append(']');
-        return sb.toString();
     }
 }

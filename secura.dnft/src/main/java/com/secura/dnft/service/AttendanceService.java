@@ -1,17 +1,16 @@
 package com.secura.dnft.service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.AttendanceLogRepository;
 import com.secura.dnft.dao.AuditLogRepository;
 import com.secura.dnft.dao.EmployeeRepository;
@@ -28,7 +27,10 @@ import com.secura.dnft.request.response.AttendanceMarkExitResponse;
 @Service
 public class AttendanceService {
 
-    private static final double MATCH_THRESHOLD = 0.65;
+    @Value("${attendance.face.match.threshold:0.65}")
+    private double matchThreshold;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Autowired
     private EmployeeRepository employeeRepository;
@@ -65,7 +67,7 @@ public class AttendanceService {
 
         MatchResult match = findBestMatch(queryEmbedding);
 
-        if (match == null || match.score < MATCH_THRESHOLD) {
+        if (match == null || match.score < matchThreshold) {
             response.setMatched(false);
             response.setMatchScore(match != null ? round2(match.score) : null);
             response.setMessage("Face not recognized. Please contact admin.");
@@ -117,7 +119,7 @@ public class AttendanceService {
 
         MatchResult match = findBestMatch(queryEmbedding);
 
-        if (match == null || match.score < MATCH_THRESHOLD) {
+        if (match == null || match.score < matchThreshold) {
             response.setMatched(false);
             response.setMatchScore(match != null ? round2(match.score) : null);
             response.setMessage("Face not recognized. Please contact admin.");
@@ -168,26 +170,40 @@ public class AttendanceService {
 
     /**
      * Compares queryEmbedding against all active employee face templates.
+     * Loads all templates for active employees in two queries (batch) to avoid N+1.
      * Returns the best-matching employee with their highest similarity score,
      * or null if there are no templates in the database.
      */
     private MatchResult findBestMatch(float[] queryEmbedding) {
         List<EmployeeEntity> activeEmployees = employeeRepository.findByStatus("ACTIVE");
+        if (activeEmployees.isEmpty()) {
+            return null;
+        }
+
+        // Collect all active employee IDs and load all their templates in one query
+        List<Long> employeeIds = activeEmployees.stream()
+                .map(EmployeeEntity::getId)
+                .toList();
+        List<FaceTemplateEntity> allTemplates = faceTemplateRepository.findByEmployeeIdIn(employeeIds);
+
+        // Build a map for O(1) employee lookup
+        Map<Long, EmployeeEntity> employeeMap = new HashMap<>();
+        for (EmployeeEntity emp : activeEmployees) {
+            employeeMap.put(emp.getId(), emp);
+        }
 
         MatchResult best = null;
-        for (EmployeeEntity employee : activeEmployees) {
-            List<FaceTemplateEntity> templates = faceTemplateRepository.findByEmployeeId(employee.getId());
-            for (FaceTemplateEntity template : templates) {
-                float[] stored;
-                try {
-                    stored = faceRecognitionService.parseEmbedding(template.getEmbeddingJson());
-                } catch (Exception e) {
-                    continue;
-                }
-                double score = faceRecognitionService.cosineSimilarity(queryEmbedding, stored);
-                if (best == null || score > best.score) {
-                    best = new MatchResult(employee, score);
-                }
+        for (FaceTemplateEntity template : allTemplates) {
+            float[] stored;
+            try {
+                stored = faceRecognitionService.parseEmbedding(template.getEmbeddingJson());
+            } catch (Exception e) {
+                continue;
+            }
+            double score = faceRecognitionService.cosineSimilarity(queryEmbedding, stored);
+            EmployeeEntity employee = employeeMap.get(template.getEmployeeId());
+            if (employee != null && (best == null || score > best.score)) {
+                best = new MatchResult(employee, score);
             }
         }
         return best;
@@ -195,20 +211,19 @@ public class AttendanceService {
 
     private void saveAuditLog(String eventType, Long employeeId, String deviceId, String detail, String status) {
         try {
+            Map<String, String> details = new HashMap<>();
+            details.put("deviceId", deviceId != null ? deviceId : "");
+            details.put("detail", detail != null ? detail : "");
             AuditLogEntity audit = new AuditLogEntity();
             audit.setEventType(eventType);
             audit.setEmployeeId(employeeId);
-            audit.setDetailsJson("{\"deviceId\":\"" + safeStr(deviceId) + "\",\"detail\":\"" + safeStr(detail) + "\"}");
+            audit.setDetailsJson(OBJECT_MAPPER.writeValueAsString(details));
             audit.setStatus(status);
             audit.setCreatedAt(LocalDateTime.now());
             auditLogRepository.save(audit);
         } catch (Exception e) {
             // Audit log failure must not disrupt the main flow
         }
-    }
-
-    private String safeStr(String s) {
-        return s == null ? "" : s.replace("\"", "'");
     }
 
     private double round2(double v) {

@@ -9,4 +9,6 @@ import com.secura.dnft.entity.FaceTemplateEntity;
 public interface FaceTemplateRepository extends JpaRepository<FaceTemplateEntity, Long> {
 
     List<FaceTemplateEntity> findByEmployeeId(Long employeeId);
+
+    List<FaceTemplateEntity> findByEmployeeIdIn(List<Long> employeeIds);
 }
