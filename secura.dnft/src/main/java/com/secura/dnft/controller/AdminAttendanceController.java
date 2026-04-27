@@ -21,7 +21,7 @@ import com.secura.dnft.service.AdminAttendanceService;
  */
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/api/v1/admin")
+@RequestMapping("/employees")
 public class AdminAttendanceController {
 
     @Autowired
@@ -31,7 +31,7 @@ public class AdminAttendanceController {
      * POST /api/v1/admin/employees/onboard
      * Onboards a new employee with face photos.
      */
-    @PostMapping("/employees/onboard")
+    @PostMapping("/onboard")
     public OnboardEmployeeResponse onboardEmployee(@RequestBody OnboardEmployeeRequest request) {
         return adminAttendanceService.onboardEmployee(request);
     }
@@ -49,7 +49,7 @@ public class AdminAttendanceController {
      * GET /api/v1/admin/attendance/employee/{employeeCode}
      * Returns attendance history for a specific employee (last 30 days).
      */
-    @GetMapping("/attendance/employee/{employeeCode}")
+    @GetMapping("/attendance/{employeeCode}")
     public EmployeeAttendanceResponse getEmployeeAttendance(@PathVariable String employeeCode) {
         return adminAttendanceService.getEmployeeAttendance(employeeCode);
     }

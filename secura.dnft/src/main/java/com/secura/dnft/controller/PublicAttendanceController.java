@@ -19,7 +19,7 @@ import com.secura.dnft.service.AttendanceService;
  */
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/api/v1/attendance")
+@RequestMapping("/attendance")
 public class PublicAttendanceController {
 
     @Autowired
