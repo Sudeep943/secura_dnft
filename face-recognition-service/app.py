@@ -88,7 +88,7 @@ def extract_embedding():
         image_array = _decode_image(image_base64)
     except Exception as e:
         logger.warning("Failed to decode image: %s", e)
-        return jsonify({"error": f"Invalid image data: {e}"}), 400
+        return jsonify({"error": "Invalid image data. Ensure the image is a valid base64-encoded JPEG or PNG."}), 400
 
     # Detect face locations first (HOG model is fast; use CNN for better accuracy)
     detection_model = os.getenv("FACE_DETECTION_MODEL", "hog")
@@ -99,10 +99,10 @@ def extract_embedding():
 
     if len(face_locations) > 1:
         logger.info("Multiple faces detected (%d); using the largest face.", len(face_locations))
-        # Pick the face with the largest bounding box (most prominent in frame)
+        # Pick the face with the largest bounding box (top, right, bottom, left)
         face_locations = [max(
             face_locations,
-            key=lambda loc: (loc[2] - loc[0]) * (loc[1] - loc[3])
+            key=lambda loc: (loc[2] - loc[0]) * (loc[3] - loc[1])
         )]
 
     # Extract the 128-d face descriptor from the detected face
