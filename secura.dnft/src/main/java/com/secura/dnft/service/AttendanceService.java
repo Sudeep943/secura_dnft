@@ -19,6 +19,8 @@ import com.secura.dnft.entity.AttendanceLogEntity;
 import com.secura.dnft.entity.AuditLogEntity;
 import com.secura.dnft.entity.EmployeeEntity;
 import com.secura.dnft.entity.FaceTemplateEntity;
+import com.secura.dnft.request.response.FaceScoreRequest;
+import com.secura.dnft.request.response.FaceScoreResponse;
 import com.secura.dnft.request.response.AttendanceLodgeEntryRequest;
 import com.secura.dnft.request.response.AttendanceLodgeEntryResponse;
 import com.secura.dnft.request.response.AttendanceMarkExitRequest;
@@ -70,7 +72,10 @@ public class AttendanceService {
         if (match == null || match.score < matchThreshold) {
             response.setMatched(false);
             response.setMatchScore(match != null ? round2(match.score) : null);
-            response.setMessage("Face not recognized. Please contact admin.");
+            String scoreInfo = match != null
+                    ? String.format("Best score: %.2f (threshold: %.2f). ", match.score, matchThreshold)
+                    : "No enrolled face templates found. ";
+            response.setMessage(scoreInfo + "Face not recognized. Ensure good lighting and face the camera directly.");
             saveAuditLog("ENTRY_ATTEMPT", null, deviceId,
                     "No match found, best score=" + (match != null ? match.score : "N/A"), "FAILED");
             return response;
@@ -122,7 +127,10 @@ public class AttendanceService {
         if (match == null || match.score < matchThreshold) {
             response.setMatched(false);
             response.setMatchScore(match != null ? round2(match.score) : null);
-            response.setMessage("Face not recognized. Please contact admin.");
+            String scoreInfo = match != null
+                    ? String.format("Best score: %.2f (threshold: %.2f). ", match.score, matchThreshold)
+                    : "No enrolled face templates found. ";
+            response.setMessage(scoreInfo + "Face not recognized. Ensure good lighting and face the camera directly.");
             saveAuditLog("EXIT_ATTEMPT", null, deviceId,
                     "No match found, best score=" + (match != null ? match.score : "N/A"), "FAILED");
             return response;
@@ -161,6 +169,57 @@ public class AttendanceService {
         response.setExitTime(now);
         response.setMatchScore(round2(match.score));
         response.setMessage("Exit marked successfully");
+        return response;
+    }
+
+    // -----------------------------------------------------------------------
+    // Face Score Diagnostic
+    // -----------------------------------------------------------------------
+
+    /**
+     * Returns the best face-match score for the submitted image WITHOUT logging
+     * any attendance record. Use this endpoint from the UI or during setup to:
+     * <ul>
+     *   <li>Verify the face recognition service is working</li>
+     *   <li>Check whether a particular photo exceeds the match threshold</li>
+     *   <li>Diagnose why entry/exit is being rejected</li>
+     * </ul>
+     */
+    public FaceScoreResponse getFaceScore(FaceScoreRequest request) {
+        FaceScoreResponse response = new FaceScoreResponse();
+        response.setThreshold(matchThreshold);
+
+        float[] queryEmbedding;
+        try {
+            queryEmbedding = faceRecognitionService.extractEmbedding(request.getImageBase64());
+            response.setFaceDetected(true);
+        } catch (IllegalArgumentException e) {
+            response.setFaceDetected(false);
+            response.setMessage("Could not extract face embedding: " + e.getMessage());
+            return response;
+        } catch (Exception e) {
+            response.setFaceDetected(false);
+            response.setMessage("Face recognition service error: " + e.getMessage());
+            return response;
+        }
+
+        MatchResult match = findBestMatch(queryEmbedding);
+
+        if (match == null) {
+            response.setBestScore(null);
+            response.setWouldMatch(false);
+            response.setMessage("No enrolled face templates found. Please onboard employees first.");
+            return response;
+        }
+
+        double score = round2(match.score);
+        response.setBestScore(score);
+        response.setBestMatchEmployeeCode(match.employee.getEmployeeCode());
+        response.setBestMatchEmployeeName(match.employee.getFullName());
+        response.setWouldMatch(score >= matchThreshold);
+        response.setMessage(score >= matchThreshold
+                ? String.format("Match found: %s (score: %.2f >= threshold: %.2f)", match.employee.getFullName(), score, matchThreshold)
+                : String.format("No match: best score %.2f is below threshold %.2f for %s. Try better lighting or re-enrol.", score, matchThreshold, match.employee.getFullName()));
         return response;
     }
 

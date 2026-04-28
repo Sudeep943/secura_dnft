@@ -15,23 +15,37 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * FaceRecognitionService provides face embedding extraction and comparison.
  *
  * When {@code face.recognition.service.url} is configured, embedding extraction
- * delegates to that external service (e.g. a Python microservice using
- * InsightFace/DeepFace, or AWS Rekognition). The service must expose:
+ * delegates to that external service (e.g. the bundled Python microservice in
+ * {@code face-recognition-service/} which uses dlib's ResNet model via the
+ * face_recognition library). The service must expose:
  *   POST {url}/extract-embedding
  *   Body:     {"image_base64": "<base64>"}
- *   Response: float[] JSON array  (e.g. [0.12, -0.34, ...])
+ *   Response: float[] JSON array  (e.g. [0.12, -0.34, ...], any length >= 32)
+ *
+ * The face_recognition library returns 128-dimensional embeddings derived from
+ * 68 facial landmarks (eyes, nose, mouth, eyebrows, jawline). These are robust
+ * to moderate changes in lighting, angle, and expression — the same face in
+ * different photos will produce similar embeddings (cosine similarity > ~0.5).
  *
  * When the property is not set, a deterministic stub is used: SHA-256 of the
  * image bytes is expanded via counter-mode hashing to fill a 512-D unit vector.
- * The stub is collision-resistant (uses all 256 hash bits) and allows end-to-end
- * testing when the SAME image bytes are submitted at enrolment and attendance.
- * It will NOT match different photos of the same face — configure the external
+ * The stub is for integration testing only — it matches IDENTICAL image bytes
+ * but CANNOT match different photos of the same face. Configure the external
  * service for real face recognition.
+ *
+ * IMPORTANT: After switching from the stub to the external service (or vice
+ * versa), all employees must be re-enrolled because the embeddings are
+ * incompatible between the two modes.
  */
 @Service
 public class FaceRecognitionService {
 
-    private static final int EMBEDDING_DIM = 512;
+    /** Dimension used by the built-in SHA-256 stub (testing only). */
+    private static final int STUB_EMBEDDING_DIM = 512;
+
+    /** Minimum embedding dimension accepted from the external service. */
+    private static final int MIN_SERVICE_EMBEDDING_DIM = 32;
+
     private static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
 
     @Value("${face.recognition.service.url:}")
@@ -84,8 +98,16 @@ public class FaceRecognitionService {
      * Calls the configured external face recognition service to obtain a real
      * face embedding for the given image.
      *
+     * <p>The service may return embeddings of any dimension ≥
+     * {@value #MIN_SERVICE_EMBEDDING_DIM} (e.g. 128-d from the bundled Python
+     * microservice, or 512-d from ArcFace/InsightFace). Dimension is not
+     * restricted to a fixed value so that different back-end models can be
+     * swapped without code changes. Cosine similarity comparison works for
+     * any dimension as long as both vectors have the same length, which is
+     * guaranteed when all embeddings come from the same model.
+     *
      * @param imageBase64 raw base64 string (data-URI prefix already stripped)
-     * @return 512-d float embedding returned by the service
+     * @return float[] embedding returned by the service (length >= MIN_SERVICE_EMBEDDING_DIM)
      */
     private float[] extractEmbeddingFromService(String imageBase64) {
         try {
@@ -95,10 +117,10 @@ public class FaceRecognitionService {
             if (embedding == null || embedding.length == 0) {
                 throw new IllegalArgumentException("External face service returned an empty embedding");
             }
-            if (embedding.length != EMBEDDING_DIM) {
+            if (embedding.length < MIN_SERVICE_EMBEDDING_DIM) {
                 throw new IllegalArgumentException(
-                        "External face service returned an embedding of unexpected dimension: "
-                        + embedding.length + " (expected " + EMBEDDING_DIM + ")");
+                        "External face service returned an embedding that is too short: "
+                        + embedding.length + " (minimum " + MIN_SERVICE_EMBEDDING_DIM + ")");
             }
             return embedding;
         } catch (IllegalArgumentException e) {
@@ -109,12 +131,18 @@ public class FaceRecognitionService {
     }
 
     /**
-     * Derives a deterministic 512-d unit vector from the raw image bytes using
-     * SHA-256 counter-mode expansion.
+     * Derives a deterministic {@value #STUB_EMBEDDING_DIM}-d unit vector from
+     * the raw image bytes using SHA-256 counter-mode expansion.
+     *
+     * <p><strong>This stub is for integration testing only.</strong> It matches
+     * when the EXACT same image bytes are submitted at enrolment and attendance,
+     * but produces a completely different embedding for any other image (even a
+     * different photo of the same person). Configure {@code face.recognition.service.url}
+     * to use the real face recognition microservice.
      *
      * <p>The full 32-byte SHA-256 digest of the image is used as a seed. The
      * seed is then expanded to the required number of bytes by repeatedly
-     * computing SHA-256(seed || counter) for counter = 0, 1, 2, … This uses
+     * computing SHA-256(seed || counter) for counter = 0, 1, 2, ... This uses
      * all 256 bits of hash entropy and avoids the 48-bit seed limitation of
      * {@link java.util.Random}.
      */
@@ -123,8 +151,8 @@ public class FaceRecognitionService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] seed = digest.digest(imageBytes); // full 32-byte seed
 
-            // Expand seed to EMBEDDING_DIM * 4 bytes via SHA-256 counter mode
-            int bytesNeeded = EMBEDDING_DIM * 4;
+            // Expand seed to STUB_EMBEDDING_DIM * 4 bytes via SHA-256 counter mode
+            int bytesNeeded = STUB_EMBEDDING_DIM * 4;
             byte[] randomBytes = new byte[bytesNeeded];
             int offset = 0;
             int counter = 0;
@@ -143,9 +171,9 @@ public class FaceRecognitionService {
             }
 
             // Interpret each 4-byte group as a signed 32-bit integer, cast to float
-            float[] embedding = new float[EMBEDDING_DIM];
+            float[] embedding = new float[STUB_EMBEDDING_DIM];
             double sumSq = 0.0;
-            for (int i = 0; i < EMBEDDING_DIM; i++) {
+            for (int i = 0; i < STUB_EMBEDDING_DIM; i++) {
                 int raw = ((randomBytes[i * 4] & 0xFF) << 24)
                         | ((randomBytes[i * 4 + 1] & 0xFF) << 16)
                         | ((randomBytes[i * 4 + 2] & 0xFF) << 8)
@@ -157,7 +185,7 @@ public class FaceRecognitionService {
             // L2 normalise
             float norm = (float) Math.sqrt(sumSq);
             if (norm > 0) {
-                for (int i = 0; i < EMBEDDING_DIM; i++) {
+                for (int i = 0; i < STUB_EMBEDDING_DIM; i++) {
                     embedding[i] /= norm;
                 }
             }
