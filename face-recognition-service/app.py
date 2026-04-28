@@ -93,6 +93,9 @@ _TARGET_BRIGHTNESS = 128.0
 # this are likely too far from the camera to produce reliable embeddings.
 _MIN_FACE_AREA_FRACTION = 0.005  # 0.5 % of total pixels
 
+# Minimum L2 norm below which a vector is considered all-zeros and not normalised.
+_MIN_NORM_EPSILON = 1e-9
+
 
 # ---------------------------------------------------------------------------
 # Image helpers
@@ -397,7 +400,7 @@ def extract_embedding():
     # equals the dot product, matching the Java-side comparison.
     embedding_np = encodings[0]
     norm = float(np.linalg.norm(embedding_np))
-    if norm > 1e-9:
+    if norm > _MIN_NORM_EPSILON:
         embedding_np = embedding_np / norm
 
     result = embedding_np.tolist()

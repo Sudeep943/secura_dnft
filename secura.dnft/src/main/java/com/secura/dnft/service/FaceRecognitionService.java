@@ -205,6 +205,9 @@ public class FaceRecognitionService {
         }
     }
 
+    /** Minimum norm below which a vector is considered all-zeros and not normalised. */
+    private static final float MIN_NORM_THRESHOLD = 1e-9f;
+
     /**
      * Returns a new L2-normalised copy of the given vector.
      * If the vector is all zeros the original array is returned unchanged.
@@ -215,7 +218,7 @@ public class FaceRecognitionService {
             sumSq += (double) x * x;
         }
         float norm = (float) Math.sqrt(sumSq);
-        if (norm < 1e-9f) {
+        if (norm < MIN_NORM_THRESHOLD) {
             return v;
         }
         float[] normalised = new float[v.length];
