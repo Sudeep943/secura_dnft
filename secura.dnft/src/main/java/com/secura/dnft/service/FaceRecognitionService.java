@@ -14,6 +14,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -161,6 +163,24 @@ public class FaceRecognitionService {
             // whether the back-end model already normalised the vector.
             return l2Normalize(embedding);
 
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            // Parse the error body returned by the Python service (e.g. {"error": "No face detected..."})
+            // and surface it as an IllegalArgumentException so callers can return a user-friendly message.
+            String body = e.getResponseBodyAsString();
+            if (body != null && !body.isBlank()) {
+                try {
+                    JsonNode node = OBJECT_MAPPER.readTree(body);
+                    if (node.has("error")) {
+                        throw new IllegalArgumentException("Face recognition failed: " + node.get("error").asText());
+                    }
+                } catch (IllegalArgumentException iae) {
+                    throw iae;
+                } catch (Exception ignored) {
+                    // Fall through to generic error below
+                }
+            }
+            throw new IllegalArgumentException(
+                    "Face recognition service returned error " + e.getStatusCode().value());
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {

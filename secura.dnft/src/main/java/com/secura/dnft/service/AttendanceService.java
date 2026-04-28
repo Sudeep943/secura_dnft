@@ -65,6 +65,11 @@ public class AttendanceService {
             response.setMessage(e.getMessage());
             saveAuditLog("ENTRY_ATTEMPT", null, deviceId, "Image validation failed: " + e.getMessage(), "FAILED");
             return response;
+        } catch (RuntimeException e) {
+            response.setMatched(false);
+            response.setMessage("Face recognition service is unavailable. Please try again later.");
+            saveAuditLog("ENTRY_ATTEMPT", null, deviceId, "Face service error: " + e.getMessage(), "FAILED");
+            return response;
         }
 
         MatchResult match = findBestMatch(queryEmbedding);
@@ -119,6 +124,11 @@ public class AttendanceService {
             response.setMatched(false);
             response.setMessage(e.getMessage());
             saveAuditLog("EXIT_ATTEMPT", null, deviceId, "Image validation failed: " + e.getMessage(), "FAILED");
+            return response;
+        } catch (RuntimeException e) {
+            response.setMatched(false);
+            response.setMessage("Face recognition service is unavailable. Please try again later.");
+            saveAuditLog("EXIT_ATTEMPT", null, deviceId, "Face service error: " + e.getMessage(), "FAILED");
             return response;
         }
 
@@ -259,7 +269,14 @@ public class AttendanceService {
             } catch (Exception e) {
                 continue;
             }
-            double score = faceRecognitionService.cosineSimilarity(queryEmbedding, stored);
+            double score;
+            try {
+                score = faceRecognitionService.cosineSimilarity(queryEmbedding, stored);
+            } catch (IllegalArgumentException e) {
+                // Skip templates whose embedding dimension does not match the query
+                // (e.g. stub 512-d templates after switching to the 128-d external service).
+                continue;
+            }
             EmployeeEntity employee = employeeMap.get(template.getEmployeeId());
             if (employee != null && (best == null || score > best.score)) {
                 best = new MatchResult(employee, score);
