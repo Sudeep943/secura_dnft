@@ -23,6 +23,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 @ExtendWith(MockitoExtension.class)
@@ -264,6 +266,47 @@ class FaceRecognitionServiceTest {
                 any(),
                 any(ParameterizedTypeReference.class)))
                 .thenReturn(responseEntity);
+    }
+
+    @Test
+    void extractEmbedding_shouldThrowIllegalArgumentWhenServiceReturns422WithErrorBody() throws Exception {
+        setFaceServiceUrl("http://face-service.example.com");
+        byte[] body = "{\"error\":\"No face detected in the image.\"}".getBytes();
+        HttpClientErrorException ex = HttpClientErrorException.create(
+                HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", null, body, null);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(),
+                any(ParameterizedTypeReference.class))).thenThrow(ex);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64));
+        assertTrue(thrown.getMessage().contains("No face detected"),
+                "Error message from Python service body must be surfaced");
+    }
+
+    @Test
+    void extractEmbedding_shouldThrowIllegalArgumentWhenServiceReturns422WithoutBody() throws Exception {
+        setFaceServiceUrl("http://face-service.example.com");
+        HttpClientErrorException ex = HttpClientErrorException.create(
+                HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", null, new byte[0], null);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(),
+                any(ParameterizedTypeReference.class))).thenThrow(ex);
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64));
+        assertTrue(thrown.getMessage().contains("422"),
+                "HTTP status code must appear in the error message when body is absent");
+    }
+
+    @Test
+    void extractEmbedding_shouldThrowRuntimeExceptionWhenServiceIsUnreachable() throws Exception {
+        setFaceServiceUrl("http://face-service.example.com");
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(),
+                any(ParameterizedTypeReference.class)))
+                .thenThrow(new ResourceAccessException("Connection refused"));
+
+        assertThrows(RuntimeException.class,
+                () -> faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64),
+                "Network-level errors must propagate as RuntimeException");
     }
 
     private String buildJsonArray(float[] values) {
