@@ -2,13 +2,21 @@ package com.secura.dnft.service;
 
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -21,11 +29,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *   POST {url}/extract-embedding
  *   Body:     {"image_base64": "<base64>"}
  *   Response: float[] JSON array  (e.g. [0.12, -0.34, ...], any length >= 32)
+ *             OR {"embedding": [...], "warning": "..."} when a quality warning exists
  *
  * The face_recognition library returns 128-dimensional embeddings derived from
  * 68 facial landmarks (eyes, nose, mouth, eyebrows, jawline). These are robust
  * to moderate changes in lighting, angle, and expression — the same face in
  * different photos will produce similar embeddings (cosine similarity > ~0.5).
+ *
+ * The Python microservice always applies the same brightness/contrast
+ * normalisation pipeline to every image (both at enrollment and at attendance
+ * time), which is the key to producing consistent embeddings.  All embeddings
+ * returned by the service are L2-normalised unit vectors.  The Java side also
+ * L2-normalises them defensively so that cosine similarity == dot product holds
+ * regardless of the back-end model.
  *
  * When the property is not set, a deterministic stub is used: SHA-256 of the
  * image bytes is expanded via counter-mode hashing to fill a 512-D unit vector.
@@ -35,10 +51,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * IMPORTANT: After switching from the stub to the external service (or vice
  * versa), all employees must be re-enrolled because the embeddings are
- * incompatible between the two modes.
+ * incompatible between the two modes.  Use POST
+ * /api/v1/admin/employees/{employeeCode}/re-enroll to replace stored embeddings
+ * without deleting the employee's attendance history.
  */
 @Service
 public class FaceRecognitionService {
+
+    private static final Logger logger = LoggerFactory.getLogger(FaceRecognitionService.class);
 
     /** Dimension used by the built-in SHA-256 stub (testing only). */
     private static final int STUB_EMBEDDING_DIM = 512;
@@ -98,36 +118,114 @@ public class FaceRecognitionService {
      * Calls the configured external face recognition service to obtain a real
      * face embedding for the given image.
      *
+     * <p>The service returns either:
+     * <ul>
+     *   <li>A plain JSON float array: {@code [0.12, -0.34, ...]}</li>
+     *   <li>A structured object when a quality warning exists:
+     *       {@code {"embedding": [...], "warning": "..."}}</li>
+     * </ul>
+     *
      * <p>The service may return embeddings of any dimension ≥
-     * {@value #MIN_SERVICE_EMBEDDING_DIM} (e.g. 128-d from the bundled Python
-     * microservice, or 512-d from ArcFace/InsightFace). Dimension is not
-     * restricted to a fixed value so that different back-end models can be
-     * swapped without code changes. Cosine similarity comparison works for
-     * any dimension as long as both vectors have the same length, which is
-     * guaranteed when all embeddings come from the same model.
+     * {@value #MIN_SERVICE_EMBEDDING_DIM}. The returned embedding is always
+     * L2-normalised to a unit vector so that cosine similarity == dot product.
      *
      * @param imageBase64 raw base64 string (data-URI prefix already stripped)
-     * @return float[] embedding returned by the service (length >= MIN_SERVICE_EMBEDDING_DIM)
+     * @return L2-normalised float[] embedding (length >= MIN_SERVICE_EMBEDDING_DIM)
      */
     private float[] extractEmbeddingFromService(String imageBase64) {
         try {
-            Map<String, String> request = Map.of("image_base64", imageBase64);
-            float[] embedding = restTemplate.postForObject(
-                    faceServiceUrl + "/extract-embedding", request, float[].class);
-            if (embedding == null || embedding.length == 0) {
-                throw new IllegalArgumentException("External face service returned an empty embedding");
+            Map<String, String> requestBody = Map.of("image_base64", imageBase64);
+            HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody);
+
+            // Use String response so we can handle both array and object responses
+            ResponseEntity<String> responseEntity = restTemplate.exchange(
+                    faceServiceUrl + "/extract-embedding",
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<String>() {});
+
+            String responseBody = responseEntity.getBody();
+            if (responseBody == null || responseBody.isBlank()) {
+                throw new IllegalArgumentException("External face service returned an empty response");
             }
+
+            float[] embedding = parseServiceResponse(responseBody);
+
             if (embedding.length < MIN_SERVICE_EMBEDDING_DIM) {
                 throw new IllegalArgumentException(
                         "External face service returned an embedding that is too short: "
                         + embedding.length + " (minimum " + MIN_SERVICE_EMBEDDING_DIM + ")");
             }
-            return embedding;
+
+            // L2-normalise so that cosine similarity == dot product, regardless of
+            // whether the back-end model already normalised the vector.
+            return l2Normalize(embedding);
+
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to contact face recognition service: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Parses the raw JSON body returned by the external face service.
+     * Accepts both a plain float array and the structured
+     * {@code {"embedding": [...], "warning": "..."}} format.
+     */
+    private float[] parseServiceResponse(String responseBody) {
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(responseBody);
+            if (node.isArray()) {
+                float[] result = OBJECT_MAPPER.treeToValue(node, float[].class);
+                if (result == null || result.length == 0) {
+                    throw new IllegalArgumentException("External face service returned an empty embedding");
+                }
+                return result;
+            }
+            if (node.isObject() && node.has("embedding")) {
+                JsonNode embNode = node.get("embedding");
+                float[] result = OBJECT_MAPPER.treeToValue(embNode, float[].class);
+                if (result == null || result.length == 0) {
+                    throw new IllegalArgumentException("External face service returned an empty embedding");
+                }
+                if (node.has("warning")) {
+                    logger.warn("Face service quality warning: {}", node.get("warning").asText());
+                }
+                return result;
+            }
+            if (node.isObject() && node.has("error")) {
+                throw new IllegalArgumentException("Face service error: " + node.get("error").asText());
+            }
+            throw new IllegalArgumentException("Unexpected response format from face service");
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to parse face service response: " + e.getMessage(), e);
+        }
+    }
+
+    /** Minimum norm below which a vector is considered all-zeros and not normalised. */
+    private static final float MIN_NORM_THRESHOLD = 1e-9f;
+
+    /**
+     * Returns a new L2-normalised copy of the given vector.
+     * If the vector is all zeros the original array is returned unchanged.
+     */
+    private float[] l2Normalize(float[] v) {
+        double sumSq = 0.0;
+        for (float x : v) {
+            sumSq += (double) x * x;
+        }
+        float norm = (float) Math.sqrt(sumSq);
+        if (norm < MIN_NORM_THRESHOLD) {
+            return v;
+        }
+        float[] normalised = new float[v.length];
+        for (int i = 0; i < v.length; i++) {
+            normalised[i] = v[i] / norm;
+        }
+        return normalised;
     }
 
     /**

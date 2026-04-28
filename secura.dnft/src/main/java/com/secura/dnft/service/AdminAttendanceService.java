@@ -26,6 +26,8 @@ import com.secura.dnft.request.response.AttendanceRecordItem;
 import com.secura.dnft.request.response.EmployeeAttendanceResponse;
 import com.secura.dnft.request.response.OnboardEmployeeRequest;
 import com.secura.dnft.request.response.OnboardEmployeeResponse;
+import com.secura.dnft.request.response.ReEnrollEmployeeRequest;
+import com.secura.dnft.request.response.ReEnrollEmployeeResponse;
 import com.secura.dnft.request.response.TodayAttendanceResponse;
 
 @Service
@@ -130,6 +132,84 @@ public class AdminAttendanceService {
             response.setMessage("An unexpected error occurred. Please try again.");
             saveAuditLog("EMPLOYEE_ONBOARD_FAILED", null,
                     "Onboard failed for " + request.getEmployeeCode() + ": " + e.getMessage(), "FAILED");
+        }
+
+        return response;
+    }
+
+    // -----------------------------------------------------------------------
+    // Re-Enroll Employee (replace face templates without deleting attendance)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Replaces the stored face templates for an existing employee with fresh
+     * embeddings from the provided images.  Attendance history is preserved.
+     *
+     * <p>This is the correct operation when switching from the SHA-256 stub to
+     * the real face-recognition microservice, or when an employee's appearance
+     * has changed significantly (new haircut, glasses, etc.) and their stored
+     * templates no longer match well at attendance time.
+     */
+    public ReEnrollEmployeeResponse reEnrollEmployee(String employeeCode, ReEnrollEmployeeRequest request) {
+        ReEnrollEmployeeResponse response = new ReEnrollEmployeeResponse();
+
+        if (request.getImagesBase64() == null || request.getImagesBase64().size() < minFaceImages) {
+            response.setSuccess(false);
+            response.setMessage("At least " + minFaceImages + " face images required for re-enrollment");
+            return response;
+        }
+
+        Optional<EmployeeEntity> employeeOpt = employeeRepository.findByEmployeeCode(employeeCode);
+        if (employeeOpt.isEmpty()) {
+            response.setSuccess(false);
+            response.setMessage("Employee not found: " + employeeCode);
+            return response;
+        }
+
+        EmployeeEntity employee = employeeOpt.get();
+
+        try {
+            // Extract and validate all embeddings first so we fail fast before deleting anything
+            List<float[]> embeddings = new ArrayList<>();
+            for (String imageBase64 : request.getImagesBase64()) {
+                embeddings.add(faceRecognitionService.extractEmbedding(imageBase64));
+            }
+
+            // Delete all existing face templates for this employee
+            List<FaceTemplateEntity> existing = faceTemplateRepository.findByEmployeeIdIn(
+                    List.of(employee.getId()));
+            faceTemplateRepository.deleteAll(existing);
+
+            // Persist the new face templates
+            LocalDateTime now = LocalDateTime.now();
+            for (float[] embedding : embeddings) {
+                FaceTemplateEntity template = new FaceTemplateEntity();
+                template.setEmployeeId(employee.getId());
+                template.setEmbeddingJson(faceRecognitionService.embeddingToJson(embedding));
+                template.setCreatedAt(now);
+                faceTemplateRepository.save(template);
+            }
+
+            saveAuditLog("EMPLOYEE_RE_ENROLLED", employee.getId(),
+                    "Employee " + employee.getEmployeeCode() + " re-enrolled with " + embeddings.size() + " templates",
+                    "SUCCESS");
+
+            response.setSuccess(true);
+            response.setEmployeeId(employee.getId());
+            response.setEmployeeCode(employee.getEmployeeCode());
+            response.setTemplatesStored(embeddings.size());
+            response.setMessage("Employee re-enrolled successfully with " + embeddings.size() + " face templates");
+
+        } catch (IllegalArgumentException e) {
+            response.setSuccess(false);
+            response.setMessage("Invalid image: " + e.getMessage());
+            saveAuditLog("EMPLOYEE_RE_ENROLL_FAILED", employee.getId(),
+                    "Re-enroll failed for " + employeeCode + ": " + e.getMessage(), "FAILED");
+        } catch (Exception e) {
+            response.setSuccess(false);
+            response.setMessage("An unexpected error occurred. Please try again.");
+            saveAuditLog("EMPLOYEE_RE_ENROLL_FAILED", employee.getId(),
+                    "Re-enroll failed for " + employeeCode + ": " + e.getMessage(), "FAILED");
         }
 
         return response;
