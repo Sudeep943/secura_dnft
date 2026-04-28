@@ -80,7 +80,7 @@ class FaceRecognitionServiceTest {
     }
 
     @Test
-    void extractEmbedding_shouldReturn512DimensionalVector() {
+    void extractEmbedding_shouldReturn512DimensionalVectorFromStub() {
         float[] embedding = faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64);
         assertEquals(512, embedding.length);
     }
@@ -161,15 +161,29 @@ class FaceRecognitionServiceTest {
     }
 
     @Test
-    void extractEmbedding_shouldThrowWhenExternalServiceReturnsWrongDimension() throws Exception {
-        float[] wrongDimension = new float[128]; // not 512
+    void extractEmbedding_shouldThrowWhenExternalServiceReturnsEmbeddingTooShort() throws Exception {
+        float[] tooShort = new float[4]; // below the 32-minimum
 
         setFaceServiceUrl("http://face-service.example.com");
         when(restTemplate.postForObject(anyString(), any(), eq(float[].class)))
-                .thenReturn(wrongDimension);
+                .thenReturn(tooShort);
 
         assertThrows(IllegalArgumentException.class,
                 () -> faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64));
+    }
+
+    @Test
+    void extractEmbedding_shouldAccept128DimensionalEmbeddingFromExternalService() throws Exception {
+        float[] embedding128 = new float[128];
+        embedding128[0] = 1.0f;
+
+        setFaceServiceUrl("http://face-service.example.com");
+        when(restTemplate.postForObject(anyString(), any(), eq(float[].class)))
+                .thenReturn(embedding128);
+
+        float[] result = faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64);
+        assertArrayEquals(embedding128, result,
+                "128-d embeddings from external service (e.g. face_recognition library) must be accepted");
     }
 
     // -------------------------------------------------------------------------
