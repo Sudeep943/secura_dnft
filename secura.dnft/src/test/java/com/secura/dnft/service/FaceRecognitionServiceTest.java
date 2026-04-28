@@ -19,6 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 @ExtendWith(MockitoExtension.class)
@@ -147,26 +151,28 @@ class FaceRecognitionServiceTest {
 
     @Test
     void extractEmbedding_shouldDelegateToExternalServiceWhenUrlConfigured() throws Exception {
+        // Build a unit vector: only component[0] = 1.0 → already L2-normalised
         float[] serviceEmbedding = new float[512];
-        serviceEmbedding[0] = 1.0f; // non-zero so it's distinct
+        serviceEmbedding[0] = 1.0f;
+        String json = buildJsonArray(serviceEmbedding);
 
         setFaceServiceUrl("http://face-service.example.com");
-        when(restTemplate.postForObject(anyString(), any(), eq(float[].class)))
-                .thenReturn(serviceEmbedding);
+        mockExchange(json);
 
         float[] result = faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64);
 
-        assertArrayEquals(serviceEmbedding, result,
+        assertEquals(512, result.length);
+        assertEquals(1.0f, result[0], 1e-4f,
                 "When external service URL is set, result must come from the service");
     }
 
     @Test
     void extractEmbedding_shouldThrowWhenExternalServiceReturnsEmbeddingTooShort() throws Exception {
-        float[] tooShort = new float[4]; // below the 32-minimum
+        // 4 values – below the 32-minimum
+        String json = "[0.1, 0.2, 0.3, 0.4]";
 
         setFaceServiceUrl("http://face-service.example.com");
-        when(restTemplate.postForObject(anyString(), any(), eq(float[].class)))
-                .thenReturn(tooShort);
+        mockExchange(json);
 
         assertThrows(IllegalArgumentException.class,
                 () -> faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64));
@@ -175,15 +181,52 @@ class FaceRecognitionServiceTest {
     @Test
     void extractEmbedding_shouldAccept128DimensionalEmbeddingFromExternalService() throws Exception {
         float[] embedding128 = new float[128];
-        embedding128[0] = 1.0f;
+        embedding128[0] = 1.0f; // unit vector
+        String json = buildJsonArray(embedding128);
 
         setFaceServiceUrl("http://face-service.example.com");
-        when(restTemplate.postForObject(anyString(), any(), eq(float[].class)))
-                .thenReturn(embedding128);
+        mockExchange(json);
 
         float[] result = faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64);
-        assertArrayEquals(embedding128, result,
+        assertEquals(128, result.length,
                 "128-d embeddings from external service (e.g. face_recognition library) must be accepted");
+    }
+
+    @Test
+    void extractEmbedding_shouldL2NormaliseEmbeddingFromExternalService() throws Exception {
+        // Non-unit vector: norm = sqrt(3^2 + 4^2) = 5; after normalisation: [0.6, 0.8, 0, ...]
+        float[] rawEmbedding = new float[128];
+        rawEmbedding[0] = 3.0f;
+        rawEmbedding[1] = 4.0f;
+        String json = buildJsonArray(rawEmbedding);
+
+        setFaceServiceUrl("http://face-service.example.com");
+        mockExchange(json);
+
+        float[] result = faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64);
+
+        // Verify unit length
+        double sumSq = 0.0;
+        for (float v : result) sumSq += (double) v * v;
+        assertEquals(1.0, sumSq, 1e-4,
+                "Embedding from external service must be L2-normalised to unit length");
+        assertEquals(0.6f, result[0], 1e-4f);
+        assertEquals(0.8f, result[1], 1e-4f);
+    }
+
+    @Test
+    void extractEmbedding_shouldHandleStructuredResponseWithWarning() throws Exception {
+        float[] embedding128 = new float[128];
+        embedding128[0] = 1.0f;
+        String embJson = buildJsonArray(embedding128);
+        String json = "{\"embedding\":" + embJson + ",\"warning\":\"Face is small\"}";
+
+        setFaceServiceUrl("http://face-service.example.com");
+        mockExchange(json);
+
+        float[] result = faceRecognitionService.extractEmbedding(SAMPLE_IMAGE_BASE64);
+        assertEquals(128, result.length,
+                "Structured response with 'embedding' field must be accepted");
     }
 
     // -------------------------------------------------------------------------
@@ -209,5 +252,27 @@ class FaceRecognitionServiceTest {
         Field field = FaceRecognitionService.class.getDeclaredField("faceServiceUrl");
         field.setAccessible(true);
         field.set(faceRecognitionService, url);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mockExchange(String jsonBody) {
+        ResponseEntity<String> responseEntity =
+                new ResponseEntity<>(jsonBody, HttpStatus.OK);
+        when(restTemplate.exchange(
+                anyString(),
+                eq(HttpMethod.POST),
+                any(),
+                any(ParameterizedTypeReference.class)))
+                .thenReturn(responseEntity);
+    }
+
+    private String buildJsonArray(float[] values) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(values[i]);
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }

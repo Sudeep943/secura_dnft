@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.request.response.EmployeeAttendanceResponse;
 import com.secura.dnft.request.response.OnboardEmployeeRequest;
 import com.secura.dnft.request.response.OnboardEmployeeResponse;
+import com.secura.dnft.request.response.ReEnrollEmployeeRequest;
+import com.secura.dnft.request.response.ReEnrollEmployeeResponse;
 import com.secura.dnft.request.response.TodayAttendanceResponse;
 import com.secura.dnft.service.AdminAttendanceService;
 
@@ -52,5 +54,20 @@ public class AdminAttendanceController {
     @GetMapping("/attendance/{employeeCode}")
     public EmployeeAttendanceResponse getEmployeeAttendance(@PathVariable String employeeCode) {
         return adminAttendanceService.getEmployeeAttendance(employeeCode);
+    }
+
+    /**
+     * POST /api/v1/admin/employees/{employeeCode}/re-enroll
+     * Replaces stored face templates for an existing employee with fresh ones.
+     * Attendance history is preserved.
+     *
+     * Use this after switching from the SHA-256 stub to the real face-recognition
+     * service, or when an employee's appearance has changed significantly.
+     */
+    @PostMapping("/{employeeCode}/re-enroll")
+    public ReEnrollEmployeeResponse reEnrollEmployee(
+            @PathVariable String employeeCode,
+            @RequestBody ReEnrollEmployeeRequest request) {
+        return adminAttendanceService.reEnrollEmployee(employeeCode, request);
     }
 }
