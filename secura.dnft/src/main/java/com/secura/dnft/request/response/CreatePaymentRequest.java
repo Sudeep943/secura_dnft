@@ -1,7 +1,11 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class CreatePaymentRequest {
 
@@ -15,7 +19,9 @@ public class CreatePaymentRequest {
 	private String currency;
 	private Date collectionStartDate;
 	private Date collectionEndDate;
-	private String paymentCollectionCycle;
+	@JsonAlias("paymentCollectionCycle")
+	@JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+	private List<String> paymentCollectionCycleList;
 	private String paymentCollectionMode;
 	private List<String> applicableFor;
 	private List<String> allowedPaymentModes;
@@ -24,6 +30,7 @@ public class CreatePaymentRequest {
 	private String status;
 	private boolean camPayment;
 	private boolean eventPayment;
+	private boolean partialPaymentAllowed;
 	private boolean addLeftOverPayment;
 	private String discountCode;
 	private String fineCode;
@@ -83,11 +90,19 @@ public class CreatePaymentRequest {
 	public void setCollectionEndDate(Date collectionEndDate) {
 		this.collectionEndDate = collectionEndDate;
 	}
+	public List<String> getPaymentCollectionCycleList() {
+		return paymentCollectionCycleList;
+	}
+	public void setPaymentCollectionCycleList(List<String> paymentCollectionCycleList) {
+		this.paymentCollectionCycleList = paymentCollectionCycleList;
+	}
 	public String getPaymentCollectionCycle() {
-		return paymentCollectionCycle;
+		return paymentCollectionCycleList == null || paymentCollectionCycleList.isEmpty() ? null
+				: paymentCollectionCycleList.get(0);
 	}
 	public void setPaymentCollectionCycle(String paymentCollectionCycle) {
-		this.paymentCollectionCycle = paymentCollectionCycle;
+		this.paymentCollectionCycleList = paymentCollectionCycle == null ? null
+				: new ArrayList<>(List.of(paymentCollectionCycle));
 	}
 	public String getPaymentCollectionMode() {
 		return paymentCollectionMode;
@@ -136,6 +151,12 @@ public class CreatePaymentRequest {
 	}
 	public void setEventPayment(boolean eventPayment) {
 		this.eventPayment = eventPayment;
+	}
+	public boolean isPartialPaymentAllowed() {
+		return partialPaymentAllowed;
+	}
+	public void setPartialPaymentAllowed(boolean partialPaymentAllowed) {
+		this.partialPaymentAllowed = partialPaymentAllowed;
 	}
 	public boolean isAddLeftOverPayment() {
 		return addLeftOverPayment;

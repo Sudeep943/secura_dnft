@@ -176,7 +176,7 @@ public class TransactionAndReportsService {
 			if (effectiveKey.startsWith(KEY_PREFIX_PAYMENT)) {
 				String paymentId = effectiveKey.substring(KEY_PREFIX_PAYMENT.length());
 				data.setPaymentId(paymentId);
-				Optional<PaymentEntity> paymentOpt = paymentRepository.findById(paymentId);
+				Optional<PaymentEntity> paymentOpt = paymentRepository.findFirstByPaymentId(paymentId);
 				if (paymentOpt.isPresent()) {
 					data.setPaymentName(paymentOpt.get().getPaymentName());
 					data.setPaymentAmount(paymentOpt.get().getPaymentAmount());
@@ -256,4 +256,3 @@ public class TransactionAndReportsService {
 		}
 	}
 }
-

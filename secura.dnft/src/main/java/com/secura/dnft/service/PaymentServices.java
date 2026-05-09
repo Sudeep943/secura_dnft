@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -744,10 +745,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 		List<PaymentEntity> paymentList = new ArrayList<>();
 		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
-			Optional<PaymentEntity> payment = paymentRepository.findById(request.getPaymentId());
-			if (payment.isPresent() && apartmentId.equals(payment.get().getAprmtId())) {
-				paymentList.add(payment.get());
-			}
+			paymentList = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(), apartmentId);
 		} else {
 			paymentList = paymentRepository.findByAprmtId(apartmentId);
 		}
@@ -766,40 +764,50 @@ public class PaymentServices implements PaymentInterface {
 	public CreatePaymentResponse createPayment(CreatePaymentRequest request) throws Exception {
 		CreatePaymentResponse response = new CreatePaymentResponse();
 		response.setGenericHeader(request.getGenericHeader());
-		PaymentEntity entity = new PaymentEntity();
 		String paymentId = getPaymentId(request.getPaymentType());
-		entity.setPaymentId(paymentId);
-		entity.setPaymentName(request.getPaymentName());
-		entity.setShortDetails(request.getShortDetails());
-		entity.setPaymentCapita(request.getPaymentCapita());
-		entity.setPaymentAmount(request.getPaymentAmount());
-		entity.setGst(request.getGst());
-		entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
-		entity.setCollectionStartDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionStartDate()));
-		entity.setCollectionEndDate(genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate()));
-		entity.setPaymentCollectionCycle(normalizePaymentCollectionCycle(request.getPaymentCollectionCycle()));
-		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
-		entity.setApplicableFor(serializeApplicableFor(request.getApplicableFor()));
-		entity.setAllowedPaymentModes(serializeAllowedPaymentModes(request.getAllowedPaymentModes()));
-		entity.setAddedCharges(serializeAddedCharges(request.getAddedCharges()));
-		entity.setDiscFin(serializeDiscFin(request));
-		entity.setPaymentType(request.getPaymentType());
-		entity.setBankAccountId(request.getBankAccountId());
-		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
-		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		entity.setMaintainanceFee(request != null && request.isCamPayment());
-		entity.setEventPayment(request != null && request.isEventPayment());
+		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
+		LocalDateTime collectionStartDate = genericService.getCorrectLocalDateForInputDate(request.getCollectionStartDate());
+		LocalDateTime collectionEndDate = genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate());
+		String applicableFor = serializeApplicableFor(request.getApplicableFor());
+		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
+		String addedCharges = serializeAddedCharges(request.getAddedCharges());
+		String discFin = serializeDiscFin(request);
 		GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = getDuePaymentAmountDetails(request);
 		List<DueAmountDetails> dueAmountDetails = resolveDueAmountDetailsForEntity(duePaymentAmountDetailsResponse);
 		if (dueAmountDetails.isEmpty()) {
 			dueAmountDetails = buildDueAmountDetails(request, paymentId);
 		}
 		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails, LocalDate.now());
-		if (activeDueDate != null) {
-			entity.setDueDate(activeDueDate.atStartOfDay());
+		for (String paymentCollectionCycle : paymentCollectionCycles) {
+			PaymentEntity entity = new PaymentEntity();
+			entity.setPaymentId(paymentId);
+			entity.setPaymentName(request.getPaymentName());
+			entity.setShortDetails(request.getShortDetails());
+			entity.setPaymentCapita(request.getPaymentCapita());
+			entity.setPaymentAmount(request.getPaymentAmount());
+			entity.setGst(request.getGst());
+			entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
+			entity.setCollectionStartDate(collectionStartDate);
+			entity.setCollectionEndDate(collectionEndDate);
+			entity.setPaymentCollectionCycle(paymentCollectionCycle);
+			entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
+			entity.setApplicableFor(applicableFor);
+			entity.setAllowedPaymentModes(allowedPaymentModes);
+			entity.setAddedCharges(addedCharges);
+			entity.setDiscFin(discFin);
+			entity.setPaymentType(request.getPaymentType());
+			entity.setBankAccountId(request.getBankAccountId());
+			entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+			entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+			entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+			entity.setMaintainanceFee(request != null && request.isCamPayment());
+			entity.setEventPayment(request != null && request.isEventPayment());
+			entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
+			if (activeDueDate != null) {
+				entity.setDueDate(activeDueDate.atStartOfDay());
+			}
+			paymentRepository.save(entity);
 		}
-		paymentRepository.save(entity);
 		updatePendingDueAmountDetailsForFlats(request, duePaymentAmountDetailsResponse, paymentId);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
@@ -949,8 +957,17 @@ public class PaymentServices implements PaymentInterface {
 		return value != null && !value.isBlank();
 	}
 
+	private List<String> resolvePaymentCollectionCycles(CreatePaymentRequest request) {
+		List<String> paymentCollectionCycleList = request != null ? request.getPaymentCollectionCycleList() : null;
+		if (paymentCollectionCycleList == null || paymentCollectionCycleList.isEmpty()) {
+			String paymentCollectionCycle = normalizePaymentCollectionCycle(request != null ? request.getPaymentCollectionCycle() : null);
+			return paymentCollectionCycle == null ? List.of() : List.of(paymentCollectionCycle);
+		}
+		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
+	}
+
 	private Transaction buildTransaction(PayDueRequest request, DueAmountDetails dueDetails) {
-		PaymentEntity paymentEntity = paymentRepository.findById(request.getPaymentId())
+		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		Transaction transaction = new Transaction();
