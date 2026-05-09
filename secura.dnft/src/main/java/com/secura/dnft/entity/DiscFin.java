@@ -8,9 +8,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 @Entity
+@IdClass(DiscFinId.class)
 @Table(name = "secura_disc_fin")
 public class DiscFin {
 
@@ -39,8 +41,15 @@ public class DiscFin {
 	@Column(name = "disc_fn_cumlaton_cycle")
 	private String discFnCumlatonCycle;
 
+	@Id
 	@Column(name = "disc_fn_cycle_type")
 	private String discFnCycleType;
+
+	@Column(name = "minimum_payment_amount")
+	private String minimumPaymentAmount;
+
+	@Column(name = "disc_fin_payment_cycle", columnDefinition = "TEXT")
+	private String discFinPaymentCycle;
 
 	@Column(name = "creat_ts")
 	@CreationTimestamp
@@ -169,5 +178,21 @@ public class DiscFin {
 
 	public void setLstUpdtUsrId(String lstUpdtUsrId) {
 		this.lstUpdtUsrId = lstUpdtUsrId;
+	}
+
+	public String getMinimumPaymentAmount() {
+		return minimumPaymentAmount;
+	}
+
+	public void setMinimumPaymentAmount(String minimumPaymentAmount) {
+		this.minimumPaymentAmount = minimumPaymentAmount;
+	}
+
+	public String getDiscFinPaymentCycle() {
+		return discFinPaymentCycle;
+	}
+
+	public void setDiscFinPaymentCycle(String discFinPaymentCycle) {
+		this.discFinPaymentCycle = discFinPaymentCycle;
 	}
 }

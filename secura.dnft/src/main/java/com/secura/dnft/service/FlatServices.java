@@ -490,11 +490,11 @@ public class FlatServices implements FlatInterface {
 		if (discountCode == null || discountCode.isBlank()) {
 			return originalTotalAmount;
 		}
-		Optional<DiscFin> discountOptional = discFinRepository.findById(discountCode);
-		if (discountOptional.isEmpty()) {
+		List<DiscFin> discountList = discFinRepository.findByDiscFnId(discountCode);
+		if (discountList.isEmpty()) {
 			return originalTotalAmount;
 		}
-		DiscFin discount = discountOptional.get();
+		DiscFin discount = discountList.get(0);
 		if (!isDiscFnType(discount, SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
 			return originalTotalAmount;
 		}
@@ -529,11 +529,11 @@ public class FlatServices implements FlatInterface {
 		if (fineCode == null || fineCode.isBlank()) {
 			return amountAfterDiscount;
 		}
-		Optional<DiscFin> fineOptional = discFinRepository.findById(fineCode);
-		if (fineOptional.isEmpty()) {
+		List<DiscFin> fineList = discFinRepository.findByDiscFnId(fineCode);
+		if (fineList.isEmpty()) {
 			return amountAfterDiscount;
 		}
-		DiscFin fine = fineOptional.get();
+		DiscFin fine = fineList.get(0);
 		if (!isDiscFnType(fine, SecuraConstants.DISC_FN_TYPE_FINE)) {
 			return amountAfterDiscount;
 		}
