@@ -139,7 +139,7 @@ public class DiscFinServices implements DiscFinInterface {
 		if (discFinList.isEmpty()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_46);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_46);
-		} else if (!apartmentId.equals(discFinList.get(0).getAprmtId())) {
+		} else if (discFinList.stream().anyMatch(d -> !apartmentId.equals(d.getAprmtId()))) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_45);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_45);
 		} else {
@@ -182,8 +182,7 @@ public class DiscFinServices implements DiscFinInterface {
 			return response;
 		}
 
-		DiscFin existingDiscFin = discFinList.get(0);
-		if (!apartmentId.equals(existingDiscFin.getAprmtId())) {
+		if (discFinList.stream().anyMatch(d -> !apartmentId.equals(d.getAprmtId()))) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_48);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_48);
 			return response;
