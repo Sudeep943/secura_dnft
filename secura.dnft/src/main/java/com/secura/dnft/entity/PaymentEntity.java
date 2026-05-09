@@ -209,12 +209,12 @@ public class PaymentEntity {
     }
 
     public boolean isPartialPaymentAllowed() {
-		return partialPaymentAllowed;
-	}
+        return partialPaymentAllowed;
+    }
 
-	public void setPartialPaymentAllowed(boolean partialPaymentAllowed) {
-		this.partialPaymentAllowed = partialPaymentAllowed;
-	}
+    public void setPartialPaymentAllowed(boolean partialPaymentAllowed) {
+        this.partialPaymentAllowed = partialPaymentAllowed;
+    }
 
     public String getApplicableFor() {
         return applicableFor;

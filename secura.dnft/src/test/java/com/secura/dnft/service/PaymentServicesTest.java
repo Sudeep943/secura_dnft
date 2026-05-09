@@ -680,7 +680,7 @@ class PaymentServicesTest {
 		request.setGst("10");
 		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
 		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
-		request.setPaymentCollectionCycleList(List.of("half_yearly", "YEARLY", "quaterly"));
+		request.setPaymentCollectionCycleList(List.of("half_yearly", "YEARLY", "quarterly"));
 		request.setPaymentCollectionMode("pre");
 		request.setPartialPaymentAllowed(true);
 
