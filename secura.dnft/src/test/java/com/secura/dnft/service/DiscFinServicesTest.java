@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,7 +61,7 @@ class DiscFinServicesTest {
 		request.setDiscFinId("DFN1");
 		request.setDiscfinEntity(updated);
 
-		when(discFinRepository.findById("DFN1")).thenReturn(Optional.of(existing));
+		when(discFinRepository.findByDiscFnId("DFN1")).thenReturn(List.of(existing));
 
 		UpdateDiscfinResponse response = discFinServices.updateDiscfin(request);
 
@@ -87,7 +87,7 @@ class DiscFinServicesTest {
 		request.setDiscFinId("DFN1");
 		request.setDiscfinEntity(new DiscFin());
 
-		when(discFinRepository.findById("DFN1")).thenReturn(Optional.of(existing));
+		when(discFinRepository.findByDiscFnId("DFN1")).thenReturn(List.of(existing));
 
 		UpdateDiscfinResponse response = discFinServices.updateDiscfin(request);
 

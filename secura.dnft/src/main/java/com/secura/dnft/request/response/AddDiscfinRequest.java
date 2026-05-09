@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.util.List;
 
 public class AddDiscfinRequest {
 
@@ -13,6 +14,8 @@ public class AddDiscfinRequest {
 	private String discFnCumlatonCycle;
 	private String discFnCycleType;
 	private String discFnValue;
+	private List<DiscFinCycleDiscount> discFinCycleDiscountList;
+	private String minimumPaymentAmount;
 
 
 	public GenericHeader getGenericHeader() {
@@ -85,6 +88,22 @@ public class AddDiscfinRequest {
 
 	public void setDiscFnCycleType(String discFnCycleType) {
 		this.discFnCycleType = discFnCycleType;
+	}
+
+	public List<DiscFinCycleDiscount> getDiscFinCycleDiscountList() {
+		return discFinCycleDiscountList;
+	}
+
+	public void setDiscFinCycleDiscountList(List<DiscFinCycleDiscount> discFinCycleDiscountList) {
+		this.discFinCycleDiscountList = discFinCycleDiscountList;
+	}
+
+	public String getMinimumPaymentAmount() {
+		return minimumPaymentAmount;
+	}
+
+	public void setMinimumPaymentAmount(String minimumPaymentAmount) {
+		this.minimumPaymentAmount = minimumPaymentAmount;
 	}
 
 }

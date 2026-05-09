@@ -343,7 +343,7 @@ class FlatServicesTest {
 
 		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
+		when(discFinRepository.findByDiscFnId("DFNDISCOUNT1234")).thenReturn(java.util.List.of(discount));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
@@ -408,7 +408,7 @@ class FlatServicesTest {
 		assertNull(response.getDuePaymentList().get(0).getDiscFnValue());
 		assertNull(response.getDuePaymentList().get(0).getDiscountedAmount());
 		assertEquals("18626", response.getTotalDueAmount());
-		verify(discFinRepository, never()).findById(any());
+		verify(discFinRepository, never()).findByDiscFnId(any());
 	}
 
 	@Test
@@ -436,7 +436,7 @@ class FlatServicesTest {
 
 		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNFINE1234")).thenReturn(java.util.Optional.of(fine));
+		when(discFinRepository.findByDiscFnId("DFNFINE1234")).thenReturn(java.util.List.of(fine));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
@@ -485,8 +485,8 @@ class FlatServicesTest {
 
 		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
-		when(discFinRepository.findById("DFNFINE1234")).thenReturn(java.util.Optional.of(fine));
+		when(discFinRepository.findByDiscFnId("DFNDISCOUNT1234")).thenReturn(java.util.List.of(discount));
+		when(discFinRepository.findByDiscFnId("DFNFINE1234")).thenReturn(java.util.List.of(fine));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
@@ -523,7 +523,7 @@ class FlatServicesTest {
 
 		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
+		when(discFinRepository.findByDiscFnId("DFNDISCOUNT1234")).thenReturn(java.util.List.of(discount));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
@@ -558,7 +558,7 @@ class FlatServicesTest {
 
 		when(flatRepository.findById("A-101")).thenReturn(java.util.Optional.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNFINE1234")).thenReturn(java.util.Optional.of(fine));
+		when(discFinRepository.findByDiscFnId("DFNFINE1234")).thenReturn(java.util.List.of(fine));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
@@ -604,7 +604,7 @@ class FlatServicesTest {
 
 		when(flatRepository.findByAprmntId("APRT001")).thenReturn(List.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNDISCOUNT1234")).thenReturn(java.util.Optional.of(discount));
+		when(discFinRepository.findByDiscFnId("DFNDISCOUNT1234")).thenReturn(java.util.List.of(discount));
 
 		GetDueAmountForPerHeadCalculationResponse response = flatServices.getDueAmountForPerHeadCalculation(request);
 
@@ -646,7 +646,7 @@ class FlatServicesTest {
 
 		when(flatRepository.findAll()).thenReturn(List.of(flat));
 		when(genericService.fromJson(eq("DUE_JSON"), any(TypeReference.class))).thenReturn(List.of(details));
-		when(discFinRepository.findById("DFNFINE1234")).thenReturn(java.util.Optional.of(fine));
+		when(discFinRepository.findByDiscFnId("DFNFINE1234")).thenReturn(java.util.List.of(fine));
 
 		GetDueAmountForPerHeadCalculationResponse response = flatServices.getDueAmountForPerHeadCalculation(request);
 

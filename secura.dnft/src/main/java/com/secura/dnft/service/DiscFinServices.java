@@ -2,7 +2,6 @@ package com.secura.dnft.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +18,7 @@ import com.secura.dnft.request.response.AddDiscfinRequest;
 import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
+import com.secura.dnft.request.response.DiscFinCycleDiscount;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
 import com.secura.dnft.request.response.UpdateDiscfinRequest;
@@ -41,10 +41,35 @@ public class DiscFinServices implements DiscFinInterface {
 		AddDiscfinResponse response = new AddDiscfinResponse();
 		response.setGenericHeader(request.getGenericHeader());
 
-		DiscFin entity = new DiscFin();
 		String discFnId = createDiscFnId(request.getDiscFnType());
+		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		String userId = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
+
+		List<DiscFinCycleDiscount> cycleDiscountList = request.getDiscFinCycleDiscountList();
+		if (cycleDiscountList != null && !cycleDiscountList.isEmpty()) {
+			for (DiscFinCycleDiscount cycleDiscount : cycleDiscountList) {
+				DiscFin entity = buildBaseEntity(request, discFnId, apartmentId, userId);
+				entity.setDiscFnCycleType(cycleDiscount.getCycle());
+				entity.setDiscFinPaymentCycle(genericService.toJson(cycleDiscount));
+				discFinRepository.save(entity);
+			}
+		} else {
+			DiscFin entity = buildBaseEntity(request, discFnId, apartmentId, userId);
+			entity.setDiscFnCycleType(request.getDiscFnCycleType());
+			discFinRepository.save(entity);
+		}
+
+		response.setDiscFnId(discFnId);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_29);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_29);
+		return response;
+	}
+
+	private DiscFin buildBaseEntity(AddDiscfinRequest request, String discFnId, String apartmentId, String userId)
+			throws Exception {
+		DiscFin entity = new DiscFin();
 		entity.setDiscFnId(discFnId);
-		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+		entity.setAprmtId(apartmentId);
 		entity.setDiscFnType(request.getDiscFnType());
 		entity.setDueDateAsStartDateFlag(request.getDueDateAsStartDateFlag());
 		if (request.getDiscFnStrtDt() != null) {
@@ -55,15 +80,10 @@ public class DiscFinServices implements DiscFinInterface {
 		}
 		entity.setDiscFnMode(request.getDiscFnMode());
 		entity.setDiscFnCumlatonCycle(request.getDiscFnCumlatonCycle());
-		entity.setDiscFnCycleType(request.getDiscFnCycleType());
-		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		entity.setCreatUsrId(userId);
 		entity.setDiscFinValue(request.getDiscFnValue());
-		discFinRepository.save(entity);
-
-		response.setDiscFnId(discFnId);
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_29);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_29);
-		return response;
+		entity.setMinimumPaymentAmount(request.getMinimumPaymentAmount());
+		return entity;
 	}
 
 	@Override
@@ -74,10 +94,10 @@ public class DiscFinServices implements DiscFinInterface {
 		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
 
 		if (request.getDiscFnId() != null && !request.getDiscFnId().isBlank()) {
-			Optional<DiscFin> discFin = discFinRepository.findById(request.getDiscFnId());
-			if (discFin.isPresent()) {
-				if (apartmentId == null || apartmentId.isBlank() || apartmentId.equals(discFin.get().getAprmtId())) {
-					discFinList.add(discFin.get());
+			List<DiscFin> found = discFinRepository.findByDiscFnId(request.getDiscFnId());
+			for (DiscFin discFin : found) {
+				if (apartmentId == null || apartmentId.isBlank() || apartmentId.equals(discFin.getAprmtId())) {
+					discFinList.add(discFin);
 				}
 			}
 		} else if (apartmentId != null && !apartmentId.isBlank()) {
@@ -115,15 +135,15 @@ public class DiscFinServices implements DiscFinInterface {
 			return response;
 		}
 
-		Optional<DiscFin> discFin = discFinRepository.findById(discFnId);
-		if (discFin.isEmpty()) {
+		List<DiscFin> discFinList = discFinRepository.findByDiscFnId(discFnId);
+		if (discFinList.isEmpty()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_46);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_46);
-		} else if (!apartmentId.equals(discFin.get().getAprmtId())) {
+		} else if (discFinList.stream().anyMatch(d -> !apartmentId.equals(d.getAprmtId()))) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_45);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_45);
 		} else {
-			discFinRepository.deleteById(discFnId);
+			discFinRepository.deleteByDiscFnId(discFnId);
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_32);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_32);
 		}
@@ -155,24 +175,25 @@ public class DiscFinServices implements DiscFinInterface {
 			return response;
 		}
 
-		Optional<DiscFin> discFinOptional = discFinRepository.findById(discFinId);
-		if (discFinOptional.isEmpty()) {
+		List<DiscFin> discFinList = discFinRepository.findByDiscFnId(discFinId);
+		if (discFinList.isEmpty()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_46);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_46);
 			return response;
 		}
 
-		DiscFin existingDiscFin = discFinOptional.get();
-		if (!apartmentId.equals(existingDiscFin.getAprmtId())) {
+		if (discFinList.stream().anyMatch(d -> !apartmentId.equals(d.getAprmtId()))) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_48);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_48);
 			return response;
 		}
 
-		applyDiscfinUpdates(existingDiscFin, request.getDiscfinEntity());
-		existingDiscFin.setLstUpdtUsrId(
-				request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		discFinRepository.save(existingDiscFin);
+		String lstUpdtUsrId = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
+		for (DiscFin discFin : discFinList) {
+			applyDiscfinUpdates(discFin, request.getDiscfinEntity());
+			discFin.setLstUpdtUsrId(lstUpdtUsrId);
+			discFinRepository.save(discFin);
+		}
 
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_39);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_39);
@@ -186,18 +207,19 @@ public class DiscFinServices implements DiscFinInterface {
 		target.setDiscFnEndDt(source.getDiscFnEndDt());
 		target.setDiscFnMode(source.getDiscFnMode());
 		target.setDiscFnCumlatonCycle(source.getDiscFnCumlatonCycle());
-		target.setDiscFnCycleType(source.getDiscFnCycleType());
 		target.setDiscFinValue(source.getDiscFinValue());
+		target.setMinimumPaymentAmount(source.getMinimumPaymentAmount());
 	}
 
 	private String createDiscFnId(String discFnType) {
 		String type = (discFnType == null || discFnType.isBlank()) ? "GEN" : discFnType.trim().toUpperCase();
 		for (int attempt = 0; attempt < MAX_ID_GENERATION_ATTEMPTS; attempt++) {
 			String discFnId = "DFN" + type + ThreadLocalRandom.current().nextInt(ID_RANDOM_MIN, ID_RANDOM_MAX_EXCLUSIVE);
-			if (!discFinRepository.existsById(discFnId)) {
+			if (!discFinRepository.existsByDiscFnId(discFnId)) {
 				return discFnId;
 			}
 		}
 		throw new IllegalStateException("Unable to generate unique discFnId");
 	}
 }
+

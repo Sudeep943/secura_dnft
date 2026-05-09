@@ -916,12 +916,14 @@ public class PaymentServices implements PaymentInterface {
 			Map<String, String> discount = new LinkedHashMap<>();
 			discount.put("DISTFIN_TYPE", "DISCOUNT");
 			discount.put("code", request.getDiscountCode());
+			discount.put("Status", SecuraConstants.DISC_FIN_STATUS_ACTIVE);
 			discFin.add(discount);
 		}
 		if (hasText(request.getFineCode())) {
 			Map<String, String> fine = new LinkedHashMap<>();
 			fine.put("DISTFIN_TYPE", "FINE");
 			fine.put("code", request.getFineCode());
+			fine.put("Status", SecuraConstants.DISC_FIN_STATUS_ACTIVE);
 			discFin.add(fine);
 		}
 		if (discFin.isEmpty()) {
