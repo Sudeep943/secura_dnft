@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -100,7 +101,8 @@ public class CreatePaymentRequest {
 				: paymentCollectionCycleList.get(0);
 	}
 	public void setPaymentCollectionCycle(String paymentCollectionCycle) {
-		this.paymentCollectionCycleList = paymentCollectionCycle == null ? null : List.of(paymentCollectionCycle);
+		this.paymentCollectionCycleList = paymentCollectionCycle == null ? null
+				: new ArrayList<>(List.of(paymentCollectionCycle));
 	}
 	public String getPaymentCollectionMode() {
 		return paymentCollectionMode;

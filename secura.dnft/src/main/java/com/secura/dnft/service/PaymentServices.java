@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -962,7 +963,7 @@ public class PaymentServices implements PaymentInterface {
 			String paymentCollectionCycle = normalizePaymentCollectionCycle(request != null ? request.getPaymentCollectionCycle() : null);
 			return paymentCollectionCycle == null ? List.of() : List.of(paymentCollectionCycle);
 		}
-		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).toList();
+		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
 	}
 
 	private Transaction buildTransaction(PayDueRequest request, DueAmountDetails dueDetails) {
