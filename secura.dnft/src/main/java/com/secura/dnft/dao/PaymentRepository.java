@@ -5,8 +5,17 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.PaymentEntityId;
 
-public interface PaymentRepository extends JpaRepository<PaymentEntity, String> {
+import java.util.Optional;
+
+public interface PaymentRepository extends JpaRepository<PaymentEntity, PaymentEntityId> {
 
 	List<PaymentEntity> findByAprmtId(String aprmtId);
+
+	List<PaymentEntity> findByPaymentId(String paymentId);
+
+	List<PaymentEntity> findByPaymentIdAndAprmtId(String paymentId, String aprmtId);
+
+	Optional<PaymentEntity> findFirstByPaymentId(String paymentId);
 }

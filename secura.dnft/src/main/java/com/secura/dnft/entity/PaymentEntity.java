@@ -8,9 +8,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 @Entity
+@IdClass(PaymentEntityId.class)
 @Table(name = "secura_payments")
 public class PaymentEntity {
 
@@ -45,11 +47,15 @@ public class PaymentEntity {
     @Column(name = "collection_end_date")
     private LocalDateTime collectionEndDate;
 
+    @Id
     @Column(name = "payment_collection_cycle")
     private String paymentCollectionCycle;
 
     @Column(name = "payment_collection_mode")
     private String paymentCollectionMode;
+
+    @Column(name = "partial_payment_allowed")
+    private boolean partialPaymentAllowed;
 
     @Column(name = "applicable_for", columnDefinition = "TEXT")
     private String applicableFor;
@@ -201,6 +207,14 @@ public class PaymentEntity {
     public void setPaymentCollectionMode(String paymentCollectionMode) {
         this.paymentCollectionMode = paymentCollectionMode;
     }
+
+    public boolean isPartialPaymentAllowed() {
+		return partialPaymentAllowed;
+	}
+
+	public void setPartialPaymentAllowed(boolean partialPaymentAllowed) {
+		this.partialPaymentAllowed = partialPaymentAllowed;
+	}
 
     public String getApplicableFor() {
         return applicableFor;

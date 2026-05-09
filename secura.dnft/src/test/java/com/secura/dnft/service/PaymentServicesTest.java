@@ -120,7 +120,7 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-1");
-		when(paymentRepository.findById("PAY-1")).thenReturn(Optional.of(payment));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of(payment));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
@@ -141,7 +141,7 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-2");
-		when(paymentRepository.findById("PAY-1")).thenReturn(Optional.of(payment));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of());
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
@@ -636,6 +636,7 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setCamPayment(true);
 		request.setEventPayment(true);
+		request.setPartialPaymentAllowed(true);
 		request.setDiscountCode("DISC10");
 		request.setFineCode("FINE5");
 		AddedCharges amountCharge = new AddedCharges();
@@ -656,12 +657,48 @@ class PaymentServicesTest {
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
 		assertTrue(paymentCaptor.getValue().isMaintainanceFee());
 		assertTrue(paymentCaptor.getValue().isEventPayment());
+		assertTrue(paymentCaptor.getValue().isPartialPaymentAllowed());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
 		assertEquals(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, paymentCaptor.getValue().getPaymentCollectionCycle());
 		assertEquals(SecuraConstants.PAYMENT_STATUS_ACTIVE, paymentCaptor.getValue().getStatus());
 		assertEquals("USR-001", paymentCaptor.getValue().getCreatUsrId());
 		assertEquals("ADDED_CHARGES_JSON", paymentCaptor.getValue().getAddedCharges());
 		assertEquals("DISC_FIN_JSON", paymentCaptor.getValue().getDiscFin());
+	}
+
+	@Test
+	void createPayment_shouldCreateOneEntityPerPaymentCollectionCycle() throws Exception {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
+		request.setPaymentCollectionCycleList(List.of("half_yearly", "YEARLY", "quaterly"));
+		request.setPaymentCollectionMode("pre");
+		request.setPartialPaymentAllowed(true);
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(3)).save(paymentCaptor.capture());
+		List<PaymentEntity> savedPayments = paymentCaptor.getAllValues();
+		assertEquals(List.of(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, SecuraConstants.PAYMENT_CYCLE_YEARLY,
+				SecuraConstants.PAYMENT_CYCLE_QUATERLY),
+				savedPayments.stream().map(PaymentEntity::getPaymentCollectionCycle).toList());
+		assertTrue(savedPayments.stream().allMatch(PaymentEntity::isPartialPaymentAllowed));
+		assertEquals(1L, savedPayments.stream().map(PaymentEntity::getPaymentId).distinct().count());
 	}
 
 	@Test
@@ -938,7 +975,7 @@ class PaymentServicesTest {
 		worklist.setWorklistTaskId("WL-001");
 
 		when(flatInterface.getDueAmountForPerHeadCalculation(any())).thenReturn(dueResponse);
-		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(paymentRepository.findFirstByPaymentId("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"), eq("APR-001"),
 				any())).thenReturn(worklist);
 		when(genericService.createWorklistAssignmentFlow("WL-001", List.of("admin"))).thenReturn(worklist);
@@ -1019,7 +1056,7 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceiptNumber("RCT-1001");
 
 		when(flatInterface.getDueAmountForPerHeadCalculation(any())).thenReturn(dueResponse);
-		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(paymentRepository.findFirstByPaymentId("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.toJson(any())).thenReturn("JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1105,7 +1142,7 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceiptNumber("RCT-1002");
 
 		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
-		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(paymentRepository.findFirstByPaymentId("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.toJson(any())).thenReturn("JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1156,7 +1193,7 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceiptNumber("RCT-1003");
 
 		when(flatInterface.getDueAmountForFlat(any())).thenReturn(dueResponse);
-		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(paymentRepository.findFirstByPaymentId("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.toJson(any())).thenReturn("JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1199,7 +1236,7 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceiptNumber("RCT-1004");
 
 		when(flatInterface.getDueAmountForPerHeadCalculation(any())).thenReturn(dueResponse);
-		when(paymentRepository.findById("PAY1234")).thenReturn(Optional.of(paymentEntity));
+		when(paymentRepository.findFirstByPaymentId("PAY1234")).thenReturn(Optional.of(paymentEntity));
 		when(genericService.toJson(any())).thenReturn("JSON");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
