@@ -461,6 +461,16 @@ public class PaymentServices implements PaymentInterface {
 			copy.setTotalAddedCharges(details.getTotalAddedCharges());
 			copy.setDiscountCode(details.getDiscountCode());
 			copy.setFineCode(details.getFineCode());
+			copy.setDiscFnValue(details.getDiscFnValue());
+			copy.setDiscountedAmount(details.getDiscountedAmount());
+			copy.setFineAmount(details.getFineAmount());
+			copy.setFineType(details.getFineType());
+			copy.setRoundUpAmount(details.getRoundUpAmount());
+			copy.setAlreadyPaidAmount(details.getAlreadyPaidAmount());
+			copy.setAdminDiscount(details.getAdminDiscount());
+			copy.setPaymentStatus(details.getPaymentStatus());
+			copy.setPaymentDate(details.getPaymentDate());
+			copy.setCollectionCycle(details.getCollectionCycle());
 			cloned.add(copy);
 		}
 		return cloned;

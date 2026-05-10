@@ -35,6 +35,13 @@ public class DueAmountDetails {
 	private String fineAmount;
 	@JsonProperty("disc_fn_type")
 	private String fineType;
+	private String roundUpAmount;
+	private String alreadyPaidAmount;
+	private String adminDiscount;
+	private String paymentStatus;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate paymentDate;
+	private String collectionCycle;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -194,5 +201,53 @@ public class DueAmountDetails {
 
 	public void setFineType(String fineType) {
 		this.fineType = fineType;
+	}
+
+	public String getRoundUpAmount() {
+		return roundUpAmount;
+	}
+
+	public void setRoundUpAmount(String roundUpAmount) {
+		this.roundUpAmount = roundUpAmount;
+	}
+
+	public String getAlreadyPaidAmount() {
+		return alreadyPaidAmount;
+	}
+
+	public void setAlreadyPaidAmount(String alreadyPaidAmount) {
+		this.alreadyPaidAmount = alreadyPaidAmount;
+	}
+
+	public String getAdminDiscount() {
+		return adminDiscount;
+	}
+
+	public void setAdminDiscount(String adminDiscount) {
+		this.adminDiscount = adminDiscount;
+	}
+
+	public String getPaymentStatus() {
+		return paymentStatus;
+	}
+
+	public void setPaymentStatus(String paymentStatus) {
+		this.paymentStatus = paymentStatus;
+	}
+
+	public LocalDate getPaymentDate() {
+		return paymentDate;
+	}
+
+	public void setPaymentDate(LocalDate paymentDate) {
+		this.paymentDate = paymentDate;
+	}
+
+	public String getCollectionCycle() {
+		return collectionCycle;
+	}
+
+	public void setCollectionCycle(String collectionCycle) {
+		this.collectionCycle = collectionCycle;
 	}
 }
