@@ -27,7 +27,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
@@ -506,7 +505,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void createPayment_shouldAppendDueAmountDetailsToApplicableFlats() throws Exception {
+	void createPayment_shouldNotAppendDueAmountDetailsToApplicableFlats() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -527,33 +526,20 @@ class PaymentServicesTest {
 		amountCharge.setValue("100");
 		request.setAddedCharges(List.of(amountCharge));
 
-		Flat targetFlat = new Flat();
-		targetFlat.setFlatNo("A-101");
-		Flat ignoredFlat = new Flat();
-		ignoredFlat.setFlatNo("A-102");
-
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.toJson(any())).thenReturn("DUE_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlat, ignoredFlat));
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
-		assertEquals("A-101", flatCaptor.getValue().get(0).getFlatNo());
-		assertEquals("DUE_JSON", flatCaptor.getValue().get(0).getFlatPndngPaymntLst());
-		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		List<DueAmountDetails> dueDetails = extractDueAmountDetailsList(dueListCaptor);
-		assertTrue(dueDetails.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
-		assertEquals("100", dueDetails.get(0).getAddedCharges().get(0).getFinalChargeValue());
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertNull(paymentCaptor.getValue().getDueDate());
+		verify(flatRepository, never()).saveAll(any());
 	}
 
 	@Test
-	void createPayment_shouldAppendAreaWiseDueAmountDetailsForPerSqftPayments() throws Exception {
+	void createPayment_shouldNotAppendAreaWiseDueAmountDetailsForPerSqftPayments() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
@@ -570,56 +556,20 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setAddLeftOverPayment(true);
 
-		Flat flat1200 = new Flat();
-		flat1200.setFlatNo("A-101");
-		flat1200.setFlatArea("1200");
-		flat1200.setFlatPndngPaymntLst("EXISTING_JSON_1200");
-
-		Flat flat1000 = new Flat();
-		flat1000.setFlatNo("A-102");
-		flat1000.setFlatArea("1000");
-		flat1000.setFlatPndngPaymntLst("EXISTING_JSON_1000");
-
-		DueAmountDetails existing1200 = new DueAmountDetails();
-		existing1200.setDueDate(today.plusDays(5));
-		existing1200.setPaymentId("OLD1200");
-
-		DueAmountDetails existing1000 = new DueAmountDetails();
-		existing1000.setDueDate(today.plusDays(6));
-		existing1000.setPaymentId("OLD1000");
-
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.fromJson(eq("EXISTING_JSON_1200"), any(TypeReference.class))).thenReturn(List.of(existing1200));
-		when(genericService.fromJson(eq("EXISTING_JSON_1000"), any(TypeReference.class))).thenReturn(List.of(existing1000));
-		when(genericService.toJson(any())).thenReturn("DUE_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(flat1200, flat1000));
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
-		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		List<List<DueAmountDetails>> savedDueLists = extractAllDueAmountDetailsLists(dueListCaptor);
-		assertEquals(2, savedDueLists.size());
-		List<DueAmountDetails> savedListFor1200 = savedDueLists.stream()
-				.filter(list -> list.stream().anyMatch(d -> "OLD1200".equals(d.getPaymentId()))).findFirst().orElse(List.of());
-		List<DueAmountDetails> savedListFor1000 = savedDueLists.stream()
-				.filter(list -> list.stream().anyMatch(d -> "OLD1000".equals(d.getPaymentId()))).findFirst().orElse(List.of());
-		assertTrue(savedListFor1200.stream().anyMatch(d -> "2400".equals(d.getAmount()) && "2640".equals(d.getTotalAmount())));
-		assertTrue(savedListFor1000.stream().anyMatch(d -> "2000".equals(d.getAmount()) && "2200".equals(d.getTotalAmount())));
-		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
-				.filter(d -> !"OLD1000".equals(d.getPaymentId()))
-				.allMatch(d -> d.getPaymentId() != null && d.getPaymentId().startsWith("PAYCAM")));
-		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
-				.filter(d -> !"OLD1000".equals(d.getPaymentId()))
-				.allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
-		assertTrue(savedDueLists.stream().flatMap(List::stream).filter(d -> !"OLD1200".equals(d.getPaymentId()))
-				.filter(d -> !"OLD1000".equals(d.getPaymentId())).allMatch(DueAmountDetails::isEventPayment));
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertNull(paymentCaptor.getValue().getDueDate());
+		verify(flatRepository, never()).saveAll(any());
 	}
 
 	@Test
-	void createPayment_shouldSetMaintenanceFeeFromCause() throws Exception {
+	void createPayment_shouldSetCauseDirectlyFromRequest() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -634,7 +584,7 @@ class PaymentServicesTest {
 		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
 		request.setPaymentCollectionCycle("half_yearly");
 		request.setPaymentCollectionMode("pre");
-		request.setCause(SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE);
+		request.setCause("custom_cause");
 		request.setPartialPaymentAllowed(true);
 		request.setDiscountCode("DISC10");
 		request.setFineCode("FINE5");
@@ -647,14 +597,13 @@ class PaymentServicesTest {
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON", "DISC_FIN_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
-		assertEquals(SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE, paymentCaptor.getValue().getCauseId());
+		assertEquals("custom_cause", paymentCaptor.getValue().getCauseId());
 		assertTrue(paymentCaptor.getValue().isPartialPaymentAllowed());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
 		assertEquals(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, paymentCaptor.getValue().getPaymentCollectionCycle());
@@ -662,6 +611,35 @@ class PaymentServicesTest {
 		assertEquals("USR-001", paymentCaptor.getValue().getCreatUsrId());
 		assertEquals("ADDED_CHARGES_JSON", paymentCaptor.getValue().getAddedCharges());
 		assertEquals("DISC_FIN_JSON", paymentCaptor.getValue().getDiscFin());
+	}
+
+	@Test
+	void createPayment_shouldAllowNullCauseFromRequest() throws Exception {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		request.setGenericHeader(header);
+		request.setPaymentName("CAM");
+		request.setPaymentType("CAM");
+		request.setPaymentCapita("PER_FLAT");
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setCause(null);
+
+		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
+				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.createPayment(request);
+
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertNull(paymentCaptor.getValue().getCauseId());
 	}
 
 	@Test
@@ -684,7 +662,6 @@ class PaymentServicesTest {
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -719,7 +696,6 @@ class PaymentServicesTest {
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(eq(List.of("UPI", "CARD")))).thenReturn("ALLOWED_PAYMENT_MODES_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -730,7 +706,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void createPayment_shouldAppendDueAmountDetailsForCommaSeparatedApplicableFlats() throws Exception {
+	void createPayment_shouldNotAppendDueAmountDetailsForCommaSeparatedApplicableFlats() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
@@ -748,49 +724,16 @@ class PaymentServicesTest {
 		request.setAddLeftOverPayment(true);
 		request.setApplicableFor(List.of("a-101, A-102"));
 
-		Flat targetFlatOne = new Flat();
-		targetFlatOne.setFlatNo("A-101");
-		targetFlatOne.setFlatPndngPaymntLst("EXISTING_JSON_1");
-		Flat targetFlatTwo = new Flat();
-		targetFlatTwo.setFlatNo("A-102");
-		targetFlatTwo.setFlatPndngPaymntLst("EXISTING_JSON_2");
-		Flat ignoredFlat = new Flat();
-		ignoredFlat.setFlatNo("A-103");
-
-		DueAmountDetails existingDueOne = new DueAmountDetails();
-		existingDueOne.setDueDate(today.plusDays(5));
-		existingDueOne.setPaymentId("OLD1");
-		DueAmountDetails existingDueTwo = new DueAmountDetails();
-		existingDueTwo.setDueDate(today.plusDays(6));
-		existingDueTwo.setPaymentId("OLD2");
-
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.fromJson(eq("EXISTING_JSON_1"), any(TypeReference.class))).thenReturn(List.of(existingDueOne));
-		when(genericService.fromJson(eq("EXISTING_JSON_2"), any(TypeReference.class))).thenReturn(List.of(existingDueTwo));
-		when(genericService.toJson(any())).thenReturn("DUE_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlatOne, targetFlatTwo, ignoredFlat));
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
-		List<Flat> savedFlats = flatCaptor.getValue();
-		assertEquals(2, savedFlats.size());
-		assertTrue(savedFlats.stream().anyMatch(flat -> "A-101".equals(flat.getFlatNo())));
-		assertTrue(savedFlats.stream().anyMatch(flat -> "A-102".equals(flat.getFlatNo())));
-
-		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		List<List<DueAmountDetails>> savedDueLists = extractAllDueAmountDetailsLists(dueListCaptor);
-		assertEquals(2, savedDueLists.size());
-		assertTrue(savedDueLists.stream().allMatch(list -> list.size() >= 2));
-		assertTrue(savedDueLists.stream().flatMap(List::stream).anyMatch(d -> "OLD1".equals(d.getPaymentId())));
-		assertTrue(savedDueLists.stream().flatMap(List::stream).anyMatch(d -> "OLD2".equals(d.getPaymentId())));
-		assertTrue(savedDueLists.stream().flatMap(List::stream)
-				.anyMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertNull(paymentCaptor.getValue().getDueDate());
+		verify(flatRepository, never()).saveAll(any());
 	}
 
 	@Test
@@ -811,35 +754,22 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setApplicableFor(List.of("A-101, A-102", "A-103"));
 
-		Flat flat101 = new Flat();
-		flat101.setFlatNo("A-101");
-		Flat flat102 = new Flat();
-		flat102.setFlatNo("A-102");
-		Flat flat103 = new Flat();
-		flat103.setFlatNo("A-103");
-		Flat flat104 = new Flat();
-		flat104.setFlatNo("A-104");
-
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.toJson(any())).thenReturn("DUE_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(flat101, flat102, flat103, flat104));
+		when(genericService.toJson(eq(List.of("A-101", "A-102", "A-103"))))
+				.thenReturn("[\"A-101\",\"A-102\",\"A-103\"]");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
-		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
-		List<Flat> savedFlats = flatCaptor.getValue();
-		assertEquals(3, savedFlats.size());
-		assertTrue(savedFlats.stream().anyMatch(flat -> "A-101".equals(flat.getFlatNo())));
-		assertTrue(savedFlats.stream().anyMatch(flat -> "A-102".equals(flat.getFlatNo())));
-		assertTrue(savedFlats.stream().anyMatch(flat -> "A-103".equals(flat.getFlatNo())));
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertEquals("[\"A-101\",\"A-102\",\"A-103\"]", paymentCaptor.getValue().getApplicableFor());
+		verify(flatRepository, never()).saveAll(any());
 	}
 
 	@Test
-	void createPayment_shouldDeleteOlderDueObjectsWhenAddLeftOverPaymentFalse() throws Exception {
+	void createPayment_shouldNotDeleteOrCreateDueObjectsWhenAddLeftOverPaymentFalse() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
@@ -857,36 +787,20 @@ class PaymentServicesTest {
 		request.setApplicableFor(List.of("A-101"));
 		request.setAddLeftOverPayment(false);
 
-		Flat targetFlat = new Flat();
-		targetFlat.setFlatNo("A-101");
-		targetFlat.setFlatPndngPaymntLst("EXISTING_JSON");
-
-		DueAmountDetails oldExisting = new DueAmountDetails();
-		oldExisting.setDueDate(today.minusDays(10));
-		oldExisting.setPaymentId(null);
-		DueAmountDetails futureExisting = new DueAmountDetails();
-		futureExisting.setDueDate(today.plusDays(10));
-		futureExisting.setPaymentId(null);
-
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.fromJson(eq("EXISTING_JSON"), any(TypeReference.class)))
-				.thenReturn(List.of(oldExisting, futureExisting));
-		when(genericService.toJson(any())).thenReturn("DUE_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlat));
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
-		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		List<DueAmountDetails> savedDueList = extractDueAmountDetailsList(dueListCaptor);
-		assertTrue(savedDueList.stream().allMatch(d -> !d.getDueDate().isBefore(today)));
-		assertTrue(savedDueList.stream().allMatch(d -> d.getDueId() != null && d.getDueId().startsWith("DUE")));
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertNull(paymentCaptor.getValue().getDueDate());
+		verify(flatRepository, never()).saveAll(any());
 	}
 
 	@Test
-	void createPayment_shouldApplyDiscountAndFineCodesOnlyToFutureDueDates() throws Exception {
+	void createPayment_shouldNotApplyDiscountAndFineCodesToDueObjects() throws Exception {
 		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
@@ -906,40 +820,16 @@ class PaymentServicesTest {
 		request.setDiscountCode("DISC10");
 		request.setFineCode("FINE5");
 
-		Flat targetFlat = new Flat();
-		targetFlat.setFlatNo("A-101");
-		targetFlat.setFlatPndngPaymntLst("EXISTING_JSON");
-
-		DueAmountDetails pastExisting = new DueAmountDetails();
-		pastExisting.setDueDate(today.minusDays(10));
-		pastExisting.setPaymentId("OLD");
-		pastExisting.setDueId("DUEOLD001");
-
-		DueAmountDetails futureExisting = new DueAmountDetails();
-		futureExisting.setDueDate(today.plusDays(10));
-		futureExisting.setPaymentId("OLD");
-		futureExisting.setDueId("DUEOLD002");
-
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(genericService.fromJson(eq("EXISTING_JSON"), any(TypeReference.class)))
-				.thenReturn(List.of(pastExisting, futureExisting));
-		when(genericService.toJson(any())).thenReturn("DUE_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of(targetFlat));
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
-		ArgumentCaptor<Object> dueListCaptor = ArgumentCaptor.forClass(Object.class);
-		verify(genericService, atLeastOnce()).toJson(dueListCaptor.capture());
-		List<DueAmountDetails> savedDueList = extractDueAmountDetailsList(dueListCaptor);
-
-		assertTrue(savedDueList.stream()
-				.filter(d -> d.getDueDate() != null && d.getDueDate().isAfter(today) && d.getDueId() != null)
-				.allMatch(d -> "DISC10".equals(d.getDiscountCode()) && "FINE5".equals(d.getFineCode())));
-		assertTrue(savedDueList.stream()
-				.filter(d -> d.getDueDate() != null && !d.getDueDate().isAfter(today))
-				.allMatch(d -> d.getDiscountCode() == null && d.getFineCode() == null));
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		assertNull(paymentCaptor.getValue().getDueDate());
+		verify(flatRepository, never()).saveAll(any());
 	}
 
 	@Test
@@ -1448,30 +1338,4 @@ class PaymentServicesTest {
 		return bankInstrumentTenderDetails;
 	}
 
-	@SuppressWarnings("unchecked")
-	private List<DueAmountDetails> extractDueAmountDetailsList(ArgumentCaptor<Object> dueListCaptor) {
-		for (Object captured : dueListCaptor.getAllValues()) {
-			if (!(captured instanceof List<?> capturedList) || capturedList.isEmpty()) {
-				continue;
-			}
-			if (capturedList.get(0) instanceof DueAmountDetails) {
-				return (List<DueAmountDetails>) capturedList;
-			}
-		}
-		return List.of();
-	}
-
-	@SuppressWarnings("unchecked")
-	private List<List<DueAmountDetails>> extractAllDueAmountDetailsLists(ArgumentCaptor<Object> dueListCaptor) {
-		List<List<DueAmountDetails>> dueLists = new ArrayList<>();
-		for (Object captured : dueListCaptor.getAllValues()) {
-			if (!(captured instanceof List<?> capturedList) || capturedList.isEmpty()) {
-				continue;
-			}
-			if (capturedList.get(0) instanceof DueAmountDetails) {
-				dueLists.add((List<DueAmountDetails>) capturedList);
-			}
-		}
-		return dueLists;
-	}
 }
