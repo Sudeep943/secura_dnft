@@ -87,6 +87,7 @@ public interface SecuraConstants {
 	public final String DISC_FN_CYCLE_HALF_YEARLY = "HALF YEARLY";
 	public final String DISC_FN_CYCLE_HALFYEARLY = "HALFYEARLY";
 	public final String DISC_FN_CYCLE_HALF_DASH_YEARLY = "HALF-YEARLY";
+	public final String DISC_FN_CYCLE_FIXED = "FIXED";
 	public final String DISC_FN_CYCLE_YEARLY = "YEARLY";
 
 	public final String DISC_FIN_STATUS_ACTIVE = "Active";

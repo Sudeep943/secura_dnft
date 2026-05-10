@@ -11,6 +11,7 @@ import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.DiscFinInterface;
@@ -56,7 +57,7 @@ public class DiscFinServices implements DiscFinInterface {
 			}
 		} else {
 			DiscFin entity = buildBaseEntity(request, discFnId, apartmentId, userId);
-			entity.setDiscFnCycleType(request.getDiscFnCycleType());
+			entity.setDiscFnCycleType(SecuraConstants.DISC_FN_CYCLE_FIXED);
 			discFinRepository.save(entity);
 		}
 
