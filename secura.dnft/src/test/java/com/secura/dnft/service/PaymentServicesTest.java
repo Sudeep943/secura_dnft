@@ -597,7 +597,6 @@ class PaymentServicesTest {
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON", "DISC_FIN_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -634,7 +633,6 @@ class PaymentServicesTest {
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -669,7 +667,6 @@ class PaymentServicesTest {
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(eq(List.of("UPI", "CARD")))).thenReturn("ALLOWED_PAYMENT_MODES_JSON");
-		when(flatRepository.findByAprmntId("APR-001")).thenReturn(List.of());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -681,6 +678,7 @@ class PaymentServicesTest {
 
 	@Test
 	void createPayment_shouldNotAppendDueAmountDetailsForCommaSeparatedApplicableFlats() throws Exception {
+		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -711,6 +709,7 @@ class PaymentServicesTest {
 
 	@Test
 	void createPayment_shouldSupportApplicableForAcrossMultipleListEntriesWithCommaValues() throws Exception {
+		LocalDate today = LocalDate.now();
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -728,6 +727,8 @@ class PaymentServicesTest {
 
 		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
 				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
+		when(genericService.toJson(eq(List.of("A-101", "A-102", "A-103"))))
+				.thenReturn("[\"A-101\",\"A-102\",\"A-103\"]");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
