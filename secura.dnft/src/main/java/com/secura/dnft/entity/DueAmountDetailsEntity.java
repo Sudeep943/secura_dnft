@@ -1,12 +1,16 @@
 package com.secura.dnft.entity;
 
 import java.time.LocalDate;
+import java.util.List;
+
+import com.secura.dnft.request.response.AddedCharges;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @IdClass(DueAmountDetailsEntityId.class)
@@ -20,6 +24,63 @@ public class DueAmountDetailsEntity {
 	@Id
 	@Column(name = "collection_cycle")
 	private String collectionCycle;
+
+	@Column(name = "due_date")
+	private LocalDate dueDate;
+
+	@Column(name = "payment_id")
+	private String paymentId;
+
+	@Column(name = "amount")
+	private String amount;
+
+	@Column(name = "gst_amount")
+	private String gstAmount;
+
+	@Column(name = "total_amount")
+	private String totalAmount;
+
+	@Column(name = "payment_name")
+	private String paymentName;
+
+	@Column(name = "payment_type")
+	private String paymentType;
+
+	@Column(name = "event_payment")
+	private boolean eventPayment;
+
+	@Transient
+	private List<String> allowedPaymentModes;
+
+	@Column(name = "payment_capita")
+	private String paymentCapita;
+
+	@Transient
+	private List<AddedCharges> addedCharges;
+
+	@Column(name = "total_added_charges")
+	private String totalAddedCharges;
+
+	@Column(name = "gst_percentage")
+	private String gstPercentage;
+
+	@Column(name = "discount_code")
+	private String discountCode;
+
+	@Column(name = "fine_code")
+	private String fineCode;
+
+	@Column(name = "disc_fn_value")
+	private String discFnValue;
+
+	@Column(name = "discounted_amount")
+	private String discountedAmount;
+
+	@Column(name = "fine_amount")
+	private String fineAmount;
+
+	@Column(name = "fine_type")
+	private String fineType;
 
 	@Column(name = "round_up_amount")
 	private String roundUpAmount;
@@ -50,6 +111,158 @@ public class DueAmountDetailsEntity {
 
 	public void setCollectionCycle(String collectionCycle) {
 		this.collectionCycle = collectionCycle;
+	}
+
+	public LocalDate getDueDate() {
+		return dueDate;
+	}
+
+	public void setDueDate(LocalDate dueDate) {
+		this.dueDate = dueDate;
+	}
+
+	public String getPaymentId() {
+		return paymentId;
+	}
+
+	public void setPaymentId(String paymentId) {
+		this.paymentId = paymentId;
+	}
+
+	public String getAmount() {
+		return amount;
+	}
+
+	public void setAmount(String amount) {
+		this.amount = amount;
+	}
+
+	public String getGstAmount() {
+		return gstAmount;
+	}
+
+	public void setGstAmount(String gstAmount) {
+		this.gstAmount = gstAmount;
+	}
+
+	public String getTotalAmount() {
+		return totalAmount;
+	}
+
+	public void setTotalAmount(String totalAmount) {
+		this.totalAmount = totalAmount;
+	}
+
+	public String getPaymentName() {
+		return paymentName;
+	}
+
+	public void setPaymentName(String paymentName) {
+		this.paymentName = paymentName;
+	}
+
+	public String getPaymentType() {
+		return paymentType;
+	}
+
+	public void setPaymentType(String paymentType) {
+		this.paymentType = paymentType;
+	}
+
+	public boolean isEventPayment() {
+		return eventPayment;
+	}
+
+	public void setEventPayment(boolean eventPayment) {
+		this.eventPayment = eventPayment;
+	}
+
+	public List<String> getAllowedPaymentModes() {
+		return allowedPaymentModes;
+	}
+
+	public void setAllowedPaymentModes(List<String> allowedPaymentModes) {
+		this.allowedPaymentModes = allowedPaymentModes;
+	}
+
+	public String getPaymentCapita() {
+		return paymentCapita;
+	}
+
+	public void setPaymentCapita(String paymentCapita) {
+		this.paymentCapita = paymentCapita;
+	}
+
+	public List<AddedCharges> getAddedCharges() {
+		return addedCharges;
+	}
+
+	public void setAddedCharges(List<AddedCharges> addedCharges) {
+		this.addedCharges = addedCharges;
+	}
+
+	public String getTotalAddedCharges() {
+		return totalAddedCharges;
+	}
+
+	public void setTotalAddedCharges(String totalAddedCharges) {
+		this.totalAddedCharges = totalAddedCharges;
+	}
+
+	public String getGstPercentage() {
+		return gstPercentage;
+	}
+
+	public void setGstPercentage(String gstPercentage) {
+		this.gstPercentage = gstPercentage;
+	}
+
+	public String getDiscountCode() {
+		return discountCode;
+	}
+
+	public void setDiscountCode(String discountCode) {
+		this.discountCode = discountCode;
+	}
+
+	public String getFineCode() {
+		return fineCode;
+	}
+
+	public void setFineCode(String fineCode) {
+		this.fineCode = fineCode;
+	}
+
+	public String getDiscFnValue() {
+		return discFnValue;
+	}
+
+	public void setDiscFnValue(String discFnValue) {
+		this.discFnValue = discFnValue;
+	}
+
+	public String getDiscountedAmount() {
+		return discountedAmount;
+	}
+
+	public void setDiscountedAmount(String discountedAmount) {
+		this.discountedAmount = discountedAmount;
+	}
+
+	public String getFineAmount() {
+		return fineAmount;
+	}
+
+	public void setFineAmount(String fineAmount) {
+		this.fineAmount = fineAmount;
+	}
+
+	public String getFineType() {
+		return fineType;
+	}
+
+	public void setFineType(String fineType) {
+		this.fineType = fineType;
 	}
 
 	public String getRoundUpAmount() {
