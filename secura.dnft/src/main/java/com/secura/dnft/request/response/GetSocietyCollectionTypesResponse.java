@@ -8,7 +8,7 @@ public class GetSocietyCollectionTypesResponse {
 
 	private String message;
 	private String messageCode;
-	private List<SocietyCollectionTypes> socirtyCollectionTypes;
+	private List<SocietyCollectionTypes> societyCollectionTypes;
 
 	public String getMessage() {
 		return message;
@@ -27,10 +27,10 @@ public class GetSocietyCollectionTypesResponse {
 	}
 
 	public List<SocietyCollectionTypes> getSocirtyCollectionTypes() {
-		return socirtyCollectionTypes;
+		return societyCollectionTypes;
 	}
 
 	public void setSocirtyCollectionTypes(List<SocietyCollectionTypes> socirtyCollectionTypes) {
-		this.socirtyCollectionTypes = socirtyCollectionTypes;
+		this.societyCollectionTypes = socirtyCollectionTypes;
 	}
 }
