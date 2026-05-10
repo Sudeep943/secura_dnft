@@ -619,7 +619,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void createPayment_shouldSetMaintainanceFeeFromCause() throws Exception {
+	void createPayment_shouldSetMaintenanceFeeFromCause() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");

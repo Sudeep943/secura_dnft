@@ -28,7 +28,7 @@ public class CreatePaymentRequest {
 	private String paymentType;
 	private String bankAccountId;
 	private String status;
-	@JsonAlias("Cause")
+	@JsonAlias({"Cause", "cause"})
 	private String cause;
 	private boolean partialPaymentAllowed;
 	private boolean addLeftOverPayment;
