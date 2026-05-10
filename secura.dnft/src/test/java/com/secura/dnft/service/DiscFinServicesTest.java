@@ -21,6 +21,7 @@ import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddDiscfinRequest;
@@ -103,6 +104,62 @@ class DiscFinServicesTest {
 		assertEquals("250", savedEntities.get(2).getMinimumPaymentAmount());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_29, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_29, response.getMessageCode());
+	}
+
+	@Test
+	void addDiscfin_shouldSaveSingleFixedEntryWhenCycleDiscountListIsNull() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+
+		AddDiscfinRequest request = new AddDiscfinRequest();
+		request.setGenericHeader(header);
+		request.setDiscFnType("DISCOUNT");
+		request.setDiscFnMode("PERCENTAGE");
+		request.setDiscFnValue("10");
+		request.setDiscFnCycleType("SHOULD_BE_IGNORED");
+		request.setMinimumPaymentAmount("250");
+
+		when(discFinRepository.existsByDiscFnId(anyString())).thenReturn(false);
+
+		discFinServices.addDiscfin(request);
+
+		ArgumentCaptor<DiscFin> captor = ArgumentCaptor.forClass(DiscFin.class);
+		verify(discFinRepository).save(captor.capture());
+		DiscFin savedEntity = captor.getValue();
+
+		assertEquals(SecuraConstants.DISC_FN_CYCLE_FIXED, savedEntity.getDiscFnCycleType());
+		assertEquals("PERCENTAGE", savedEntity.getDiscFnMode());
+		assertEquals("10", savedEntity.getDiscFinValue());
+		assertEquals("APR-1", savedEntity.getAprmtId());
+		assertEquals("USR-1", savedEntity.getCreatUsrId());
+		assertEquals("250", savedEntity.getMinimumPaymentAmount());
+	}
+
+	@Test
+	void addDiscfin_shouldSaveSingleFixedEntryWhenCycleDiscountListIsEmpty() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+
+		AddDiscfinRequest request = new AddDiscfinRequest();
+		request.setGenericHeader(header);
+		request.setDiscFnType("DISCOUNT");
+		request.setDiscFnMode("AMOUNT");
+		request.setDiscFnValue("500");
+		request.setDiscFinCycleDiscountList(List.of());
+
+		when(discFinRepository.existsByDiscFnId(anyString())).thenReturn(false);
+
+		discFinServices.addDiscfin(request);
+
+		ArgumentCaptor<DiscFin> captor = ArgumentCaptor.forClass(DiscFin.class);
+		verify(discFinRepository).save(captor.capture());
+		DiscFin savedEntity = captor.getValue();
+
+		assertEquals(SecuraConstants.DISC_FN_CYCLE_FIXED, savedEntity.getDiscFnCycleType());
+		assertEquals("AMOUNT", savedEntity.getDiscFnMode());
+		assertEquals("500", savedEntity.getDiscFinValue());
 	}
 
 	@Test
