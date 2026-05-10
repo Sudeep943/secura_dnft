@@ -93,8 +93,14 @@ class DiscFinServicesTest {
 		assertEquals("AMOUNT", savedEntities.get(2).getDiscFnMode());
 		assertEquals("500", savedEntities.get(2).getDiscFinValue());
 		assertEquals("APR-1", savedEntities.get(0).getAprmtId());
+		assertEquals("APR-1", savedEntities.get(1).getAprmtId());
+		assertEquals("APR-1", savedEntities.get(2).getAprmtId());
 		assertEquals("USR-1", savedEntities.get(0).getCreatUsrId());
+		assertEquals("USR-1", savedEntities.get(1).getCreatUsrId());
+		assertEquals("USR-1", savedEntities.get(2).getCreatUsrId());
 		assertEquals("250", savedEntities.get(0).getMinimumPaymentAmount());
+		assertEquals("250", savedEntities.get(1).getMinimumPaymentAmount());
+		assertEquals("250", savedEntities.get(2).getMinimumPaymentAmount());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_29, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_29, response.getMessageCode());
 	}
