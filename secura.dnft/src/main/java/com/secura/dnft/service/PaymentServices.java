@@ -547,7 +547,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(null);
+		transaction.setDueDetails(null); // TODO: populate from DueAmountDetails on reimplementation
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);

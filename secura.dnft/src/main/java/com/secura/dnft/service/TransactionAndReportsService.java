@@ -150,6 +150,7 @@ public class TransactionAndReportsService {
 
 			BigDecimal trnsAmt = parseBigDecimal(trns.getTrnsAmt());
 
+			// TODO: restore totalAddedCharges and gstAmount from DueAmountDetails on reimplementation
 			BigDecimal totalAddedCharges = BigDecimal.ZERO;
 			BigDecimal gstAmount = BigDecimal.ZERO;
 
@@ -229,7 +230,7 @@ public class TransactionAndReportsService {
 		item.setNoOfPerson(transaction.getNoOfPerson());
 		item.setThirdPartyTrnsRef(transaction.getThirdPartyTrnsRef());
 		item.setThirdPartyName(transaction.getThirdPartyName());
-		item.setDueDetails(null);
+		item.setDueDetails(null); // TODO: restore from DueAmountDetails on reimplementation
 		item.setCause(transaction.getCause());
 		item.setBankInstrumentTenderDetails(
 				parseList(transaction.getBankInstrumentTenderDetails(),
