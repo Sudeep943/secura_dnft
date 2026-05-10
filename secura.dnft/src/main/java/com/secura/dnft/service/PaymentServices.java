@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -391,7 +392,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 		details.setPaymentName(request.getPaymentName());
 		details.setPaymentType(request.getPaymentType());
-		details.setEventPayment(request.isEventPayment());
+		details.setEventPayment(SecuraConstants.TRANSACTION_CAUSE_EVENT.equalsIgnoreCase(trimValue(request.getCause())));
 		details.setAllowedPaymentModes(normalizeAllowedPaymentModes(request.getAllowedPaymentModes()));
 		details.setPaymentCapita(request.getPaymentCapita());
 	}
@@ -1340,10 +1341,15 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String resolvePaymentCauseId(CreatePaymentRequest request) {
-		if (request != null && request.isCamPayment()) {
+		String cause = request == null ? null : trimValue(request.getCause());
+		if (!hasText(cause)) {
+			return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
+		}
+		String normalizedCause = cause.toUpperCase(Locale.ROOT);
+		if (SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE.equals(normalizedCause)) {
 			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
 		}
-		if (request != null && request.isEventPayment()) {
+		if (SecuraConstants.TRANSACTION_CAUSE_EVENT.equals(normalizedCause)) {
 			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
 		}
 		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;

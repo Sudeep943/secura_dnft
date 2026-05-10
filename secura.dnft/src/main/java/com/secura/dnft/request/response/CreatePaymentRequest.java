@@ -28,8 +28,8 @@ public class CreatePaymentRequest {
 	private String paymentType;
 	private String bankAccountId;
 	private String status;
-	private boolean camPayment;
-	private boolean eventPayment;
+	@JsonAlias({"Cause", "cause"})
+	private String cause;
 	private boolean partialPaymentAllowed;
 	private boolean addLeftOverPayment;
 	private String discountCode;
@@ -140,17 +140,11 @@ public class CreatePaymentRequest {
 	public void setStatus(String status) {
 		this.status = status;
 	}
-	public boolean isCamPayment() {
-		return camPayment;
+	public String getCause() {
+		return cause;
 	}
-	public void setCamPayment(boolean camPayment) {
-		this.camPayment = camPayment;
-	}
-	public boolean isEventPayment() {
-		return eventPayment;
-	}
-	public void setEventPayment(boolean eventPayment) {
-		this.eventPayment = eventPayment;
+	public void setCause(String cause) {
+		this.cause = cause;
 	}
 	public boolean isPartialPaymentAllowed() {
 		return partialPaymentAllowed;

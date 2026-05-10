@@ -210,7 +210,7 @@ class PaymentServicesTest {
 		request.setPaymentType("MANDATORY");
 		request.setPaymentCapita("PER_FLAT");
 		request.setAllowedPaymentModes(List.of("UPI", "CARD"));
-		request.setEventPayment(true);
+		request.setCause(SecuraConstants.TRANSACTION_CAUSE_EVENT);
 		request.setPaymentAmount("1000");
 		request.setGst("10");
 		request.setCollectionStartDate(Date.valueOf(LocalDate.now()));
@@ -342,7 +342,7 @@ class PaymentServicesTest {
 		request.setCollectionEndDate(Date.valueOf(today.plusMonths(1)));
 		request.setPaymentCollectionCycle("monthly");
 		request.setPaymentCollectionMode("pre");
-		request.setEventPayment(true);
+		request.setCause(SecuraConstants.TRANSACTION_CAUSE_EVENT);
 		request.setAddLeftOverPayment(true);
 
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
@@ -619,7 +619,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void createPayment_shouldSetMaintainanceFeeFromCamPaymentFlag() throws Exception {
+	void createPayment_shouldSetMaintenanceFeeFromCause() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -634,8 +634,7 @@ class PaymentServicesTest {
 		request.setCollectionEndDate(Date.valueOf(LocalDate.now().plusMonths(1)));
 		request.setPaymentCollectionCycle("half_yearly");
 		request.setPaymentCollectionMode("pre");
-		request.setCamPayment(true);
-		request.setEventPayment(true);
+		request.setCause(SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE);
 		request.setPartialPaymentAllowed(true);
 		request.setDiscountCode("DISC10");
 		request.setFineCode("FINE5");
