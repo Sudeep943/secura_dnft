@@ -54,3 +54,20 @@ VALUES
 ('WL004', 'PAYMENT', 'PENDING', NOW(), 'user2', NOW(), 'user2'),
 
 ('WL005', 'CAM', 'PENDING', NOW(), 'security1', NOW(), 'security1');
+
+
+INSERT INTO public.society_collection_types
+(collection_type, purpose_of_collection, sac_code, taxable, type_constant)
+VALUES
+('Maintenance', 'Routine upkeep, security, housekeeping, and common electricity expenses', '9995', true, 'MAINTENANCE'),
+('Sinking Fund', 'Long-term major repairs and structural replacement', '9995', true, 'SINKING FUND'),
+('Repair & Maintenance Fund', 'Building repairs, plumbing, painting, and lift servicing', '9995', true, 'REPAIR_MAINTENANCE_FUND'),
+('Corpus Fund / Reserve Fund', 'Capital reserve for future projects and contingencies', '9995', true, 'CORPUS_FUND'),
+('Car Parking Charges', 'Use and maintenance of parking facilities', '9995', true, 'CAR_PARKING_CHARGES'),
+('Clubhouse Charges', 'Gym, swimming pool, and community hall upkeep', '9995', true, 'CLUBHOUSE_CHARGES'),
+('Non-Occupancy Charges', 'Charges when a flat is rented out or not occupied by the owner', '9995', true, 'NON_OCCUPANCY_CHARGES'),
+('Festival Fund', 'Celebrations such as Diwali, Durga Puja, and other community events', '9995', true, 'FESTIVAL_FUND'),
+('Water Charges (Society-Collected)', 'Common water supply and pumping expenses', '9995', true, 'WATER CHARGES (SOCIETY_COLLECTED)'),
+('Generator / Power Backup Charges', 'Diesel costs and generator maintenance', '9995', true, 'POWER_BACKUP_CHARGES'),
+('Security Charges', 'Security guards and surveillance systems', '9995', true, 'SECURITY_CHARGES'),
+('Late Payment Interest', 'Penalty for delayed payment of society dues', '9995', true, 'LATE_PAYMENT_INTEREST');
