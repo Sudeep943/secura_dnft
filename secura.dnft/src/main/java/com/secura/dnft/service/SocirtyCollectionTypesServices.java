@@ -20,7 +20,7 @@ public class SocirtyCollectionTypesServices {
 	public GetSocietyCollectionTypesResponse getAllSocietyCollectionTypes() {
 		GetSocietyCollectionTypesResponse response = new GetSocietyCollectionTypesResponse();
 		List<SocietyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
-		response.setSocirtyCollectionTypes(collectionTypes);
+		response.setSocietyCollectionTypes(collectionTypes);
 		if (collectionTypes.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);

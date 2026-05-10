@@ -26,11 +26,11 @@ public class GetSocietyCollectionTypesResponse {
 		this.messageCode = messageCode;
 	}
 
-	public List<SocietyCollectionTypes> getSocirtyCollectionTypes() {
+	public List<SocietyCollectionTypes> getSocietyCollectionTypes() {
 		return societyCollectionTypes;
 	}
 
-	public void setSocirtyCollectionTypes(List<SocietyCollectionTypes> socirtyCollectionTypes) {
-		this.societyCollectionTypes = socirtyCollectionTypes;
+	public void setSocietyCollectionTypes(List<SocietyCollectionTypes> societyCollectionTypes) {
+		this.societyCollectionTypes = societyCollectionTypes;
 	}
 }
