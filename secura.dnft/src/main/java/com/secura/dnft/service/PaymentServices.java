@@ -795,7 +795,7 @@ public class PaymentServices implements PaymentInterface {
 			entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 			entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 			entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-			entity.setCauseId(request != null ? request.getCause() : null);
+			entity.setCauseId(request.getCause());
 			entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
 			paymentRepository.save(entity);
 		}
