@@ -1,7 +1,11 @@
 package com.secura.dnft.entity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import com.secura.dnft.request.response.AddedCharges;
 
@@ -96,6 +100,20 @@ public class DueAmountDetailsEntity {
 
 	@Column(name = "payment_date")
 	private LocalDate paymentDate;
+
+	@Column(name = "creat_ts")
+	@CreationTimestamp
+	private LocalDateTime creatTs;
+
+	@Column(name = "creat_usr_id")
+	private String creatUsrId;
+
+	@Column(name = "lst_updt_ts")
+	@UpdateTimestamp
+	private LocalDateTime lstUpdtTs;
+
+	@Column(name = "lst_updt_usr_id")
+	private String lstUpdtUsrId;
 
 	public String getDueId() {
 		return dueId;
@@ -303,5 +321,37 @@ public class DueAmountDetailsEntity {
 
 	public void setPaymentDate(LocalDate paymentDate) {
 		this.paymentDate = paymentDate;
+	}
+
+	public LocalDateTime getCreatTs() {
+		return creatTs;
+	}
+
+	public void setCreatTs(LocalDateTime creatTs) {
+		this.creatTs = creatTs;
+	}
+
+	public String getCreatUsrId() {
+		return creatUsrId;
+	}
+
+	public void setCreatUsrId(String creatUsrId) {
+		this.creatUsrId = creatUsrId;
+	}
+
+	public LocalDateTime getLstUpdtTs() {
+		return lstUpdtTs;
+	}
+
+	public void setLstUpdtTs(LocalDateTime lstUpdtTs) {
+		this.lstUpdtTs = lstUpdtTs;
+	}
+
+	public String getLstUpdtUsrId() {
+		return lstUpdtUsrId;
+	}
+
+	public void setLstUpdtUsrId(String lstUpdtUsrId) {
+		this.lstUpdtUsrId = lstUpdtUsrId;
 	}
 }
