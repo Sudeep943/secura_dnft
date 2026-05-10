@@ -6,8 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "socirty_collection_types")
-public class SocirtyCollectionTypes {
+@Table(name = "society_collection_types")
+public class SocietyCollectionTypes {
 
 	@Id
 	@Column(name = "collection_type")

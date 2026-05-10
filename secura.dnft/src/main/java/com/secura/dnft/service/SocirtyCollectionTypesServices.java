@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.SocirtyCollectionTypesRepository;
-import com.secura.dnft.entity.SocirtyCollectionTypes;
+import com.secura.dnft.entity.SocietyCollectionTypes;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.GetSocirtyCollectionTypesResponse;
@@ -19,7 +19,7 @@ public class SocirtyCollectionTypesServices {
 
 	public GetSocirtyCollectionTypesResponse getAllSocirtyCollectionTypes() {
 		GetSocirtyCollectionTypesResponse response = new GetSocirtyCollectionTypesResponse();
-		List<SocirtyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
+		List<SocietyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
 		response.setSocirtyCollectionTypes(collectionTypes);
 		if (collectionTypes.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);

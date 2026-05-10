@@ -13,8 +13,8 @@ import com.secura.dnft.service.SocirtyCollectionTypesServices;
 
 @CrossOrigin(origins = "*")
 @RestController
-@RequestMapping("/socirtyCollectionTypes")
-public class SocirtyCollectionTypesController {
+@RequestMapping("/societyCollectionTypes")
+public class SocietyCollectionTypesController {
 
 	@Autowired
 	private SocirtyCollectionTypesServices socirtyCollectionTypesServices;
