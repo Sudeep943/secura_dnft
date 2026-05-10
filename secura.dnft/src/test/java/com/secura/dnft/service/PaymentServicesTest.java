@@ -655,8 +655,7 @@ class PaymentServicesTest {
 
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
-		assertTrue(paymentCaptor.getValue().isMaintainanceFee());
-		assertTrue(paymentCaptor.getValue().isEventPayment());
+		assertEquals(SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE, paymentCaptor.getValue().getCauseId());
 		assertTrue(paymentCaptor.getValue().isPartialPaymentAllowed());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
 		assertEquals(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, paymentCaptor.getValue().getPaymentCollectionCycle());
@@ -968,8 +967,7 @@ class PaymentServicesTest {
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
-		paymentEntity.setMaintainanceFee(true);
-		paymentEntity.setEventPayment(true);
+		paymentEntity.setCauseId(SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE);
 
 		Worklist worklist = new Worklist();
 		worklist.setWorklistTaskId("WL-001");
@@ -1050,7 +1048,7 @@ class PaymentServicesTest {
 
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setBankAccountId("BANK-001");
-		paymentEntity.setEventPayment(true);
+		paymentEntity.setCauseId(SecuraConstants.TRANSACTION_CAUSE_EVENT);
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
 		createReceiptResponse.setReceiptNumber("RCT-1001");

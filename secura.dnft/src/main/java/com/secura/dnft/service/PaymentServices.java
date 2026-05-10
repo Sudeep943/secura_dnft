@@ -800,8 +800,7 @@ public class PaymentServices implements PaymentInterface {
 			entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 			entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 			entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-			entity.setMaintainanceFee(request != null && request.isCamPayment());
-			entity.setEventPayment(request != null && request.isEventPayment());
+			entity.setCauseId(resolvePaymentCauseId(request));
 			entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
 			if (activeDueDate != null) {
 				entity.setDueDate(activeDueDate.atStartOfDay());
@@ -1327,10 +1326,24 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String resolveTransactionCause(PaymentEntity paymentEntity) {
-		if (paymentEntity != null && paymentEntity.isMaintainanceFee()) {
+		if (paymentEntity == null || !hasText(paymentEntity.getCauseId())) {
+			return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
+		}
+		String causeId = paymentEntity.getCauseId().trim();
+		if (SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE.equalsIgnoreCase(causeId)) {
 			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
 		}
-		if (paymentEntity != null && paymentEntity.isEventPayment()) {
+		if (SecuraConstants.TRANSACTION_CAUSE_EVENT.equalsIgnoreCase(causeId)) {
+			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
+		}
+		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
+	}
+
+	private String resolvePaymentCauseId(CreatePaymentRequest request) {
+		if (request != null && request.isCamPayment()) {
+			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
+		}
+		if (request != null && request.isEventPayment()) {
 			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
 		}
 		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
