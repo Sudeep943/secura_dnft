@@ -391,7 +391,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 		details.setPaymentName(request.getPaymentName());
 		details.setPaymentType(request.getPaymentType());
-		details.setEventPayment(request.isEventPayment());
+		details.setEventPayment(SecuraConstants.TRANSACTION_CAUSE_EVENT.equalsIgnoreCase(trimValue(request.getCause())));
 		details.setAllowedPaymentModes(normalizeAllowedPaymentModes(request.getAllowedPaymentModes()));
 		details.setPaymentCapita(request.getPaymentCapita());
 	}
@@ -1340,10 +1340,14 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String resolvePaymentCauseId(CreatePaymentRequest request) {
-		if (request != null && request.isCamPayment()) {
+		if (request == null || !hasText(request.getCause())) {
+			return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
+		}
+		String cause = request.getCause().trim();
+		if (SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE.equalsIgnoreCase(cause)) {
 			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
 		}
-		if (request != null && request.isEventPayment()) {
+		if (SecuraConstants.TRANSACTION_CAUSE_EVENT.equalsIgnoreCase(cause)) {
 			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
 		}
 		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
