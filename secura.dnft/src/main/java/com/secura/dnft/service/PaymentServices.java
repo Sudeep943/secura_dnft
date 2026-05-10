@@ -773,12 +773,6 @@ public class PaymentServices implements PaymentInterface {
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
 		String discFin = serializeDiscFin(request);
-		GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse = getDuePaymentAmountDetails(request);
-		List<DueAmountDetails> dueAmountDetails = resolveDueAmountDetailsForEntity(duePaymentAmountDetailsResponse);
-		if (dueAmountDetails.isEmpty()) {
-			dueAmountDetails = buildDueAmountDetails(request, paymentId);
-		}
-		LocalDate activeDueDate = resolveEntityDueDate(dueAmountDetails, LocalDate.now());
 		for (String paymentCollectionCycle : paymentCollectionCycles) {
 			PaymentEntity entity = new PaymentEntity();
 			entity.setPaymentId(paymentId);
@@ -801,14 +795,10 @@ public class PaymentServices implements PaymentInterface {
 			entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 			entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 			entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-			entity.setCauseId(resolvePaymentCauseId(request));
+			entity.setCauseId(request != null ? request.getCause() : null);
 			entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
-			if (activeDueDate != null) {
-				entity.setDueDate(activeDueDate.atStartOfDay());
-			}
 			paymentRepository.save(entity);
 		}
-		updatePendingDueAmountDetailsForFlats(request, duePaymentAmountDetailsResponse, paymentId);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 		return response;
