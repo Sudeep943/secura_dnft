@@ -75,11 +75,8 @@ public class PaymentEntity {
     @Column(name = "aprmt_id")
     private String aprmtId;
     
-    @Column(name = "maintainance_fee")
-    private boolean maintainanceFee;
-
-    @Column(name = "event_payment")
-    private boolean eventPayment;
+    @Column(name = "cause_id")
+    private String causeId;
     
     @Column(name = "added_charges", columnDefinition = "TEXT")
     private String addedCharges;
@@ -110,14 +107,6 @@ public class PaymentEntity {
 
 	public void setCurrency(String currency) {
 		this.currency = currency;
-	}
-
-	public boolean isEventPayment() {
-		return eventPayment;
-	}
-
-	public void setEventPayment(boolean eventPayment) {
-		this.eventPayment = eventPayment;
 	}
 
 	public LocalDateTime getDueDate() {
@@ -264,12 +253,12 @@ public class PaymentEntity {
         this.aprmtId = aprmtId;
     }
 
-    public boolean isMaintainanceFee() {
-		return maintainanceFee;
+    public String getCauseId() {
+		return causeId;
 	}
 
-	public void setMaintainanceFee(boolean maintainanceFee) {
-		this.maintainanceFee = maintainanceFee;
+	public void setCauseId(String causeId) {
+		this.causeId = causeId;
 	}
 
 	public String getAddedCharges() {
