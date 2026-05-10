@@ -21,6 +21,9 @@ public class SocietyCollectionTypes {
 
 	@Column(name = "taxable")
 	private boolean taxable;
+	
+	@Column(name = "type_constant")
+	private boolean typeConstant;
 
 	public String getCollectionType() {
 		return collectionType;
@@ -53,4 +56,13 @@ public class SocietyCollectionTypes {
 	public void setTaxable(boolean taxable) {
 		this.taxable = taxable;
 	}
+
+	public boolean isTypeConstant() {
+		return typeConstant;
+	}
+
+	public void setTypeConstant(boolean typeConstant) {
+		this.typeConstant = typeConstant;
+	}
+	
 }
