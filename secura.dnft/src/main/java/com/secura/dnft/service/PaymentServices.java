@@ -11,7 +11,6 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,13 +21,10 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
-import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DocumentEntity;
-import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
@@ -37,7 +33,6 @@ import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
-import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
@@ -45,14 +40,8 @@ import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
-import com.secura.dnft.request.response.DiscFinReceipt;
-import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
-import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
-import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
-import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
-import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.GetPaymentRequest;
@@ -69,19 +58,12 @@ import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class PaymentServices implements PaymentInterface {
-	private static final Set<String> PERCENTAGE_CHARGE_TYPES = Set.of("percentage", "percent", "%");
 
 	@Autowired
 	GenericService genericService;
 
 	@Autowired
 	PaymentRepository paymentRepository;
-	
-	@Autowired
-	FlatRepository flatRepository;
-
-	@Autowired
-	FlatInterface flatInterface;
 
 	@Autowired
 	TransactionRepository transactionRepository;
@@ -139,128 +121,9 @@ public class PaymentServices implements PaymentInterface {
 	public GetDuePaymentAmountDetailsResponse getDuePaymentAmountDetails(CreatePaymentRequest request) {
 		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		if (isPerSqftPaymentCapita(request != null ? request.getPaymentCapita() : null)) {
-			response.setFlatTypeDueAmountDetails(buildFlatTypeDueAmountDetails(request));
-		} else {
-			response.setListOfDueAmountDetails(buildDueAmountDetails(request, null));
-		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
-	}
-
-	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId) {
-		return buildDueAmountDetails(request, paymentId, null);
-	}
-
-	private List<DueAmountDetails> buildDueAmountDetails(CreatePaymentRequest request, String paymentId,
-			BigDecimal cycleAmountOverride) {
-		List<DueAmountDetails> dueAmountDetails = new ArrayList<>();
-		if (request == null || request.getCollectionStartDate() == null || request.getCollectionEndDate() == null) {
-			return dueAmountDetails;
-		}
-
-		LocalDate start = request.getCollectionStartDate().toLocalDate();
-		LocalDate end = request.getCollectionEndDate().toLocalDate();
-		if (start.isAfter(end)) {
-			return dueAmountDetails;
-		}
-
-		BigDecimal cycleAmount = cycleAmountOverride != null ? cycleAmountOverride
-				: resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
-		BigDecimal gstPercent = parseNumeric(request.getGst());
-		Set<String> usedDueIds = new LinkedHashSet<>();
-
-		if (isOnceCycle(request.getPaymentCollectionCycle())) {
-			DueAmountDetails details = new DueAmountDetails();
-			details.setDueDate(isPost(request.getPaymentCollectionMode()) ? end.plusDays(1) : start);
-			details.setPaymentId(paymentId);
-			details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
-			BigDecimal dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
-			AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
-			BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
-					.setScale(2, RoundingMode.HALF_UP);
-			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
-					RoundingMode.HALF_UP);
-			details.setAmount(formatNumber(dueBaseAmount));
-			details.setGstPercentage(formatNumber(gstPercent));
-			details.setGstAmount(formatNumber(gstAmount));
-			details.setTotalAmount(formatNumber(dueAmountWithAddedCharges.add(gstAmount)));
-			details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
-			details.setTotalAddedCharges(formatNumber(addedChargesCalculation.getTotalChargeAmount()));
-			populateDueRequestMetadata(details, request);
-			dueAmountDetails.add(details);
-		} else {
-			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
-			if (cycleMonths <= 0) {
-				return dueAmountDetails;
-			}
-			LocalDate periodStart = start;
-			while (!periodStart.isAfter(end)) {
-				LocalDate periodEnd = periodStart.plusMonths(cycleMonths).minusDays(1);
-				if (periodEnd.isAfter(end)) {
-					periodEnd = end;
-				}
-				DueAmountDetails details = new DueAmountDetails();
-				details.setDueDate(isPost(request.getPaymentCollectionMode()) ? periodEnd.plusDays(1) : periodStart);
-				details.setPaymentId(paymentId);
-				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
-
-				BigDecimal dueBaseAmount = calculateDueBaseAmount(periodStart, cycleMonths, end, cycleAmount);
-				AddedChargesCalculation addedChargesCalculation = calculateAddedCharges(request.getAddedCharges(), dueBaseAmount);
-				BigDecimal dueAmountWithAddedCharges = dueBaseAmount.add(addedChargesCalculation.getTotalChargeAmount())
-						.setScale(2, RoundingMode.HALF_UP);
-				BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2,
-						RoundingMode.HALF_UP);
-				details.setAmount(formatNumber(dueBaseAmount));
-				details.setGstPercentage(formatNumber(gstPercent));
-				details.setGstAmount(formatNumber(gstAmount));
-				details.setTotalAmount(formatNumber(dueAmountWithAddedCharges.add(gstAmount)));
-				details.setAddedCharges(addedChargesCalculation.getFinalAddedCharges());
-				details.setTotalAddedCharges(formatNumber(addedChargesCalculation.getTotalChargeAmount()));
-				populateDueRequestMetadata(details, request);
-				dueAmountDetails.add(details);
-
-				periodStart = periodStart.plusMonths(cycleMonths);
-			}
-		}
-
-		return dueAmountDetails;
-	}
-
-	private Map<String, List<DueAmountDetails>> buildFlatTypeDueAmountDetails(CreatePaymentRequest request) {
-		Map<String, List<DueAmountDetails>> dueAmountByFlatArea = new LinkedHashMap<>();
-		if (request == null) {
-			return dueAmountByFlatArea;
-		}
-
-		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
-		List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
-				: flatRepository.findByAprmntId(apartmentId);
-		Set<String> flatAreas = apartmentFlats.stream().map(Flat::getFlatArea).filter(area -> area != null && !area.isBlank())
-				.map(String::trim).collect(Collectors.toCollection(LinkedHashSet::new));
-
-		BigDecimal ratePerSqft = parseNumeric(request.getPaymentAmount());
-		for (String flatArea : flatAreas) {
-			BigDecimal parsedFlatArea = parseNumeric(flatArea);
-			if (parsedFlatArea.compareTo(BigDecimal.ZERO) <= 0) {
-				continue;
-			}
-			BigDecimal cycleAmount = parsedFlatArea.multiply(ratePerSqft);
-			List<DueAmountDetails> dueAmountDetails = buildDueAmountDetails(request, null, cycleAmount);
-			dueAmountByFlatArea.put(flatArea, dueAmountDetails);
-		}
-		return dueAmountByFlatArea;
-	}
-
-	private LocalDate resolveEntityDueDate(List<DueAmountDetails> dueAmountDetails, LocalDate today) {
-		LocalDate upcomingDueDate = dueAmountDetails.stream().map(DueAmountDetails::getDueDate).filter(dueDate -> dueDate != null)
-				.filter(dueDate -> !dueDate.isBefore(today)).min(LocalDate::compareTo).orElse(null);
-		if (upcomingDueDate != null) {
-			return upcomingDueDate;
-		}
-		return dueAmountDetails.stream().map(DueAmountDetails::getDueDate).filter(dueDate -> dueDate != null)
-				.min(LocalDate::compareTo).orElse(null);
 	}
 
 	private Set<String> parseApplicableFlatNos(List<String> applicableFor) {
@@ -310,235 +173,6 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		return genericService.toJson(new ArrayList<>(normalizedFlatNos));
-	}
-
-	private List<DueAmountDetails> parsePendingDueAmountDetails(String pendingDueJson) {
-		if (pendingDueJson == null || pendingDueJson.isBlank()) {
-			return new ArrayList<>();
-		}
-		try {
-			List<DueAmountDetails> existing = genericService.fromJson(pendingDueJson,
-					new TypeReference<List<DueAmountDetails>>() {
-					});
-			return existing != null ? new ArrayList<>(existing) : new ArrayList<>();
-		} catch (RuntimeException e) {
-			return new ArrayList<>();
-		}
-	}
-
-	private List<DueAmountDetails> resolveDueAmountDetailsForEntity(
-			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse) {
-		if (duePaymentAmountDetailsResponse == null) {
-			return List.of();
-		}
-		List<DueAmountDetails> listOfDueAmountDetails = duePaymentAmountDetailsResponse.getListOfDueAmountDetails();
-		if (listOfDueAmountDetails != null && !listOfDueAmountDetails.isEmpty()) {
-			return listOfDueAmountDetails;
-		}
-		Map<String, List<DueAmountDetails>> dueAmountByFlatArea = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
-		if (dueAmountByFlatArea == null || dueAmountByFlatArea.isEmpty()) {
-			return List.of();
-		}
-		return dueAmountByFlatArea.values().stream().filter(dueAmountDetails -> dueAmountDetails != null)
-				.filter(dueAmountDetails -> !dueAmountDetails.isEmpty()).findFirst().orElse(List.of());
-	}
-
-	private List<DueAmountDetails> resolveDueAmountDetailsForFlat(Flat flat,
-			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse) {
-		if (duePaymentAmountDetailsResponse == null) {
-			return List.of();
-		}
-		List<DueAmountDetails> listOfDueAmountDetails = duePaymentAmountDetailsResponse.getListOfDueAmountDetails();
-		if (listOfDueAmountDetails != null && !listOfDueAmountDetails.isEmpty()) {
-			return listOfDueAmountDetails;
-		}
-		Map<String, List<DueAmountDetails>> dueAmountByFlatArea = duePaymentAmountDetailsResponse.getFlatTypeDueAmountDetails();
-		if (dueAmountByFlatArea == null || dueAmountByFlatArea.isEmpty() || flat == null || flat.getFlatArea() == null
-				|| flat.getFlatArea().isBlank()) {
-			return List.of();
-		}
-		String exactFlatArea = flat.getFlatArea().trim();
-		List<DueAmountDetails> exactMatchDueAmountDetails = dueAmountByFlatArea.get(exactFlatArea);
-		if (exactMatchDueAmountDetails != null) {
-			return exactMatchDueAmountDetails;
-		}
-		String normalizedFlatArea = normalizeAreaKey(exactFlatArea);
-		if (normalizedFlatArea == null) {
-			return List.of();
-		}
-		for (Map.Entry<String, List<DueAmountDetails>> entry : dueAmountByFlatArea.entrySet()) {
-			if (normalizedFlatArea.equals(normalizeAreaKey(entry.getKey()))) {
-				return entry.getValue();
-			}
-		}
-		return List.of();
-	}
-
-	private String normalizeAreaKey(String flatArea) {
-		if (flatArea == null || flatArea.isBlank()) {
-			return null;
-		}
-		String normalized = flatArea.trim().replace(",", "");
-		try {
-			return new BigDecimal(normalized).stripTrailingZeros().toPlainString();
-		} catch (NumberFormatException e) {
-			return normalized;
-		}
-	}
-
-	private void populateDueRequestMetadata(DueAmountDetails details, CreatePaymentRequest request) {
-		if (details == null || request == null) {
-			return;
-		}
-		details.setPaymentName(request.getPaymentName());
-		details.setPaymentType(request.getPaymentType());
-		details.setEventPayment(SecuraConstants.TRANSACTION_CAUSE_EVENT.equalsIgnoreCase(trimValue(request.getCause())));
-		details.setAllowedPaymentModes(normalizeAllowedPaymentModes(request.getAllowedPaymentModes()));
-		details.setPaymentCapita(request.getPaymentCapita());
-	}
-
-	private List<String> normalizeAllowedPaymentModes(List<String> allowedPaymentModes) {
-		if (allowedPaymentModes == null || allowedPaymentModes.isEmpty()) {
-			return null;
-		}
-		List<String> normalizedModes = allowedPaymentModes.stream().filter(mode -> mode != null).map(String::trim)
-				.filter(mode -> !mode.isEmpty()).collect(Collectors.toList());
-		if (normalizedModes.isEmpty()) {
-			return null;
-		}
-		return normalizedModes;
-	}
-
-	private void updatePendingDueAmountDetailsForFlats(CreatePaymentRequest request,
-			GetDuePaymentAmountDetailsResponse duePaymentAmountDetailsResponse, String paymentId) {
-		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
-				: null;
-		List<Flat> apartmentFlats = (apartmentId == null || apartmentId.isBlank()) ? flatRepository.findAll()
-				: flatRepository.findByAprmntId(apartmentId);
-		Set<String> applicableFlatNos = parseApplicableFlatNos(request != null ? request.getApplicableFor() : null);
-
-		List<Flat> targetFlats = apartmentFlats.stream().filter(flat->applicableFlatNos.contains(flat.getFlatNo())).collect(Collectors.toList());
-		if (!applicableFlatNos.isEmpty()) {
-			Set<String> normalizedApplicableFlatNos = applicableFlatNos.stream().map(this::normalizeFlatNoForMatch)
-					.filter(value -> value != null).collect(Collectors.toCollection(LinkedHashSet::new));
-			targetFlats = apartmentFlats.stream().filter(flat -> flat != null && flat.getFlatNo() != null
-					&& normalizedApplicableFlatNos.contains(normalizeFlatNoForMatch(flat.getFlatNo())))
-					.collect(Collectors.toList());
-		}
-
-		LocalDate today = LocalDate.now();
-		for (Flat flat : targetFlats) {
-			List<DueAmountDetails> dueAmountDetailsForFlat = resolveDueAmountDetailsForFlat(flat, duePaymentAmountDetailsResponse);
-			List<DueAmountDetails> existingDueAmountDetails = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst());
-			existingDueAmountDetails.addAll(cloneDueAmountDetails(dueAmountDetailsForFlat));
-			ensureDueIdsForFlatSave(existingDueAmountDetails, paymentId);
-			applyRequestCodesToFutureDues(existingDueAmountDetails, request, today);
-			if (request == null || !request.isAddLeftOverPayment()) {
-				existingDueAmountDetails
-						.removeIf(details -> details.getDueDate() != null && details.getDueDate().isBefore(today));
-			}
-			flat.setFlatPndngPaymntLst(genericService.toJson(existingDueAmountDetails));
-		}
-		flatRepository.saveAll(targetFlats);
-	}
-
-	private List<DueAmountDetails> cloneDueAmountDetails(List<DueAmountDetails> dueAmountDetails) {
-		List<DueAmountDetails> cloned = new ArrayList<>();
-		for (DueAmountDetails details : dueAmountDetails) {
-			DueAmountDetails copy = new DueAmountDetails();
-			copy.setDueDate(details.getDueDate());
-			copy.setPaymentId(details.getPaymentId());
-			copy.setDueId(details.getDueId());
-			copy.setAmount(details.getAmount());
-			copy.setGstPercentage(details.getGstPercentage());
-			copy.setGstAmount(details.getGstAmount());
-			copy.setTotalAmount(details.getTotalAmount());
-			copy.setPaymentName(details.getPaymentName());
-			copy.setPaymentType(details.getPaymentType());
-			copy.setEventPayment(details.isEventPayment());
-			copy.setAllowedPaymentModes(details.getAllowedPaymentModes() == null ? null : new ArrayList<>(details.getAllowedPaymentModes()));
-			copy.setPaymentCapita(details.getPaymentCapita());
-			copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
-			copy.setTotalAddedCharges(details.getTotalAddedCharges());
-			copy.setDiscountCode(details.getDiscountCode());
-			copy.setFineCode(details.getFineCode());
-			copy.setDiscFnValue(details.getDiscFnValue());
-			copy.setDiscountedAmount(details.getDiscountedAmount());
-			copy.setFineAmount(details.getFineAmount());
-			copy.setFineType(details.getFineType());
-			copy.setRoundUpAmount(details.getRoundUpAmount());
-			copy.setAlreadyPaidAmount(details.getAlreadyPaidAmount());
-			copy.setAdminDiscount(details.getAdminDiscount());
-			copy.setPaymentStatus(details.getPaymentStatus());
-			copy.setPaymentDate(details.getPaymentDate());
-			copy.setCollectionCycle(details.getCollectionCycle());
-			cloned.add(copy);
-		}
-		return cloned;
-	}
-
-	private void applyRequestCodesToFutureDues(List<DueAmountDetails> dueAmountDetails, CreatePaymentRequest request,
-			LocalDate today) {
-		if (dueAmountDetails == null || dueAmountDetails.isEmpty() || request == null) {
-			return;
-		}
-		boolean hasDiscountCode = hasText(request.getDiscountCode());
-		boolean hasFineCode = hasText(request.getFineCode());
-		if (!hasDiscountCode && !hasFineCode) {
-			return;
-		}
-
-		for (DueAmountDetails details : dueAmountDetails) {
-			if (details == null || details.getDueDate() == null || !details.getDueDate().isAfter(today)) {
-				continue;
-			}
-			if (!hasText(details.getDueId())) {
-				continue;
-			}
-			if (hasDiscountCode) {
-				details.setDiscountCode(request.getDiscountCode());
-			}
-			if (hasFineCode) {
-				details.setFineCode(request.getFineCode());
-			}
-		}
-	}
-
-	private List<AddedCharges> cloneAddedCharges(List<AddedCharges> addedCharges) {
-		List<AddedCharges> cloned = new ArrayList<>();
-		if (addedCharges == null) {
-			return cloned;
-		}
-		for (AddedCharges charge : addedCharges) {
-			if (charge == null) {
-				continue;
-			}
-			AddedCharges copy = new AddedCharges();
-			copy.setChargeName(charge.getChargeName());
-			copy.setChargeType(charge.getChargeType());
-			copy.setValue(charge.getValue());
-			copy.setFinalChargeValue(charge.getFinalChargeValue());
-			cloned.add(copy);
-		}
-		return cloned;
-	}
-
-	private void ensureDueIdsForFlatSave(List<DueAmountDetails> dueAmountDetails, String fallbackPaymentId) {
-		Set<String> usedDueIds = dueAmountDetails.stream().map(DueAmountDetails::getDueId)
-				.filter(dueId -> dueId != null && !dueId.isBlank()).collect(Collectors.toCollection(LinkedHashSet::new));
-		for (DueAmountDetails details : dueAmountDetails) {
-			String paymentId = details.getPaymentId();
-			if ((paymentId == null || paymentId.isBlank()) && fallbackPaymentId != null && !fallbackPaymentId.isBlank()) {
-				paymentId = fallbackPaymentId;
-				details.setPaymentId(paymentId);
-			}
-			if (details.getDueId() != null && !details.getDueId().isBlank()) {
-				continue;
-			}
-			if (paymentId != null && !paymentId.isBlank()) {
-				details.setDueId(generateUniqueDueId(paymentId, usedDueIds));
-			}
-		}
 	}
 
 	private DueWindow calculateDueWindow(LocalDate start, LocalDate end, LocalDate today, String mode,
@@ -600,43 +234,6 @@ public class PaymentServices implements PaymentInterface {
 		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 
-	private AddedChargesCalculation calculateAddedCharges(List<AddedCharges> addedCharges, BigDecimal baseAmount) {
-		List<AddedCharges> finalAddedCharges = new ArrayList<>();
-		if (addedCharges == null || addedCharges.isEmpty()) {
-			return new AddedChargesCalculation(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP), finalAddedCharges);
-		}
-		BigDecimal totalChargeAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-		for (AddedCharges charge : addedCharges) {
-			if (charge == null) {
-				continue;
-			}
-			BigDecimal finalChargeAmount = resolveFinalChargeAmount(charge.getChargeType(), charge.getValue(), baseAmount);
-			AddedCharges finalCharge = new AddedCharges();
-			finalCharge.setChargeName(charge.getChargeName());
-			finalCharge.setChargeType(charge.getChargeType());
-			finalCharge.setValue(charge.getValue());
-			finalCharge.setFinalChargeValue(formatNumber(finalChargeAmount));
-			finalAddedCharges.add(finalCharge);
-			totalChargeAmount = totalChargeAmount.add(finalChargeAmount);
-		}
-		return new AddedChargesCalculation(totalChargeAmount, finalAddedCharges);
-	}
-
-	private BigDecimal resolveFinalChargeAmount(String chargeType, String chargeValue, BigDecimal baseAmount) {
-		BigDecimal numericValue = parseNumeric(chargeValue);
-		if (isPercentageChargeType(chargeType)) {
-			return baseAmount.multiply(numericValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-		}
-		return numericValue.setScale(2, RoundingMode.HALF_UP);
-	}
-
-	private boolean isPercentageChargeType(String chargeType) {
-		if (chargeType == null) {
-			return false;
-		}
-		return PERCENTAGE_CHARGE_TYPES.contains(chargeType.trim().toLowerCase());
-	}
-
 	private int getCycleMonths(String cycle) {
 		if (cycle == null) {
 			return 0;
@@ -685,14 +282,6 @@ public class PaymentServices implements PaymentInterface {
 		return parseNumeric(paymentCapita);
 	}
 
-	private boolean isPerSqftPaymentCapita(String paymentCapita) {
-		if (paymentCapita == null || paymentCapita.isBlank()) {
-			return false;
-		}
-		String normalized = paymentCapita.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
-		return "persqft".equals(normalized);
-	}
-
 	private String formatNumber(BigDecimal value) {
 		BigDecimal normalized = value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
 		return normalized.toPlainString();
@@ -713,24 +302,6 @@ public class PaymentServices implements PaymentInterface {
 
 		private LocalDate getChargePeriodStart() {
 			return chargePeriodStart;
-		}
-	}
-
-	private static final class AddedChargesCalculation {
-		private final BigDecimal totalChargeAmount;
-		private final List<AddedCharges> finalAddedCharges;
-
-		private AddedChargesCalculation(BigDecimal totalChargeAmount, List<AddedCharges> finalAddedCharges) {
-			this.totalChargeAmount = totalChargeAmount;
-			this.finalAddedCharges = finalAddedCharges;
-		}
-
-		private BigDecimal getTotalChargeAmount() {
-			return totalChargeAmount;
-		}
-
-		private List<AddedCharges> getFinalAddedCharges() {
-			return finalAddedCharges;
 		}
 	}
 
@@ -818,11 +389,10 @@ public class PaymentServices implements PaymentInterface {
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		DueAmountDetails dueDetails = getMatchingDueDetails(request);
-		Transaction transaction = buildTransaction(request, dueDetails);
+		Transaction transaction = buildTransaction(request);
 		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
 			CreateReceiptResponse receiptResponse = receiptServices
-					.createReceipt(buildReceiptRequest(request, dueDetails, transaction.getTrnscId()));
+					.createReceipt(buildReceiptRequest(request, transaction.getTrnscId()));
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
 			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
@@ -869,20 +439,6 @@ public class PaymentServices implements PaymentInterface {
 		paymentId.append(paymentType);
 		paymentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
 		return paymentId.toString().toUpperCase();
-	}
-
-	private String generateUniqueDueId(String paymentId, Set<String> usedDueIds) {
-		if (paymentId == null || paymentId.isBlank()) {
-			return null;
-		}
-		for (int attempts = 0; attempts < 1000; attempts++) {
-			String dueId = ("DUE" + paymentId + String.format("%03d", ThreadLocalRandom.current().nextInt(1000)))
-					.toUpperCase();
-			if (usedDueIds.add(dueId)) {
-				return dueId;
-			}
-		}
-		throw new IllegalStateException("Unable to generate unique dueId for paymentId: " + paymentId);
 	}
 
 	private String serializeAddedCharges(List<AddedCharges> addedCharges) {
@@ -968,7 +524,7 @@ public class PaymentServices implements PaymentInterface {
 		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
 	}
 
-	private Transaction buildTransaction(PayDueRequest request, DueAmountDetails dueDetails) {
+	private Transaction buildTransaction(PayDueRequest request) {
 		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
@@ -991,7 +547,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(genericService.toJson(dueDetails));
+		transaction.setDueDetails(null);
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
@@ -1131,20 +687,21 @@ public class PaymentServices implements PaymentInterface {
 		return item;
 	}
 
-	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, DueAmountDetails dueDetails, String transactionId) {
-		boolean perHeadPayment = isPerHeadReceiptPayment(request, dueDetails);
-		int personCount = perHeadPayment ? resolvePerHeadPersonCount(request.getNoOfPersons()) : 0;
+	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, String transactionId) {
 		String requestedAmount = request != null ? request.getAmount() : null;
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		receiptRequest.setItems(List.of(buildReceiptItem(request, dueDetails, personCount, perHeadPayment)));
-		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueDetails));
-		receiptRequest.setDiscFinReceipt(buildDiscFinReceipt(dueDetails));
+		Items item = new Items();
+		item.setAmount(requestedAmount);
+		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
+		receiptRequest.setItems(List.of(item));
+		receiptRequest.setAddedCharges(null);
+		receiptRequest.setDiscFinReceipt(null);
 		receiptRequest.setReceiptType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
-		receiptRequest.setPerheadFlag(perHeadPayment);
+		receiptRequest.setPerheadFlag(false);
 		receiptRequest.setRemarks(null);
-		receiptRequest.setUnitPriceRequired(perHeadPayment);
-		receiptRequest.setTotalAmount(hasText(requestedAmount) ? requestedAmount : dueDetails != null ? dueDetails.getTotalAmount() : null);
+		receiptRequest.setUnitPriceRequired(false);
+		receiptRequest.setTotalAmount(requestedAmount);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		receiptRequest.setCreatedBy("Auto Generated");
@@ -1171,137 +728,6 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		return paymentTenderDataList.get(0) != null ? paymentTenderDataList.get(0).getTenderName() : null;
-	}
-
-	private Items buildReceiptItem(PayDueRequest request, DueAmountDetails dueDetails, int noOfPersons, boolean perHeadPayment) {
-		Items item = new Items();
-		item.setItemName(dueDetails != null ? dueDetails.getPaymentName() : null);
-		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
-		if (perHeadPayment) {
-			String unitPrice = divideAmount(dueDetails != null ? dueDetails.getAmount() : null, noOfPersons);
-			item.setUnitPrice(unitPrice);
-			item.setQuantity(String.valueOf(noOfPersons));
-			item.setAmount(dueDetails != null ? dueDetails.getAmount() : null);
-			return item;
-		}
-		item.setAmount(resolveNonPerHeadReceiptAmount(dueDetails));
-		return item;
-	}
-
-	private boolean isPerHeadReceiptPayment(PayDueRequest request, DueAmountDetails dueDetails) {
-		if (!hasText(request != null ? request.getNoOfPersons() : null)) {
-			return false;
-		}
-		if (!hasText(dueDetails != null ? dueDetails.getPaymentCapita() : null)) {
-			return true;
-		}
-		return isPerHeadPaymentCapita(dueDetails.getPaymentCapita());
-	}
-
-	private boolean isPerHeadPaymentCapita(String paymentCapita) {
-		if (!hasText(paymentCapita)) {
-			return false;
-		}
-		return "PER_HEAD".equalsIgnoreCase(paymentCapita.trim());
-	}
-
-	private String resolveNonPerHeadReceiptAmount(DueAmountDetails dueDetails) {
-		if (hasText(dueDetails != null ? dueDetails.getAmount() : null)) {
-			return dueDetails.getAmount();
-		}
-		return dueDetails != null ? dueDetails.getTotalAmount() : null;
-	}
-
-	private String divideAmount(String amount, int divisor) {
-		if (!hasText(amount)) {
-			return amount;
-		}
-		if (divisor == 0) {
-			throw new IllegalArgumentException("divisor must not be zero");
-		}
-		return formatNumber(parseNumeric(amount).divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP));
-	}
-
-	private String multiplyAmount(String amount, int multiplier) {
-		if (!hasText(amount)) {
-			return amount;
-		}
-		return formatNumber(parseNumeric(amount).multiply(BigDecimal.valueOf(multiplier)));
-	}
-
-	private int getPositiveNoOfPersons(String noOfPersons) {
-		if (!hasText(noOfPersons)) {
-			return 0;
-		}
-		try {
-			int parsedNoOfPersons = Integer.parseInt(noOfPersons.trim());
-			return parsedNoOfPersons > 0 ? parsedNoOfPersons : 0;
-		} catch (NumberFormatException ex) {
-			return 0;
-		}
-	}
-
-	private int resolvePerHeadPersonCount(String noOfPersons) {
-		return Math.max(getPositiveNoOfPersons(noOfPersons), 1);
-	}
-
-	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetails dueDetails) {
-		List<AddedCharges> receiptAddedCharges = cloneAddedCharges(dueDetails != null ? dueDetails.getAddedCharges() : null);
-		if (receiptAddedCharges == null) {
-			receiptAddedCharges = new ArrayList<>();
-		}
-		if (dueDetails != null && hasText(dueDetails.getGstAmount())) {
-			AddedCharges gstCharge = new AddedCharges();
-			gstCharge.setChargeName("GST");
-			gstCharge.setChargeType("percentage");
-			gstCharge.setValue(dueDetails.getGstPercentage());
-			gstCharge.setFinalChargeValue(dueDetails.getGstAmount());
-			receiptAddedCharges.add(gstCharge);
-		}
-		return receiptAddedCharges.isEmpty() ? null : receiptAddedCharges;
-	}
-
-	private DiscFinReceipt buildDiscFinReceipt(DueAmountDetails dueDetails) {
-		if (dueDetails == null) {
-			return null;
-		}
-		DiscFinReceipt discFinReceipt = new DiscFinReceipt();
-		discFinReceipt.setDiscountCode(dueDetails.getDiscountCode());
-		discFinReceipt.setDiscountAmount(dueDetails.getDiscountedAmount());
-		discFinReceipt.setFineCode(dueDetails.getFineCode());
-		discFinReceipt.setFineAmount(dueDetails.getFineAmount());
-		if (!hasText(discFinReceipt.getDiscountCode()) && !hasText(discFinReceipt.getDiscountAmount())
-				&& !hasText(discFinReceipt.getFineCode()) && !hasText(discFinReceipt.getFineAmount())) {
-			return null;
-		}
-		return discFinReceipt;
-	}
-
-	private DueAmountDetails getMatchingDueDetails(PayDueRequest request) {
-		if (hasText(request != null ? request.getNoOfPersons() : null)) {
-			GetDueAmountForPerHeadCalculationRequest perHeadRequest = new GetDueAmountForPerHeadCalculationRequest();
-			perHeadRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-			perHeadRequest.setDueId(request != null ? request.getDueId() : null);
-			perHeadRequest.setNoOfPerson(request != null ? request.getNoOfPersons() : null);
-			GetDueAmountForPerHeadCalculationResponse perHeadResponse = flatInterface
-					.getDueAmountForPerHeadCalculation(perHeadRequest);
-			DueAmountDetails dueAmountDetails = perHeadResponse != null ? perHeadResponse.getDueAmountDetails() : null;
-			if (dueAmountDetails != null) {
-				return dueAmountDetails;
-			}
-			throw new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33);
-		}
-		GetDueAmountForFlatRequest dueRequest = new GetDueAmountForFlatRequest();
-		dueRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		dueRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
-		GetDueAmountForFlatResponse dueResponse = flatInterface.getDueAmountForFlat(dueRequest);
-		List<DueAmountDetails> duePaymentList = dueResponse != null ? dueResponse.getDuePaymentList() : null;
-		if (duePaymentList == null) {
-			throw new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33);
-		}
-		return duePaymentList.stream().filter(details -> details != null && details.getDueId() != null)
-				.filter(details -> details.getDueId().equals(request.getDueId())).findFirst()
-				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 	}
 
 	private String createTransactionId(String tender, String amount, String paymentId, LocalDate todayDate) {
@@ -1335,21 +761,6 @@ public class PaymentServices implements PaymentInterface {
 			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
 		}
 		if (SecuraConstants.TRANSACTION_CAUSE_EVENT.equalsIgnoreCase(causeId)) {
-			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
-		}
-		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
-	}
-
-	private String resolvePaymentCauseId(CreatePaymentRequest request) {
-		String cause = request == null ? null : trimValue(request.getCause());
-		if (!hasText(cause)) {
-			return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
-		}
-		String normalizedCause = cause.toUpperCase(Locale.ROOT);
-		if (SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE.equals(normalizedCause)) {
-			return SecuraConstants.TRANSACTION_CAUSE_MAINTENANCE;
-		}
-		if (SecuraConstants.TRANSACTION_CAUSE_EVENT.equals(normalizedCause)) {
 			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
 		}
 		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;

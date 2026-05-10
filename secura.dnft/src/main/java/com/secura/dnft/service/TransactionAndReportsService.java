@@ -22,7 +22,6 @@ import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
-import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
 import com.secura.dnft.request.response.GetTransactionRequest;
@@ -150,10 +149,9 @@ public class TransactionAndReportsService {
 			}
 
 			BigDecimal trnsAmt = parseBigDecimal(trns.getTrnsAmt());
-			DueAmountDetails due = genericService.fromJson(trns.getDueDetails(), DueAmountDetails.class);
 
-			BigDecimal totalAddedCharges = due != null ? parseBigDecimal(due.getTotalAddedCharges()) : BigDecimal.ZERO;
-			BigDecimal gstAmount = due != null ? parseBigDecimal(due.getGstAmount()) : BigDecimal.ZERO;
+			BigDecimal totalAddedCharges = BigDecimal.ZERO;
+			BigDecimal gstAmount = BigDecimal.ZERO;
 
 			BigDecimal totalAmountIncludingTax = trnsAmt;
 			BigDecimal totalAmountExcludingTax = trnsAmt.subtract(totalAddedCharges).subtract(gstAmount);
@@ -231,7 +229,7 @@ public class TransactionAndReportsService {
 		item.setNoOfPerson(transaction.getNoOfPerson());
 		item.setThirdPartyTrnsRef(transaction.getThirdPartyTrnsRef());
 		item.setThirdPartyName(transaction.getThirdPartyName());
-		item.setDueDetails(genericService.fromJson(transaction.getDueDetails(), DueAmountDetails.class));
+		item.setDueDetails(null);
 		item.setCause(transaction.getCause());
 		item.setBankInstrumentTenderDetails(
 				parseList(transaction.getBankInstrumentTenderDetails(),
