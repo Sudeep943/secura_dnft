@@ -2,8 +2,6 @@ package com.secura.dnft.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,7 +9,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -19,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,12 +36,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
-import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
@@ -58,7 +52,6 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
-import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -75,7 +68,6 @@ import com.secura.dnft.request.response.UploadFlatDetailsResponse;
 @Service
 public class FlatServices implements FlatInterface {
 
-	private static final String OPTIONAL_PAYMENT_TYPE = "optional";
 	private static final String[] UPLOAD_HEADERS = { "Flat No", "Owner Name", "Owner Gender", "Tower", "Block",
 			"Possesion Date", "Owner Type", "Flat Area", "Owner DOB", "Owner Phone Number", "Owner Email Number" };
 	private static final DateTimeFormatter SAMPLE_DATE_FORMAT = new DateTimeFormatterBuilder().parseCaseInsensitive()
@@ -83,9 +75,6 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private FlatRepository flatRepository;
-
-	@Autowired
-	private DiscFinRepository discFinRepository;
 
 	@Autowired
 	private ProfileRepository profileRepository;
@@ -270,43 +259,8 @@ public class FlatServices implements FlatInterface {
 	public GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request) {
 		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		List<DueAmountDetails> duePaymentList = new ArrayList<>();
-		BigDecimal totalDueAmount = BigDecimal.ZERO;
-		BigDecimal totalMandatoryPaymentAmount = BigDecimal.ZERO;
-		BigDecimal totalOptionalPaymentAmount = BigDecimal.ZERO;
-		try {
-			String flatId = request != null ? request.getFlatId() : null;
-			if (flatId != null && !flatId.isBlank()) {
-				Optional<Flat> flatOptional = flatRepository.findById(flatId);
-				if (flatOptional.isPresent()) {
-					duePaymentList = parsePendingDueAmountDetails(flatOptional.get().getFlatPndngPaymntLst());
-				}
-			}
-			LocalDate today = LocalDate.now();
-			for (DueAmountDetails details : duePaymentList) {
-				if (details == null) {
-					continue;
-				}
-				BigDecimal finalAmount = applyDiscountAndFineIfApplicable(details, today);
-				BigDecimal roundedFinalAmount = roundAmountByThreshold(finalAmount);
-				details.setTotalAmount(formatNumber(roundedFinalAmount));
-				totalDueAmount = totalDueAmount.add(roundedFinalAmount);
-				if (isOptionalPaymentType(details.getPaymentType())) {
-					totalOptionalPaymentAmount = totalOptionalPaymentAmount.add(roundedFinalAmount);
-				} else {
-					totalMandatoryPaymentAmount = totalMandatoryPaymentAmount.add(roundedFinalAmount);
-				}
-			}
-			response.setDuePaymentList(duePaymentList);
-			response.setTotalDueAmount(formatNumber(totalDueAmount));
-			response.setTotalMandatoryPaymentAmount(formatNumber(totalMandatoryPaymentAmount));
-			response.setTotalOptionalPaymentAmount(formatNumber(totalOptionalPaymentAmount));
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
-		} catch (Exception e) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
-		}
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
@@ -315,21 +269,8 @@ public class FlatServices implements FlatInterface {
 			GetDueAmountForPerHeadCalculationRequest request) {
 		GetDueAmountForPerHeadCalculationResponse response = new GetDueAmountForPerHeadCalculationResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		try {
-			DueAmountDetails dueAmountDetails = findDueAmountDetailsByDueId(request);
-			DueAmountDetails calculatedDueAmountDetails = cloneDueAmountDetails(dueAmountDetails);
-			int personCount = getPositiveNoOfPersons(request != null ? request.getNoOfPerson() : null);
-			BigDecimal finalAmount = applyDiscountAndFineIfApplicable(calculatedDueAmountDetails, LocalDate.now());
-			scaleDueAmountDetails(calculatedDueAmountDetails, personCount);
-			BigDecimal scaledFinalAmount = finalAmount.multiply(BigDecimal.valueOf(personCount));
-			calculatedDueAmountDetails.setTotalAmount(formatNumber(roundAmountByThreshold(scaledFinalAmount)));
-			response.setDueAmountDetails(calculatedDueAmountDetails);
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
-		} catch (Exception e) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
-		}
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
@@ -349,389 +290,6 @@ public class FlatServices implements FlatInterface {
 			flat.setFlatPossnDate(genericService.getCorrectLocalDateForInputDate(possnDate));
 		}
 		return flat;
-	}
-
-	private List<DueAmountDetails> parsePendingDueAmountDetails(String pendingDueJson) {
-		if (pendingDueJson == null || pendingDueJson.isBlank()) {
-			return new ArrayList<>();
-		}
-		try {
-			List<DueAmountDetails> existing = genericService.fromJson(pendingDueJson,
-					new TypeReference<List<DueAmountDetails>>() {
-					});
-			return existing != null ? new ArrayList<>(existing) : new ArrayList<>();
-		} catch (RuntimeException e) {
-			return new ArrayList<>();
-		}
-	}
-
-	private DueAmountDetails findDueAmountDetailsByDueId(GetDueAmountForPerHeadCalculationRequest request) {
-		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
-		String dueId = request != null ? request.getDueId() : null;
-		if (!hasText(dueId)) {
-			throw new IllegalArgumentException("dueId is required");
-		}
-		List<Flat> apartmentFlats = hasText(apartmentId) ? flatRepository.findByAprmntId(apartmentId) : flatRepository.findAll();
-		for (Flat flat : apartmentFlats) {
-			DueAmountDetails matched = parsePendingDueAmountDetails(flat.getFlatPndngPaymntLst()).stream()
-					.filter(Objects::nonNull)
-					.filter(details -> dueId.equals(details.getDueId()))
-					.findFirst()
-					.orElse(null);
-			if (matched != null) {
-				return matched;
-			}
-		}
-		throw new IllegalArgumentException("Due amount details not found");
-	}
-
-	private DueAmountDetails cloneDueAmountDetails(DueAmountDetails details) {
-		if (details == null) {
-			return null;
-		}
-		DueAmountDetails copy = new DueAmountDetails();
-		copy.setDueDate(details.getDueDate());
-		copy.setPaymentId(details.getPaymentId());
-		copy.setDueId(details.getDueId());
-		copy.setAmount(details.getAmount());
-		copy.setGstAmount(details.getGstAmount());
-		copy.setTotalAmount(details.getTotalAmount());
-		copy.setPaymentName(details.getPaymentName());
-		copy.setPaymentType(details.getPaymentType());
-		copy.setEventPayment(details.isEventPayment());
-		copy.setAllowedPaymentModes(details.getAllowedPaymentModes() == null ? null : new ArrayList<>(details.getAllowedPaymentModes()));
-		copy.setPaymentCapita(details.getPaymentCapita());
-		copy.setAddedCharges(cloneAddedCharges(details.getAddedCharges()));
-		copy.setTotalAddedCharges(details.getTotalAddedCharges());
-		copy.setGstPercentage(details.getGstPercentage());
-		copy.setDiscountCode(details.getDiscountCode());
-		copy.setFineCode(details.getFineCode());
-		copy.setDiscFnValue(details.getDiscFnValue());
-		copy.setDiscountedAmount(details.getDiscountedAmount());
-		copy.setFineAmount(details.getFineAmount());
-		copy.setFineType(details.getFineType());
-		return copy;
-	}
-
-	private List<AddedCharges> cloneAddedCharges(List<AddedCharges> addedCharges) {
-		List<AddedCharges> cloned = new ArrayList<>();
-		if (addedCharges == null) {
-			return cloned;
-		}
-		for (AddedCharges charge : addedCharges) {
-			if (charge == null) {
-				continue;
-			}
-			AddedCharges copy = new AddedCharges();
-			copy.setChargeName(charge.getChargeName());
-			copy.setChargeType(charge.getChargeType());
-			copy.setValue(charge.getValue());
-			copy.setFinalChargeValue(charge.getFinalChargeValue());
-			cloned.add(copy);
-		}
-		return cloned;
-	}
-
-	private void scaleDueAmountDetails(DueAmountDetails details, int personCount) {
-		if (details == null || personCount <= 1) {
-			return;
-		}
-		BigDecimal multiplier = BigDecimal.valueOf(personCount);
-		details.setAmount(multiplyAndFormat(details.getAmount(), multiplier));
-		details.setGstAmount(multiplyAndFormat(details.getGstAmount(), multiplier));
-		details.setTotalAddedCharges(multiplyAndFormat(details.getTotalAddedCharges(), multiplier));
-		details.setDiscountedAmount(multiplyAndFormat(details.getDiscountedAmount(), multiplier));
-		details.setFineAmount(multiplyAndFormat(details.getFineAmount(), multiplier));
-		List<AddedCharges> addedCharges = details.getAddedCharges();
-		if (addedCharges != null) {
-			for (AddedCharges charge : addedCharges) {
-				if (charge != null) {
-					charge.setFinalChargeValue(multiplyAndFormat(charge.getFinalChargeValue(), multiplier));
-				}
-			}
-		}
-	}
-
-	private String multiplyAndFormat(String value, BigDecimal multiplier) {
-		if (!hasText(value)) {
-			return value;
-		}
-		return formatNumber(parseNumeric(value).multiply(multiplier));
-	}
-
-	private int getPositiveNoOfPersons(String noOfPerson) {
-		if (!hasText(noOfPerson)) {
-			return 1;
-		}
-		try {
-			int parsedNoOfPersons = Integer.parseInt(noOfPerson.trim());
-			return parsedNoOfPersons > 0 ? parsedNoOfPersons : 1;
-		} catch (NumberFormatException e) {
-			return 1;
-		}
-	}
-
-	private BigDecimal applyDiscountAndFineIfApplicable(DueAmountDetails details, LocalDate today) {
-		BigDecimal originalTotalAmount = parseNumeric(details.getTotalAmount());
-		details.setDiscFnValue(null);
-		details.setDiscountedAmount(null);
-		details.setFineAmount(null);
-		details.setFineType(null);
-		BigDecimal amountAfterDiscount = applyDiscountIfApplicable(details, today, originalTotalAmount);
-		return applyFineIfApplicable(details, today, amountAfterDiscount);
-	}
-
-	private boolean isOptionalPaymentType(String paymentType) {
-		return paymentType != null && paymentType.trim().equalsIgnoreCase(OPTIONAL_PAYMENT_TYPE);
-	}
-
-	private BigDecimal applyDiscountIfApplicable(DueAmountDetails details, LocalDate today, BigDecimal originalTotalAmount) {
-		String discountCode = details.getDiscountCode();
-		if (discountCode == null || discountCode.isBlank()) {
-			return originalTotalAmount;
-		}
-		List<DiscFin> discountList = discFinRepository.findByDiscFnId(discountCode);
-		if (discountList.isEmpty()) {
-			return originalTotalAmount;
-		}
-		DiscFin discount = discountList.get(0);
-		if (!isDiscFnType(discount, SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
-			return originalTotalAmount;
-		}
-		if (!isDiscFinApplicable(discount, details.getDueDate(), today)) {
-			return originalTotalAmount;
-		}
-		BigDecimal discFnValue = resolveDiscFnValue(discount);
-		details.setDiscFnValue(formatNumber(discFnValue));
-		String discountMode = discount.getDiscFnMode();
-		if (discountMode != null && discountMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_AMOUNT)) {
-			BigDecimal discountedAmount = discFnValue.min(originalTotalAmount);
-			details.setDiscountedAmount(formatNumber(discountedAmount));
-			return originalTotalAmount.subtract(discountedAmount).max(BigDecimal.ZERO);
-		}
-		if (discountMode != null && discountMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_PERCENTAGE)) {
-			// Percentage discount is applied only on the amount excluding fixed amount-type added
-			// charges, then the fixed amount charges are added back to preserve them unchanged.
-			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
-			BigDecimal totalAmountExcludingAmountAddedCharges = originalTotalAmount.subtract(amountAddedCharges)
-					.max(BigDecimal.ZERO);
-			BigDecimal discountedAmount = totalAmountExcludingAmountAddedCharges.multiply(discFnValue)
-					.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-			details.setDiscountedAmount(formatNumber(discountedAmount));
-			return totalAmountExcludingAmountAddedCharges.subtract(discountedAmount).add(amountAddedCharges)
-					.max(BigDecimal.ZERO);
-		}
-		return originalTotalAmount;
-	}
-
-	private BigDecimal applyFineIfApplicable(DueAmountDetails details, LocalDate today, BigDecimal amountAfterDiscount) {
-		String fineCode = details.getFineCode();
-		if (fineCode == null || fineCode.isBlank()) {
-			return amountAfterDiscount;
-		}
-		List<DiscFin> fineList = discFinRepository.findByDiscFnId(fineCode);
-		if (fineList.isEmpty()) {
-			return amountAfterDiscount;
-		}
-		DiscFin fine = fineList.get(0);
-		if (!isDiscFnType(fine, SecuraConstants.DISC_FN_TYPE_FINE)) {
-			return amountAfterDiscount;
-		}
-		BigDecimal discFnValue = resolveDiscFnValue(fine);
-		details.setDiscFnValue(formatNumber(discFnValue));
-		details.setFineType(normalizeDiscFnType(fine.getDiscFnType()));
-		if (!isDiscFinApplicable(fine, details.getDueDate(), today)) {
-			details.setFineAmount("0");
-			return amountAfterDiscount;
-		}
-		String fineMode = fine.getDiscFnMode();
-		BigDecimal fineAmount;
-		if (fineMode != null && fineMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_PERCENTAGE)) {
-			BigDecimal amountAddedCharges = sumAmountTypeAddedCharges(details.getAddedCharges());
-			BigDecimal amountExcludingAddedCharges = amountAfterDiscount.subtract(amountAddedCharges).max(BigDecimal.ZERO);
-			fineAmount = calculateFineAmount(fine, discFnValue, amountExcludingAddedCharges, details.getDueDate(), today);
-			details.setFineAmount(formatNumber(fineAmount));
-			return amountExcludingAddedCharges.add(fineAmount).add(amountAddedCharges).max(BigDecimal.ZERO);
-		}
-		fineAmount = calculateFineAmount(fine, discFnValue, amountAfterDiscount, details.getDueDate(), today);
-		details.setFineAmount(formatNumber(fineAmount));
-		return amountAfterDiscount.add(fineAmount).max(BigDecimal.ZERO);
-	}
-
-	private BigDecimal calculateFineAmount(DiscFin fine, BigDecimal discFnValue, BigDecimal baseAmount, LocalDate dueDate,
-			LocalDate today) {
-		String fineMode = fine.getDiscFnMode();
-		if (fineMode == null) {
-			return BigDecimal.ZERO;
-		}
-		LocalDate startDate = resolveFineStartDate(fine, dueDate);
-		boolean cumulative = isCumulativeType(fine.getDiscFnCycleType());
-		if (fineMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_AMOUNT)) {
-			if (!cumulative) {
-				return discFnValue.max(BigDecimal.ZERO);
-			}
-			long totalCyclesPassed = calculateTotalCyclesPassed(startDate, today, fine.getDiscFnCumlatonCycle());
-			return discFnValue.multiply(BigDecimal.valueOf(totalCyclesPassed)).max(BigDecimal.ZERO);
-		}
-		if (fineMode.trim().equalsIgnoreCase(SecuraConstants.DISC_FN_MODE_PERCENTAGE)) {
-			BigDecimal percentageRate = discFnValue.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP);
-			if (!cumulative) {
-				return baseAmount.multiply(percentageRate).setScale(2, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
-			}
-			long totalCyclesPassed = calculateTotalCyclesPassed(startDate, today, fine.getDiscFnCumlatonCycle());
-			if (totalCyclesPassed <= 0) {
-				return BigDecimal.ZERO;
-			}
-			BigDecimal cumulativeBase = baseAmount;
-			BigDecimal multiplier = BigDecimal.ONE.add(percentageRate);
-			for (long cycle = 0; cycle < totalCyclesPassed; cycle++) {
-				cumulativeBase = cumulativeBase.multiply(multiplier);
-			}
-			return cumulativeBase.subtract(baseAmount).setScale(2, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
-		}
-		return BigDecimal.ZERO;
-	}
-
-	private long calculateTotalCyclesPassed(LocalDate startDate, LocalDate today, String cycle) {
-		if (startDate == null || today == null || today.isBefore(startDate)) {
-			return 0;
-		}
-		String normalizedCycle = cycle == null ? "" : cycle.trim().toUpperCase();
-		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_DAILY)) {
-			return ChronoUnit.DAYS.between(startDate, today);
-		}
-		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTHLY)
-				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED)) {
-			return ChronoUnit.MONTHS.between(startDate, today);
-		}
-		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUARTERLY)
-				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED)) {
-			return ChronoUnit.MONTHS.between(startDate, today) / 3;
-		}
-		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALFYEARLY)
-				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY)
-				|| normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_HALF_DASH_YEARLY)) {
-			return ChronoUnit.MONTHS.between(startDate, today) / 6;
-		}
-		if (normalizedCycle.equals(SecuraConstants.DISC_FN_CYCLE_YEARLY)) {
-			return ChronoUnit.YEARS.between(startDate, today);
-		}
-		return 0;
-	}
-
-	private boolean isCumulativeType(String discFnType) {
-		if (discFnType == null) {
-			return false;
-		}
-		String normalizedType = discFnType.trim().toUpperCase();
-		return normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMULATIVE)
-				|| normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMULATIVE)
-				|| normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMILATIVE)
-				|| normalizedType.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
-	}
-
-	private String normalizeDiscFnType(String discFnType) {
-		return discFnType == null ? null : discFnType.trim();
-	}
-
-	private BigDecimal resolveDiscFnValue(DiscFin discFin) {
-		BigDecimal discFnValue = parseNumeric(discFin.getDiscFinValue());
-		if (discFnValue.compareTo(BigDecimal.ZERO) != 0) {
-			return discFnValue;
-		}
-		return parseNumeric(discFin.getDiscFnCumlatonCycle());
-	}
-
-	private boolean isDiscFinApplicable(DiscFin discFin, LocalDate dueDate, LocalDate today) {
-		if (today == null) {
-			return false;
-		}
-		LocalDate startDate = isDiscFnType(discFin, SecuraConstants.DISC_FN_TYPE_FINE)
-				? resolveFineStartDate(discFin, dueDate)
-				: resolveDiscountStartDate(discFin, dueDate);
-		if (startDate == null || today.isBefore(startDate)) {
-			return false;
-		}
-		LocalDate endDateOfDiscount = discFin.getDiscFnEndDt() != null ? discFin.getDiscFnEndDt().toLocalDate() : null;
-		if (endDateOfDiscount == null) {
-			return true;
-		}
-		return !today.isAfter(endDateOfDiscount);
-	}
-
-	private LocalDate resolveFineStartDate(DiscFin discFin, LocalDate dueDate) {
-		if (Boolean.TRUE.equals(discFin.getDueDateAsStartDateFlag())) {
-			return dueDate;
-		}
-		if (discFin.getDiscFnStrtDt() != null) {
-			return discFin.getDiscFnStrtDt().toLocalDate();
-		}
-		return dueDate;
-	}
-
-	private LocalDate resolveDiscountStartDate(DiscFin discFin, LocalDate dueDate) {
-		// Discount start-date logic intentionally does not use dueDateAsStartDateFlag.
-		if (discFin.getDiscFnStrtDt() != null) {
-			return discFin.getDiscFnStrtDt().toLocalDate();
-		}
-		return dueDate;
-	}
-
-	private boolean isDiscFnType(DiscFin discFin, String expectedType) {
-		if (discFin == null || discFin.getDiscFnType() == null || expectedType == null) {
-			return false;
-		}
-		return discFin.getDiscFnType().trim().equalsIgnoreCase(expectedType);
-	}
-
-	private BigDecimal sumAmountTypeAddedCharges(List<AddedCharges> addedCharges) {
-		if (addedCharges == null || addedCharges.isEmpty()) {
-			return BigDecimal.ZERO;
-		}
-		BigDecimal totalAmountCharges = BigDecimal.ZERO;
-		for (AddedCharges charge : addedCharges) {
-			if (charge == null) {
-				continue;
-			}
-			String chargeType = charge.getChargeType();
-			if (chargeType != null && chargeType.trim().equalsIgnoreCase("amount")) {
-				totalAmountCharges = totalAmountCharges.add(parseNumeric(charge.getFinalChargeValue()));
-			}
-		}
-		return totalAmountCharges;
-	}
-
-	private BigDecimal parseNumeric(String input) {
-		if (input == null || input.trim().isEmpty()) {
-			return BigDecimal.ZERO;
-		}
-		String normalized = input.replace("%", "").replace(",", "").trim();
-		try {
-			return new BigDecimal(normalized);
-		} catch (NumberFormatException e) {
-			return BigDecimal.ZERO;
-		}
-	}
-
-	private String formatNumber(BigDecimal value) {
-		if (value == null) {
-			return "0";
-		}
-		if (value.compareTo(BigDecimal.ZERO) == 0) {
-			return "0";
-		}
-		return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
-	}
-
-	private BigDecimal roundAmountByThreshold(BigDecimal amount) {
-		if (amount == null) {
-			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-		}
-		BigDecimal normalized = amount.stripTrailingZeros();
-		BigDecimal decimalPart = normalized.remainder(BigDecimal.ONE).abs();
-		RoundingMode roundingMode = decimalPart.compareTo(BigDecimal.valueOf(0.5)) > 0 ? RoundingMode.UP
-				: RoundingMode.DOWN;
-		return normalized.setScale(0, roundingMode).setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private List<GetAllFlatsResponse.BlockDetails> buildBlockHierarchy(List<Flat> apartmentFlats) {
