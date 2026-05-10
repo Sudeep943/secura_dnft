@@ -60,7 +60,7 @@ INSERT INTO public.society_collection_types
 (collection_type, purpose_of_collection, sac_code, taxable, type_constant)
 VALUES
 ('Maintenance', 'Routine upkeep, security, housekeeping, and common electricity expenses', '9995', true, 'MAINTENANCE'),
-('Sinking Fund', 'Long-term major repairs and structural replacement', '9995', true, 'SINKING FUND'),
+('Sinking Fund', 'Long-term major repairs and structural replacement', '9995', true, 'SINKING_FUND'),
 ('Repair & Maintenance Fund', 'Building repairs, plumbing, painting, and lift servicing', '9995', true, 'REPAIR_MAINTENANCE_FUND'),
 ('Corpus Fund / Reserve Fund', 'Capital reserve for future projects and contingencies', '9995', true, 'CORPUS_FUND'),
 ('Car Parking Charges', 'Use and maintenance of parking facilities', '9995', true, 'CAR_PARKING_CHARGES'),
