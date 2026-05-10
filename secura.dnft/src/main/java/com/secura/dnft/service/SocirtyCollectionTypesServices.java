@@ -5,20 +5,20 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.secura.dnft.dao.SocirtyCollectionTypesRepository;
+import com.secura.dnft.dao.SocietyCollectionTypesRepository;
 import com.secura.dnft.entity.SocietyCollectionTypes;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
-import com.secura.dnft.request.response.GetSocirtyCollectionTypesResponse;
+import com.secura.dnft.request.response.GetSocietyCollectionTypesResponse;
 
 @Service
 public class SocirtyCollectionTypesServices {
 
 	@Autowired
-	private SocirtyCollectionTypesRepository socirtyCollectionTypesRepository;
+	private SocietyCollectionTypesRepository socirtyCollectionTypesRepository;
 
-	public GetSocirtyCollectionTypesResponse getAllSocirtyCollectionTypes() {
-		GetSocirtyCollectionTypesResponse response = new GetSocirtyCollectionTypesResponse();
+	public GetSocietyCollectionTypesResponse getAllSocietyCollectionTypes() {
+		GetSocietyCollectionTypesResponse response = new GetSocietyCollectionTypesResponse();
 		List<SocietyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
 		response.setSocirtyCollectionTypes(collectionTypes);
 		if (collectionTypes.isEmpty()) {

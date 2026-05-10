@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
-import com.secura.dnft.request.response.GetSocirtyCollectionTypesResponse;
+import com.secura.dnft.request.response.GetSocietyCollectionTypesResponse;
 import com.secura.dnft.service.SocirtyCollectionTypesServices;
 
 @CrossOrigin(origins = "*")
@@ -19,11 +19,11 @@ public class SocietyCollectionTypesController {
 	@Autowired
 	private SocirtyCollectionTypesServices socirtyCollectionTypesServices;
 
-	@GetMapping("/getAll")
-	public GetSocirtyCollectionTypesResponse getAllSocirtyCollectionTypes() {
-		GetSocirtyCollectionTypesResponse response = new GetSocirtyCollectionTypesResponse();
+	@GetMapping("/getAllsocietyCollectionTypes")
+	public GetSocietyCollectionTypesResponse getAllSocietyCollectionTypes() {
+		GetSocietyCollectionTypesResponse response = new GetSocietyCollectionTypesResponse();
 		try {
-			return socirtyCollectionTypesServices.getAllSocirtyCollectionTypes();
+			return socirtyCollectionTypesServices.getAllSocietyCollectionTypes();
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);

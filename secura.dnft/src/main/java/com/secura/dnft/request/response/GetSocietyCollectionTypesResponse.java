@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.secura.dnft.entity.SocietyCollectionTypes;
 
-public class GetSocirtyCollectionTypesResponse {
+public class GetSocietyCollectionTypesResponse {
 
 	private String message;
 	private String messageCode;
