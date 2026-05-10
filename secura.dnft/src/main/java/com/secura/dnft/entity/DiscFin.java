@@ -48,9 +48,6 @@ public class DiscFin {
 	@Column(name = "minimum_payment_amount")
 	private String minimumPaymentAmount;
 
-	@Column(name = "disc_fin_payment_cycle", columnDefinition = "TEXT")
-	private String discFinPaymentCycle;
-
 	@Column(name = "creat_ts")
 	@CreationTimestamp
 	private LocalDateTime creatTs;
@@ -186,13 +183,5 @@ public class DiscFin {
 
 	public void setMinimumPaymentAmount(String minimumPaymentAmount) {
 		this.minimumPaymentAmount = minimumPaymentAmount;
-	}
-
-	public String getDiscFinPaymentCycle() {
-		return discFinPaymentCycle;
-	}
-
-	public void setDiscFinPaymentCycle(String discFinPaymentCycle) {
-		this.discFinPaymentCycle = discFinPaymentCycle;
 	}
 }

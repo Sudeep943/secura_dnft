@@ -50,7 +50,8 @@ public class DiscFinServices implements DiscFinInterface {
 			for (DiscFinCycleDiscount cycleDiscount : cycleDiscountList) {
 				DiscFin entity = buildBaseEntity(request, discFnId, apartmentId, userId);
 				entity.setDiscFnCycleType(cycleDiscount.getCycle());
-				entity.setDiscFinPaymentCycle(genericService.toJson(cycleDiscount));
+				entity.setDiscFnMode(cycleDiscount.getType());
+				entity.setDiscFinValue(cycleDiscount.getValue());
 				discFinRepository.save(entity);
 			}
 		} else {
@@ -222,4 +223,3 @@ public class DiscFinServices implements DiscFinInterface {
 		throw new IllegalStateException("Unable to generate unique discFnId");
 	}
 }
-
