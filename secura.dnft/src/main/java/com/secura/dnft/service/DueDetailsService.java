@@ -349,8 +349,15 @@ public class DueDetailsService {
 			return null;
 		}
 		String normalizedCycle = normalizeCycle(paymentCycle);
-		return discFins.stream().filter(Objects::nonNull)
+		DiscFin cycleSpecificDiscFin = discFins.stream().filter(Objects::nonNull)
 				.filter(discFin -> normalizedCycle.equals(normalizeCycle(discFin.getDiscFnCycleType()))).findFirst()
+				.orElse(null);
+		if (cycleSpecificDiscFin != null) {
+			return cycleSpecificDiscFin;
+		}
+		String fixedCycle = normalizeCycle(SecuraConstants.DISC_FN_CYCLE_FIXED);
+		return discFins.stream().filter(Objects::nonNull)
+				.filter(discFin -> fixedCycle.equals(normalizeCycle(discFin.getDiscFnCycleType()))).findFirst()
 				.orElse(null);
 	}
 

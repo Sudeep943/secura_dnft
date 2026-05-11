@@ -186,6 +186,68 @@ class DueDetailsServiceTest {
 		assertNull(monthlyEntity.getDiscountCode());
 	}
 
+	@Test
+	void calculateDuesForPayment_shouldApplyFixedDiscountCodeAcrossAllPaymentCycles() {
+		PaymentEntity monthlyPayment = createPayment("PAY3001", "APR003", "MONTHLY", "100", "DISC_JSON", "ADDED_JSON");
+		monthlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
+		monthlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-01-31T00:00:00"));
+
+		PaymentEntity halfYearlyPayment = createPayment("PAY3001", "APR003", "HALF YEARLY", "100", "DISC_JSON", "ADDED_JSON");
+		halfYearlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
+		halfYearlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-06-30T00:00:00"));
+
+		PaymentEntity yearlyPayment = createPayment("PAY3001", "APR003", "YEARLY", "100", "DISC_JSON", "ADDED_JSON");
+		yearlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
+		yearlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-12-31T00:00:00"));
+
+		DiscFin fixedDiscount = new DiscFin();
+		fixedDiscount.setDiscFnId("DISC10");
+		fixedDiscount.setDiscFnCycleType("FIXED");
+		fixedDiscount.setDiscFnMode("PERCENTAGE");
+		fixedDiscount.setDiscFinValue("10");
+		fixedDiscount.setDiscFnStrtDt(LocalDateTime.now().minusDays(2));
+		fixedDiscount.setDiscFnEndDt(LocalDateTime.now().plusDays(2));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("C-101");
+		flat.setFlatArea("950");
+
+		when(paymentRepository.findByPaymentId("PAY3001"))
+				.thenReturn(List.of(monthlyPayment, halfYearlyPayment, yearlyPayment));
+		when(flatRepository.findByAprmntId("APR003")).thenReturn(List.of(flat));
+		when(discFinRepository.findByDiscFnId("DISC10")).thenReturn(List.of(fixedDiscount));
+		when(genericService.fromJson(eq("DISC_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "DISCOUNT", "code", "DISC10")));
+		when(genericService.fromJson(eq("ADDED_JSON"), any(TypeReference.class))).thenAnswer(invocation -> {
+			AddedCharges percentageCharge = new AddedCharges();
+			percentageCharge.setChargeName("service-charge");
+			percentageCharge.setChargeType("percentage");
+			percentageCharge.setValue("10");
+			return List.of(percentageCharge);
+		});
+		when(genericService.toJson(any())).thenReturn("SERIALIZED_JSON");
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY3001");
+
+		assertEquals("DISC10", response.get("MONTHLY").get("ALL").getDiscountCode());
+		assertEquals("DISC10", response.get("HALF YEARLY").get("ALL").getDiscountCode());
+		assertEquals("DISC10", response.get("YEARLY").get("ALL").getDiscountCode());
+		assertEquals("10", response.get("MONTHLY").get("ALL").getDiscountedAmount());
+		assertEquals("60", response.get("HALF YEARLY").get("ALL").getDiscountedAmount());
+		assertEquals("120", response.get("YEARLY").get("ALL").getDiscountedAmount());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(dueEntityCaptor.capture());
+		List<DueAmountDetailsEntity> savedDueEntities = dueEntityCaptor.getValue();
+		DueAmountDetailsEntity monthlyEntity = savedDueEntities.stream()
+				.filter(entity -> "MONTHLY".equals(entity.getCollectionCycle())).findFirst().orElseThrow();
+		assertEquals("DISC10", monthlyEntity.getDiscountCode());
+		assertEquals("10", monthlyEntity.getDiscountedAmount());
+	}
+
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,
 			String addedCharges) {
 		PaymentEntity payment = new PaymentEntity();
