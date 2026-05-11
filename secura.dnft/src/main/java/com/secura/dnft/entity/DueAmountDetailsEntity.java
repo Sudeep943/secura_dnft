@@ -77,6 +77,9 @@ public class DueAmountDetailsEntity {
 	@Column(name = "discount_mode")
 	private String discountMode;
 
+	@Column(name = "cummilation_cycle")
+	private String cummilationCycle;
+
 	@Column(name = "fine_code")
 	private String fineCode;
 
@@ -88,6 +91,9 @@ public class DueAmountDetailsEntity {
 
 	@Column(name = "fine_amount")
 	private String fineAmount;
+
+	@Column(name = "fine_mode")
+	private String fineMode;
 
 	@Column(name = "fine_type")
 	private String fineType;
@@ -284,6 +290,14 @@ public class DueAmountDetailsEntity {
 		this.fineCode = fineCode;
 	}
 
+	public String getCummilationCycle() {
+		return cummilationCycle;
+	}
+
+	public void setCummilationCycle(String cummilationCycle) {
+		this.cummilationCycle = cummilationCycle;
+	}
+
 	public String getDiscFnValue() {
 		return discFnValue;
 	}
@@ -306,6 +320,14 @@ public class DueAmountDetailsEntity {
 
 	public void setFineAmount(String fineAmount) {
 		this.fineAmount = fineAmount;
+	}
+
+	public String getFineMode() {
+		return fineMode;
+	}
+
+	public void setFineMode(String fineMode) {
+		this.fineMode = fineMode;
 	}
 
 	public String getFineType() {
