@@ -556,7 +556,7 @@ public class DueDetailsService {
 			return 12.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_DAILY.equals(normalized)) {
-			// Daily rate: 1 day expressed as a fraction of a month (365.25/12 days per month)
+			// Daily rate: return months per day (1 day ≈ 12/365.25 months)
 			return 12.0 / 365.25;
 		}
 		return 1.0;
