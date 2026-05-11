@@ -28,6 +28,7 @@ public class DueAmountDetails {
 	private String gstPercentage;
 	private String discountCode;
 	private String fineCode;
+	private String discountMode;
 	@JsonProperty("disc_fn_value")
 	private String discFnValue;
 	@JsonProperty("discountedAmount")
@@ -179,6 +180,14 @@ public class DueAmountDetails {
 
 	public void setFineCode(String fineCode) {
 		this.fineCode = fineCode;
+	}
+
+	public String getDiscountMode() {
+		return discountMode;
+	}
+
+	public void setDiscountMode(String discountMode) {
+		this.discountMode = discountMode;
 	}
 
 	public String getDiscFnValue() {
