@@ -82,6 +82,8 @@ public class DiscFinServices implements DiscFinInterface {
 		}
 		entity.setDiscFnMode(request.getDiscFnMode());
 		entity.setDiscFnCumlatonCycle(request.getDiscFnCumlatonCycle());
+		// discFnCycleType from the request carries the fine calculation type (CUMULATIVE/SIMPLE)
+		entity.setFnCalculationType(request.getDiscFnCycleType());
 		entity.setCreatUsrId(userId);
 		entity.setDiscFinValue(request.getDiscFnValue());
 		entity.setMinimumPaymentAmount(request.getMinimumPaymentAmount());

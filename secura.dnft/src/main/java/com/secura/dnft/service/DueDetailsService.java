@@ -479,30 +479,52 @@ public class DueDetailsService {
 		if (!SecuraConstants.DISC_FN_MODE_PERCENTAGE.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-		if (isCumulativeFine(fineDiscFin.getDiscFnCumlatonCycle())) {
+		if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
 			LocalDate interestStartDate = fineStart != null ? fineStart : today;
 			long dayDiff = ChronoUnit.DAYS.between(interestStartDate, today);
 			if (dayDiff <= 0) {
 				return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 			}
 			BigDecimal percentage = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+			int periodsPerYear = getCompoundingPeriodsPerYear(fineDiscFin.getDiscFnCumlatonCycle());
 			double yearFraction = dayDiff / 365.0d;
-			double compoundedFactor = Math.pow(BigDecimal.ONE.add(percentage).doubleValue(), yearFraction);
+			double periodicRate = percentage.doubleValue() / periodsPerYear;
+			double totalPeriods = yearFraction * periodsPerYear;
+			double compoundedFactor = Math.pow(1 + periodicRate, totalPeriods);
 			BigDecimal compoundedAmount = baseAmount.multiply(BigDecimal.valueOf(compoundedFactor));
 			return compoundedAmount.subtract(baseAmount).setScale(2, RoundingMode.HALF_UP);
 		}
 		return calculatePercentageAmount(baseAmount, fineValue);
 	}
 
-	private boolean isCumulativeFine(String cummilationCycle) {
-		if (cummilationCycle == null) {
+	private boolean isCumulativeFine(String fnCalculationType) {
+		if (fnCalculationType == null) {
 			return false;
 		}
-		String normalized = cummilationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		String normalized = fnCalculationType.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		return normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMULATIVE)
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMULATIVE)
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMILATIVE)
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
+	}
+
+	private int getCompoundingPeriodsPerYear(String cumulationCycle) {
+		if (cumulationCycle == null) {
+			return 1;
+		}
+		String normalized = cumulationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		if (SecuraConstants.DISC_FN_CYCLE_MONTHLY.equals(normalized)
+				|| SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED.equals(normalized)) {
+			return 12;
+		}
+		if (SecuraConstants.DISC_FN_CYCLE_QUARTERLY.equals(normalized)
+				|| SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED.equals(normalized)) {
+			return 4;
+		}
+		if (SecuraConstants.DISC_FN_CYCLE_DAILY.equals(normalized)) {
+			return 365;
+		}
+		return 1;
 	}
 
 	private BigDecimal calculateAmount(PaymentEntity paymentEntity, LocalDate startDate, LocalDate endDate,

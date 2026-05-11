@@ -67,8 +67,19 @@ public class DiscFin {
 	@Column(name = "lst_updt_usr_id")
 	private String lstUpdtUsrId;
 	
+	@Column(name = "fn_calculation_type")
+	private String fnCalculationType;
+
 	@Column(name = "disc_fn_value")
 	private String discFinValue;
+
+	public String getFnCalculationType() {
+		return fnCalculationType;
+	}
+
+	public void setFnCalculationType(String fnCalculationType) {
+		this.fnCalculationType = fnCalculationType;
+	}
 
 	public String getDiscFinValue() {
 		return discFinValue;
