@@ -69,6 +69,7 @@ class DiscFinServicesTest {
 		request.setDiscFnType("DISCOUNT");
 		request.setDiscFnMode("REQUEST_MODE");
 		request.setDiscFnValue("REQUEST_VALUE");
+		request.setDiscFnCycleType("CUMULATIVE");
 		request.setDiscFinCycleDiscountList(List.of(halfYearly, yearly, quarterly));
 		request.setMinimumPaymentAmount("250");
 
@@ -102,6 +103,9 @@ class DiscFinServicesTest {
 		assertEquals("250", savedEntities.get(0).getMinimumPaymentAmount());
 		assertEquals("250", savedEntities.get(1).getMinimumPaymentAmount());
 		assertEquals("250", savedEntities.get(2).getMinimumPaymentAmount());
+		assertEquals("CUMULATIVE", savedEntities.get(0).getFnCalculationType());
+		assertEquals("CUMULATIVE", savedEntities.get(1).getFnCalculationType());
+		assertEquals("CUMULATIVE", savedEntities.get(2).getFnCalculationType());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_29, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_29, response.getMessageCode());
 	}
@@ -117,7 +121,7 @@ class DiscFinServicesTest {
 		request.setDiscFnType("DISCOUNT");
 		request.setDiscFnMode("PERCENTAGE");
 		request.setDiscFnValue("10");
-		request.setDiscFnCycleType("SHOULD_BE_IGNORED");
+		request.setDiscFnCycleType("SIMPLE");
 		request.setMinimumPaymentAmount("250");
 
 		when(discFinRepository.existsByDiscFnId(anyString())).thenReturn(false);
@@ -134,6 +138,7 @@ class DiscFinServicesTest {
 		assertEquals("APR-1", savedEntity.getAprmtId());
 		assertEquals("USR-1", savedEntity.getCreatUsrId());
 		assertEquals("250", savedEntity.getMinimumPaymentAmount());
+		assertEquals("SIMPLE", savedEntity.getFnCalculationType());
 	}
 
 	@Test

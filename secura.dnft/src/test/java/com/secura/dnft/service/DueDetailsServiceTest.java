@@ -478,6 +478,7 @@ class DueDetailsServiceTest {
 		fine.setDiscFnCycleType("FIXED");
 		fine.setDiscFnMode("PERCENTAGE");
 		fine.setDiscFnCumlatonCycle("CUMULATIVE");
+		fine.setFnCalculationType("CUMULATIVE");
 		fine.setDiscFinValue("10");
 		fine.setDueDateAsStartDateFlag(Boolean.TRUE);
 		fine.setDiscFnEndDt(LocalDate.now().plusDays(2));
