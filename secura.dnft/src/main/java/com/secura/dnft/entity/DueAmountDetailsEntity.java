@@ -74,6 +74,9 @@ public class DueAmountDetailsEntity {
 	@Column(name = "discount_code")
 	private String discountCode;
 
+	@Column(name = "discount_mode")
+	private String discountMode;
+
 	@Column(name = "fine_code")
 	private String fineCode;
 
@@ -263,6 +266,14 @@ public class DueAmountDetailsEntity {
 
 	public void setDiscountCode(String discountCode) {
 		this.discountCode = discountCode;
+	}
+
+	public String getDiscountMode() {
+		return discountMode;
+	}
+
+	public void setDiscountMode(String discountMode) {
+		this.discountMode = discountMode;
 	}
 
 	public String getFineCode() {

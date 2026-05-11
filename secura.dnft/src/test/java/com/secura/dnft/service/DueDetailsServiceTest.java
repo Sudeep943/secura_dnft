@@ -245,7 +245,52 @@ class DueDetailsServiceTest {
 		DueAmountDetailsEntity monthlyEntity = savedDueEntities.stream()
 				.filter(entity -> "MONTHLY".equals(entity.getCollectionCycle())).findFirst().orElseThrow();
 		assertEquals("DISC10", monthlyEntity.getDiscountCode());
+		assertEquals("PERCENTAGE", monthlyEntity.getDiscountMode());
 		assertEquals("10", monthlyEntity.getDiscountedAmount());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldMatchQuarterlyDiscountRegardlessOfSpelling() {
+		PaymentEntity quarterlyPayment = createPayment("PAY4001", "APR004", "QUATERLY", "100", "DISC_JSON", null);
+		quarterlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
+		quarterlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-03-31T00:00:00"));
+
+		DiscFin quarterlyDiscount = new DiscFin();
+		quarterlyDiscount.setDiscFnId("DISC20");
+		quarterlyDiscount.setDiscFnCycleType("QUARTERLY");
+		quarterlyDiscount.setDiscFnMode("PERCENTAGE");
+		quarterlyDiscount.setDiscFinValue("5");
+		quarterlyDiscount.setDiscFnStrtDt(LocalDateTime.now().minusDays(1));
+		quarterlyDiscount.setDiscFnEndDt(LocalDateTime.now().plusDays(1));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("D-101");
+		flat.setFlatArea("800");
+
+		when(paymentRepository.findByPaymentId("PAY4001")).thenReturn(List.of(quarterlyPayment));
+		when(flatRepository.findByAprmntId("APR004")).thenReturn(List.of(flat));
+		when(discFinRepository.findByDiscFnId("DISC20")).thenReturn(List.of(quarterlyDiscount));
+		when(genericService.fromJson(eq("DISC_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "DISCOUNT", "code", "DISC20")));
+		when(genericService.toJson(any())).thenReturn("SERIALIZED_JSON");
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY4001");
+
+		DueAmountDetails due = response.get("QUATERLY").get("ALL");
+		assertEquals("DISC20", due.getDiscountCode());
+		assertEquals("15", due.getDiscountedAmount());
+		assertEquals("PERCENTAGE", due.getDiscountMode());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(dueEntityCaptor.capture());
+		List<DueAmountDetailsEntity> savedEntities = dueEntityCaptor.getValue();
+		DueAmountDetailsEntity entity = savedEntities.get(0);
+		assertEquals("DISC20", entity.getDiscountCode());
+		assertEquals("PERCENTAGE", entity.getDiscountMode());
+		assertEquals("15", entity.getDiscountedAmount());
 	}
 
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,

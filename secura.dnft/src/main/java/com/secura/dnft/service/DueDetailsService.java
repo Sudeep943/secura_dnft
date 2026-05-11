@@ -173,6 +173,7 @@ public class DueDetailsService {
 		due.setGstPercentage(format(gstPercentage));
 		due.setDiscountCode(discountDiscFin != null ? discFinReference.discountCode() : null);
 		due.setFineCode(discFinReference.fineCode());
+		due.setDiscountMode(discountDiscFin != null ? discountDiscFin.getDiscFnMode() : null);
 		due.setDiscFnValue(discountValue);
 		due.setDiscountedAmount(format(discountedAmount));
 		due.setFineAmount(format(fineAmount));
@@ -205,6 +206,7 @@ public class DueDetailsService {
 		entity.setEstimatedCollectionAmount(due.getEstimatedCollectionAmount());
 		entity.setGstPercentage(due.getGstPercentage());
 		entity.setDiscountCode(due.getDiscountCode());
+		entity.setDiscountMode(due.getDiscountMode());
 		entity.setFineCode(due.getFineCode());
 		entity.setDiscFnValue(due.getDiscFnValue());
 		entity.setDiscountedAmount(due.getDiscountedAmount());
@@ -458,10 +460,10 @@ public class DueDetailsService {
 		if (SecuraConstants.PAYMENT_CYCLE_MONTHLY.equals(normalizedCycle)) {
 			return 1;
 		}
-		if (SecuraConstants.PAYMENT_CYCLE_QUATERLY.equals(normalizedCycle) || "QUARTERLY".equals(normalizedCycle)) {
+		if ("QUARTERLY".equals(normalizedCycle)) {
 			return 3;
 		}
-		if (SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY.equals(normalizedCycle) || "HALFYEARLY".equals(normalizedCycle)) {
+		if ("HALFYEARLY".equals(normalizedCycle)) {
 			return 6;
 		}
 		if (SecuraConstants.PAYMENT_CYCLE_YEARLY.equals(normalizedCycle)) {
@@ -477,7 +479,14 @@ public class DueDetailsService {
 		if (cycle == null) {
 			return "";
 		}
-		return cycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		String normalized = cycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		if ("QUATERLY".equals(normalized)) {
+			normalized = "QUARTERLY";
+		}
+		if ("MONTLY".equals(normalized)) {
+			normalized = "MONTHLY";
+		}
+		return normalized;
 	}
 
 	private boolean isPerSqft(String paymentCapita) {
