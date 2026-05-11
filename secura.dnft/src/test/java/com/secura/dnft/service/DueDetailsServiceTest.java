@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -89,10 +90,12 @@ class DueDetailsServiceTest {
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(genericService.toJson(any())).thenReturn("[\"DUE\"]");
 
-		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY1001", header);
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY1001", header);
 
 		assertTrue(response.containsKey("QUATERLY"));
-		Map<String, DueAmountDetails> duesByFlatType = response.get("QUATERLY");
+		List<Map<String, DueAmountDetails>> dueIntervals = response.get("QUATERLY");
+		assertEquals(1, dueIntervals.size());
+		Map<String, DueAmountDetails> duesByFlatType = dueIntervals.get(0);
 		assertEquals(2, duesByFlatType.size());
 		assertTrue(duesByFlatType.containsKey("1000"));
 		assertTrue(duesByFlatType.containsKey("1200"));
@@ -161,16 +164,16 @@ class DueDetailsServiceTest {
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY2001");
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY2001");
 
-		assertEquals("0", response.get("MONTHLY").get("ALL").getDiscountedAmount());
-		assertEquals("18", response.get("MONTHLY").get("ALL").getGstAmount());
-		assertEquals("10", response.get("MONTHLY").get("ALL").getTotalAddedCharges());
-		assertEquals("97.2", response.get("HALF YEARLY").get("ALL").getGstAmount());
-		assertEquals("54", response.get("HALF YEARLY").get("ALL").getTotalAddedCharges());
-		assertEquals("DISC10", response.get("HALF YEARLY").get("ALL").getDiscountCode());
-		assertEquals("DISC10", response.get("YEARLY").get("ALL").getDiscountCode());
-		assertNull(response.get("MONTHLY").get("ALL").getDiscountCode());
+		assertEquals("0", response.get("MONTHLY").get(0).get("ALL").getDiscountedAmount());
+		assertEquals("18", response.get("MONTHLY").get(0).get("ALL").getGstAmount());
+		assertEquals("10", response.get("MONTHLY").get(0).get("ALL").getTotalAddedCharges());
+		assertEquals("97.2", response.get("HALF YEARLY").get(0).get("ALL").getGstAmount());
+		assertEquals("54", response.get("HALF YEARLY").get(0).get("ALL").getTotalAddedCharges());
+		assertEquals("DISC10", response.get("HALF YEARLY").get(0).get("ALL").getDiscountCode());
+		assertEquals("DISC10", response.get("YEARLY").get(0).get("ALL").getDiscountCode());
+		assertNull(response.get("MONTHLY").get(0).get("ALL").getDiscountCode());
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
@@ -229,14 +232,14 @@ class DueDetailsServiceTest {
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY3001");
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY3001");
 
-		assertEquals("DISC10", response.get("MONTHLY").get("ALL").getDiscountCode());
-		assertEquals("DISC10", response.get("HALF YEARLY").get("ALL").getDiscountCode());
-		assertEquals("DISC10", response.get("YEARLY").get("ALL").getDiscountCode());
-		assertEquals("10", response.get("MONTHLY").get("ALL").getDiscountedAmount());
-		assertEquals("60", response.get("HALF YEARLY").get("ALL").getDiscountedAmount());
-		assertEquals("120", response.get("YEARLY").get("ALL").getDiscountedAmount());
+		assertEquals("DISC10", response.get("MONTHLY").get(0).get("ALL").getDiscountCode());
+		assertEquals("DISC10", response.get("HALF YEARLY").get(0).get("ALL").getDiscountCode());
+		assertEquals("DISC10", response.get("YEARLY").get(0).get("ALL").getDiscountCode());
+		assertEquals("10", response.get("MONTHLY").get(0).get("ALL").getDiscountedAmount());
+		assertEquals("60", response.get("HALF YEARLY").get(0).get("ALL").getDiscountedAmount());
+		assertEquals("120", response.get("YEARLY").get(0).get("ALL").getDiscountedAmount());
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
@@ -278,10 +281,10 @@ class DueDetailsServiceTest {
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY4001");
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY4001");
 
 		// The map key retains the original payment cycle spelling ("QUATERLY")
-		DueAmountDetails due = response.get("QUATERLY").get("ALL");
+		DueAmountDetails due = response.get("QUATERLY").get(0).get("ALL");
 		assertEquals("DISC20", due.getDiscountCode());
 		assertEquals("15", due.getDiscountedAmount());
 		assertEquals("PERCENTAGE", due.getDiscountMode());
@@ -294,6 +297,117 @@ class DueDetailsServiceTest {
 		assertEquals("DISC20", entity.getDiscountCode());
 		assertEquals("PERCENTAGE", entity.getDiscountMode());
 		assertEquals("15", entity.getDiscountedAmount());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldCreateMultipleDuesForQuarterlyOverFullYear() {
+		// Start: 1 May 2025, End: 30 Apr 2026 → 4 quarterly dues
+		PaymentEntity payment = createPayment("PAY5001", "APR005", "QUATERLY", "2000", null, null);
+		payment.setCollectionStartDate(LocalDateTime.parse("2025-05-01T00:00:00"));
+		payment.setCollectionEndDate(LocalDateTime.parse("2026-04-30T00:00:00"));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("E-101");
+		flat.setFlatArea("500");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY5001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR005")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY5001");
+
+		List<Map<String, DueAmountDetails>> quarterlyDues = response.get("QUATERLY");
+		assertEquals(4, quarterlyDues.size(), "Should generate 4 quarterly dues for 12-month range");
+
+		// PRE mode: due dates are interval start dates
+		assertEquals(LocalDate.of(2025, 5, 1), quarterlyDues.get(0).get("ALL").getDueDate());
+		assertEquals(LocalDate.of(2025, 8, 1), quarterlyDues.get(1).get("ALL").getDueDate());
+		assertEquals(LocalDate.of(2025, 11, 1), quarterlyDues.get(2).get("ALL").getDueDate());
+		assertEquals(LocalDate.of(2026, 2, 1), quarterlyDues.get(3).get("ALL").getDueDate());
+
+		// All 4 dues are full quarters: 2000 * 3 = 6000
+		for (Map<String, DueAmountDetails> duesByFlatType : quarterlyDues) {
+			assertEquals("6000", duesByFlatType.get("ALL").getAmount());
+		}
+
+		// Each due gets a unique dueId
+		long distinctDueIds = quarterlyDues.stream()
+				.map(m -> m.get("ALL").getDueId())
+				.distinct()
+				.count();
+		assertEquals(4, distinctDueIds, "Each due should have a unique dueId");
+
+		// 4 entities saved (1 flat type × 4 intervals)
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> captor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(captor.capture());
+		assertEquals(4, captor.getValue().size());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldProrateAmountForPartialLastCycle() {
+		// Start: 1 May 2025, End: 30 Mar 2026 → 3 full quarters + 1 partial (Feb–Mar)
+		PaymentEntity payment = createPayment("PAY6001", "APR006", "QUATERLY", "2000", null, null);
+		payment.setCollectionStartDate(LocalDateTime.parse("2025-05-01T00:00:00"));
+		payment.setCollectionEndDate(LocalDateTime.parse("2026-03-30T00:00:00"));
+		payment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("F-101");
+		flat.setFlatArea("500");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY6001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR006")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY6001");
+
+		List<Map<String, DueAmountDetails>> quarterlyDues = response.get("QUATERLY");
+		assertEquals(4, quarterlyDues.size());
+
+		// First 3 dues: full quarter amount = 2000 * 3 = 6000
+		assertEquals("6000", quarterlyDues.get(0).get("ALL").getAmount());
+		assertEquals("6000", quarterlyDues.get(1).get("ALL").getAmount());
+		assertEquals("6000", quarterlyDues.get(2).get("ALL").getAmount());
+
+		// Due 4 (Feb 1 – Mar 30): covers Feb and Mar = 2 months → 2000 * 2 = 4000
+		assertEquals("4000", quarterlyDues.get(3).get("ALL").getAmount());
+		assertEquals(LocalDate.of(2026, 2, 1), quarterlyDues.get(3).get("ALL").getDueDate());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldCreateTwoDuesForHalfYearlyOverFullYear() {
+		// Start: 1 May 2025, End: 30 Apr 2026 → 2 half-yearly dues
+		PaymentEntity payment = createPayment("PAY7001", "APR007", "HALF YEARLY", "1000", null, null);
+		payment.setCollectionStartDate(LocalDateTime.parse("2025-05-01T00:00:00"));
+		payment.setCollectionEndDate(LocalDateTime.parse("2026-04-30T00:00:00"));
+		payment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("G-101");
+		flat.setFlatArea("500");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY7001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR007")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY7001");
+
+		List<Map<String, DueAmountDetails>> halfYearlyDues = response.get("HALF YEARLY");
+		assertEquals(2, halfYearlyDues.size(), "Should generate 2 half-yearly dues for 12-month range");
+		assertEquals(LocalDate.of(2025, 5, 1), halfYearlyDues.get(0).get("ALL").getDueDate());
+		assertEquals(LocalDate.of(2025, 11, 1), halfYearlyDues.get(1).get("ALL").getDueDate());
+		assertEquals("6000", halfYearlyDues.get(0).get("ALL").getAmount());
+		assertEquals("6000", halfYearlyDues.get(1).get("ALL").getAmount());
 	}
 
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,

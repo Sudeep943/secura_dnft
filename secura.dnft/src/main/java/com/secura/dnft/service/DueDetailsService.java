@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -50,33 +51,47 @@ public class DueDetailsService {
 	@Autowired
 	private GenericService genericService;
 
-	public Map<String, Map<String, DueAmountDetails>> calculateDuesForPayment(String paymentId) {
+	public Map<String, List<Map<String, DueAmountDetails>>> calculateDuesForPayment(String paymentId) {
 		return calculateDuesForPayment(paymentId, null);
 	}
 
-	public Map<String, Map<String, DueAmountDetails>> calculateDuesForPayment(String paymentId, GenericHeader genericHeader) {
+	public Map<String, List<Map<String, DueAmountDetails>>> calculateDuesForPayment(String paymentId, GenericHeader genericHeader) {
 		List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
-		Map<String, Map<String, DueAmountDetails>> dueByCycle = new LinkedHashMap<>();
+		Map<String, List<Map<String, DueAmountDetails>>> dueByCycle = new LinkedHashMap<>();
 		if (paymentEntityList == null || paymentEntityList.isEmpty()) {
 			return dueByCycle;
 		}
 
-		String dueId = createDueId();
 		PaymentEntity baseEntity = paymentEntityList.get(0);
 		List<Flat> apartmentFlats = flatRepository.findByAprmntId(baseEntity.getAprmtId());
 		Map<String, Long> flatTypeCounts = buildFlatTypeCounts(apartmentFlats);
 
 		Set<String> visitedCycles = new LinkedHashSet<>();
 		List<DueRow> generatedRows = new ArrayList<>();
+		Collection<String> allGeneratedDueIds = new ArrayList<>();
+
 		for (PaymentEntity paymentEntity : paymentEntityList) {
 			if (!visitedCycles.add(normalizeCycle(paymentEntity.getPaymentCollectionCycle()))) {
 				continue;
 			}
-			Map<String, DueAmountDetails> duesByFlatType = createDuesForCycle(paymentEntity, dueId, flatTypeCounts, apartmentFlats);
-			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesByFlatType);
-			duesByFlatType.forEach((flatType, details) -> generatedRows
-					.add(new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details,
-							paymentEntity.getPaymentAmount())));
+
+			LocalDate startDate = toLocalDate(paymentEntity.getCollectionStartDate());
+			LocalDate endDate = toLocalDate(paymentEntity.getCollectionEndDate());
+			int cycleMonths = getCycleMonths(paymentEntity.getPaymentCollectionCycle());
+			List<LocalDate[]> intervals = generateCycleIntervals(startDate, endDate, cycleMonths);
+
+			List<Map<String, DueAmountDetails>> duesForCycle = new ArrayList<>();
+			for (LocalDate[] interval : intervals) {
+				String dueId = createDueId();
+				allGeneratedDueIds.add(dueId);
+				Map<String, DueAmountDetails> duesByFlatType = createDuesForInterval(
+						paymentEntity, dueId, flatTypeCounts, apartmentFlats, interval[0], interval[1]);
+				duesForCycle.add(duesByFlatType);
+				duesByFlatType.forEach((flatType, details) -> generatedRows.add(
+						new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details,
+								paymentEntity.getPaymentAmount())));
+			}
+			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesForCycle);
 		}
 
 		String estimatedCollectionAmount = calculateEstimatedCollectionAmount(dueByCycle, flatTypeCounts, apartmentFlats.size(),
@@ -90,24 +105,45 @@ public class DueDetailsService {
 		List<DueAmountDetailsEntity> entityList = generatedRows.stream()
 				.map(row -> toEntity(row, genericHeader != null ? genericHeader.getUserId() : null)).toList();
 		dueAmountDetailsRepository.saveAll(entityList);
-		appendDueToFlatPendingPayments(apartmentFlats, dueId);
+		appendDuesToFlatPendingPayments(apartmentFlats, allGeneratedDueIds);
 
 		return dueByCycle;
 	}
 
-	private Map<String, DueAmountDetails> createDuesForCycle(PaymentEntity paymentEntity, String dueId,
-			Map<String, Long> flatTypeCounts, List<Flat> apartmentFlats) {
+	private List<LocalDate[]> generateCycleIntervals(LocalDate startDate, LocalDate endDate, int cycleMonths) {
+		List<LocalDate[]> intervals = new ArrayList<>();
+		if (startDate == null || cycleMonths <= 0) {
+			intervals.add(new LocalDate[]{startDate, endDate});
+			return intervals;
+		}
+		if (endDate == null) {
+			intervals.add(new LocalDate[]{startDate, startDate.plusMonths(cycleMonths).minusDays(1)});
+			return intervals;
+		}
+		LocalDate intervalStart = startDate;
+		while (!intervalStart.isAfter(endDate)) {
+			LocalDate naturalIntervalEnd = intervalStart.plusMonths(cycleMonths).minusDays(1);
+			LocalDate intervalEnd = naturalIntervalEnd.isAfter(endDate) ? endDate : naturalIntervalEnd;
+			intervals.add(new LocalDate[]{intervalStart, intervalEnd});
+			intervalStart = naturalIntervalEnd.plusDays(1);
+		}
+		return intervals;
+	}
+
+	private Map<String, DueAmountDetails> createDuesForInterval(PaymentEntity paymentEntity, String dueId,
+			Map<String, Long> flatTypeCounts, List<Flat> apartmentFlats, LocalDate intervalStart, LocalDate intervalEnd) {
 		Map<String, DueAmountDetails> duesByFlatType = new LinkedHashMap<>();
 		boolean perSqft = isPerSqft(paymentEntity.getPaymentCapita());
 		if (perSqft) {
 			for (String flatType : flatTypeCounts.keySet()) {
-				DueAmountDetails due = buildDueDetails(paymentEntity, dueId, flatType, parseNumeric(flatType));
+				DueAmountDetails due = buildDueDetails(paymentEntity, dueId, flatType, parseNumeric(flatType),
+						intervalStart, intervalEnd);
 				due.setApplicableFlats(getApplicableFlatNos(apartmentFlats, flatType));
 				duesByFlatType.put(flatType, due);
 			}
 			return duesByFlatType;
 		}
-		DueAmountDetails due = buildDueDetails(paymentEntity, dueId, "ALL", BigDecimal.ONE);
+		DueAmountDetails due = buildDueDetails(paymentEntity, dueId, "ALL", BigDecimal.ONE, intervalStart, intervalEnd);
 		due.setApplicableFlats(getApplicableFlatNos(apartmentFlats, null));
 		duesByFlatType.put("ALL", due);
 		return duesByFlatType;
@@ -131,17 +167,15 @@ public class DueDetailsService {
 	}
 
 	private DueAmountDetails buildDueDetails(PaymentEntity paymentEntity, String dueId, String flatTypeKey,
-			BigDecimal areaMultiplier) {
+			BigDecimal areaMultiplier, LocalDate intervalStart, LocalDate intervalEnd) {
 		DueAmountDetails due = new DueAmountDetails();
 		due.setPaymentId(paymentEntity.getPaymentId());
 		due.setDueId(dueId);
 		due.setCollectionCycle(paymentEntity.getPaymentCollectionCycle());
-		LocalDate collectionStartDate = toLocalDate(paymentEntity.getCollectionStartDate());
-		LocalDate collectionEndDate = toLocalDate(paymentEntity.getCollectionEndDate());
-		due.setDueDate(calculateDueDate(collectionStartDate, collectionEndDate, paymentEntity.getPaymentCollectionCycle(),
+		due.setDueDate(calculateDueDate(intervalStart, intervalEnd, paymentEntity.getPaymentCollectionCycle(),
 				paymentEntity.getPaymentCollectionMode()));
 
-		BigDecimal amount = calculateAmount(paymentEntity, collectionStartDate, collectionEndDate, areaMultiplier);
+		BigDecimal amount = calculateAmount(paymentEntity, intervalStart, intervalEnd, areaMultiplier);
 		DiscFinReference discFinReference = extractDiscFinReference(paymentEntity.getDiscFin());
 		DiscFin discountDiscFin = resolveDiscFin(discFinReference.discountCode(), paymentEntity.getPaymentCollectionCycle());
 		BigDecimal discountedAmount = calculateDiscountAmount(discountDiscFin, amount);
@@ -235,16 +269,22 @@ public class DueDetailsService {
 		return flatTypeCounts;
 	}
 
-	private void appendDueToFlatPendingPayments(List<Flat> apartmentFlats, String dueId) {
-		if (apartmentFlats == null || apartmentFlats.isEmpty()) {
+	private void appendDuesToFlatPendingPayments(List<Flat> apartmentFlats, Collection<String> dueIds) {
+		if (apartmentFlats == null || apartmentFlats.isEmpty() || dueIds == null || dueIds.isEmpty()) {
 			return;
 		}
 		List<Flat> updatedFlats = new ArrayList<>();
 		for (Flat flat : apartmentFlats) {
-			List<String> dueIds = parseStringList(flat.getFlatPndngPaymntLst());
-			if (!dueIds.contains(dueId)) {
-				dueIds.add(dueId);
-				flat.setFlatPndngPaymntLst(genericService.toJson(dueIds));
+			List<String> existingDueIds = parseStringList(flat.getFlatPndngPaymntLst());
+			boolean modified = false;
+			for (String dueId : dueIds) {
+				if (!existingDueIds.contains(dueId)) {
+					existingDueIds.add(dueId);
+					modified = true;
+				}
+			}
+			if (modified) {
+				flat.setFlatPndngPaymntLst(genericService.toJson(existingDueIds));
 				updatedFlats.add(flat);
 			}
 		}
@@ -266,12 +306,13 @@ public class DueDetailsService {
 		}
 	}
 
-	private String calculateEstimatedCollectionAmount(Map<String, Map<String, DueAmountDetails>> dueByCycle,
+	private String calculateEstimatedCollectionAmount(Map<String, List<Map<String, DueAmountDetails>>> dueByCycle,
 			Map<String, Long> flatTypeCounts, int flatCount, String paymentCapita) {
 		if (dueByCycle.isEmpty()) {
 			return null;
 		}
-		Map<String, DueAmountDetails> anyCycleDues = dueByCycle.values().stream().findFirst().orElse(Map.of());
+		List<Map<String, DueAmountDetails>> firstCycleDues = dueByCycle.values().stream().findFirst().orElse(List.of());
+		Map<String, DueAmountDetails> anyCycleDues = firstCycleDues.isEmpty() ? Map.of() : firstCycleDues.get(0);
 		if (isPerSqft(paymentCapita)) {
 			BigDecimal total = BigDecimal.ZERO;
 			for (Map.Entry<String, DueAmountDetails> entry : anyCycleDues.entrySet()) {
@@ -428,13 +469,12 @@ public class DueDetailsService {
 			return fullCycleAmount.setScale(2, RoundingMode.HALF_UP);
 		}
 
-		long totalCycleDays = ChronoUnit.DAYS.between(startDate, naturalCycleEnd.plusDays(1));
-		long activeDays = ChronoUnit.DAYS.between(startDate, endDate.plusDays(1));
-		if (totalCycleDays <= 0 || activeDays <= 0) {
+		long coveredMonths = ChronoUnit.MONTHS.between(startDate.withDayOfMonth(1), endDate.withDayOfMonth(1)) + 1;
+		if (coveredMonths <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-		return fullCycleAmount.multiply(BigDecimal.valueOf(activeDays)).divide(BigDecimal.valueOf(totalCycleDays), 2,
-				RoundingMode.HALF_UP);
+		return paymentAmountPerMonth.multiply(BigDecimal.valueOf(coveredMonths)).multiply(areaMultiplier)
+				.setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private LocalDate calculateDueDate(LocalDate startDate, LocalDate endDate, String paymentCycle, String paymentCollectionMode) {
