@@ -2,19 +2,15 @@ package com.secura.dnft.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import com.secura.dnft.request.response.AddedCharges;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 
 @Entity
 @IdClass(DueAmountDetailsEntityId.class)
@@ -57,14 +53,14 @@ public class DueAmountDetailsEntity {
 	@Column(name = "cause")
 	private String cause;
 
-	@Transient
-	private List<String> allowedPaymentModes;
-
 	@Column(name = "payment_capita")
 	private String paymentCapita;
 
-	@Transient
-	private List<AddedCharges> addedCharges;
+	@Column(name = "added_charges", columnDefinition = "TEXT")
+	private String addedCharges;
+
+	@Column(name = "amount_per_month")
+	private String amountPerMonth;
 
 	@Column(name = "total_added_charges")
 	private String totalAddedCharges;
@@ -210,14 +206,6 @@ public class DueAmountDetailsEntity {
 		this.cause = cause;
 	}
 
-	public List<String> getAllowedPaymentModes() {
-		return allowedPaymentModes;
-	}
-
-	public void setAllowedPaymentModes(List<String> allowedPaymentModes) {
-		this.allowedPaymentModes = allowedPaymentModes;
-	}
-
 	public String getPaymentCapita() {
 		return paymentCapita;
 	}
@@ -226,12 +214,20 @@ public class DueAmountDetailsEntity {
 		this.paymentCapita = paymentCapita;
 	}
 
-	public List<AddedCharges> getAddedCharges() {
+	public String getAddedCharges() {
 		return addedCharges;
 	}
 
-	public void setAddedCharges(List<AddedCharges> addedCharges) {
+	public void setAddedCharges(String addedCharges) {
 		this.addedCharges = addedCharges;
+	}
+
+	public String getAmountPerMonth() {
+		return amountPerMonth;
+	}
+
+	public void setAmountPerMonth(String amountPerMonth) {
+		this.amountPerMonth = amountPerMonth;
 	}
 
 	public String getTotalAddedCharges() {
