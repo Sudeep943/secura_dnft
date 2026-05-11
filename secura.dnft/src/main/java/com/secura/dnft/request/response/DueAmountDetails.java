@@ -34,6 +34,7 @@ public class DueAmountDetails {
 	private String cummilationCycle;
 	@JsonProperty("disc_value")
 	private String discValue;
+	@JsonProperty("fn_value")
 	private String fnValue;
 	@JsonProperty("discountedAmount")
 	private String discountedAmount;
