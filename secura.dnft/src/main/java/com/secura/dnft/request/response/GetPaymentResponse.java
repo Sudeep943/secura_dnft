@@ -3,6 +3,7 @@ package com.secura.dnft.request.response;
 import java.sql.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.secura.dnft.entity.PaymentEntity;
 
 public class GetPaymentResponse {
@@ -10,6 +11,7 @@ public class GetPaymentResponse {
 	private GenericHeader genericHeader;
 	private String message;
     private String messageCode;
+    @JsonFormat(pattern = "d-MMM-yyyy")
     private Date dueDate;
     private String amount;
     private String capita;

@@ -182,6 +182,7 @@ public class DueDetailsService {
 		due.setCollectionCycle(paymentEntity.getPaymentCollectionCycle());
 		due.setDueDate(calculateDueDate(intervalStart, intervalEnd, paymentEntity.getPaymentCollectionCycle(),
 				paymentEntity.getPaymentCollectionMode()));
+		due.setDueEndDate(intervalEnd);
 
 		BigDecimal amount = calculateAmount(paymentEntity, intervalStart, intervalEnd, areaMultiplier);
 		DiscFinReference discFinReference = extractDiscFinReference(paymentEntity.getDiscFin());
@@ -239,6 +240,7 @@ public class DueDetailsService {
 		entity.setCollectionCycle(due.getCollectionCycle());
 		entity.setFlatArea(dueRow.flatType());
 		entity.setDueDate(due.getDueDate());
+		entity.setDueEndDate(due.getDueEndDate());
 		entity.setPaymentId(due.getPaymentId());
 		entity.setAmount(due.getAmount());
 		entity.setGstAmount(due.getGstAmount());

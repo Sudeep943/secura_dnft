@@ -117,6 +117,10 @@ public class DueAmountDetailsEntity {
 	@Column(name = "payment_status")
 	private String paymentStatus;
 
+	@Column(name = "due_end_date")
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate dueEndDate;
+
 	@Column(name = "payment_date")
 	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate paymentDate;
@@ -381,6 +385,14 @@ public class DueAmountDetailsEntity {
 
 	public void setPaymentStatus(String paymentStatus) {
 		this.paymentStatus = paymentStatus;
+	}
+
+	public LocalDate getDueEndDate() {
+		return dueEndDate;
+	}
+
+	public void setDueEndDate(LocalDate dueEndDate) {
+		this.dueEndDate = dueEndDate;
 	}
 
 	public LocalDate getPaymentDate() {
