@@ -3,16 +3,12 @@ package com.secura.dnft.request.response;
 import java.sql.Date;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-
 public class AddDiscfinRequest {
 
 	private GenericHeader genericHeader;
 	private String discFnType;
 	private Boolean dueDateAsStartDateFlag;
-	@JsonFormat(pattern = "d-MMM-yyyy")
 	private Date discFnStrtDt;
-	@JsonFormat(pattern = "d-MMM-yyyy")
 	private Date discFnEndDt;
 	private String discFnMode;
 	private String discFnCumlatonCycle;
