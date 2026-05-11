@@ -2,6 +2,7 @@ package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -169,7 +170,7 @@ class DueDetailsServiceTest {
 		assertEquals("54", response.get("HALF YEARLY").get("ALL").getTotalAddedCharges());
 		assertEquals("DISC10", response.get("HALF YEARLY").get("ALL").getDiscountCode());
 		assertEquals("DISC10", response.get("YEARLY").get("ALL").getDiscountCode());
-		assertEquals(null, response.get("MONTHLY").get("ALL").getDiscountCode());
+		assertNull(response.get("MONTHLY").get("ALL").getDiscountCode());
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
@@ -182,7 +183,7 @@ class DueDetailsServiceTest {
 		assertEquals("0", monthlyEntity.getAlreadyPaidAmount());
 		assertEquals("100", monthlyEntity.getAmountPerMonth());
 		assertEquals("SERIALIZED_JSON", monthlyEntity.getAddedCharges());
-		assertEquals(null, monthlyEntity.getDiscountCode());
+		assertNull(monthlyEntity.getDiscountCode());
 	}
 
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,
