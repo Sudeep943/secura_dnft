@@ -32,8 +32,9 @@ public class DueAmountDetails {
 	private String fineCode;
 	private String discountMode;
 	private String cummilationCycle;
-	@JsonProperty("disc_fn_value")
-	private String discFnValue;
+	@JsonProperty("disc_value")
+	private String discValue;
+	private String fnValue;
 	@JsonProperty("discountedAmount")
 	private String discountedAmount;
 	@JsonProperty("fineAmount")
@@ -210,12 +211,20 @@ public class DueAmountDetails {
 		this.cummilationCycle = cummilationCycle;
 	}
 
-	public String getDiscFnValue() {
-		return discFnValue;
+	public String getDiscValue() {
+		return discValue;
 	}
 
-	public void setDiscFnValue(String discFnValue) {
-		this.discFnValue = discFnValue;
+	public void setDiscValue(String discValue) {
+		this.discValue = discValue;
+	}
+
+	public String getFnValue() {
+		return fnValue;
+	}
+
+	public void setFnValue(String fnValue) {
+		this.fnValue = fnValue;
 	}
 
 	public String getDiscountedAmount() {

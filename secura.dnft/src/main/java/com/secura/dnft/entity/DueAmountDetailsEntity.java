@@ -87,8 +87,11 @@ public class DueAmountDetailsEntity {
 	@Column(name = "fine_code")
 	private String fineCode;
 
-	@Column(name = "disc_fn_value")
-	private String discFnValue;
+	@Column(name = "disc_value")
+	private String discValue;
+
+	@Column(name = "fn_value")
+	private String fnValue;
 
 	@Column(name = "discounted_amount")
 	private String discountedAmount;
@@ -307,12 +310,20 @@ public class DueAmountDetailsEntity {
 		this.cummilationCycle = cummilationCycle;
 	}
 
-	public String getDiscFnValue() {
-		return discFnValue;
+	public String getDiscValue() {
+		return discValue;
 	}
 
-	public void setDiscFnValue(String discFnValue) {
-		this.discFnValue = discFnValue;
+	public void setDiscValue(String discValue) {
+		this.discValue = discValue;
+	}
+
+	public String getFnValue() {
+		return fnValue;
+	}
+
+	public void setFnValue(String fnValue) {
+		this.fnValue = fnValue;
 	}
 
 	public String getDiscountedAmount() {
