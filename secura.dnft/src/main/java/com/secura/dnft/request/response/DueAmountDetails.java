@@ -43,6 +43,7 @@ public class DueAmountDetails {
 	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate paymentDate;
 	private String collectionCycle;
+	private List<String> applicableFlats;
 
 	public LocalDate getDueDate() {
 		return dueDate;
@@ -258,5 +259,13 @@ public class DueAmountDetails {
 
 	public void setCollectionCycle(String collectionCycle) {
 		this.collectionCycle = collectionCycle;
+	}
+
+	public List<String> getApplicableFlats() {
+		return applicableFlats;
+	}
+
+	public void setApplicableFlats(List<String> applicableFlats) {
+		this.applicableFlats = applicableFlats;
 	}
 }
