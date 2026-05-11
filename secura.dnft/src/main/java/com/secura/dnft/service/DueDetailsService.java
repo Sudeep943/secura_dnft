@@ -490,7 +490,7 @@ public class DueDetailsService {
 			double yearFraction = dayDiff / 365.0d;
 			double compoundedFactor = Math.pow(BigDecimal.ONE.add(percentage).doubleValue(), yearFraction);
 			BigDecimal compoundedAmount = baseAmount.multiply(BigDecimal.valueOf(compoundedFactor));
-			return compoundedAmount.setScale(2, RoundingMode.HALF_UP);
+			return compoundedAmount.subtract(baseAmount).setScale(2, RoundingMode.HALF_UP);
 		}
 		return calculatePercentageAmount(baseAmount, fineValue);
 	}

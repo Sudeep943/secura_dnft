@@ -503,7 +503,7 @@ class DueDetailsServiceTest {
 		BigDecimal expectedFine = BigDecimal.ZERO;
 		if (dayDiff > 0) {
 			double compoundedFactor = Math.pow(BigDecimal.valueOf(1.1d).doubleValue(), dayDiff / 365.0d);
-			expectedFine = BigDecimal.valueOf(100).multiply(BigDecimal.valueOf(compoundedFactor))
+			expectedFine = BigDecimal.valueOf(100).multiply(BigDecimal.valueOf(compoundedFactor)).subtract(BigDecimal.valueOf(100))
 					.setScale(2, RoundingMode.HALF_UP);
 		}
 		BigDecimal expectedTotal = BigDecimal.valueOf(100).add(expectedFine);
