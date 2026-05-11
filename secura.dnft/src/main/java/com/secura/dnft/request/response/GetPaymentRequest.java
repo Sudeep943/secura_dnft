@@ -2,13 +2,17 @@ package com.secura.dnft.request.response;
 
 import java.sql.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 public class GetPaymentRequest {
 	private GenericHeader genericHeader;
 	private String paymentId;
 	
 	private String paymentAmount;
 	private String gst;
+	@JsonFormat(pattern = "d-MMM-yyyy")
 	private Date collectionStartDate;
+	@JsonFormat(pattern = "d-MMM-yyyy")
 	private Date collectionEndDate;
 	private String paymentCollectionCycle;
 	private String paymentCollectionMode;

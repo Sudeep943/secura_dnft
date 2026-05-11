@@ -17,7 +17,9 @@ public class CreatePaymentRequest {
 	private String paymentAmount;
 	private String gst;
 	private String currency;
+	@JsonFormat(pattern = "d-MMM-yyyy")
 	private Date collectionStartDate;
+	@JsonFormat(pattern = "d-MMM-yyyy")
 	private Date collectionEndDate;
 	@JsonAlias("paymentCollectionCycle")
 	@JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
