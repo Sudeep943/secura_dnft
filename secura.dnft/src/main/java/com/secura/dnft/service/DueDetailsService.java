@@ -75,7 +75,8 @@ public class DueDetailsService {
 			Map<String, DueAmountDetails> duesByFlatType = createDuesForCycle(paymentEntity, dueId, flatTypeCounts);
 			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesByFlatType);
 			duesByFlatType.forEach((flatType, details) -> generatedRows
-					.add(new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details)));
+					.add(new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details,
+							paymentEntity.getPaymentAmount())));
 		}
 
 		String estimatedCollectionAmount = calculateEstimatedCollectionAmount(dueByCycle, flatTypeCounts, apartmentFlats.size(),
@@ -120,19 +121,22 @@ public class DueDetailsService {
 				paymentEntity.getPaymentCollectionMode()));
 
 		BigDecimal amount = calculateAmount(paymentEntity, collectionStartDate, collectionEndDate, areaMultiplier);
-		BigDecimal gstPercentage = parseNumeric(paymentEntity.getGst());
-		BigDecimal gstAmount = calculatePercentageAmount(amount, gstPercentage);
-
-		List<AddedCharges> addedCharges = parseAddedCharges(paymentEntity.getAddedCharges());
-		BigDecimal totalAddedCharges = applyAddedChargesAndCalculateTotal(addedCharges, amount);
-
 		DiscFinReference discFinReference = extractDiscFinReference(paymentEntity.getDiscFin());
 		DiscFin discountDiscFin = resolveDiscFin(discFinReference.discountCode(), paymentEntity.getPaymentCollectionCycle());
 		BigDecimal discountedAmount = calculateDiscountAmount(discountDiscFin, amount);
+		BigDecimal baseAmount = amount.subtract(discountedAmount);
+		if (baseAmount.compareTo(BigDecimal.ZERO) < 0) {
+			baseAmount = BigDecimal.ZERO;
+		}
+		BigDecimal gstPercentage = parseNumeric(paymentEntity.getGst());
+		BigDecimal gstAmount = calculatePercentageAmount(baseAmount, gstPercentage);
+
+		List<AddedCharges> addedCharges = parseAddedCharges(paymentEntity.getAddedCharges());
+		BigDecimal totalAddedCharges = applyAddedChargesAndCalculateTotal(addedCharges, baseAmount);
 		String discountValue = discountDiscFin != null ? format(discountDiscFin.getDiscFinValue()) : null;
 
 		BigDecimal fineAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-		BigDecimal computedTotal = amount.add(gstAmount).add(totalAddedCharges).add(fineAmount).subtract(discountedAmount);
+		BigDecimal computedTotal = baseAmount.add(gstAmount).add(totalAddedCharges).add(fineAmount);
 		BigDecimal roundedTotal = computedTotal.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal roundUpAmount = roundedTotal.subtract(computedTotal).setScale(2, RoundingMode.HALF_UP);
 
@@ -146,13 +150,15 @@ public class DueDetailsService {
 		due.setAddedCharges(addedCharges);
 		due.setTotalAddedCharges(format(totalAddedCharges));
 		due.setGstPercentage(format(gstPercentage));
-		due.setDiscountCode(discFinReference.discountCode());
+		due.setDiscountCode(discountDiscFin != null ? discFinReference.discountCode() : null);
 		due.setFineCode(discFinReference.fineCode());
 		due.setDiscFnValue(discountValue);
 		due.setDiscountedAmount(format(discountedAmount));
 		due.setFineAmount(format(fineAmount));
 		due.setFineType("");
 		due.setRoundUpAmount(format(roundUpAmount));
+		due.setAlreadyPaidAmount(format(BigDecimal.ZERO));
+		due.setAdminDiscount(format(BigDecimal.ZERO));
 		due.setCause(paymentEntity.getCauseId());
 		return due;
 	}
@@ -172,6 +178,8 @@ public class DueDetailsService {
 		entity.setPaymentType(due.getPaymentType());
 		entity.setCause(due.getCause());
 		entity.setPaymentCapita(due.getPaymentCapita());
+		entity.setAmountPerMonth(dueRow.amountPerMonth());
+		entity.setAddedCharges(genericService.toJson(due.getAddedCharges() != null ? due.getAddedCharges() : List.of()));
 		entity.setTotalAddedCharges(due.getTotalAddedCharges());
 		entity.setEstimatedCollectionAmount(due.getEstimatedCollectionAmount());
 		entity.setGstPercentage(due.getGstPercentage());
@@ -179,11 +187,11 @@ public class DueDetailsService {
 		entity.setFineCode(due.getFineCode());
 		entity.setDiscFnValue(due.getDiscFnValue());
 		entity.setDiscountedAmount(due.getDiscountedAmount());
-		entity.setFineAmount(due.getFineAmount());
+		entity.setFineAmount(defaultZeroValue(due.getFineAmount()));
 		entity.setFineType(due.getFineType());
 		entity.setRoundUpAmount(due.getRoundUpAmount());
-		entity.setAlreadyPaidAmount(due.getAlreadyPaidAmount());
-		entity.setAdminDiscount(due.getAdminDiscount());
+		entity.setAlreadyPaidAmount(defaultZeroValue(due.getAlreadyPaidAmount()));
+		entity.setAdminDiscount(defaultZeroValue(due.getAdminDiscount()));
 		entity.setPaymentStatus(due.getPaymentStatus());
 		entity.setPaymentDate(due.getPaymentDate());
 		entity.setCreatUsrId(userId);
@@ -285,7 +293,7 @@ public class DueDetailsService {
 		}
 	}
 
-	private BigDecimal applyAddedChargesAndCalculateTotal(List<AddedCharges> addedCharges, BigDecimal amount) {
+	private BigDecimal applyAddedChargesAndCalculateTotal(List<AddedCharges> addedCharges, BigDecimal baseAmount) {
 		BigDecimal total = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		for (AddedCharges addedCharge : addedCharges) {
 			if (addedCharge == null) {
@@ -294,7 +302,7 @@ public class DueDetailsService {
 			BigDecimal value = parseNumeric(addedCharge.getValue());
 			BigDecimal finalValue;
 			if ("percentage".equalsIgnoreCase(addedCharge.getChargeType())) {
-				finalValue = calculatePercentageAmount(amount, value);
+				finalValue = calculatePercentageAmount(baseAmount, value);
 			} else {
 				finalValue = value.setScale(2, RoundingMode.HALF_UP);
 			}
@@ -343,7 +351,7 @@ public class DueDetailsService {
 		String normalizedCycle = normalizeCycle(paymentCycle);
 		return discFins.stream().filter(Objects::nonNull)
 				.filter(discFin -> normalizedCycle.equals(normalizeCycle(discFin.getDiscFnCycleType()))).findFirst()
-				.orElse(discFins.get(0));
+				.orElse(null);
 	}
 
 	private BigDecimal calculateDiscountAmount(DiscFin discountDiscFin, BigDecimal amount) {
@@ -498,6 +506,10 @@ public class DueDetailsService {
 		return normalized.toPlainString();
 	}
 
+	private String defaultZeroValue(String value) {
+		return value == null || value.isBlank() ? format(BigDecimal.ZERO) : value;
+	}
+
 	private String stringValue(Object value) {
 		return value == null ? null : value.toString();
 	}
@@ -509,6 +521,6 @@ public class DueDetailsService {
 	private record DiscFinReference(String discountCode, String fineCode) {
 	}
 
-	private record DueRow(String cycle, String flatType, DueAmountDetails dueAmountDetails) {
+	private record DueRow(String cycle, String flatType, DueAmountDetails dueAmountDetails, String amountPerMonth) {
 	}
 }
