@@ -199,6 +199,7 @@ public class DueDetailsService {
 		List<AddedCharges> addedCharges = parseAddedCharges(paymentEntity.getAddedCharges());
 		BigDecimal totalAddedCharges = applyAddedChargesAndCalculateTotal(addedCharges, baseAmount);
 		String discountValue = discountDiscFin != null ? format(discountDiscFin.getDiscFinValue()) : null;
+		String fineValue = fineDiscFin != null ? format(fineDiscFin.getDiscFinValue()) : null;
 
 		BigDecimal fineAmount = calculateFineAmount(fineDiscFin, baseAmount, due.getDueDate());
 		LOGGER.debug("buildDueDetails result: paymentId={}, dueId={}, amount={}, discountedAmount={}, baseAmount={}, gstAmount={}, fineAmount={}",
@@ -221,7 +222,7 @@ public class DueDetailsService {
 		due.setFineCode(fineDiscFin != null ? fineDiscFin.getDiscFnId() : discFinReference.fineCode());
 		due.setDiscountMode(discountDiscFin != null ? discountDiscFin.getDiscFnMode() : null);
 		due.setCummilationCycle(fineDiscFin != null ? fineDiscFin.getDiscFnCumlatonCycle() : null);
-		due.setDiscFnValue(discountValue);
+		due.setDiscValue(discountValue);
 		due.setDiscountedAmount(format(discountedAmount));
 		due.setFineAmount(format(fineAmount));
 		due.setFineMode(fineDiscFin != null ? fineDiscFin.getDiscFnMode() : null);
@@ -230,6 +231,7 @@ public class DueDetailsService {
 		due.setAlreadyPaidAmount(format(BigDecimal.ZERO));
 		due.setAdminDiscount(format(BigDecimal.ZERO));
 		due.setCause(paymentEntity.getCauseId());
+		due.setFnValue(fineValue);
 		return due;
 	}
 
@@ -258,7 +260,7 @@ public class DueDetailsService {
 		entity.setDiscountMode(due.getDiscountMode());
 		entity.setCummilationCycle(due.getCummilationCycle());
 		entity.setFineCode(due.getFineCode());
-		entity.setDiscFnValue(due.getDiscFnValue());
+		entity.setDiscValue(due.getDiscValue());
 		entity.setDiscountedAmount(due.getDiscountedAmount());
 		entity.setFineAmount(defaultZeroValue(due.getFineAmount()));
 		entity.setFineMode(due.getFineMode());
@@ -271,6 +273,7 @@ public class DueDetailsService {
 		entity.setPaymentDate(due.getPaymentDate());
 		entity.setCreatUsrId(userId);
 		entity.setLstUpdtUsrId(null);
+		entity.setFnValue(due.getFnValue());
 		return entity;
 	}
 
