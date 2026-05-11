@@ -499,11 +499,16 @@ class DueDetailsServiceTest {
 
 		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY9001");
 
-		long dayDiff = ChronoUnit.DAYS.between(dueDate, LocalDate.now());
+		long completeMonths = ChronoUnit.MONTHS.between(dueDate, LocalDate.now());
+		LocalDate monthBoundary = dueDate.plusMonths(completeMonths);
+		long daysInPartialMonth = ChronoUnit.DAYS.between(monthBoundary, LocalDate.now()) + 1;
+		int daysInCurrentMonth = LocalDate.now().lengthOfMonth();
+		double totalMonths = completeMonths + (double) daysInPartialMonth / daysInCurrentMonth;
 		BigDecimal expectedFine = BigDecimal.ZERO;
-		if (dayDiff > 0) {
-			double compoundedFactor = Math.pow(BigDecimal.valueOf(1.1d).doubleValue(), dayDiff / 365.0d);
-			expectedFine = BigDecimal.valueOf(100).multiply(BigDecimal.valueOf(compoundedFactor)).subtract(BigDecimal.valueOf(100))
+		if (totalMonths > 0) {
+			double r = 0.10; // 10% rate per period (monthly, since discFnCumlatonCycle="CUMULATIVE" → default 1 month)
+			double compoundedFactor = Math.pow(1 + r, totalMonths);
+			expectedFine = BigDecimal.valueOf(100).multiply(BigDecimal.valueOf(compoundedFactor - 1))
 					.setScale(2, RoundingMode.HALF_UP);
 		}
 		BigDecimal expectedTotal = BigDecimal.valueOf(100).add(expectedFine);

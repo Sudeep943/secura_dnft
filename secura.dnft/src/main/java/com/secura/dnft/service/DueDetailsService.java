@@ -16,6 +16,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +37,8 @@ import com.secura.dnft.request.response.GenericHeader;
 
 @Service
 public class DueDetailsService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(DueDetailsService.class);
 
 	@Autowired
 	private PaymentRepository paymentRepository;
@@ -56,6 +60,8 @@ public class DueDetailsService {
 	}
 
 	public Map<String, List<Map<String, DueAmountDetails>>> calculateDuesForPayment(String paymentId, GenericHeader genericHeader) {
+		LOGGER.info("calculateDuesForPayment called with paymentId={}, userId={}", paymentId,
+				genericHeader != null ? genericHeader.getUserId() : null);
 		List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
 		Map<String, List<Map<String, DueAmountDetails>>> dueByCycle = new LinkedHashMap<>();
 		if (paymentEntityList == null || paymentEntityList.isEmpty()) {
@@ -168,6 +174,8 @@ public class DueDetailsService {
 
 	private DueAmountDetails buildDueDetails(PaymentEntity paymentEntity, String dueId, String flatTypeKey,
 			BigDecimal areaMultiplier, LocalDate intervalStart, LocalDate intervalEnd) {
+		LOGGER.debug("buildDueDetails: paymentId={}, dueId={}, flatTypeKey={}, areaMultiplier={}, intervalStart={}, intervalEnd={}",
+				paymentEntity.getPaymentId(), dueId, flatTypeKey, areaMultiplier, intervalStart, intervalEnd);
 		DueAmountDetails due = new DueAmountDetails();
 		due.setPaymentId(paymentEntity.getPaymentId());
 		due.setDueId(dueId);
@@ -192,6 +200,8 @@ public class DueDetailsService {
 		String discountValue = discountDiscFin != null ? format(discountDiscFin.getDiscFinValue()) : null;
 
 		BigDecimal fineAmount = calculateFineAmount(fineDiscFin, baseAmount, due.getDueDate());
+		LOGGER.debug("buildDueDetails result: paymentId={}, dueId={}, amount={}, discountedAmount={}, baseAmount={}, gstAmount={}, fineAmount={}",
+				paymentEntity.getPaymentId(), dueId, amount, discountedAmount, baseAmount, gstAmount, fineAmount);
 		BigDecimal computedTotal = baseAmount.add(gstAmount).add(totalAddedCharges).add(fineAmount);
 		BigDecimal roundedTotal = computedTotal.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal roundUpAmount = roundedTotal.subtract(computedTotal).setScale(2, RoundingMode.HALF_UP);
@@ -458,6 +468,8 @@ public class DueDetailsService {
 	}
 
 	private BigDecimal calculateFineAmount(DiscFin fineDiscFin, BigDecimal baseAmount, LocalDate dueDate) {
+		LOGGER.debug("calculateFineAmount: fineDiscFin={}, baseAmount={}, dueDate={}",
+				fineDiscFin != null ? fineDiscFin.getDiscFnId() : null, baseAmount, dueDate);
 		if (fineDiscFin == null) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
@@ -466,14 +478,17 @@ public class DueDetailsService {
 				: fineDiscFin.getDiscFnStrtDt();
 		LocalDate fineEnd = fineDiscFin.getDiscFnEndDt();
 		if (fineStart != null && today.isBefore(fineStart)) {
+			LOGGER.debug("calculateFineAmount: today {} is before fineStart {}, returning zero", today, fineStart);
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 		if (fineEnd != null && today.isAfter(fineEnd)) {
+			LOGGER.debug("calculateFineAmount: today {} is after fineEnd {}, returning zero", today, fineEnd);
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 
 		BigDecimal fineValue = parseNumeric(fineDiscFin.getDiscFinValue());
 		if (SecuraConstants.DISC_FN_MODE_AMOUNT.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
+			LOGGER.debug("calculateFineAmount: fixed amount fine={}", fineValue);
 			return fineValue.setScale(2, RoundingMode.HALF_UP);
 		}
 		if (!SecuraConstants.DISC_FN_MODE_PERCENTAGE.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
@@ -481,19 +496,30 @@ public class DueDetailsService {
 		}
 		if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
 			LocalDate interestStartDate = fineStart != null ? fineStart : today;
-			long dayDiff = ChronoUnit.DAYS.between(interestStartDate, today);
-			if (dayDiff <= 0) {
+			// Calculate elapsed time in months (complete months + fractional days, inclusive)
+			long completeMonths = ChronoUnit.MONTHS.between(interestStartDate, today);
+			if (completeMonths < 0) {
+				completeMonths = 0;
+			}
+			LocalDate monthBoundary = interestStartDate.plusMonths(completeMonths);
+			long daysInPartialMonth = ChronoUnit.DAYS.between(monthBoundary, today) + 1; // inclusive per-problem-spec
+			int daysInCurrentMonth = today.lengthOfMonth();
+			double totalMonths = completeMonths + (double) daysInPartialMonth / daysInCurrentMonth;
+			if (totalMonths <= 0) {
 				return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 			}
-			BigDecimal percentage = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-			int periodsPerYear = getCompoundingPeriodsPerYear(fineDiscFin.getDiscFnCumlatonCycle());
-			double yearFraction = dayDiff / 365.0d;
-			double periodicRate = percentage.doubleValue() / periodsPerYear;
-			double totalPeriods = yearFraction * periodsPerYear;
-			double compoundedFactor = Math.pow(1 + periodicRate, totalPeriods);
+			// Convert months to periods based on the cumulation cycle
+			double monthsPerPeriod = getMonthsPerPeriod(fineDiscFin.getDiscFnCumlatonCycle());
+			double t = totalMonths / monthsPerPeriod;
+			double r = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP).doubleValue();
+			double compoundedFactor = Math.pow(1 + r, t);
+			LOGGER.debug("calculateFineAmount cumulative: fineCode={}, baseAmount={}, r={}, t={} periods (totalMonths={}, monthsPerPeriod={}), compoundedFactor={}",
+					fineDiscFin.getDiscFnId(), baseAmount, r, t, totalMonths, monthsPerPeriod, compoundedFactor);
 			BigDecimal compoundedAmount = baseAmount.multiply(BigDecimal.valueOf(compoundedFactor));
 			return compoundedAmount.subtract(baseAmount).setScale(2, RoundingMode.HALF_UP);
 		}
+		LOGGER.debug("calculateFineAmount simple percentage: fineCode={}, baseAmount={}, fineValue={}",
+				fineDiscFin.getDiscFnId(), baseAmount, fineValue);
 		return calculatePercentageAmount(baseAmount, fineValue);
 	}
 
@@ -508,23 +534,32 @@ public class DueDetailsService {
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
 	}
 
-	private int getCompoundingPeriodsPerYear(String cumulationCycle) {
+	private double getMonthsPerPeriod(String cumulationCycle) {
 		if (cumulationCycle == null) {
-			return 1;
+			return 1.0;
 		}
 		String normalized = cumulationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		if (SecuraConstants.DISC_FN_CYCLE_MONTHLY.equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED.equals(normalized)) {
-			return 12;
+			return 1.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_QUARTERLY.equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED.equals(normalized)) {
-			return 4;
+			return 3.0;
+		}
+		if (SecuraConstants.DISC_FN_CYCLE_HALFYEARLY.equals(normalized)
+				|| SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY.replaceAll("[\\s_-]", "").equals(normalized)
+				|| SecuraConstants.DISC_FN_CYCLE_HALF_DASH_YEARLY.replaceAll("[\\s_-]", "").equals(normalized)) {
+			return 6.0;
+		}
+		if (SecuraConstants.DISC_FN_CYCLE_YEARLY.equals(normalized)) {
+			return 12.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_DAILY.equals(normalized)) {
-			return 365;
+			// Daily rate: return months per day (1 day ≈ 12/365.25 months)
+			return 12.0 / 365.25;
 		}
-		return 1;
+		return 1.0;
 	}
 
 	private BigDecimal calculateAmount(PaymentEntity paymentEntity, LocalDate startDate, LocalDate endDate,
