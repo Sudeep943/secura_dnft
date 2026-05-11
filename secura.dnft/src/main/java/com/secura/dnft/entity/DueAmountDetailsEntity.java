@@ -98,6 +98,9 @@ public class DueAmountDetailsEntity {
 	@Column(name = "admin_discount")
 	private String adminDiscount;
 
+	@Column(name = "applicable_flats", columnDefinition = "TEXT")
+	private String applicableFlats;
+
 	@Column(name = "payment_status")
 	private String paymentStatus;
 
@@ -324,6 +327,14 @@ public class DueAmountDetailsEntity {
 
 	public void setAdminDiscount(String adminDiscount) {
 		this.adminDiscount = adminDiscount;
+	}
+
+	public String getApplicableFlats() {
+		return applicableFlats;
+	}
+
+	public void setApplicableFlats(String applicableFlats) {
+		this.applicableFlats = applicableFlats;
 	}
 
 	public String getPaymentStatus() {

@@ -72,7 +72,7 @@ public class DueDetailsService {
 			if (!visitedCycles.add(normalizeCycle(paymentEntity.getPaymentCollectionCycle()))) {
 				continue;
 			}
-			Map<String, DueAmountDetails> duesByFlatType = createDuesForCycle(paymentEntity, dueId, flatTypeCounts);
+			Map<String, DueAmountDetails> duesByFlatType = createDuesForCycle(paymentEntity, dueId, flatTypeCounts, apartmentFlats);
 			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesByFlatType);
 			duesByFlatType.forEach((flatType, details) -> generatedRows
 					.add(new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details,
@@ -96,17 +96,38 @@ public class DueDetailsService {
 	}
 
 	private Map<String, DueAmountDetails> createDuesForCycle(PaymentEntity paymentEntity, String dueId,
-			Map<String, Long> flatTypeCounts) {
+			Map<String, Long> flatTypeCounts, List<Flat> apartmentFlats) {
 		Map<String, DueAmountDetails> duesByFlatType = new LinkedHashMap<>();
 		boolean perSqft = isPerSqft(paymentEntity.getPaymentCapita());
 		if (perSqft) {
 			for (String flatType : flatTypeCounts.keySet()) {
-				duesByFlatType.put(flatType, buildDueDetails(paymentEntity, dueId, flatType, parseNumeric(flatType)));
+				DueAmountDetails due = buildDueDetails(paymentEntity, dueId, flatType, parseNumeric(flatType));
+				due.setApplicableFlats(getApplicableFlatNos(apartmentFlats, flatType));
+				duesByFlatType.put(flatType, due);
 			}
 			return duesByFlatType;
 		}
-		duesByFlatType.put("ALL", buildDueDetails(paymentEntity, dueId, "ALL", BigDecimal.ONE));
+		DueAmountDetails due = buildDueDetails(paymentEntity, dueId, "ALL", BigDecimal.ONE);
+		due.setApplicableFlats(getApplicableFlatNos(apartmentFlats, null));
+		duesByFlatType.put("ALL", due);
 		return duesByFlatType;
+	}
+
+	private List<String> getApplicableFlatNos(List<Flat> apartmentFlats, String flatArea) {
+		if (apartmentFlats == null || apartmentFlats.isEmpty()) {
+			return new ArrayList<>();
+		}
+		List<String> flatNos = new ArrayList<>();
+		for (Flat flat : apartmentFlats) {
+			if (flat == null || flat.getFlatNo() == null) {
+				continue;
+			}
+			if (flatArea == null || flatArea.equalsIgnoreCase("ALL")
+					|| flatArea.equals(normalizeFlatArea(flat.getFlatArea()))) {
+				flatNos.add(flat.getFlatNo());
+			}
+		}
+		return flatNos;
 	}
 
 	private DueAmountDetails buildDueDetails(PaymentEntity paymentEntity, String dueId, String flatTypeKey,
@@ -192,6 +213,7 @@ public class DueDetailsService {
 		entity.setRoundUpAmount(due.getRoundUpAmount());
 		entity.setAlreadyPaidAmount(defaultZeroValue(due.getAlreadyPaidAmount()));
 		entity.setAdminDiscount(defaultZeroValue(due.getAdminDiscount()));
+		entity.setApplicableFlats(genericService.toJson(due.getApplicableFlats() != null ? due.getApplicableFlats() : List.of()));
 		entity.setPaymentStatus(due.getPaymentStatus());
 		entity.setPaymentDate(due.getPaymentDate());
 		entity.setCreatUsrId(userId);
