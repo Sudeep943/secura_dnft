@@ -139,12 +139,8 @@ public class DueDetailsService {
 		due.setAlreadyPaidAmount("0");
 		BigDecimal adminDiscount = parseNumeric(due.getAdminDiscount()).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal alreadyPaidAmount = parseNumeric(due.getAlreadyPaidAmount()).setScale(2, RoundingMode.HALF_UP);
-		BigDecimal finalTotalAmount = roundedTotal;
-		BigDecimal dueRemained = roundedTotal;
-		if (adminDiscount.compareTo(BigDecimal.ZERO) != 0 || alreadyPaidAmount.compareTo(BigDecimal.ZERO) != 0) {
-			finalTotalAmount = roundedTotal.subtract(adminDiscount).setScale(2, RoundingMode.HALF_UP);
-			dueRemained = finalTotalAmount.subtract(alreadyPaidAmount).setScale(2, RoundingMode.HALF_UP);
-		}
+		BigDecimal finalTotalAmount = roundedTotal.subtract(adminDiscount).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal dueRemained = finalTotalAmount.subtract(alreadyPaidAmount).setScale(2, RoundingMode.HALF_UP);
 
 		due.setAmount(format(amount));
 		due.setGstAmount(format(gstAmount));
