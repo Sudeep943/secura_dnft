@@ -3,7 +3,6 @@ package com.secura.dnft.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -76,15 +75,15 @@ public class DueDetailsService {
 				continue;
 			}
 
-			LocalDate startDate = toLocalDate(paymentEntity.getCollectionStartDate());
-			LocalDate endDate = toLocalDate(paymentEntity.getCollectionEndDate());
+			LocalDate startDate = paymentEntity.getCollectionStartDate();
+			LocalDate endDate = paymentEntity.getCollectionEndDate();
 			int cycleMonths = getCycleMonths(paymentEntity.getPaymentCollectionCycle());
 			List<LocalDate[]> intervals = generateCycleIntervals(startDate, endDate, cycleMonths);
 
 			List<Map<String, DueAmountDetails>> duesForCycle = new ArrayList<>();
+			String dueId = createDueId();
+			allGeneratedDueIds.add(dueId);
 			for (LocalDate[] interval : intervals) {
-				String dueId = createDueId();
-				allGeneratedDueIds.add(dueId);
 				Map<String, DueAmountDetails> duesByFlatType = createDuesForInterval(
 						paymentEntity, dueId, flatTypeCounts, apartmentFlats, interval[0], interval[1]);
 				duesForCycle.add(duesByFlatType);
@@ -437,8 +436,8 @@ public class DueDetailsService {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 		LocalDate today = LocalDate.now();
-		LocalDate discountStart = toLocalDate(discountDiscFin.getDiscFnStrtDt());
-		LocalDate discountEnd = toLocalDate(discountDiscFin.getDiscFnEndDt());
+		LocalDate discountStart = discountDiscFin.getDiscFnStrtDt();
+		LocalDate discountEnd = discountDiscFin.getDiscFnEndDt();
 		if (discountStart != null && today.isBefore(discountStart)) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
@@ -464,8 +463,8 @@ public class DueDetailsService {
 		}
 		LocalDate today = LocalDate.now();
 		LocalDate fineStart = Boolean.TRUE.equals(fineDiscFin.getDueDateAsStartDateFlag()) ? dueDate
-				: toLocalDate(fineDiscFin.getDiscFnStrtDt());
-		LocalDate fineEnd = toLocalDate(fineDiscFin.getDiscFnEndDt());
+				: fineDiscFin.getDiscFnStrtDt();
+		LocalDate fineEnd = fineDiscFin.getDiscFnEndDt();
 		if (fineStart != null && today.isBefore(fineStart)) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
@@ -601,10 +600,6 @@ public class DueDetailsService {
 
 	private String normalizeFlatArea(String flatArea) {
 		return flatArea == null || flatArea.isBlank() ? "UNKNOWN" : flatArea.trim();
-	}
-
-	private LocalDate toLocalDate(LocalDateTime localDateTime) {
-		return localDateTime == null ? null : localDateTime.toLocalDate();
 	}
 
 	private BigDecimal calculatePercentageAmount(BigDecimal base, BigDecimal percentage) {

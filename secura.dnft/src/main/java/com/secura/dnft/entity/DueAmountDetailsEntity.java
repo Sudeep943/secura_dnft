@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -29,7 +31,9 @@ public class DueAmountDetailsEntity {
 	@Column(name = "flat_area")
 	private String flatArea;
 
+	@Id
 	@Column(name = "due_date")
+	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate dueDate;
 
 	@Column(name = "payment_id")
@@ -114,6 +118,7 @@ public class DueAmountDetailsEntity {
 	private String paymentStatus;
 
 	@Column(name = "payment_date")
+	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate paymentDate;
 
 	@Column(name = "creat_ts")

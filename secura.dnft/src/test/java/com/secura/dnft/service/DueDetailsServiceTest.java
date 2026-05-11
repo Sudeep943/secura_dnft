@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -66,8 +65,8 @@ class DueDetailsServiceTest {
 		payment.setAprmtId("APR001");
 		payment.setPaymentCollectionCycle("QUATERLY");
 		payment.setPaymentCollectionMode("PRE");
-		payment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		payment.setCollectionEndDate(LocalDateTime.parse("2026-03-31T00:00:00"));
+		payment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 3, 31));
 		payment.setPaymentAmount("2");
 		payment.setPaymentCapita("per Sqft");
 		payment.setPaymentName("Maintenance");
@@ -119,32 +118,32 @@ class DueDetailsServiceTest {
 	@Test
 	void calculateDuesForPayment_shouldUseBaseAmountForPercentagesAndPersistCycleSpecificDiscountCodes() {
 		PaymentEntity monthlyPayment = createPayment("PAY2001", "APR002", "MONTHLY", "100", "DISC_JSON", "ADDED_JSON");
-		monthlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		monthlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-01-31T00:00:00"));
+		monthlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		monthlyPayment.setCollectionEndDate(LocalDate.of(2026, 1, 31));
 
 		PaymentEntity halfYearlyPayment = createPayment("PAY2001", "APR002", "HALF YEARLY", "100", "DISC_JSON", "ADDED_JSON");
-		halfYearlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		halfYearlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-06-30T00:00:00"));
+		halfYearlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		halfYearlyPayment.setCollectionEndDate(LocalDate.of(2026, 6, 30));
 
 		PaymentEntity yearlyPayment = createPayment("PAY2001", "APR002", "YEARLY", "100", "DISC_JSON", "ADDED_JSON");
-		yearlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		yearlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-12-31T00:00:00"));
+		yearlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		yearlyPayment.setCollectionEndDate(LocalDate.of(2026, 12, 31));
 
 		DiscFin halfYearlyDiscount = new DiscFin();
 		halfYearlyDiscount.setDiscFnId("DISC10");
 		halfYearlyDiscount.setDiscFnCycleType("HALF YEARLY");
 		halfYearlyDiscount.setDiscFnMode("PERCENTAGE");
 		halfYearlyDiscount.setDiscFinValue("10");
-		halfYearlyDiscount.setDiscFnStrtDt(LocalDateTime.now().minusDays(2));
-		halfYearlyDiscount.setDiscFnEndDt(LocalDateTime.now().plusDays(2));
+		halfYearlyDiscount.setDiscFnStrtDt(LocalDate.now().minusDays(2));
+		halfYearlyDiscount.setDiscFnEndDt(LocalDate.now().plusDays(2));
 
 		DiscFin yearlyDiscount = new DiscFin();
 		yearlyDiscount.setDiscFnId("DISC10");
 		yearlyDiscount.setDiscFnCycleType("YEARLY");
 		yearlyDiscount.setDiscFnMode("PERCENTAGE");
 		yearlyDiscount.setDiscFinValue("10");
-		yearlyDiscount.setDiscFnStrtDt(LocalDateTime.now().minusDays(2));
-		yearlyDiscount.setDiscFnEndDt(LocalDateTime.now().plusDays(2));
+		yearlyDiscount.setDiscFnStrtDt(LocalDate.now().minusDays(2));
+		yearlyDiscount.setDiscFnEndDt(LocalDate.now().plusDays(2));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("B-101");
@@ -195,24 +194,24 @@ class DueDetailsServiceTest {
 	@Test
 	void calculateDuesForPayment_shouldApplyFixedDiscountCodeAcrossAllPaymentCycles() {
 		PaymentEntity monthlyPayment = createPayment("PAY3001", "APR003", "MONTHLY", "100", "DISC_JSON", "ADDED_JSON");
-		monthlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		monthlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-01-31T00:00:00"));
+		monthlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		monthlyPayment.setCollectionEndDate(LocalDate.of(2026, 1, 31));
 
 		PaymentEntity halfYearlyPayment = createPayment("PAY3001", "APR003", "HALF YEARLY", "100", "DISC_JSON", "ADDED_JSON");
-		halfYearlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		halfYearlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-06-30T00:00:00"));
+		halfYearlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		halfYearlyPayment.setCollectionEndDate(LocalDate.of(2026, 6, 30));
 
 		PaymentEntity yearlyPayment = createPayment("PAY3001", "APR003", "YEARLY", "100", "DISC_JSON", "ADDED_JSON");
-		yearlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		yearlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-12-31T00:00:00"));
+		yearlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		yearlyPayment.setCollectionEndDate(LocalDate.of(2026, 12, 31));
 
 		DiscFin fixedDiscount = new DiscFin();
 		fixedDiscount.setDiscFnId("DISC10");
 		fixedDiscount.setDiscFnCycleType("FIXED");
 		fixedDiscount.setDiscFnMode("PERCENTAGE");
 		fixedDiscount.setDiscFinValue("10");
-		fixedDiscount.setDiscFnStrtDt(LocalDateTime.now().minusDays(2));
-		fixedDiscount.setDiscFnEndDt(LocalDateTime.now().plusDays(2));
+		fixedDiscount.setDiscFnStrtDt(LocalDate.now().minusDays(2));
+		fixedDiscount.setDiscFnEndDt(LocalDate.now().plusDays(2));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("C-101");
@@ -260,16 +259,16 @@ class DueDetailsServiceTest {
 		// Payment uses misspelled "QUATERLY"; discount code uses the correct "QUARTERLY"
 		// normalizeCycle must treat both as equivalent so the discount is applied
 		PaymentEntity quarterlyPayment = createPayment("PAY4001", "APR004", "QUATERLY", "100", "DISC_JSON", null);
-		quarterlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
-		quarterlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-03-31T00:00:00"));
+		quarterlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		quarterlyPayment.setCollectionEndDate(LocalDate.of(2026, 3, 31));
 
 		DiscFin quarterlyDiscount = new DiscFin();
 		quarterlyDiscount.setDiscFnId("DISC20");
 		quarterlyDiscount.setDiscFnCycleType("QUARTERLY");
 		quarterlyDiscount.setDiscFnMode("PERCENTAGE");
 		quarterlyDiscount.setDiscFinValue("5");
-		quarterlyDiscount.setDiscFnStrtDt(LocalDateTime.now().minusDays(1));
-		quarterlyDiscount.setDiscFnEndDt(LocalDateTime.now().plusDays(1));
+		quarterlyDiscount.setDiscFnStrtDt(LocalDate.now().minusDays(1));
+		quarterlyDiscount.setDiscFnEndDt(LocalDate.now().plusDays(1));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("D-101");
@@ -306,8 +305,8 @@ class DueDetailsServiceTest {
 	void calculateDuesForPayment_shouldCreateMultipleDuesForQuarterlyOverFullYear() {
 		// Start: 1 May 2025, End: 30 Apr 2026 → 4 quarterly dues
 		PaymentEntity payment = createPayment("PAY5001", "APR005", "QUATERLY", "2000", null, null);
-		payment.setCollectionStartDate(LocalDateTime.parse("2025-05-01T00:00:00"));
-		payment.setCollectionEndDate(LocalDateTime.parse("2026-04-30T00:00:00"));
+		payment.setCollectionStartDate(LocalDate.of(2025, 5, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 4, 30));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("E-101");
@@ -336,12 +335,12 @@ class DueDetailsServiceTest {
 			assertEquals("6000", duesByFlatType.get("ALL").getAmount());
 		}
 
-		// Each due gets a unique dueId
+		// All dues of the same cycle share the same dueId
 		long distinctDueIds = quarterlyDues.stream()
 				.map(m -> m.get("ALL").getDueId())
 				.distinct()
 				.count();
-		assertEquals(4, distinctDueIds, "Each due should have a unique dueId");
+		assertEquals(1, distinctDueIds, "All dues of the same cycle should share the same dueId");
 
 		// 4 entities saved (1 flat type × 4 intervals)
 		@SuppressWarnings("unchecked")
@@ -354,8 +353,8 @@ class DueDetailsServiceTest {
 	void calculateDuesForPayment_shouldProrateAmountForPartialLastCycle() {
 		// Start: 1 May 2025, End: 30 Mar 2026 → 3 full quarters + 1 partial (Feb–Mar)
 		PaymentEntity payment = createPayment("PAY6001", "APR006", "QUATERLY", "2000", null, null);
-		payment.setCollectionStartDate(LocalDateTime.parse("2025-05-01T00:00:00"));
-		payment.setCollectionEndDate(LocalDateTime.parse("2026-03-30T00:00:00"));
+		payment.setCollectionStartDate(LocalDate.of(2025, 5, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 3, 30));
 		payment.setGst("0");
 
 		Flat flat = new Flat();
@@ -388,8 +387,8 @@ class DueDetailsServiceTest {
 	void calculateDuesForPayment_shouldCreateTwoDuesForHalfYearlyOverFullYear() {
 		// Start: 1 May 2025, End: 30 Apr 2026 → 2 half-yearly dues
 		PaymentEntity payment = createPayment("PAY7001", "APR007", "HALF YEARLY", "1000", null, null);
-		payment.setCollectionStartDate(LocalDateTime.parse("2025-05-01T00:00:00"));
-		payment.setCollectionEndDate(LocalDateTime.parse("2026-04-30T00:00:00"));
+		payment.setCollectionStartDate(LocalDate.of(2025, 5, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 4, 30));
 		payment.setGst("0");
 
 		Flat flat = new Flat();
@@ -416,8 +415,8 @@ class DueDetailsServiceTest {
 	@Test
 	void calculateDuesForPayment_shouldApplyAmountFineAndPersistFineMetadata() {
 		PaymentEntity payment = createPayment("PAY8001", "APR008", "MONTHLY", "100", "FINE_JSON", null);
-		payment.setCollectionStartDate(LocalDateTime.now().minusDays(1));
-		payment.setCollectionEndDate(LocalDateTime.now().plusDays(29));
+		payment.setCollectionStartDate(LocalDate.now().minusDays(1));
+		payment.setCollectionEndDate(LocalDate.now().plusDays(29));
 		payment.setGst("0");
 
 		DiscFin fine = new DiscFin();
@@ -428,8 +427,8 @@ class DueDetailsServiceTest {
 		fine.setDiscFnCumlatonCycle("SIMPLE");
 		fine.setDiscFinValue("50");
 		fine.setDueDateAsStartDateFlag(Boolean.FALSE);
-		fine.setDiscFnStrtDt(LocalDateTime.now().minusDays(3));
-		fine.setDiscFnEndDt(LocalDateTime.now().plusDays(3));
+		fine.setDiscFnStrtDt(LocalDate.now().minusDays(3));
+		fine.setDiscFnEndDt(LocalDate.now().plusDays(3));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("H-101");
@@ -469,8 +468,8 @@ class DueDetailsServiceTest {
 	void calculateDuesForPayment_shouldApplyCumulativePercentageFineUsingDueDateAsStartDate() {
 		LocalDate dueDate = LocalDate.now().minusDays(30);
 		PaymentEntity payment = createPayment("PAY9001", "APR009", "MONTHLY", "100", "FINE_JSON", null);
-		payment.setCollectionStartDate(dueDate.atStartOfDay());
-		payment.setCollectionEndDate(dueDate.plusMonths(1).minusDays(1).atStartOfDay());
+		payment.setCollectionStartDate(dueDate);
+		payment.setCollectionEndDate(dueDate.plusMonths(1).minusDays(1));
 		payment.setGst("0");
 
 		DiscFin fine = new DiscFin();
@@ -481,7 +480,7 @@ class DueDetailsServiceTest {
 		fine.setDiscFnCumlatonCycle("CUMULATIVE");
 		fine.setDiscFinValue("10");
 		fine.setDueDateAsStartDateFlag(Boolean.TRUE);
-		fine.setDiscFnEndDt(LocalDateTime.now().plusDays(2));
+		fine.setDiscFnEndDt(LocalDate.now().plusDays(2));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("I-101");

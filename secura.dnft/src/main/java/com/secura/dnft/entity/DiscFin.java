@@ -1,9 +1,12 @@
 package com.secura.dnft.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,10 +33,12 @@ public class DiscFin {
 	private Boolean dueDateAsStartDateFlag;
 
 	@Column(name = "disc_fn_strt_dt")
-	private LocalDateTime discFnStrtDt;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate discFnStrtDt;
 
 	@Column(name = "disc_fn_end_dt")
-	private LocalDateTime discFnEndDt;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate discFnEndDt;
 
 	@Column(name = "disc_fn_mode")
 	private String discFnMode;
@@ -105,19 +110,19 @@ public class DiscFin {
 		this.dueDateAsStartDateFlag = dueDateAsStartDateFlag;
 	}
 
-	public LocalDateTime getDiscFnStrtDt() {
+	public LocalDate getDiscFnStrtDt() {
 		return discFnStrtDt;
 	}
 
-	public void setDiscFnStrtDt(LocalDateTime discFnStrtDt) {
+	public void setDiscFnStrtDt(LocalDate discFnStrtDt) {
 		this.discFnStrtDt = discFnStrtDt;
 	}
 
-	public LocalDateTime getDiscFnEndDt() {
+	public LocalDate getDiscFnEndDt() {
 		return discFnEndDt;
 	}
 
-	public void setDiscFnEndDt(LocalDateTime discFnEndDt) {
+	public void setDiscFnEndDt(LocalDate discFnEndDt) {
 		this.discFnEndDt = discFnEndDt;
 	}
 

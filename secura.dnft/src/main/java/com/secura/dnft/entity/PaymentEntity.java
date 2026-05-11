@@ -1,9 +1,12 @@
 package com.secura.dnft.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,13 +42,16 @@ public class PaymentEntity {
     private String currency;
     
     @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    @JsonFormat(pattern = "d-MMM-yyyy")
+    private LocalDate dueDate;
 
     @Column(name = "collection_start_date")
-    private LocalDateTime collectionStartDate;
+    @JsonFormat(pattern = "d-MMM-yyyy")
+    private LocalDate collectionStartDate;
 
     @Column(name = "collection_end_date")
-    private LocalDateTime collectionEndDate;
+    @JsonFormat(pattern = "d-MMM-yyyy")
+    private LocalDate collectionEndDate;
 
     @Id
     @Column(name = "payment_collection_cycle")
@@ -109,11 +115,11 @@ public class PaymentEntity {
 		this.currency = currency;
 	}
 
-	public LocalDateTime getDueDate() {
+	public LocalDate getDueDate() {
 		return dueDate;
 	}
 
-	public void setDueDate(LocalDateTime dueDate) {
+	public void setDueDate(LocalDate dueDate) {
 		this.dueDate = dueDate;
 	}
 
@@ -165,19 +171,19 @@ public class PaymentEntity {
         this.gst = gst;
     }
 
-    public LocalDateTime getCollectionStartDate() {
+    public LocalDate getCollectionStartDate() {
         return collectionStartDate;
     }
 
-    public void setCollectionStartDate(LocalDateTime collectionStartDate) {
+    public void setCollectionStartDate(LocalDate collectionStartDate) {
         this.collectionStartDate = collectionStartDate;
     }
 
-    public LocalDateTime getCollectionEndDate() {
+    public LocalDate getCollectionEndDate() {
         return collectionEndDate;
     }
 
-    public void setCollectionEndDate(LocalDateTime collectionEndDate) {
+    public void setCollectionEndDate(LocalDate collectionEndDate) {
         this.collectionEndDate = collectionEndDate;
     }
 
