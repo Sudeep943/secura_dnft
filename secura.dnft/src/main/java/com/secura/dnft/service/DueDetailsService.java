@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -125,7 +125,7 @@ public class DueDetailsService {
 			LocalDate naturalIntervalEnd = intervalStart.plusMonths(cycleMonths).minusDays(1);
 			LocalDate intervalEnd = naturalIntervalEnd.isAfter(endDate) ? endDate : naturalIntervalEnd;
 			intervals.add(new LocalDate[]{intervalStart, intervalEnd});
-			intervalStart = naturalIntervalEnd.plusDays(1);
+			intervalStart = intervalEnd.plusDays(1);
 		}
 		return intervals;
 	}
@@ -469,7 +469,7 @@ public class DueDetailsService {
 			return fullCycleAmount.setScale(2, RoundingMode.HALF_UP);
 		}
 
-		long coveredMonths = ChronoUnit.MONTHS.between(startDate.withDayOfMonth(1), endDate.withDayOfMonth(1)) + 1;
+		long coveredMonths = (long) YearMonth.from(endDate).compareTo(YearMonth.from(startDate)) + 1;
 		if (coveredMonths <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
