@@ -512,7 +512,7 @@ public class DueDetailsService {
 			}
 			// Convert months to periods based on the cumulation cycle
 			double monthsPerPeriod = getMonthsPerPeriod(fineDiscFin.getDiscFnCumlatonCycle());
-			double t = totalMonths / monthsPerPeriod;
+			double t = BigDecimal.valueOf(totalMonths / monthsPerPeriod).setScale(2, RoundingMode.DOWN).doubleValue();
 			double r = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP).doubleValue();
 			double compoundedFactor = Math.pow(1 + r, t);
 			LOGGER.debug("calculateFineAmount cumulative: fineCode={}, baseAmount={}, r={}, t={} periods (totalMonths={}, monthsPerPeriod={}), compoundedFactor={}",
