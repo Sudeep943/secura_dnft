@@ -19,11 +19,12 @@ public class DueAmountDetails {
 	private String totalAmount;
 	private String paymentName;
 	private String paymentType;
-	private boolean eventPayment;
+	private String cause;
 	private List<String> allowedPaymentModes;
 	private String paymentCapita;
 	private List<AddedCharges> addedCharges;
 	private String totalAddedCharges;
+	private String estimatedCollectionAmount;
 	private String gstPercentage;
 	private String discountCode;
 	private String fineCode;
@@ -107,12 +108,12 @@ public class DueAmountDetails {
 		this.paymentType = paymentType;
 	}
 
-	public boolean isEventPayment() {
-		return eventPayment;
+	public String getCause() {
+		return cause;
 	}
 
-	public void setEventPayment(boolean eventPayment) {
-		this.eventPayment = eventPayment;
+	public void setCause(String cause) {
+		this.cause = cause;
 	}
 
 	public List<String> getAllowedPaymentModes() {
@@ -145,6 +146,14 @@ public class DueAmountDetails {
 
 	public void setTotalAddedCharges(String totalAddedCharges) {
 		this.totalAddedCharges = totalAddedCharges;
+	}
+
+	public String getEstimatedCollectionAmount() {
+		return estimatedCollectionAmount;
+	}
+
+	public void setEstimatedCollectionAmount(String estimatedCollectionAmount) {
+		this.estimatedCollectionAmount = estimatedCollectionAmount;
 	}
 
 	public String getGstPercentage() {

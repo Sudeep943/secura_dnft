@@ -29,6 +29,10 @@ public class DueAmountDetailsEntity {
 	@Column(name = "collection_cycle")
 	private String collectionCycle;
 
+	@Id
+	@Column(name = "flat_area")
+	private String flatArea;
+
 	@Column(name = "due_date")
 	private LocalDate dueDate;
 
@@ -50,8 +54,8 @@ public class DueAmountDetailsEntity {
 	@Column(name = "payment_type")
 	private String paymentType;
 
-	@Column(name = "event_payment")
-	private boolean eventPayment;
+	@Column(name = "cause")
+	private String cause;
 
 	@Transient
 	private List<String> allowedPaymentModes;
@@ -64,6 +68,9 @@ public class DueAmountDetailsEntity {
 
 	@Column(name = "total_added_charges")
 	private String totalAddedCharges;
+
+	@Column(name = "estimated_collection_amount")
+	private String estimatedCollectionAmount;
 
 	@Column(name = "gst_percentage")
 	private String gstPercentage;
@@ -187,12 +194,20 @@ public class DueAmountDetailsEntity {
 		this.paymentType = paymentType;
 	}
 
-	public boolean isEventPayment() {
-		return eventPayment;
+	public String getFlatArea() {
+		return flatArea;
 	}
 
-	public void setEventPayment(boolean eventPayment) {
-		this.eventPayment = eventPayment;
+	public void setFlatArea(String flatArea) {
+		this.flatArea = flatArea;
+	}
+
+	public String getCause() {
+		return cause;
+	}
+
+	public void setCause(String cause) {
+		this.cause = cause;
 	}
 
 	public List<String> getAllowedPaymentModes() {
@@ -225,6 +240,14 @@ public class DueAmountDetailsEntity {
 
 	public void setTotalAddedCharges(String totalAddedCharges) {
 		this.totalAddedCharges = totalAddedCharges;
+	}
+
+	public String getEstimatedCollectionAmount() {
+		return estimatedCollectionAmount;
+	}
+
+	public void setEstimatedCollectionAmount(String estimatedCollectionAmount) {
+		this.estimatedCollectionAmount = estimatedCollectionAmount;
 	}
 
 	public String getGstPercentage() {

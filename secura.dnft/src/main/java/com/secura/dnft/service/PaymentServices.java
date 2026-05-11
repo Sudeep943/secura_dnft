@@ -74,6 +74,9 @@ public class PaymentServices implements PaymentInterface {
 	@Autowired
 	ReceiptServices receiptServices;
 
+	@Autowired
+	DueDetailsService dueDetailsService;
+
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
 		DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
@@ -380,6 +383,7 @@ public class PaymentServices implements PaymentInterface {
 			entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
 			paymentRepository.save(entity);
 		}
+		dueDetailsService.calculateDuesForPayment(paymentId, request.getGenericHeader());
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 		return response;

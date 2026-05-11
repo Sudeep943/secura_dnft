@@ -1,0 +1,13 @@
+package com.secura.dnft.dao;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.DueAmountDetailsEntityId;
+
+public interface DueAmountDetailsRepository extends JpaRepository<DueAmountDetailsEntity, DueAmountDetailsEntityId> {
+
+	List<DueAmountDetailsEntity> findByDueId(String dueId);
+}
