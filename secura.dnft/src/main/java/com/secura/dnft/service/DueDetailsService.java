@@ -225,7 +225,7 @@ public class DueDetailsService {
 		due.setDiscountedAmount(format(discountedAmount));
 		due.setFineAmount(format(fineAmount));
 		due.setFineMode(fineDiscFin != null ? fineDiscFin.getDiscFnMode() : null);
-		due.setFineType(fineDiscFin != null ? fineDiscFin.getDiscFnType() : "");
+		due.setFineType(fineDiscFin != null ? fineDiscFin.getFnCalculationType() : "");
 		due.setRoundUpAmount(format(roundUpAmount));
 		due.setAlreadyPaidAmount(format(BigDecimal.ZERO));
 		due.setAdminDiscount(format(BigDecimal.ZERO));
