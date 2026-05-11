@@ -10,8 +10,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -410,6 +413,117 @@ class DueDetailsServiceTest {
 		assertEquals("6000", halfYearlyDues.get(1).get("ALL").getAmount());
 	}
 
+	@Test
+	void calculateDuesForPayment_shouldApplyAmountFineAndPersistFineMetadata() {
+		PaymentEntity payment = createPayment("PAY8001", "APR008", "MONTHLY", "100", "FINE_JSON", null);
+		payment.setCollectionStartDate(LocalDateTime.now().minusDays(1));
+		payment.setCollectionEndDate(LocalDateTime.now().plusDays(29));
+		payment.setGst("0");
+
+		DiscFin fine = new DiscFin();
+		fine.setDiscFnId("FINE50");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("FIXED");
+		fine.setDiscFnMode("AMOUNT");
+		fine.setDiscFnCumlatonCycle("SIMPLE");
+		fine.setDiscFinValue("50");
+		fine.setDueDateAsStartDateFlag(Boolean.FALSE);
+		fine.setDiscFnStrtDt(LocalDateTime.now().minusDays(3));
+		fine.setDiscFnEndDt(LocalDateTime.now().plusDays(3));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("H-101");
+		flat.setFlatArea("500");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY8001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR008")).thenReturn(List.of(flat));
+		when(discFinRepository.findByDiscFnId("FINE50")).thenReturn(List.of(fine));
+		when(genericService.fromJson(eq("FINE_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "FINE", "code", "FINE50")));
+		when(genericService.toJson(any())).thenReturn("[]");
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY8001");
+
+		DueAmountDetails due = response.get("MONTHLY").get(0).get("ALL");
+		assertEquals("FINE50", due.getFineCode());
+		assertEquals("50", due.getFineAmount());
+		assertEquals("FINE", due.getFineType());
+		assertEquals("AMOUNT", due.getFineMode());
+		assertEquals("SIMPLE", due.getCummilationCycle());
+		assertEquals("150", due.getTotalAmount());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(dueEntityCaptor.capture());
+		DueAmountDetailsEntity saved = dueEntityCaptor.getValue().get(0);
+		assertEquals("50", saved.getFineAmount());
+		assertEquals("AMOUNT", saved.getFineMode());
+		assertEquals("SIMPLE", saved.getCummilationCycle());
+		assertEquals("FINE", saved.getFineType());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldApplyCumulativePercentageFineUsingDueDateAsStartDate() {
+		LocalDate dueDate = LocalDate.now().minusDays(30);
+		PaymentEntity payment = createPayment("PAY9001", "APR009", "MONTHLY", "100", "FINE_JSON", null);
+		payment.setCollectionStartDate(dueDate.atStartOfDay());
+		payment.setCollectionEndDate(dueDate.plusMonths(1).minusDays(1).atStartOfDay());
+		payment.setGst("0");
+
+		DiscFin fine = new DiscFin();
+		fine.setDiscFnId("FINEPCT10");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("FIXED");
+		fine.setDiscFnMode("PERCENTAGE");
+		fine.setDiscFnCumlatonCycle("CUMULATIVE");
+		fine.setDiscFinValue("10");
+		fine.setDueDateAsStartDateFlag(Boolean.TRUE);
+		fine.setDiscFnEndDt(LocalDateTime.now().plusDays(2));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("I-101");
+		flat.setFlatArea("500");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY9001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR009")).thenReturn(List.of(flat));
+		when(discFinRepository.findByDiscFnId("FINEPCT10")).thenReturn(List.of(fine));
+		when(genericService.fromJson(eq("FINE_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "FINE", "code", "FINEPCT10")));
+		when(genericService.toJson(any())).thenReturn("[]");
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY9001");
+
+		long dayDiff = ChronoUnit.DAYS.between(dueDate, LocalDate.now());
+		BigDecimal expectedFine = BigDecimal.ZERO;
+		if (dayDiff > 0) {
+			double compoundedFactor = Math.pow(BigDecimal.valueOf(1.1d).doubleValue(), dayDiff / 365.0d);
+			expectedFine = BigDecimal.valueOf(100).multiply(BigDecimal.valueOf(compoundedFactor))
+					.setScale(2, RoundingMode.HALF_UP);
+		}
+		BigDecimal expectedTotal = BigDecimal.valueOf(100).add(expectedFine);
+		BigDecimal expectedRoundedTotal = expectedTotal.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
+
+		DueAmountDetails due = response.get("MONTHLY").get(0).get("ALL");
+		assertEquals(format(expectedFine), due.getFineAmount());
+		assertEquals("CUMULATIVE", due.getCummilationCycle());
+		assertEquals("PERCENTAGE", due.getFineMode());
+		assertEquals(format(expectedRoundedTotal), due.getTotalAmount());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(dueEntityCaptor.capture());
+		DueAmountDetailsEntity saved = dueEntityCaptor.getValue().get(0);
+		assertEquals(format(expectedFine), saved.getFineAmount());
+		assertEquals("CUMULATIVE", saved.getCummilationCycle());
+		assertEquals("PERCENTAGE", saved.getFineMode());
+	}
+
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,
 			String addedCharges) {
 		PaymentEntity payment = new PaymentEntity();
@@ -426,5 +540,12 @@ class DueDetailsServiceTest {
 		payment.setDiscFin(discFin);
 		payment.setAddedCharges(addedCharges);
 		return payment;
+	}
+
+	private String format(BigDecimal value) {
+		if (value == null) {
+			return "0";
+		}
+		return value.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
 	}
 }

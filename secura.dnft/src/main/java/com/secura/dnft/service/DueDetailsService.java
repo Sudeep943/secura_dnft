@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -178,6 +179,7 @@ public class DueDetailsService {
 		BigDecimal amount = calculateAmount(paymentEntity, intervalStart, intervalEnd, areaMultiplier);
 		DiscFinReference discFinReference = extractDiscFinReference(paymentEntity.getDiscFin());
 		DiscFin discountDiscFin = resolveDiscFin(discFinReference.discountCode(), paymentEntity.getPaymentCollectionCycle());
+		DiscFin fineDiscFin = resolveDiscFin(discFinReference.fineCode(), paymentEntity.getPaymentCollectionCycle());
 		BigDecimal discountedAmount = calculateDiscountAmount(discountDiscFin, amount);
 		BigDecimal baseAmount = amount.subtract(discountedAmount);
 		if (baseAmount.compareTo(BigDecimal.ZERO) < 0) {
@@ -190,7 +192,7 @@ public class DueDetailsService {
 		BigDecimal totalAddedCharges = applyAddedChargesAndCalculateTotal(addedCharges, baseAmount);
 		String discountValue = discountDiscFin != null ? format(discountDiscFin.getDiscFinValue()) : null;
 
-		BigDecimal fineAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		BigDecimal fineAmount = calculateFineAmount(fineDiscFin, baseAmount, due.getDueDate());
 		BigDecimal computedTotal = baseAmount.add(gstAmount).add(totalAddedCharges).add(fineAmount);
 		BigDecimal roundedTotal = computedTotal.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal roundUpAmount = roundedTotal.subtract(computedTotal).setScale(2, RoundingMode.HALF_UP);
@@ -206,12 +208,14 @@ public class DueDetailsService {
 		due.setTotalAddedCharges(format(totalAddedCharges));
 		due.setGstPercentage(format(gstPercentage));
 		due.setDiscountCode(discountDiscFin != null ? discFinReference.discountCode() : null);
-		due.setFineCode(discFinReference.fineCode());
+		due.setFineCode(fineDiscFin != null ? fineDiscFin.getDiscFnId() : discFinReference.fineCode());
 		due.setDiscountMode(discountDiscFin != null ? discountDiscFin.getDiscFnMode() : null);
+		due.setCummilationCycle(fineDiscFin != null ? fineDiscFin.getDiscFnCumlatonCycle() : null);
 		due.setDiscFnValue(discountValue);
 		due.setDiscountedAmount(format(discountedAmount));
 		due.setFineAmount(format(fineAmount));
-		due.setFineType("");
+		due.setFineMode(fineDiscFin != null ? fineDiscFin.getDiscFnMode() : null);
+		due.setFineType(fineDiscFin != null ? fineDiscFin.getDiscFnType() : "");
 		due.setRoundUpAmount(format(roundUpAmount));
 		due.setAlreadyPaidAmount(format(BigDecimal.ZERO));
 		due.setAdminDiscount(format(BigDecimal.ZERO));
@@ -241,10 +245,12 @@ public class DueDetailsService {
 		entity.setGstPercentage(due.getGstPercentage());
 		entity.setDiscountCode(due.getDiscountCode());
 		entity.setDiscountMode(due.getDiscountMode());
+		entity.setCummilationCycle(due.getCummilationCycle());
 		entity.setFineCode(due.getFineCode());
 		entity.setDiscFnValue(due.getDiscFnValue());
 		entity.setDiscountedAmount(due.getDiscountedAmount());
 		entity.setFineAmount(defaultZeroValue(due.getFineAmount()));
+		entity.setFineMode(due.getFineMode());
 		entity.setFineType(due.getFineType());
 		entity.setRoundUpAmount(due.getRoundUpAmount());
 		entity.setAlreadyPaidAmount(defaultZeroValue(due.getAlreadyPaidAmount()));
@@ -450,6 +456,54 @@ public class DueDetailsService {
 			return calculatePercentageAmount(amount, discountValue);
 		}
 		return discountValue.setScale(2, RoundingMode.HALF_UP);
+	}
+
+	private BigDecimal calculateFineAmount(DiscFin fineDiscFin, BigDecimal baseAmount, LocalDate dueDate) {
+		if (fineDiscFin == null) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+		LocalDate today = LocalDate.now();
+		LocalDate fineStart = Boolean.TRUE.equals(fineDiscFin.getDueDateAsStartDateFlag()) ? dueDate
+				: toLocalDate(fineDiscFin.getDiscFnStrtDt());
+		LocalDate fineEnd = toLocalDate(fineDiscFin.getDiscFnEndDt());
+		if (fineStart != null && today.isBefore(fineStart)) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+		if (fineEnd != null && today.isAfter(fineEnd)) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+
+		BigDecimal fineValue = parseNumeric(fineDiscFin.getDiscFinValue());
+		if (SecuraConstants.DISC_FN_MODE_AMOUNT.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
+			return fineValue.setScale(2, RoundingMode.HALF_UP);
+		}
+		if (!SecuraConstants.DISC_FN_MODE_PERCENTAGE.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+		if (isCumulativeFine(fineDiscFin.getDiscFnCumlatonCycle())) {
+			LocalDate interestStartDate = fineStart != null ? fineStart : today;
+			long dayDiff = ChronoUnit.DAYS.between(interestStartDate, today);
+			if (dayDiff <= 0) {
+				return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+			}
+			BigDecimal percentage = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+			double yearFraction = dayDiff / 365.0d;
+			double compoundedFactor = Math.pow(BigDecimal.ONE.add(percentage).doubleValue(), yearFraction);
+			BigDecimal compoundedAmount = baseAmount.multiply(BigDecimal.valueOf(compoundedFactor));
+			return compoundedAmount.setScale(2, RoundingMode.HALF_UP);
+		}
+		return calculatePercentageAmount(baseAmount, fineValue);
+	}
+
+	private boolean isCumulativeFine(String cummilationCycle) {
+		if (cummilationCycle == null) {
+			return false;
+		}
+		String normalized = cummilationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		return normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMULATIVE)
+				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMULATIVE)
+				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMMILATIVE)
+				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
 	}
 
 	private BigDecimal calculateAmount(PaymentEntity paymentEntity, LocalDate startDate, LocalDate endDate,

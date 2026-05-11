@@ -29,12 +29,14 @@ public class DueAmountDetails {
 	private String discountCode;
 	private String fineCode;
 	private String discountMode;
+	private String cummilationCycle;
 	@JsonProperty("disc_fn_value")
 	private String discFnValue;
 	@JsonProperty("discountedAmount")
 	private String discountedAmount;
 	@JsonProperty("fineAmount")
 	private String fineAmount;
+	private String fineMode;
 	@JsonProperty("disc_fn_type")
 	private String fineType;
 	private String roundUpAmount;
@@ -190,6 +192,14 @@ public class DueAmountDetails {
 		this.discountMode = discountMode;
 	}
 
+	public String getCummilationCycle() {
+		return cummilationCycle;
+	}
+
+	public void setCummilationCycle(String cummilationCycle) {
+		this.cummilationCycle = cummilationCycle;
+	}
+
 	public String getDiscFnValue() {
 		return discFnValue;
 	}
@@ -212,6 +222,14 @@ public class DueAmountDetails {
 
 	public void setFineAmount(String fineAmount) {
 		this.fineAmount = fineAmount;
+	}
+
+	public String getFineMode() {
+		return fineMode;
+	}
+
+	public void setFineMode(String fineMode) {
+		this.fineMode = fineMode;
 	}
 
 	public String getFineType() {
