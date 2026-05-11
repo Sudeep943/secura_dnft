@@ -502,14 +502,14 @@ public class DueDetailsService {
 				completeMonths = 0;
 			}
 			LocalDate monthBoundary = interestStartDate.plusMonths(completeMonths);
-			long daysInPartialMonth = ChronoUnit.DAYS.between(monthBoundary, today) + 1; // inclusive
+			long daysInPartialMonth = ChronoUnit.DAYS.between(monthBoundary, today) + 1; // inclusive per-problem-spec
 			int daysInCurrentMonth = today.lengthOfMonth();
 			double totalMonths = completeMonths + (double) daysInPartialMonth / daysInCurrentMonth;
 			if (totalMonths <= 0) {
 				return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 			}
 			// Convert months to periods based on the cumulation cycle
-			int monthsPerPeriod = getMonthsPerPeriod(fineDiscFin.getDiscFnCumlatonCycle());
+			double monthsPerPeriod = getMonthsPerPeriod(fineDiscFin.getDiscFnCumlatonCycle());
 			double t = totalMonths / monthsPerPeriod;
 			double r = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP).doubleValue();
 			double compoundedFactor = Math.pow(1 + r, t);
@@ -534,31 +534,32 @@ public class DueDetailsService {
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
 	}
 
-	private int getMonthsPerPeriod(String cumulationCycle) {
+	private double getMonthsPerPeriod(String cumulationCycle) {
 		if (cumulationCycle == null) {
-			return 1;
+			return 1.0;
 		}
 		String normalized = cumulationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		if (SecuraConstants.DISC_FN_CYCLE_MONTHLY.equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED.equals(normalized)) {
-			return 1;
+			return 1.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_QUARTERLY.equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED.equals(normalized)) {
-			return 3;
+			return 3.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_HALFYEARLY.equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY.replaceAll("[\\s_-]", "").equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_HALF_DASH_YEARLY.replaceAll("[\\s_-]", "").equals(normalized)) {
-			return 6;
+			return 6.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_YEARLY.equals(normalized)) {
-			return 12;
+			return 12.0;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_DAILY.equals(normalized)) {
-			return 1;
+			// Daily rate: 1 day expressed as a fraction of a month (365.25/12 days per month)
+			return 12.0 / 365.25;
 		}
-		return 1;
+		return 1.0;
 	}
 
 	private BigDecimal calculateAmount(PaymentEntity paymentEntity, LocalDate startDate, LocalDate endDate,
