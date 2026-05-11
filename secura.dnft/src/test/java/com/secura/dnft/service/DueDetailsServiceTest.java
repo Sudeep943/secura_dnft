@@ -251,6 +251,8 @@ class DueDetailsServiceTest {
 
 	@Test
 	void calculateDuesForPayment_shouldMatchQuarterlyDiscountRegardlessOfSpelling() {
+		// Payment uses misspelled "QUATERLY"; discount code uses the correct "QUARTERLY"
+		// normalizeCycle must treat both as equivalent so the discount is applied
 		PaymentEntity quarterlyPayment = createPayment("PAY4001", "APR004", "QUATERLY", "100", "DISC_JSON", null);
 		quarterlyPayment.setCollectionStartDate(LocalDateTime.parse("2026-01-01T00:00:00"));
 		quarterlyPayment.setCollectionEndDate(LocalDateTime.parse("2026-03-31T00:00:00"));
@@ -278,6 +280,7 @@ class DueDetailsServiceTest {
 
 		Map<String, Map<String, DueAmountDetails>> response = dueDetailsService.calculateDuesForPayment("PAY4001");
 
+		// The map key retains the original payment cycle spelling ("QUATERLY")
 		DueAmountDetails due = response.get("QUATERLY").get("ALL");
 		assertEquals("DISC20", due.getDiscountCode());
 		assertEquals("15", due.getDiscountedAmount());
