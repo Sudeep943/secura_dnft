@@ -310,8 +310,6 @@ class PaymentServicesTest {
 		amountCharge.setValue("100");
 		request.setAddedCharges(List.of(amountCharge));
 
-		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
-				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON", "DISC_FIN_JSON");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -348,8 +346,6 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setCause(null);
 
-		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
-				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -377,8 +373,6 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setPartialPaymentAllowed(true);
 
-		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
-				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -410,8 +404,6 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setAllowedPaymentModes(List.of("UPI", "CARD"));
 
-		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
-				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(eq(List.of("UPI", "CARD")))).thenReturn("ALLOWED_PAYMENT_MODES_JSON");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -440,8 +432,6 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setApplicableFor(List.of("A-101, A-102", "A-103"));
 
-		when(genericService.getCorrectLocalDateForInputDate(any(Date.class)))
-				.thenAnswer(invocation -> ((Date) invocation.getArgument(0)).toLocalDate().atStartOfDay());
 		when(genericService.toJson(eq(List.of("A-101", "A-102", "A-103"))))
 				.thenReturn("[\"A-101\",\"A-102\",\"A-103\"]");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));

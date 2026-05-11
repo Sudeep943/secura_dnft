@@ -351,8 +351,8 @@ public class PaymentServices implements PaymentInterface {
 		response.setGenericHeader(request.getGenericHeader());
 		String paymentId = getPaymentId(request.getPaymentType());
 		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
-		LocalDateTime collectionStartDate = genericService.getCorrectLocalDateForInputDate(request.getCollectionStartDate());
-		LocalDateTime collectionEndDate = genericService.getCorrectLocalDateForInputDate(request.getCollectionEndDate());
+		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate() : null;
+		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
 		String applicableFor = serializeApplicableFor(request.getApplicableFor());
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());

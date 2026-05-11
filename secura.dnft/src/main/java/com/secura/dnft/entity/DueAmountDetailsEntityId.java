@@ -1,6 +1,7 @@
 package com.secura.dnft.entity;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.Objects;
 
 public class DueAmountDetailsEntityId implements Serializable {
@@ -10,14 +11,16 @@ public class DueAmountDetailsEntityId implements Serializable {
 	private String dueId;
 	private String collectionCycle;
 	private String flatArea;
+	private LocalDate dueDate;
 
 	public DueAmountDetailsEntityId() {
 	}
 
-	public DueAmountDetailsEntityId(String dueId, String collectionCycle, String flatArea) {
+	public DueAmountDetailsEntityId(String dueId, String collectionCycle, String flatArea, LocalDate dueDate) {
 		this.dueId = dueId;
 		this.collectionCycle = collectionCycle;
 		this.flatArea = flatArea;
+		this.dueDate = dueDate;
 	}
 
 	public String getDueId() {
@@ -44,6 +47,14 @@ public class DueAmountDetailsEntityId implements Serializable {
 		this.flatArea = flatArea;
 	}
 
+	public LocalDate getDueDate() {
+		return dueDate;
+	}
+
+	public void setDueDate(LocalDate dueDate) {
+		this.dueDate = dueDate;
+	}
+
 	@Override
 	public boolean equals(Object object) {
 		if (this == object) {
@@ -53,11 +64,11 @@ public class DueAmountDetailsEntityId implements Serializable {
 			return false;
 		}
 		return Objects.equals(dueId, other.dueId) && Objects.equals(collectionCycle, other.collectionCycle)
-				&& Objects.equals(flatArea, other.flatArea);
+				&& Objects.equals(flatArea, other.flatArea) && Objects.equals(dueDate, other.dueDate);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(dueId, collectionCycle, flatArea);
+		return Objects.hash(dueId, collectionCycle, flatArea, dueDate);
 	}
 }

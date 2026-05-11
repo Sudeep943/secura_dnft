@@ -75,10 +75,10 @@ public class DiscFinServices implements DiscFinInterface {
 		entity.setDiscFnType(request.getDiscFnType());
 		entity.setDueDateAsStartDateFlag(request.getDueDateAsStartDateFlag());
 		if (request.getDiscFnStrtDt() != null) {
-			entity.setDiscFnStrtDt(genericService.getCorrectLocalDateForInputDate(request.getDiscFnStrtDt()));
+			entity.setDiscFnStrtDt(request.getDiscFnStrtDt().toLocalDate());
 		}
 		if (request.getDiscFnEndDt() != null) {
-			entity.setDiscFnEndDt(genericService.getCorrectLocalDateForInputDate(request.getDiscFnEndDt()));
+			entity.setDiscFnEndDt(request.getDiscFnEndDt().toLocalDate());
 		}
 		entity.setDiscFnMode(request.getDiscFnMode());
 		entity.setDiscFnCumlatonCycle(request.getDiscFnCumlatonCycle());

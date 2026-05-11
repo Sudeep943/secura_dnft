@@ -7,7 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -175,8 +175,8 @@ class DiscFinServicesTest {
 		DiscFin updated = new DiscFin();
 		updated.setDiscFnType("DISCOUNT");
 		updated.setDueDateAsStartDateFlag(Boolean.TRUE);
-		updated.setDiscFnStrtDt(LocalDateTime.of(2026, 4, 1, 0, 0));
-		updated.setDiscFnEndDt(LocalDateTime.of(2026, 4, 30, 0, 0));
+		updated.setDiscFnStrtDt(LocalDate.of(2026, 4, 1));
+		updated.setDiscFnEndDt(LocalDate.of(2026, 4, 30));
 		updated.setDiscFnMode("PERCENTAGE");
 		updated.setDiscFnCumlatonCycle("MONTHLY");
 		updated.setDiscFnCycleType("ONCE");
