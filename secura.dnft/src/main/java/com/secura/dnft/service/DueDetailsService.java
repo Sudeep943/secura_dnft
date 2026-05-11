@@ -135,10 +135,20 @@ public class DueDetailsService {
 		BigDecimal computedTotal = amount.add(gstAmount).add(totalAddedCharges).add(fineAmount).subtract(discountedAmount);
 		BigDecimal roundedTotal = computedTotal.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
 		BigDecimal roundUpAmount = roundedTotal.subtract(computedTotal).setScale(2, RoundingMode.HALF_UP);
+		due.setAdminDiscount("0");
+		due.setAlreadyPaidAmount("0");
+		BigDecimal adminDiscount = parseNumeric(due.getAdminDiscount()).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal alreadyPaidAmount = parseNumeric(due.getAlreadyPaidAmount()).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal finalTotalAmount = roundedTotal;
+		BigDecimal dueRemained = roundedTotal;
+		if (adminDiscount.compareTo(BigDecimal.ZERO) != 0 || alreadyPaidAmount.compareTo(BigDecimal.ZERO) != 0) {
+			finalTotalAmount = roundedTotal.subtract(adminDiscount).setScale(2, RoundingMode.HALF_UP);
+			dueRemained = finalTotalAmount.subtract(alreadyPaidAmount).setScale(2, RoundingMode.HALF_UP);
+		}
 
 		due.setAmount(format(amount));
 		due.setGstAmount(format(gstAmount));
-		due.setTotalAmount(format(roundedTotal));
+		due.setTotalAmount(format(finalTotalAmount));
 		due.setPaymentName(paymentEntity.getPaymentName());
 		due.setPaymentType(paymentEntity.getPaymentType());
 		due.setAllowedPaymentModes(parseAllowedPaymentModes(paymentEntity.getAllowedPaymentModes()));
@@ -153,6 +163,7 @@ public class DueDetailsService {
 		due.setFineAmount(format(fineAmount));
 		due.setFineType("");
 		due.setRoundUpAmount(format(roundUpAmount));
+		due.setDueRemained(format(dueRemained));
 		due.setCause(paymentEntity.getCauseId());
 		return due;
 	}

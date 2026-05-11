@@ -93,6 +93,9 @@ class DueDetailsServiceTest {
 		assertTrue(duesByFlatType.containsKey("1200"));
 		assertNotNull(duesByFlatType.get("1000").getEstimatedCollectionAmount());
 		assertEquals("COMMON_AREA", duesByFlatType.get("1000").getCause());
+		assertEquals("0", duesByFlatType.get("1000").getAdminDiscount());
+		assertEquals("0", duesByFlatType.get("1000").getAlreadyPaidAmount());
+		assertEquals(duesByFlatType.get("1000").getTotalAmount(), duesByFlatType.get("1000").getDueRemained());
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);

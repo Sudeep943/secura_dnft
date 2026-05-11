@@ -39,6 +39,7 @@ public class DueAmountDetails {
 	private String roundUpAmount;
 	private String alreadyPaidAmount;
 	private String adminDiscount;
+	private String dueRemained;
 	private String paymentStatus;
 	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate paymentDate;
@@ -234,6 +235,14 @@ public class DueAmountDetails {
 
 	public void setAdminDiscount(String adminDiscount) {
 		this.adminDiscount = adminDiscount;
+	}
+
+	public String getDueRemained() {
+		return dueRemained;
+	}
+
+	public void setDueRemained(String dueRemained) {
+		this.dueRemained = dueRemained;
 	}
 
 	public String getPaymentStatus() {
