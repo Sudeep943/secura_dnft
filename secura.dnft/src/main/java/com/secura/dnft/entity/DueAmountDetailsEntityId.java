@@ -9,13 +9,15 @@ public class DueAmountDetailsEntityId implements Serializable {
 
 	private String dueId;
 	private String collectionCycle;
+	private String flatArea;
 
 	public DueAmountDetailsEntityId() {
 	}
 
-	public DueAmountDetailsEntityId(String dueId, String collectionCycle) {
+	public DueAmountDetailsEntityId(String dueId, String collectionCycle, String flatArea) {
 		this.dueId = dueId;
 		this.collectionCycle = collectionCycle;
+		this.flatArea = flatArea;
 	}
 
 	public String getDueId() {
@@ -34,6 +36,14 @@ public class DueAmountDetailsEntityId implements Serializable {
 		this.collectionCycle = collectionCycle;
 	}
 
+	public String getFlatArea() {
+		return flatArea;
+	}
+
+	public void setFlatArea(String flatArea) {
+		this.flatArea = flatArea;
+	}
+
 	@Override
 	public boolean equals(Object object) {
 		if (this == object) {
@@ -42,11 +52,12 @@ public class DueAmountDetailsEntityId implements Serializable {
 		if (!(object instanceof DueAmountDetailsEntityId other)) {
 			return false;
 		}
-		return Objects.equals(dueId, other.dueId) && Objects.equals(collectionCycle, other.collectionCycle);
+		return Objects.equals(dueId, other.dueId) && Objects.equals(collectionCycle, other.collectionCycle)
+				&& Objects.equals(flatArea, other.flatArea);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(dueId, collectionCycle);
+		return Objects.hash(dueId, collectionCycle, flatArea);
 	}
 }

@@ -69,6 +69,9 @@ class PaymentServicesTest {
 	@Mock
 	private ReceiptServices receiptServices;
 
+	@Mock
+	private DueDetailsService dueDetailsService;
+
 	@InjectMocks
 	private PaymentServices paymentServices;
 
@@ -316,6 +319,7 @@ class PaymentServicesTest {
 
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		verify(dueDetailsService, times(1)).calculateDuesForPayment(any(), eq(header));
 		assertEquals("custom_cause", paymentCaptor.getValue().getCauseId());
 		assertTrue(paymentCaptor.getValue().isPartialPaymentAllowed());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
