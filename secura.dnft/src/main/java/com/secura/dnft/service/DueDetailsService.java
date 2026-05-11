@@ -508,11 +508,11 @@ public class DueDetailsService {
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
 	}
 
-	private int getCompoundingPeriodsPerYear(String cumlatonCycle) {
-		if (cumlatonCycle == null) {
+	private int getCompoundingPeriodsPerYear(String cumulationCycle) {
+		if (cumulationCycle == null) {
 			return 1;
 		}
-		String normalized = cumlatonCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		String normalized = cumulationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		if (SecuraConstants.DISC_FN_CYCLE_MONTHLY.equals(normalized)
 				|| SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED.equals(normalized)) {
 			return 12;
