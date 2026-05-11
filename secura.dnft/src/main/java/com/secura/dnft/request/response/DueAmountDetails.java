@@ -12,6 +12,8 @@ public class DueAmountDetails {
 
 	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate dueDate;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate dueEndDate;
 	private String paymentId;
 	private String dueId;
 	private String amount;
@@ -54,6 +56,14 @@ public class DueAmountDetails {
 
 	public void setDueDate(LocalDate dueDate) {
 		this.dueDate = dueDate;
+	}
+
+	public LocalDate getDueEndDate() {
+		return dueEndDate;
+	}
+
+	public void setDueEndDate(LocalDate dueEndDate) {
+		this.dueEndDate = dueEndDate;
 	}
 
 	public String getPaymentId() {

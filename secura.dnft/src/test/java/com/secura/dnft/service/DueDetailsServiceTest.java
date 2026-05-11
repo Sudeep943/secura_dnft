@@ -529,6 +529,58 @@ class DueDetailsServiceTest {
 		assertEquals("PERCENTAGE", saved.getFineMode());
 	}
 
+	@Test
+	void calculateDuesForPayment_shouldSetDueEndDateBasedOnCollectionCycle() {
+		// Monthly: start 1-May-2025 → end 31-May-2025
+		// Quarterly: start 1-May-2025 → end 31-Jul-2025
+		PaymentEntity monthlyPayment = createPayment("PAY10001", "APR010", "MONTHLY", "1000", null, null);
+		monthlyPayment.setCollectionStartDate(LocalDate.of(2025, 5, 1));
+		monthlyPayment.setCollectionEndDate(LocalDate.of(2025, 5, 31));
+		monthlyPayment.setGst("0");
+
+		PaymentEntity quarterlyPayment = createPayment("PAY10001", "APR010", "QUATERLY", "1000", null, null);
+		quarterlyPayment.setCollectionStartDate(LocalDate.of(2025, 5, 1));
+		quarterlyPayment.setCollectionEndDate(LocalDate.of(2025, 7, 31));
+		quarterlyPayment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("J-101");
+		flat.setFlatArea("600");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY10001")).thenReturn(List.of(monthlyPayment, quarterlyPayment));
+		when(flatRepository.findByAprmntId("APR010")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY10001");
+
+		// Monthly due: end date should be 31-May-2025
+		DueAmountDetails monthlyDue = response.get("MONTHLY").get(0).get("ALL");
+		assertEquals(LocalDate.of(2025, 5, 1), monthlyDue.getDueDate());
+		assertEquals(LocalDate.of(2025, 5, 31), monthlyDue.getDueEndDate());
+
+		// Quarterly due: end date should be 31-Jul-2025
+		DueAmountDetails quarterlyDue = response.get("QUATERLY").get(0).get("ALL");
+		assertEquals(LocalDate.of(2025, 5, 1), quarterlyDue.getDueDate());
+		assertEquals(LocalDate.of(2025, 7, 31), quarterlyDue.getDueEndDate());
+
+		// Verify entities have the end dates persisted
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> captor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(captor.capture());
+		List<DueAmountDetailsEntity> savedEntities = captor.getValue();
+
+		DueAmountDetailsEntity monthlyEntity = savedEntities.stream()
+				.filter(e -> "MONTHLY".equals(e.getCollectionCycle())).findFirst().orElseThrow();
+		assertEquals(LocalDate.of(2025, 5, 31), monthlyEntity.getDueEndDate());
+
+		DueAmountDetailsEntity quarterlyEntity = savedEntities.stream()
+				.filter(e -> "QUATERLY".equals(e.getCollectionCycle())).findFirst().orElseThrow();
+		assertEquals(LocalDate.of(2025, 7, 31), quarterlyEntity.getDueEndDate());
+	}
+
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,
 			String addedCharges) {
 		PaymentEntity payment = new PaymentEntity();
