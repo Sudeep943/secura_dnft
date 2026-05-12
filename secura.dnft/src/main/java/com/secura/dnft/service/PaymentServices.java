@@ -148,6 +148,9 @@ public class PaymentServices implements PaymentInterface {
 			dueRequest.setTodayDate(todayDate);
 			duePaymentAmountDetailsMap.put(cycle, getDuePaymentAmountDetails(dueRequest));
 		}
+		if (duePaymentAmountDetailsMap.size() == 1) {
+			response.setDuePaymentAmountDetails(duePaymentAmountDetailsMap.values().iterator().next());
+		}
 		response.setDuePaymentAmountDetailsMap(duePaymentAmountDetailsMap);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);

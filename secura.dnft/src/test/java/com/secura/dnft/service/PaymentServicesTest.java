@@ -307,6 +307,7 @@ class PaymentServicesTest {
 				response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY).getDueDate());
 		assertEquals(LocalDate.parse("2026-05-11"),
 				response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_ONCE).getDueDate());
+		assertNull(response.getDuePaymentAmountDetails());
 	}
 
 	@Test
@@ -325,6 +326,9 @@ class PaymentServicesTest {
 
 		assertEquals(1, response.getDuePaymentAmountDetailsMap().size());
 		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
+		assertNotNull(response.getDuePaymentAmountDetails());
+		assertEquals(response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY).getDueDate(),
+				response.getDuePaymentAmountDetails().getDueDate());
 	}
 
 	@Test
