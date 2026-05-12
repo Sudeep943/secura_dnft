@@ -8,6 +8,7 @@ public class GetDuePaymentAmountDetailsResponse {
 	private List<DueAmountDetails> listOfDueAmountDetails;
 	private Map<String, List<DueAmountDetails>> flatTypeDueAmountDetails;
 	private Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap;
+	private Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap;
 	private String message;
     private String messageCode;
 
@@ -31,6 +32,12 @@ public class GetDuePaymentAmountDetailsResponse {
 	}
 	public void setDuePaymentAmountDetailsMap(Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap) {
 		this.duePaymentAmountDetailsMap = duePaymentAmountDetailsMap;
+	}
+	public Map<String, List<Map<String, DueAmountDetails>>> getDueAmountDetailsEntityMap() {
+		return dueAmountDetailsEntityMap;
+	}
+	public void setDueAmountDetailsEntityMap(Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap) {
+		this.dueAmountDetailsEntityMap = dueAmountDetailsEntityMap;
 	}
 
 	public GenericHeader getGenericHeader() {

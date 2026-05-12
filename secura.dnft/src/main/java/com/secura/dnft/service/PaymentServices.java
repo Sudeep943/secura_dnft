@@ -40,6 +40,7 @@ import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
@@ -58,6 +59,9 @@ import jakarta.persistence.EntityNotFoundException;
 
 @Service
 public class PaymentServices implements PaymentInterface {
+
+	// Synthetic id used only for non-persisting due preview calculation.
+	private static final String DUE_PREVIEW_PAYMENT_ID = "DUE_PREVIEW";
 
 	@Autowired
 	GenericService genericService;
@@ -125,6 +129,7 @@ public class PaymentServices implements PaymentInterface {
 		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap = new LinkedHashMap<>();
+		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
 		LocalDate collectionStartDate = request != null && request.getCollectionStartDate() != null
 				? request.getCollectionStartDate().toLocalDate()
 				: null;
@@ -135,7 +140,12 @@ public class PaymentServices implements PaymentInterface {
 		if (todayDate == null) {
 			todayDate = LocalDate.now();
 		}
-		for (String cycle : resolvePaymentCollectionCycles(request)) {
+		Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = new LinkedHashMap<>();
+		if (collectionStartDate != null && collectionEndDate != null) {
+			dueAmountDetailsEntityMap = dueDetailsService.previewDuesForPayment(
+					buildPreviewPaymentEntities(request, paymentCollectionCycles), request != null ? request.getGenericHeader() : null);
+		}
+		for (String cycle : paymentCollectionCycles) {
 			DuePaymentAmountDetailsRequest dueRequest = new DuePaymentAmountDetailsRequest();
 			dueRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 			dueRequest.setPaymentAmount(request != null ? request.getPaymentAmount() : null);
@@ -149,9 +159,44 @@ public class PaymentServices implements PaymentInterface {
 			duePaymentAmountDetailsMap.put(cycle, getDuePaymentAmountDetails(dueRequest));
 		}
 		response.setDuePaymentAmountDetailsMap(duePaymentAmountDetailsMap);
+		response.setDueAmountDetailsEntityMap(dueAmountDetailsEntityMap == null ? new LinkedHashMap<>() : dueAmountDetailsEntityMap);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
+	}
+
+	private List<PaymentEntity> buildPreviewPaymentEntities(CreatePaymentRequest request, List<String> paymentCollectionCycles) {
+		if (request == null || paymentCollectionCycles == null || paymentCollectionCycles.isEmpty()) {
+			return List.of();
+		}
+		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate()
+				: null;
+		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
+		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
+		String addedCharges = serializeAddedCharges(request.getAddedCharges());
+		String discFin = serializeDiscFin(request);
+		String apartmentId = request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		List<PaymentEntity> paymentEntityList = new ArrayList<>();
+		for (String paymentCollectionCycle : paymentCollectionCycles) {
+			PaymentEntity entity = new PaymentEntity();
+			entity.setPaymentId(DUE_PREVIEW_PAYMENT_ID);
+			entity.setPaymentName(request.getPaymentName());
+			entity.setPaymentCapita(request.getPaymentCapita());
+			entity.setPaymentAmount(request.getPaymentAmount());
+			entity.setGst(request.getGst());
+			entity.setCollectionStartDate(collectionStartDate);
+			entity.setCollectionEndDate(collectionEndDate);
+			entity.setPaymentCollectionCycle(paymentCollectionCycle);
+			entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
+			entity.setAllowedPaymentModes(allowedPaymentModes);
+			entity.setAddedCharges(addedCharges);
+			entity.setDiscFin(discFin);
+			entity.setPaymentType(request.getPaymentType());
+			entity.setAprmtId(apartmentId);
+			entity.setCauseId(request.getCause());
+			paymentEntityList.add(entity);
+		}
+		return paymentEntityList;
 	}
 
 	private Set<String> parseApplicableFlatNos(List<String> applicableFor) {

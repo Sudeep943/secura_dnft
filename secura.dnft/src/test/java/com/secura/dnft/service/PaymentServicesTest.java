@@ -15,7 +15,9 @@ import static org.mockito.Mockito.when;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,7 @@ import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericHeader;
@@ -296,17 +299,31 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setPaymentCapita("PER_FLAT");
 		request.setTodayDate(LocalDate.parse("2026-05-12"));
+		DueAmountDetails dueAmountDetails = new DueAmountDetails();
+		dueAmountDetails.setAmount("1200");
+		Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = new LinkedHashMap<>();
+		dueAmountDetailsEntityMap.put(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY,
+				List.of(new LinkedHashMap<>(Map.of("ALL", dueAmountDetails))));
+		dueAmountDetailsEntityMap.put(SecuraConstants.PAYMENT_CYCLE_ONCE,
+				List.of(new LinkedHashMap<>(Map.of("ALL", dueAmountDetails))));
+		when(dueDetailsService.previewDuesForPayment(any(), any())).thenReturn(dueAmountDetailsEntityMap);
 
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 
 		assertNotNull(response.getDuePaymentAmountDetailsMap());
 		assertEquals(2, response.getDuePaymentAmountDetailsMap().size());
+		assertNotNull(response.getDueAmountDetailsEntityMap());
+		assertEquals(2, response.getDueAmountDetailsEntityMap().size());
 		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
 		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_ONCE));
+		assertTrue(response.getDueAmountDetailsEntityMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
+		assertTrue(response.getDueAmountDetailsEntityMap().containsKey(SecuraConstants.PAYMENT_CYCLE_ONCE));
 		assertEquals(LocalDate.parse("2026-05-11"),
 				response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY).getDueDate());
 		assertEquals(LocalDate.parse("2026-05-11"),
 				response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_ONCE).getDueDate());
+		assertEquals("1200", response.getDueAmountDetailsEntityMap().get(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY)
+				.get(0).get("ALL").getAmount());
 	}
 
 	@Test
@@ -320,11 +337,19 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setPaymentCapita("PER_FLAT");
 		request.setTodayDate(LocalDate.parse("2026-05-12"));
+		DueAmountDetails dueAmountDetails = new DueAmountDetails();
+		dueAmountDetails.setAmount("1200");
+		Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = new LinkedHashMap<>();
+		dueAmountDetailsEntityMap.put(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY,
+				List.of(new LinkedHashMap<>(Map.of("ALL", dueAmountDetails))));
+		when(dueDetailsService.previewDuesForPayment(any(), any())).thenReturn(dueAmountDetailsEntityMap);
 
 		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
 
 		assertEquals(1, response.getDuePaymentAmountDetailsMap().size());
 		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
+		assertEquals(1, response.getDueAmountDetailsEntityMap().size());
+		assertTrue(response.getDueAmountDetailsEntityMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
 	}
 
 	@Test
