@@ -63,6 +63,16 @@ public class DueDetailsService {
 		LOGGER.info("calculateDuesForPayment called with paymentId={}, userId={}", paymentId,
 				genericHeader != null ? genericHeader.getUserId() : null);
 		List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
+		return calculateDuesForPayment(paymentEntityList, genericHeader, true);
+	}
+
+	public Map<String, List<Map<String, DueAmountDetails>>> previewDuesForPayment(
+			List<PaymentEntity> paymentEntityList, GenericHeader genericHeader) {
+		return calculateDuesForPayment(paymentEntityList, genericHeader, false);
+	}
+
+	private Map<String, List<Map<String, DueAmountDetails>>> calculateDuesForPayment(
+			List<PaymentEntity> paymentEntityList, GenericHeader genericHeader, boolean persistResults) {
 		Map<String, List<Map<String, DueAmountDetails>>> dueByCycle = new LinkedHashMap<>();
 		if (paymentEntityList == null || paymentEntityList.isEmpty()) {
 			return dueByCycle;
@@ -109,10 +119,12 @@ public class DueDetailsService {
 			}
 		}
 
-		List<DueAmountDetailsEntity> entityList = generatedRows.stream()
-				.map(row -> toEntity(row, genericHeader != null ? genericHeader.getUserId() : null)).toList();
-		dueAmountDetailsRepository.saveAll(entityList);
-		appendDuesToFlatPendingPayments(apartmentFlats, allGeneratedDueIds);
+		if (persistResults) {
+			List<DueAmountDetailsEntity> entityList = generatedRows.stream()
+					.map(row -> toEntity(row, genericHeader != null ? genericHeader.getUserId() : null)).toList();
+			dueAmountDetailsRepository.saveAll(entityList);
+			appendDuesToFlatPendingPayments(apartmentFlats, allGeneratedDueIds);
+		}
 
 		return dueByCycle;
 	}
