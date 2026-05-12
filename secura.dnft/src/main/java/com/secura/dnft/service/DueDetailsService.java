@@ -84,7 +84,8 @@ public class DueDetailsService {
 			LocalDate startDate = paymentEntity.getCollectionStartDate();
 			LocalDate endDate = paymentEntity.getCollectionEndDate();
 			int cycleMonths = getCycleMonths(paymentEntity.getPaymentCollectionCycle());
-			List<LocalDate[]> intervals = generateCycleIntervals(startDate, endDate, cycleMonths);
+			List<LocalDate[]> intervals = generateCycleIntervals(startDate, endDate, cycleMonths,
+					paymentEntity.getPaymentCollectionCycle());
 
 			List<Map<String, DueAmountDetails>> duesForCycle = new ArrayList<>();
 			String dueId = createDueId();
@@ -95,7 +96,7 @@ public class DueDetailsService {
 				duesForCycle.add(duesByFlatType);
 				duesByFlatType.forEach((flatType, details) -> generatedRows.add(
 						new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details,
-								paymentEntity.getPaymentAmount())));
+								paymentEntity.getPaymentAmount(), interval[0])));
 			}
 			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesForCycle);
 		}
@@ -116,8 +117,13 @@ public class DueDetailsService {
 		return dueByCycle;
 	}
 
-	private List<LocalDate[]> generateCycleIntervals(LocalDate startDate, LocalDate endDate, int cycleMonths) {
+	private List<LocalDate[]> generateCycleIntervals(LocalDate startDate, LocalDate endDate, int cycleMonths,
+			String paymentCycle) {
 		List<LocalDate[]> intervals = new ArrayList<>();
+		if (SecuraConstants.PAYMENT_CYCLE_ONCE.equals(normalizeCycle(paymentCycle))) {
+			intervals.add(new LocalDate[]{startDate, endDate});
+			return intervals;
+		}
 		if (startDate == null || cycleMonths <= 0) {
 			intervals.add(new LocalDate[]{startDate, endDate});
 			return intervals;
@@ -243,6 +249,7 @@ public class DueDetailsService {
 		entity.setFlatArea(dueRow.flatType());
 		entity.setDueDate(due.getDueDate());
 		entity.setDueEndDate(due.getDueEndDate());
+		entity.setDueStartDate(dueRow.dueStartDate());
 		entity.setPaymentId(due.getPaymentId());
 		entity.setAmount(due.getAmount());
 		entity.setGstAmount(due.getGstAmount());
@@ -710,6 +717,7 @@ public class DueDetailsService {
 	private record DiscFinReference(String discountCode, String fineCode) {
 	}
 
-	private record DueRow(String cycle, String flatType, DueAmountDetails dueAmountDetails, String amountPerMonth) {
+	private record DueRow(String cycle, String flatType, DueAmountDetails dueAmountDetails, String amountPerMonth,
+			LocalDate dueStartDate) {
 	}
 }
