@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,7 @@ public class CreatePaymentRequest {
 	private String currency;
 	private Date collectionStartDate;
 	private Date collectionEndDate;
+	private LocalDate todayDate;
 	@JsonAlias("paymentCollectionCycle")
 	@JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
 	private List<String> paymentCollectionCycleList;
@@ -89,6 +91,12 @@ public class CreatePaymentRequest {
 	}
 	public void setCollectionEndDate(Date collectionEndDate) {
 		this.collectionEndDate = collectionEndDate;
+	}
+	public LocalDate getTodayDate() {
+		return todayDate;
+	}
+	public void setTodayDate(LocalDate todayDate) {
+		this.todayDate = todayDate;
 	}
 	public List<String> getPaymentCollectionCycleList() {
 		return paymentCollectionCycleList;
