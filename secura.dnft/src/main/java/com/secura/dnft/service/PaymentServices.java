@@ -60,6 +60,8 @@ import jakarta.persistence.EntityNotFoundException;
 @Service
 public class PaymentServices implements PaymentInterface {
 
+	private static final String DUE_PREVIEW_PAYMENT_ID = "DUE_PREVIEW";
+
 	@Autowired
 	GenericService genericService;
 
@@ -173,7 +175,7 @@ public class PaymentServices implements PaymentInterface {
 		List<PaymentEntity> paymentEntityList = new ArrayList<>();
 		for (String paymentCollectionCycle : paymentCollectionCycles) {
 			PaymentEntity entity = new PaymentEntity();
-			entity.setPaymentId("DUE_PREVIEW");
+			entity.setPaymentId(DUE_PREVIEW_PAYMENT_ID);
 			entity.setPaymentName(request.getPaymentName());
 			entity.setPaymentCapita(request.getPaymentCapita());
 			entity.setPaymentAmount(request.getPaymentAmount());
