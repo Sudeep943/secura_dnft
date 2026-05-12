@@ -574,11 +574,46 @@ class DueDetailsServiceTest {
 
 		DueAmountDetailsEntity monthlyEntity = savedEntities.stream()
 				.filter(e -> "MONTHLY".equals(e.getCollectionCycle())).findFirst().orElseThrow();
+		assertEquals(LocalDate.of(2025, 5, 1), monthlyEntity.getDueStartDate());
 		assertEquals(LocalDate.of(2025, 5, 31), monthlyEntity.getDueEndDate());
 
 		DueAmountDetailsEntity quarterlyEntity = savedEntities.stream()
 				.filter(e -> "QUATERLY".equals(e.getCollectionCycle())).findFirst().orElseThrow();
+		assertEquals(LocalDate.of(2025, 5, 1), quarterlyEntity.getDueStartDate());
 		assertEquals(LocalDate.of(2025, 7, 31), quarterlyEntity.getDueEndDate());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldPersistPaymentStartAndEndDatesForOnceCycle() {
+		PaymentEntity oncePayment = createPayment("PAY11001", "APR110", "ONCE", "1000", null, null);
+		oncePayment.setCollectionStartDate(LocalDate.of(2025, 5, 1));
+		oncePayment.setCollectionEndDate(LocalDate.of(2025, 7, 31));
+		oncePayment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("K-101");
+		flat.setFlatArea("600");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY11001")).thenReturn(List.of(oncePayment));
+		when(flatRepository.findByAprmntId("APR110")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY11001");
+		List<Map<String, DueAmountDetails>> onceDues = response.get("ONCE");
+		assertEquals(1, onceDues.size());
+		assertEquals(LocalDate.of(2025, 5, 1), onceDues.get(0).get("ALL").getDueDate());
+		assertEquals(LocalDate.of(2025, 7, 31), onceDues.get(0).get("ALL").getDueEndDate());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> captor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(captor.capture());
+		DueAmountDetailsEntity onceEntity = captor.getValue().stream()
+				.filter(e -> "ONCE".equals(e.getCollectionCycle())).findFirst().orElseThrow();
+		assertEquals(LocalDate.of(2025, 5, 1), onceEntity.getDueStartDate());
+		assertEquals(LocalDate.of(2025, 7, 31), onceEntity.getDueEndDate());
 	}
 
 	private PaymentEntity createPayment(String paymentId, String apartmentId, String cycle, String amount, String discFin,
