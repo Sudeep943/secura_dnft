@@ -60,6 +60,7 @@ import jakarta.persistence.EntityNotFoundException;
 @Service
 public class PaymentServices implements PaymentInterface {
 
+	// Synthetic id used only for non-persisting due preview calculation.
 	private static final String DUE_PREVIEW_PAYMENT_ID = "DUE_PREVIEW";
 
 	@Autowired
@@ -129,8 +130,6 @@ public class PaymentServices implements PaymentInterface {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap = new LinkedHashMap<>();
 		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
-		Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = dueDetailsService.previewDuesForPayment(
-				buildPreviewPaymentEntities(request, paymentCollectionCycles), request != null ? request.getGenericHeader() : null);
 		LocalDate collectionStartDate = request != null && request.getCollectionStartDate() != null
 				? request.getCollectionStartDate().toLocalDate()
 				: null;
@@ -140,6 +139,11 @@ public class PaymentServices implements PaymentInterface {
 		LocalDate todayDate = request != null ? request.getTodayDate() : null;
 		if (todayDate == null) {
 			todayDate = LocalDate.now();
+		}
+		Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = new LinkedHashMap<>();
+		if (collectionStartDate != null && collectionEndDate != null) {
+			dueAmountDetailsEntityMap = dueDetailsService.previewDuesForPayment(
+					buildPreviewPaymentEntities(request, paymentCollectionCycles), request != null ? request.getGenericHeader() : null);
 		}
 		for (String cycle : paymentCollectionCycles) {
 			DuePaymentAmountDetailsRequest dueRequest = new DuePaymentAmountDetailsRequest();

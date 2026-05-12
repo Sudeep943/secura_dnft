@@ -66,6 +66,10 @@ public class DueDetailsService {
 		return calculateDuesForPayment(paymentEntityList, genericHeader, true);
 	}
 
+	/**
+	 * Calculates due details using the same logic as persisted dues, but does not
+	 * write due rows or flat pending payment links to the database.
+	 */
 	public Map<String, List<Map<String, DueAmountDetails>>> previewDuesForPayment(
 			List<PaymentEntity> paymentEntityList, GenericHeader genericHeader) {
 		return calculateDuesForPayment(paymentEntityList, genericHeader, false);
