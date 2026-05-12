@@ -124,6 +124,31 @@ public class PaymentServices implements PaymentInterface {
 	public GetDuePaymentAmountDetailsResponse getDuePaymentAmountDetails(CreatePaymentRequest request) {
 		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap = new LinkedHashMap<>();
+		LocalDate collectionStartDate = request != null && request.getCollectionStartDate() != null
+				? request.getCollectionStartDate().toLocalDate()
+				: null;
+		LocalDate collectionEndDate = request != null && request.getCollectionEndDate() != null
+				? request.getCollectionEndDate().toLocalDate()
+				: null;
+		LocalDate todayDate = request != null ? request.getTodayDate() : null;
+		if (todayDate == null) {
+			todayDate = LocalDate.now();
+		}
+		for (String cycle : resolvePaymentCollectionCycles(request)) {
+			DuePaymentAmountDetailsRequest dueRequest = new DuePaymentAmountDetailsRequest();
+			dueRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			dueRequest.setPaymentAmount(request != null ? request.getPaymentAmount() : null);
+			dueRequest.setGst(request != null ? request.getGst() : null);
+			dueRequest.setCollectionStartDate(collectionStartDate);
+			dueRequest.setCollectionEndDate(collectionEndDate);
+			dueRequest.setPaymentCollectionCycle(cycle);
+			dueRequest.setPaymentCollectionMode(request != null ? request.getPaymentCollectionMode() : null);
+			dueRequest.setPaymentCapita(request != null ? request.getPaymentCapita() : null);
+			dueRequest.setTodayDate(todayDate);
+			duePaymentAmountDetailsMap.put(cycle, getDuePaymentAmountDetails(dueRequest));
+		}
+		response.setDuePaymentAmountDetailsMap(duePaymentAmountDetailsMap);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;

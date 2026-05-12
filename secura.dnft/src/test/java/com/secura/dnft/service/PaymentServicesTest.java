@@ -43,6 +43,7 @@ import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
@@ -282,6 +283,48 @@ class PaymentServicesTest {
 		DuePaymentAmountDetailsResponse halfDecimalResponse = paymentServices.getDuePaymentAmountDetails(halfDecimalRequest);
 		assertEquals("4722.5", halfDecimalResponse.getGstAmount());
 		assertEquals("51947", halfDecimalResponse.getAmountIncludingGst());
+	}
+
+	@Test
+	void getDuePaymentAmountDetailsForCreatePayment_shouldReturnMapByPaymentCollectionCycleList() {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.parse("2026-05-11")));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.parse("2026-05-25")));
+		request.setPaymentCollectionCycleList(List.of("halfyearly", "once"));
+		request.setPaymentCollectionMode("pre");
+		request.setPaymentCapita("PER_FLAT");
+		request.setTodayDate(LocalDate.parse("2026-05-12"));
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+
+		assertNotNull(response.getDuePaymentAmountDetailsMap());
+		assertEquals(2, response.getDuePaymentAmountDetailsMap().size());
+		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
+		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_ONCE));
+		assertEquals(LocalDate.parse("2026-05-11"),
+				response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY).getDueDate());
+		assertEquals(LocalDate.parse("2026-05-11"),
+				response.getDuePaymentAmountDetailsMap().get(SecuraConstants.PAYMENT_CYCLE_ONCE).getDueDate());
+	}
+
+	@Test
+	void getDuePaymentAmountDetailsForCreatePayment_shouldSupportLegacySingleCycleAlias() {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.parse("2026-05-11")));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.parse("2026-05-25")));
+		request.setPaymentCollectionCycle("halfyearly");
+		request.setPaymentCollectionMode("pre");
+		request.setPaymentCapita("PER_FLAT");
+		request.setTodayDate(LocalDate.parse("2026-05-12"));
+
+		GetDuePaymentAmountDetailsResponse response = paymentServices.getDuePaymentAmountDetails(request);
+
+		assertEquals(1, response.getDuePaymentAmountDetailsMap().size());
+		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
 	}
 
 	@Test
