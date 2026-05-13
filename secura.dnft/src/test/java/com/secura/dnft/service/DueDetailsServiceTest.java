@@ -169,6 +169,30 @@ class DueDetailsServiceTest {
 	}
 
 	@Test
+	void calculateDuesForPayment_shouldCalculateEstimatedCollectionAmountAcrossTenureWithPartialCycle() {
+		PaymentEntity payment = createPayment("PAY13002", "APR131", "MONTHLY", "5000", null, null);
+		payment.setCollectionStartDate(LocalDate.of(2025, 1, 1));
+		payment.setCollectionEndDate(LocalDate.of(2025, 5, 20));
+		payment.setPaymentCapita("FLAT");
+		payment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("N-101");
+		flat.setFlatArea("1220");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY13002")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR131")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY13002");
+
+		assertEquals("23250", response.get("MONTHLY").get(0).get("ALL").getEstimatedCollectionAmount());
+	}
+
+	@Test
 	void calculateDuesForPayment_shouldUseBaseAmountForPercentagesAndPersistCycleSpecificDiscountCodes() {
 		PaymentEntity monthlyPayment = createPayment("PAY2001", "APR002", "MONTHLY", "100", "DISC_JSON", "ADDED_JSON");
 		monthlyPayment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
