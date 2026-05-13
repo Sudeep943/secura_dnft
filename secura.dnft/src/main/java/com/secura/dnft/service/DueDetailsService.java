@@ -357,9 +357,12 @@ public class DueDetailsService {
 			return null;
 		}
 		Map<String, DueAmountDetails> anyCycleDues = duesForCycle.get(0);
-		BigDecimal safeCycleMultiplier = cycleMultiplier == null || cycleMultiplier.compareTo(BigDecimal.ZERO) <= 0
-				? BigDecimal.ONE
-				: cycleMultiplier;
+		BigDecimal safeCycleMultiplier = cycleMultiplier;
+		if (safeCycleMultiplier == null || safeCycleMultiplier.compareTo(BigDecimal.ZERO) <= 0) {
+			LOGGER.warn("Invalid cycle multiplier {}. Falling back to 1 for estimated collection calculation.",
+					safeCycleMultiplier);
+			safeCycleMultiplier = BigDecimal.ONE;
+		}
 		if (isPerSqft(paymentCapita)) {
 			BigDecimal total = BigDecimal.ZERO;
 			for (Map.Entry<String, DueAmountDetails> entry : anyCycleDues.entrySet()) {
@@ -403,11 +406,14 @@ public class DueDetailsService {
 			if (totalDays <= 0 || activeDays <= 0) {
 				continue;
 			}
-			BigDecimal intervalFraction = BigDecimal.valueOf(activeDays).divide(BigDecimal.valueOf(totalDays), 2,
+			BigDecimal intervalFraction = BigDecimal.valueOf(activeDays).divide(BigDecimal.valueOf(totalDays), 8,
 					RoundingMode.HALF_UP);
 			totalCycles = totalCycles.add(intervalFraction);
 		}
-		return totalCycles.compareTo(BigDecimal.ZERO) > 0 ? totalCycles : BigDecimal.ONE;
+		if (totalCycles.compareTo(BigDecimal.ZERO) <= 0) {
+			return BigDecimal.ONE;
+		}
+		return totalCycles.setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private List<AddedCharges> parseAddedCharges(String addedChargesJson) {
