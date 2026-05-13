@@ -366,13 +366,14 @@ public class DueDetailsService {
 			return format(total);
 		}
 		if (isPerHead(paymentCapita)) {
-			return null;
+			return format(BigDecimal.ZERO);
 		}
-		BigDecimal total = BigDecimal.ZERO;
-		for (DueAmountDetails dueAmountDetails : anyCycleDues.values()) {
-			total = total.add(parseNumeric(dueAmountDetails.getTotalAmount()));
-		}
-		return format(total.multiply(BigDecimal.valueOf(Math.max(flatCount, 0))));
+		BigDecimal amountPerUnit = anyCycleDues.values().stream()
+				.findFirst()
+				.map(DueAmountDetails::getTotalAmount)
+				.map(this::parseNumeric)
+				.orElse(BigDecimal.ZERO);
+		return format(amountPerUnit.multiply(BigDecimal.valueOf(Math.max(flatCount, 0))));
 	}
 
 	private List<AddedCharges> parseAddedCharges(String addedChargesJson) {

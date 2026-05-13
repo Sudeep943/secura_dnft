@@ -101,7 +101,7 @@ class DueDetailsServiceTest {
 		assertEquals(2, duesByFlatType.size());
 		assertTrue(duesByFlatType.containsKey("1000"));
 		assertTrue(duesByFlatType.containsKey("1200"));
-		assertNotNull(duesByFlatType.get("1000").getEstimatedCollectionAmount());
+		assertEquals("14520", duesByFlatType.get("1000").getEstimatedCollectionAmount());
 		assertEquals("COMMON_AREA", duesByFlatType.get("1000").getCause());
 
 		@SuppressWarnings("unchecked")
@@ -113,6 +113,59 @@ class DueDetailsServiceTest {
 		assertEquals("1000", savedDueEntities.get(0).getFlatArea());
 
 		verify(flatRepository, times(1)).saveAll(any());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldCalculateEstimatedCollectionAmountForFlatCapita() {
+		PaymentEntity payment = createPayment("PAY12001", "APR120", "MONTHLY", "10000", null, null);
+		payment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 1, 31));
+		payment.setPaymentCapita("FLAT");
+		payment.setGst("0");
+
+		Flat flat1 = new Flat();
+		flat1.setFlatNo("L-101");
+		flat1.setFlatArea("1220");
+		flat1.setFlatPndngPaymntLst(null);
+
+		Flat flat2 = new Flat();
+		flat2.setFlatNo("L-102");
+		flat2.setFlatArea("1650");
+		flat2.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY12001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR120")).thenReturn(List.of(flat1, flat2));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY12001");
+
+		assertEquals("20000", response.get("MONTHLY").get(0).get("ALL").getEstimatedCollectionAmount());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldSetEstimatedCollectionAmountToZeroForPerHeadCapita() {
+		PaymentEntity payment = createPayment("PAY13001", "APR130", "MONTHLY", "10000", null, null);
+		payment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 1, 31));
+		payment.setPaymentCapita("PER_HEAD");
+		payment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("M-101");
+		flat.setFlatArea("1220");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY13001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR130")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY13001");
+
+		assertEquals("0", response.get("MONTHLY").get(0).get("ALL").getEstimatedCollectionAmount());
 	}
 
 	@Test
