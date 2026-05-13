@@ -112,15 +112,17 @@ public class DueDetailsService {
 						new DueRow(paymentEntity.getPaymentCollectionCycle(), flatType, details,
 								paymentEntity.getPaymentAmount(), interval[0])));
 			}
-			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesForCycle);
-		}
-
-		String estimatedCollectionAmount = calculateEstimatedCollectionAmount(dueByCycle, flatTypeCounts, apartmentFlats.size(),
-				baseEntity.getPaymentCapita());
-		if (estimatedCollectionAmount != null) {
-			for (DueRow row : generatedRows) {
-				row.dueAmountDetails().setEstimatedCollectionAmount(estimatedCollectionAmount);
+			String estimatedCollectionAmount = calculateEstimatedCollectionAmount(duesForCycle, flatTypeCounts,
+					apartmentFlats.size(), paymentEntity.getPaymentCapita(),
+					calculateCycleMultiplier(intervals, cycleMonths, paymentEntity.getPaymentCollectionCycle()));
+			if (estimatedCollectionAmount != null) {
+				for (Map<String, DueAmountDetails> duesByFlatType : duesForCycle) {
+					for (DueAmountDetails details : duesByFlatType.values()) {
+						details.setEstimatedCollectionAmount(estimatedCollectionAmount);
+					}
+				}
 			}
+			dueByCycle.put(paymentEntity.getPaymentCollectionCycle(), duesForCycle);
 		}
 
 		if (persistResults) {
@@ -349,13 +351,15 @@ public class DueDetailsService {
 		}
 	}
 
-	private String calculateEstimatedCollectionAmount(Map<String, List<Map<String, DueAmountDetails>>> dueByCycle,
-			Map<String, Long> flatTypeCounts, int flatCount, String paymentCapita) {
-		if (dueByCycle.isEmpty()) {
+	private String calculateEstimatedCollectionAmount(List<Map<String, DueAmountDetails>> duesForCycle,
+			Map<String, Long> flatTypeCounts, int flatCount, String paymentCapita, BigDecimal cycleMultiplier) {
+		if (duesForCycle == null || duesForCycle.isEmpty()) {
 			return null;
 		}
-		List<Map<String, DueAmountDetails>> firstCycleDues = dueByCycle.values().stream().findFirst().orElse(List.of());
-		Map<String, DueAmountDetails> anyCycleDues = firstCycleDues.isEmpty() ? Map.of() : firstCycleDues.get(0);
+		Map<String, DueAmountDetails> anyCycleDues = duesForCycle.get(0);
+		BigDecimal safeCycleMultiplier = cycleMultiplier == null || cycleMultiplier.compareTo(BigDecimal.ZERO) <= 0
+				? BigDecimal.ONE
+				: cycleMultiplier;
 		if (isPerSqft(paymentCapita)) {
 			BigDecimal total = BigDecimal.ZERO;
 			for (Map.Entry<String, DueAmountDetails> entry : anyCycleDues.entrySet()) {
@@ -363,7 +367,7 @@ public class DueDetailsService {
 				long count = flatTypeCounts.getOrDefault(entry.getKey(), 0L);
 				total = total.add(typeAmount.multiply(BigDecimal.valueOf(count)));
 			}
-			return format(total);
+			return format(total.multiply(safeCycleMultiplier));
 		}
 		if (isPerHead(paymentCapita)) {
 			return format(BigDecimal.ZERO);
@@ -373,7 +377,37 @@ public class DueDetailsService {
 				.map(DueAmountDetails::getTotalAmount)
 				.map(this::parseNumeric)
 				.orElse(BigDecimal.ZERO);
-		return format(amountPerUnit.multiply(BigDecimal.valueOf(Math.max(flatCount, 0))));
+		return format(amountPerUnit.multiply(BigDecimal.valueOf(Math.max(flatCount, 0))).multiply(safeCycleMultiplier));
+	}
+
+	private BigDecimal calculateCycleMultiplier(List<LocalDate[]> intervals, int cycleMonths, String paymentCycle) {
+		if (intervals == null || intervals.isEmpty() || SecuraConstants.PAYMENT_CYCLE_ONCE.equals(normalizeCycle(paymentCycle))) {
+			return BigDecimal.ONE;
+		}
+		if (cycleMonths <= 0) {
+			return BigDecimal.valueOf(intervals.size());
+		}
+		BigDecimal totalCycles = BigDecimal.ZERO;
+		for (LocalDate[] interval : intervals) {
+			if (interval == null || interval.length < 2) {
+				continue;
+			}
+			LocalDate intervalStart = interval[0];
+			LocalDate intervalEnd = interval[1];
+			if (intervalStart == null || intervalEnd == null || intervalStart.isAfter(intervalEnd)) {
+				continue;
+			}
+			LocalDate naturalIntervalEnd = intervalStart.plusMonths(cycleMonths).minusDays(1);
+			long totalDays = ChronoUnit.DAYS.between(intervalStart, naturalIntervalEnd) + 1;
+			long activeDays = ChronoUnit.DAYS.between(intervalStart, intervalEnd) + 1;
+			if (totalDays <= 0 || activeDays <= 0) {
+				continue;
+			}
+			BigDecimal intervalFraction = BigDecimal.valueOf(activeDays).divide(BigDecimal.valueOf(totalDays), 2,
+					RoundingMode.HALF_UP);
+			totalCycles = totalCycles.add(intervalFraction);
+		}
+		return totalCycles.compareTo(BigDecimal.ZERO) > 0 ? totalCycles : BigDecimal.ONE;
 	}
 
 	private List<AddedCharges> parseAddedCharges(String addedChargesJson) {
