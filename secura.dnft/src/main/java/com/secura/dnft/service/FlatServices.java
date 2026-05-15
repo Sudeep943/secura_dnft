@@ -582,7 +582,8 @@ public class FlatServices implements FlatInterface {
 		if (!hasText(paymentId)) {
 			return false;
 		}
-		return paymentId.trim().toUpperCase(Locale.ENGLISH).contains("OPTIONAL");
+		String normalizedPaymentId = paymentId.trim().toUpperCase(Locale.ENGLISH);
+		return normalizedPaymentId.startsWith(SecuraConstants.PAYMENT_ID_PREFIX + "OPTIONAL");
 	}
 
 	private boolean isDueApplicableToFlat(DueAmountDetailsEntity entity, Flat flat) {
