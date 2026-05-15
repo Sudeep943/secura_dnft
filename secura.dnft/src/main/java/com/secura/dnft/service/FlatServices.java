@@ -277,11 +277,11 @@ public class FlatServices implements FlatInterface {
 		for (DueAmountDetails dueAmountDetails : allDueDetails) {
 			BigDecimal dueAmount = parseAmount(dueAmountDetails != null ? dueAmountDetails.getTotalAmount() : null);
 			totalDueAmount = totalDueAmount.add(dueAmount);
-			String paymentType = dueAmountDetails != null ? dueAmountDetails.getPaymentType() : null;
-			if (paymentType != null && paymentType.trim().equalsIgnoreCase("MANDATORY")) {
-				totalMandatoryPaymentAmount = totalMandatoryPaymentAmount.add(dueAmount);
-			} else if (paymentType != null && paymentType.trim().equalsIgnoreCase("OPTIONAL")) {
+			String paymentId = dueAmountDetails != null ? dueAmountDetails.getPaymentId() : null;
+			if (isOptionalPaymentId(paymentId)) {
 				totalOptionalPaymentAmount = totalOptionalPaymentAmount.add(dueAmount);
+			} else {
+				totalMandatoryPaymentAmount = totalMandatoryPaymentAmount.add(dueAmount);
 			}
 		}
 		response.setTotalDueAmount(formatAmount(totalDueAmount));
@@ -556,25 +556,30 @@ public class FlatServices implements FlatInterface {
 			duePaymentMap.put(normalizedFlatId, new ArrayList<>());
 			return duePaymentMap;
 		}
+		List<String> normalizedDueIds = dueIds.stream().filter(this::hasText).map(String::trim).distinct()
+				.collect(Collectors.toList());
+		if (normalizedDueIds.isEmpty()) {
+			duePaymentMap.put(normalizedFlatId, new ArrayList<>());
+			return duePaymentMap;
+		}
 		Map<String, DueAmountDetails> dueDetailsByKey = new LinkedHashMap<>();
-		for (String dueId : dueIds) {
-			if (!hasText(dueId)) {
+		List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueIdIn(normalizedDueIds);
+		for (DueAmountDetailsEntity entity : dueEntities) {
+			if (entity == null || !isDueApplicableToFlat(entity, flat)) {
 				continue;
 			}
-			List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueId(dueId.trim());
-			for (DueAmountDetailsEntity entity : dueEntities) {
-				if (entity == null || !isDueApplicableToFlat(entity, flat)) {
-					continue;
-				}
-				DueAmountDetails dueAmountDetails = toDueAmountDetails(entity);
-				dueDetailsByKey.put(buildDueDetailsKey(entity), dueAmountDetails);
-			}
+			DueAmountDetails dueAmountDetails = toDueAmountDetails(entity);
+			dueDetailsByKey.put(buildDueDetailsKey(entity), dueAmountDetails);
 		}
 		List<DueAmountDetails> duePaymentList = new ArrayList<>(dueDetailsByKey.values());
 		duePaymentList.sort(Comparator.comparing(DueAmountDetails::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()))
 				.thenComparing(due -> due.getPaymentName() == null ? "" : due.getPaymentName(), String.CASE_INSENSITIVE_ORDER));
 		duePaymentMap.put(normalizedFlatId, duePaymentList);
 		return duePaymentMap;
+	}
+
+	private boolean isOptionalPaymentId(String paymentId) {
+		return normalizeValue(paymentId).toUpperCase(Locale.ENGLISH).contains("OPTIONAL");
 	}
 
 	private boolean isDueApplicableToFlat(DueAmountDetailsEntity entity, Flat flat) {

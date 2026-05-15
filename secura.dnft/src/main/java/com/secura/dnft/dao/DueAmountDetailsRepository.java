@@ -10,4 +10,6 @@ import com.secura.dnft.entity.DueAmountDetailsEntityId;
 public interface DueAmountDetailsRepository extends JpaRepository<DueAmountDetailsEntity, DueAmountDetailsEntityId> {
 
 	List<DueAmountDetailsEntity> findByDueId(String dueId);
+
+	List<DueAmountDetailsEntity> findByDueIdIn(List<String> dueIds);
 }

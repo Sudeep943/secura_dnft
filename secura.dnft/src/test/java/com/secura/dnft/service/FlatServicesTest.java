@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -36,13 +38,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -64,6 +71,9 @@ class FlatServicesTest {
 
 	@Mock
 	private GenericService genericService;
+
+	@Mock
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
 
 	@InjectMocks
 	private FlatServices flatServices;
@@ -302,6 +312,81 @@ class FlatServicesTest {
 		assertEquals(List.of("B-201"), blockDetails.getTowerList().get(0).getFlatList());
 	}
 
+	@Test
+	void getDueAmountForFlat_shouldReturnZeroTotalsAndEmptyMap_whenFlatNotFound() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.empty());
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getDuePaymentList());
+		assertTrue(response.getDuePaymentList().isEmpty());
+		assertEquals("0", response.getTotalDueAmount());
+		assertEquals("0", response.getTotalMandatoryPaymentAmount());
+		assertEquals("0", response.getTotalOptionalPaymentAmount());
+		verify(dueAmountDetailsRepository, never()).findByDueIdIn(any());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldReturnFlatKeyWithEmptyDueList_whenNoPendingDueIds() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getDuePaymentList());
+		assertTrue(response.getDuePaymentList().containsKey("A-101"));
+		assertTrue(response.getDuePaymentList().get("A-101").isEmpty());
+		assertEquals("0", response.getTotalDueAmount());
+		assertEquals("0", response.getTotalMandatoryPaymentAmount());
+		assertEquals("0", response.getTotalOptionalPaymentAmount());
+		verify(dueAmountDetailsRepository, never()).findByDueIdIn(any());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldBatchFetchDueIdsAndSplitTotalsByPaymentId() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		request.setFlatId("A-101");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("[\"DUE1\",\"DUE2\"]");
+
+		DueAmountDetailsEntity mandatoryDue = buildDueAmountEntity("DUE1", "PAYMANDATORY1001", "100", "[\"A-101\"]", "1000");
+		DueAmountDetailsEntity optionalDue = buildDueAmountEntity("DUE2", "PAYOPTIONAL1001", "50", null, "1200");
+		DueAmountDetailsEntity filteredDue = buildDueAmountEntity("DUE2", "PAYOPTIONAL1002", "40", null, "900");
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq("[\"DUE1\",\"DUE2\"]"), any(TypeReference.class))).thenReturn(List.of("DUE1", "DUE2"));
+		when(genericService.fromJson(eq("[\"A-101\"]"), any(TypeReference.class))).thenReturn(List.of("A-101"));
+		when(dueAmountDetailsRepository.findByDueIdIn(List.of("DUE1", "DUE2")))
+				.thenReturn(List.of(mandatoryDue, optionalDue, filteredDue));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertNotNull(response);
+		assertNotNull(response.getDuePaymentList());
+		Map<String, List<DueAmountDetails>> dueMap = response.getDuePaymentList();
+		assertTrue(dueMap.containsKey("A-101"));
+		assertEquals(2, dueMap.get("A-101").size());
+		assertEquals("150", response.getTotalDueAmount());
+		assertEquals("100", response.getTotalMandatoryPaymentAmount());
+		assertEquals("50", response.getTotalOptionalPaymentAmount());
+		verify(dueAmountDetailsRepository, times(1)).findByDueIdIn(List.of("DUE1", "DUE2"));
+		verify(dueAmountDetailsRepository, never()).findByDueId(any());
+	}
+
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APRT001");
@@ -365,5 +450,18 @@ class FlatServicesTest {
 			maxTextLength = Math.max(maxTextLength, value.length());
 		}
 		return (int) Math.ceil(maxTextLength * 1.5 * 256);
+	}
+
+	private DueAmountDetailsEntity buildDueAmountEntity(String dueId, String paymentId, String totalAmount,
+			String applicableFlats, String flatArea) {
+		DueAmountDetailsEntity entity = new DueAmountDetailsEntity();
+		entity.setDueId(dueId);
+		entity.setPaymentId(paymentId);
+		entity.setTotalAmount(totalAmount);
+		entity.setApplicableFlats(applicableFlats);
+		entity.setFlatArea(flatArea);
+		entity.setDueDate(LocalDate.of(2026, 1, 1));
+		entity.setPaymentName(paymentId);
+		return entity;
 	}
 }

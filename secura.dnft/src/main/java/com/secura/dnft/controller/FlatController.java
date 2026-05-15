@@ -1,5 +1,7 @@
 package com.secura.dnft.controller;
 
+import java.util.LinkedHashMap;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -99,6 +101,10 @@ public class FlatController {
 		} catch (Exception e) {
 			GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
 			response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			response.setDuePaymentList(new LinkedHashMap<>());
+			response.setTotalDueAmount("0");
+			response.setTotalMandatoryPaymentAmount("0");
+			response.setTotalOptionalPaymentAmount("0");
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
