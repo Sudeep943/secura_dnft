@@ -409,6 +409,10 @@ class FlatServicesTest {
 		assertNotNull(dueDetailsNode);
 		assertTrue(dueDetailsNode.has("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}"));
 		assertTrue(dueDetailsNode.has("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}"));
+		assertEquals("D1",
+				dueDetailsNode.get("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}").get(0).get("dueId").asText());
+		assertEquals("D2",
+				dueDetailsNode.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}").get(0).get("dueId").asText());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
