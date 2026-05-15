@@ -16,8 +16,11 @@ import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -36,17 +39,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
+import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
+import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.PaymentDetail;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
 
@@ -61,6 +71,12 @@ class FlatServicesTest {
 
 	@Mock
 	private OwnerRepository ownerRepository;
+
+	@Mock
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
+
+	@Mock
+	private PaymentRepository paymentRepository;
 
 	@Mock
 	private GenericService genericService;
@@ -302,6 +318,62 @@ class FlatServicesTest {
 		assertEquals(List.of("B-201"), blockDetails.getTowerList().get(0).getFlatList());
 	}
 
+	@Test
+	void getDueAmountForFlat_shouldGroupSelectedDuesAndCalculateTotals() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+		request.setFlatId("A-101");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("[\"D1\",\"D2\",\"D3\",\"D4\",\"D5\",\"D6\",\"D7\",\"D8\"]");
+
+		List<String> dueIds = Arrays.asList("D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8");
+		List<DueAmountDetailsEntity> dueEntities = Arrays.asList(
+				buildDueEntity("D1", "PAY1", "MONTHLY", "ALL", LocalDate.now().minusDays(30), "100", "0", "Maintenance"),
+				buildDueEntity("D2", "PAY1", "MONTHLY", "1200", LocalDate.now(), "120", "10", "Maintenance"),
+				buildDueEntity("D3", "PAY1", "MONTHLY", "1200", LocalDate.now().plusDays(12), "130", "0", "Maintenance"),
+				buildDueEntity("D4", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(20), "300", "0", "Maintenance"),
+				buildDueEntity("D5", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(8), "250", "0", "Maintenance"),
+				buildDueEntity("D6", "PAY1", "MONTHLY", "900", LocalDate.now().minusDays(2), "999", "0", "Maintenance"),
+				buildDueEntity("D7", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(60), "1000", "0", "Club Fund"),
+				buildDueEntity("D8", "PAY2", "HALF_YEARLY", "1200", LocalDate.now().minusDays(5), "600", "0", "Club Fund"));
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq("[\"D1\",\"D2\",\"D3\",\"D4\",\"D5\",\"D6\",\"D7\",\"D8\"]"), any(TypeReference.class)))
+				.thenReturn(dueIds);
+		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
+		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
+		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertEquals("820", response.getTotalDue());
+		assertEquals(Boolean.TRUE, response.getPenaltyAdded());
+		assertNotNull(response.getDueDetails());
+		assertEquals(2, response.getDueDetails().size());
+
+		Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = response.getDueDetails();
+		List<DueAmountDetailsEntity> pay1Dues = dueDetails.entrySet().stream()
+				.filter(entry -> "PAY1".equals(entry.getKey().getPaymentId())).findFirst().map(Map.Entry::getValue).orElse(null);
+		assertNotNull(pay1Dues);
+		assertEquals(3, pay1Dues.size());
+		assertTrue(pay1Dues.stream().anyMatch(due -> "D1".equals(due.getDueId())));
+		assertTrue(pay1Dues.stream().anyMatch(due -> "D2".equals(due.getDueId())));
+		assertTrue(pay1Dues.stream().anyMatch(due -> "D5".equals(due.getDueId())));
+		assertTrue(pay1Dues.stream().noneMatch(due -> "D3".equals(due.getDueId())));
+		assertTrue(pay1Dues.stream().noneMatch(due -> "D4".equals(due.getDueId())));
+		assertTrue(pay1Dues.stream().noneMatch(due -> "D6".equals(due.getDueId())));
+
+		List<DueAmountDetailsEntity> pay2Dues = dueDetails.entrySet().stream()
+				.filter(entry -> "PAY2".equals(entry.getKey().getPaymentId())).findFirst().map(Map.Entry::getValue).orElse(null);
+		assertNotNull(pay2Dues);
+		assertEquals(2, pay2Dues.size());
+	}
+
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APRT001");
@@ -351,6 +423,27 @@ class FlatServicesTest {
 			workbook.write(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
+	}
+
+	private DueAmountDetailsEntity buildDueEntity(String dueId, String paymentId, String collectionCycle, String flatArea,
+			LocalDate dueDate, String totalAmount, String fineAmount, String paymentName) {
+		DueAmountDetailsEntity entity = new DueAmountDetailsEntity();
+		entity.setDueId(dueId);
+		entity.setPaymentId(paymentId);
+		entity.setCollectionCycle(collectionCycle);
+		entity.setFlatArea(flatArea);
+		entity.setDueDate(dueDate);
+		entity.setTotalAmount(totalAmount);
+		entity.setFineAmount(fineAmount);
+		entity.setPaymentName(paymentName);
+		return entity;
+	}
+
+	private PaymentEntity buildPaymentEntity(String paymentId, String paymentName) {
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId(paymentId);
+		paymentEntity.setPaymentName(paymentName);
+		return paymentEntity;
 	}
 
 	private int expectedColumnWidth(Sheet sheet, int columnIndex) {

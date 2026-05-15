@@ -1,14 +1,16 @@
 package com.secura.dnft.request.response;
 
 import java.util.List;
+import java.util.Map;
+
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 
 public class GetDueAmountForFlatResponse {
 
 	private GenericHeader genericHeader;
-	private List<DueAmountDetails> duePaymentList;
-	private String totalDueAmount;
-	private String totalMandatoryPaymentAmount;
-	private String totalOptionalPaymentAmount;
+	private Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails;
+	private String totalDue;
+	private Boolean penaltyAdded;
 	private String message;
 	private String messageCode;
 
@@ -20,36 +22,28 @@ public class GetDueAmountForFlatResponse {
 		this.genericHeader = genericHeader;
 	}
 
-	public List<DueAmountDetails> getDuePaymentList() {
-		return duePaymentList;
+	public Map<PaymentDetail, List<DueAmountDetailsEntity>> getDueDetails() {
+		return dueDetails;
 	}
 
-	public void setDuePaymentList(List<DueAmountDetails> duePaymentList) {
-		this.duePaymentList = duePaymentList;
+	public void setDueDetails(Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails) {
+		this.dueDetails = dueDetails;
 	}
 
-	public String getTotalDueAmount() {
-		return totalDueAmount;
+	public String getTotalDue() {
+		return totalDue;
 	}
 
-	public void setTotalDueAmount(String totalDueAmount) {
-		this.totalDueAmount = totalDueAmount;
+	public void setTotalDue(String totalDue) {
+		this.totalDue = totalDue;
 	}
 
-	public String getTotalMandatoryPaymentAmount() {
-		return totalMandatoryPaymentAmount;
+	public Boolean getPenaltyAdded() {
+		return penaltyAdded;
 	}
 
-	public void setTotalMandatoryPaymentAmount(String totalMandatoryPaymentAmount) {
-		this.totalMandatoryPaymentAmount = totalMandatoryPaymentAmount;
-	}
-
-	public String getTotalOptionalPaymentAmount() {
-		return totalOptionalPaymentAmount;
-	}
-
-	public void setTotalOptionalPaymentAmount(String totalOptionalPaymentAmount) {
-		this.totalOptionalPaymentAmount = totalOptionalPaymentAmount;
+	public void setPenaltyAdded(Boolean penaltyAdded) {
+		this.penaltyAdded = penaltyAdded;
 	}
 
 	public String getMessage() {
