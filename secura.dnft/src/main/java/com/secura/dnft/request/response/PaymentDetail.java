@@ -3,6 +3,7 @@ package com.secura.dnft.request.response;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 
 @JsonPropertyOrder({ "paymentId", "paymentName" })
 public class PaymentDetail {
@@ -41,5 +42,17 @@ public class PaymentDetail {
 	@Override
 	public int hashCode() {
 		return Objects.hash(paymentId, paymentName);
+	}
+
+	@Override
+	public String toString() {
+		return "{\"paymentId\":\"" + escapeJson(paymentId) + "\",\"paymentName\":\"" + escapeJson(paymentName) + "\"}";
+	}
+
+	private String escapeJson(String value) {
+		if (value == null) {
+			return "";
+		}
+		return new String(JsonStringEncoder.getInstance().quoteAsString(value));
 	}
 }
