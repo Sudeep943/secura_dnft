@@ -271,9 +271,7 @@ public class FlatServices implements FlatInterface {
 	public GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request) {
 		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setDueDetails(new LinkedHashMap<>());
-		response.setTotalDue(BigDecimal.ZERO.toPlainString());
-		response.setPenaltyAdded(Boolean.FALSE);
+		initializeDefaultDueResponse(response);
 		try {
 			Optional<Flat> optionalFlat = flatRepository.findById(request != null ? request.getFlatId() : null);
 			if (optionalFlat.isPresent()) {
@@ -293,9 +291,7 @@ public class FlatServices implements FlatInterface {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		} catch (Exception e) {
-			response.setDueDetails(new LinkedHashMap<>());
-			response.setTotalDue(BigDecimal.ZERO.toPlainString());
-			response.setPenaltyAdded(Boolean.FALSE);
+			initializeDefaultDueResponse(response);
 			response.setMessage(ErrorMessage.ERR_MESSAGE_43);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
 		}
@@ -377,7 +373,8 @@ public class FlatServices implements FlatInterface {
 		if (dueEntities == null || dueEntities.isEmpty()) {
 			return Collections.emptyList();
 		}
-		return dueEntities.stream().filter(dueEntity -> isMatchingFlatArea(dueEntity, flatArea)).collect(Collectors.toList());
+		return dueEntities.stream().filter(dueEntity -> dueEntity != null && isMatchingFlatArea(dueEntity, flatArea))
+				.collect(Collectors.toList());
 	}
 
 	private boolean isMatchingFlatArea(DueAmountDetailsEntity dueEntity, String flatArea) {
@@ -453,9 +450,10 @@ public class FlatServices implements FlatInterface {
 							Comparator.nullsLast(Comparator.naturalOrder())))
 					.findFirst().ifPresent(selectedDues::add);
 		}
-		selectedDues.sort(Comparator
-				.comparingInt((DueAmountDetailsEntity dueEntity) -> getCyclePriority(dueEntity.getCollectionCycle()))
-				.thenComparing(dueEntity -> dueEntity.getDueDate(), Comparator.nullsLast(Comparator.naturalOrder())));
+		selectedDues.sort(Comparator.comparingInt(
+				(DueAmountDetailsEntity dueEntity) -> getCyclePriority(dueEntity != null ? dueEntity.getCollectionCycle() : null))
+				.thenComparing(dueEntity -> dueEntity != null ? dueEntity.getDueDate() : null,
+						Comparator.nullsLast(Comparator.naturalOrder())));
 		return selectedDues;
 	}
 
@@ -568,6 +566,12 @@ public class FlatServices implements FlatInterface {
 		} catch (Exception ex) {
 			return new ArrayList<>();
 		}
+	}
+
+	private void initializeDefaultDueResponse(GetDueAmountForFlatResponse response) {
+		response.setDueDetails(new LinkedHashMap<>());
+		response.setTotalDue(BigDecimal.ZERO.toPlainString());
+		response.setPenaltyAdded(Boolean.FALSE);
 	}
 
 	private boolean hasText(String value) {
