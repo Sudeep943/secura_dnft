@@ -579,7 +579,10 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private boolean isOptionalPaymentId(String paymentId) {
-		return normalizeValue(paymentId).toUpperCase(Locale.ENGLISH).contains("OPTIONAL");
+		if (!hasText(paymentId)) {
+			return false;
+		}
+		return paymentId.trim().toUpperCase(Locale.ENGLISH).contains("OPTIONAL");
 	}
 
 	private boolean isDueApplicableToFlat(DueAmountDetailsEntity entity, Flat flat) {
