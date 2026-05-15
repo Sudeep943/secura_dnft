@@ -10,9 +10,6 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 @JsonPropertyOrder({ "paymentId", "paymentName" })
 public class PaymentDetail {
 
-	private static final ObjectWriter PAYMENT_DETAIL_WRITER = JsonMapper.builder().findAndAddModules().build()
-			.writerFor(PaymentDetail.class);
-
 	private String paymentId;
 	private String paymentName;
 
@@ -52,9 +49,19 @@ public class PaymentDetail {
 	@Override
 	public String toString() {
 		try {
-			return PAYMENT_DETAIL_WRITER.writeValueAsString(this);
+			return PaymentDetailWriterHolder.PAYMENT_DETAIL_WRITER.writeValueAsString(this);
 		} catch (JsonProcessingException exception) {
-			throw new IllegalStateException("Unable to serialize payment detail", exception);
+			throw new IllegalStateException(
+					"Unable to serialize payment detail for paymentId=" + paymentId + ", paymentName=" + paymentName,
+					exception);
+		}
+	}
+
+	private static final class PaymentDetailWriterHolder {
+		private static final ObjectWriter PAYMENT_DETAIL_WRITER = JsonMapper.builder().findAndAddModules().build()
+				.writerFor(PaymentDetail.class);
+
+		private PaymentDetailWriterHolder() {
 		}
 	}
 }
