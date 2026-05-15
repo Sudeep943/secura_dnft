@@ -3,11 +3,13 @@ package com.secura.dnft.request.response;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 
 public class GetDueAmountForFlatResponse {
 
 	private GenericHeader genericHeader;
+	@JsonSerialize(keyUsing = PaymentDetailKeySerializer.class)
 	private Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails;
 	private String totalDue;
 	private Boolean penaltyAdded;

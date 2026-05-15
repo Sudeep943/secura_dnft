@@ -2,6 +2,9 @@ package com.secura.dnft.request.response;
 
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
+@JsonPropertyOrder({ "paymentId", "paymentName" })
 public class PaymentDetail {
 
 	private String paymentId;
