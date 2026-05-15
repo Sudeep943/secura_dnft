@@ -61,6 +61,7 @@ import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
@@ -263,15 +264,17 @@ public class FlatServices implements FlatInterface {
 	}
 
 	@Override
-	public Map<String, Object> getDueAmountForFlat(GetDueAmountForFlatRequest request) {
-		Map<String, Object> response = new LinkedHashMap<>();
-		response.put("genericHeader", request != null ? request.getGenericHeader() : null);
-		List<DueAmountDetails> duePaymentList = fetchDueDetailsForFlat(request != null ? request.getFlatId() : null);
-		response.put("duePaymentList", duePaymentList);
+	public GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request) {
+		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		Map<String, List<DueAmountDetails>> duePaymentList = fetchDueDetailsForFlat(request != null ? request.getFlatId() : null);
+		response.setDuePaymentList(duePaymentList);
+		List<DueAmountDetails> dueAmountDetailsList = duePaymentList.values().stream().flatMap(List::stream)
+				.collect(Collectors.toList());
 		BigDecimal totalDueAmount = BigDecimal.ZERO;
 		BigDecimal totalMandatoryPaymentAmount = BigDecimal.ZERO;
 		BigDecimal totalOptionalPaymentAmount = BigDecimal.ZERO;
-		for (DueAmountDetails dueAmountDetails : duePaymentList) {
+		for (DueAmountDetails dueAmountDetails : dueAmountDetailsList) {
 			BigDecimal dueAmount = parseAmount(dueAmountDetails != null ? dueAmountDetails.getTotalAmount() : null);
 			totalDueAmount = totalDueAmount.add(dueAmount);
 			String paymentType = dueAmountDetails != null ? dueAmountDetails.getPaymentType() : null;
@@ -281,11 +284,11 @@ public class FlatServices implements FlatInterface {
 				totalOptionalPaymentAmount = totalOptionalPaymentAmount.add(dueAmount);
 			}
 		}
-		response.put("totalDueAmount", formatAmount(totalDueAmount));
-		response.put("totalMandatoryPaymentAmount", formatAmount(totalMandatoryPaymentAmount));
-		response.put("totalOptionalPaymentAmount", formatAmount(totalOptionalPaymentAmount));
-		response.put("message", SuccessMessage.SUCC_MESSAGE_28);
-		response.put("messageCode", SuccessMessageCode.SUCC_MESSAGE_28);
+		response.setTotalDueAmount(formatAmount(totalDueAmount));
+		response.setTotalMandatoryPaymentAmount(formatAmount(totalMandatoryPaymentAmount));
+		response.setTotalOptionalPaymentAmount(formatAmount(totalOptionalPaymentAmount));
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
@@ -537,18 +540,21 @@ public class FlatServices implements FlatInterface {
 		return profileIds != null ? profileIds : new ArrayList<>();
 	}
 
-	private List<DueAmountDetails> fetchDueDetailsForFlat(String flatId) {
+	private Map<String, List<DueAmountDetails>> fetchDueDetailsForFlat(String flatId) {
+		Map<String, List<DueAmountDetails>> duePaymentMap = new LinkedHashMap<>();
 		if (!hasText(flatId)) {
-			return new ArrayList<>();
+			return duePaymentMap;
 		}
-		Optional<Flat> flatOptional = flatRepository.findById(flatId.trim());
+		String normalizedFlatId = flatId.trim();
+		Optional<Flat> flatOptional = flatRepository.findById(normalizedFlatId);
 		if (flatOptional.isEmpty()) {
-			return new ArrayList<>();
+			return duePaymentMap;
 		}
 		Flat flat = flatOptional.get();
 		List<String> dueIds = parseStringList(flat.getFlatPndngPaymntLst());
 		if (dueIds.isEmpty()) {
-			return new ArrayList<>();
+			duePaymentMap.put(normalizedFlatId, new ArrayList<>());
+			return duePaymentMap;
 		}
 		Map<String, DueAmountDetails> dueDetailsByKey = new LinkedHashMap<>();
 		for (String dueId : dueIds) {
@@ -567,7 +573,8 @@ public class FlatServices implements FlatInterface {
 		List<DueAmountDetails> duePaymentList = new ArrayList<>(dueDetailsByKey.values());
 		duePaymentList.sort(Comparator.comparing(DueAmountDetails::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()))
 				.thenComparing(due -> due.getPaymentName() == null ? "" : due.getPaymentName(), String.CASE_INSENSITIVE_ORDER));
-		return duePaymentList;
+		duePaymentMap.put(normalizedFlatId, duePaymentList);
+		return duePaymentMap;
 	}
 
 	private boolean isDueApplicableToFlat(DueAmountDetailsEntity entity, Flat flat) {

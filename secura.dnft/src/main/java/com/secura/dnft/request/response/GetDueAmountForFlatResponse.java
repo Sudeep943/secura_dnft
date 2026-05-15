@@ -1,11 +1,12 @@
 package com.secura.dnft.request.response;
 
 import java.util.List;
+import java.util.Map;
 
 public class GetDueAmountForFlatResponse {
 
 	private GenericHeader genericHeader;
-	private List<DueAmountDetails> duePaymentList;
+	private Map<String, List<DueAmountDetails>> duePaymentList;
 	private String totalDueAmount;
 	private String totalMandatoryPaymentAmount;
 	private String totalOptionalPaymentAmount;
@@ -20,11 +21,11 @@ public class GetDueAmountForFlatResponse {
 		this.genericHeader = genericHeader;
 	}
 
-	public List<DueAmountDetails> getDuePaymentList() {
+	public Map<String, List<DueAmountDetails>> getDuePaymentList() {
 		return duePaymentList;
 	}
 
-	public void setDuePaymentList(List<DueAmountDetails> duePaymentList) {
+	public void setDuePaymentList(Map<String, List<DueAmountDetails>> duePaymentList) {
 		this.duePaymentList = duePaymentList;
 	}
 
