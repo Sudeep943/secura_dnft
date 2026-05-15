@@ -38,6 +38,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
@@ -372,6 +375,44 @@ class FlatServicesTest {
 				.filter(entry -> "PAY2".equals(entry.getKey().getPaymentId())).findFirst().map(Map.Entry::getValue).orElse(null);
 		assertNotNull(pay2Dues);
 		assertEquals(2, pay2Dues.size());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldSerializeDueDetailsWithPaymentDetailJsonKeys() throws Exception {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+		request.setFlatId("A-101");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("[\"D1\",\"D2\"]");
+
+		List<String> dueIds = Arrays.asList("D1", "D2");
+		List<DueAmountDetailsEntity> dueEntities = Arrays.asList(
+				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now(), "120", "10", "Maintenance"),
+				buildDueEntity("D2", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(10), "500", "0", "Club Fund"));
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq("[\"D1\",\"D2\"]"), any(TypeReference.class))).thenReturn(dueIds);
+		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
+		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
+		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+		JsonNode dueDetailsNode = objectMapper.readTree(objectMapper.writeValueAsString(response)).get("dueDetails");
+
+		assertNotNull(dueDetailsNode);
+		assertTrue(dueDetailsNode.has("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}"));
+		assertTrue(dueDetailsNode.has("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}"));
+		assertEquals("D1",
+				dueDetailsNode.get("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}").get(0).get("dueId").asText());
+		assertEquals("D2",
+				dueDetailsNode.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}").get(0).get("dueId").asText());
 	}
 
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
