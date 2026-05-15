@@ -3,6 +3,7 @@ package com.secura.dnft.service;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.sql.Date;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -11,6 +12,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,10 +38,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
@@ -52,11 +56,11 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
+import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
-import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
@@ -81,6 +85,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private OwnerRepository ownerRepository;
+
+	@Autowired
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
 
 	@Autowired
 	private GenericService genericService;
@@ -256,11 +263,29 @@ public class FlatServices implements FlatInterface {
 	}
 
 	@Override
-	public GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request) {
-		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
+	public Map<String, Object> getDueAmountForFlat(GetDueAmountForFlatRequest request) {
+		Map<String, Object> response = new LinkedHashMap<>();
+		response.put("genericHeader", request != null ? request.getGenericHeader() : null);
+		List<DueAmountDetails> duePaymentList = fetchDueDetailsForFlat(request != null ? request.getFlatId() : null);
+		response.put("duePaymentList", duePaymentList);
+		BigDecimal totalDueAmount = BigDecimal.ZERO;
+		BigDecimal totalMandatoryPaymentAmount = BigDecimal.ZERO;
+		BigDecimal totalOptionalPaymentAmount = BigDecimal.ZERO;
+		for (DueAmountDetails dueAmountDetails : duePaymentList) {
+			BigDecimal dueAmount = parseAmount(dueAmountDetails != null ? dueAmountDetails.getTotalAmount() : null);
+			totalDueAmount = totalDueAmount.add(dueAmount);
+			String paymentType = dueAmountDetails != null ? dueAmountDetails.getPaymentType() : null;
+			if (paymentType != null && paymentType.trim().equalsIgnoreCase("MANDATORY")) {
+				totalMandatoryPaymentAmount = totalMandatoryPaymentAmount.add(dueAmount);
+			} else if (paymentType != null && paymentType.trim().equalsIgnoreCase("OPTIONAL")) {
+				totalOptionalPaymentAmount = totalOptionalPaymentAmount.add(dueAmount);
+			}
+		}
+		response.put("totalDueAmount", formatAmount(totalDueAmount));
+		response.put("totalMandatoryPaymentAmount", formatAmount(totalMandatoryPaymentAmount));
+		response.put("totalOptionalPaymentAmount", formatAmount(totalOptionalPaymentAmount));
+		response.put("message", SuccessMessage.SUCC_MESSAGE_28);
+		response.put("messageCode", SuccessMessageCode.SUCC_MESSAGE_28);
 		return response;
 	}
 
@@ -510,6 +535,149 @@ public class FlatServices implements FlatInterface {
 		List<String> profileIds = genericService.fromJson(profileIdsJson, new TypeReference<List<String>>() {
 		});
 		return profileIds != null ? profileIds : new ArrayList<>();
+	}
+
+	private List<DueAmountDetails> fetchDueDetailsForFlat(String flatId) {
+		if (!hasText(flatId)) {
+			return new ArrayList<>();
+		}
+		Optional<Flat> flatOptional = flatRepository.findById(flatId.trim());
+		if (flatOptional.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Flat flat = flatOptional.get();
+		List<String> dueIds = parseStringList(flat.getFlatPndngPaymntLst());
+		if (dueIds.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Map<String, DueAmountDetails> dueDetailsByKey = new LinkedHashMap<>();
+		for (String dueId : dueIds) {
+			if (!hasText(dueId)) {
+				continue;
+			}
+			List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueId(dueId.trim());
+			for (DueAmountDetailsEntity entity : dueEntities) {
+				if (entity == null || !isDueApplicableToFlat(entity, flat)) {
+					continue;
+				}
+				DueAmountDetails dueAmountDetails = toDueAmountDetails(entity);
+				dueDetailsByKey.put(buildDueDetailsKey(entity), dueAmountDetails);
+			}
+		}
+		List<DueAmountDetails> duePaymentList = new ArrayList<>(dueDetailsByKey.values());
+		duePaymentList.sort(Comparator.comparing(DueAmountDetails::getDueDate, Comparator.nullsLast(Comparator.naturalOrder()))
+				.thenComparing(due -> due.getPaymentName() == null ? "" : due.getPaymentName(), String.CASE_INSENSITIVE_ORDER));
+		return duePaymentList;
+	}
+
+	private boolean isDueApplicableToFlat(DueAmountDetailsEntity entity, Flat flat) {
+		List<String> applicableFlats = parseStringList(entity.getApplicableFlats());
+		if (!applicableFlats.isEmpty()) {
+			String normalizedFlatNo = normalizeValue(flat != null ? flat.getFlatNo() : null);
+			for (String applicableFlat : applicableFlats) {
+				if (normalizeValue(applicableFlat).equalsIgnoreCase(normalizedFlatNo)) {
+					return true;
+				}
+			}
+			return false;
+		}
+		String flatArea = normalizeValue(flat != null ? flat.getFlatArea() : null);
+		String dueFlatArea = normalizeValue(entity.getFlatArea());
+		if (!flatArea.isEmpty() && !dueFlatArea.isEmpty()) {
+			return flatArea.equalsIgnoreCase(dueFlatArea);
+		}
+		return true;
+	}
+
+	private DueAmountDetails toDueAmountDetails(DueAmountDetailsEntity entity) {
+		DueAmountDetails details = new DueAmountDetails();
+		details.setDueDate(entity.getDueDate());
+		details.setDueEndDate(entity.getDueEndDate());
+		details.setPaymentId(entity.getPaymentId());
+		details.setDueId(entity.getDueId());
+		details.setAmount(entity.getAmount());
+		details.setGstAmount(entity.getGstAmount());
+		details.setTotalAmount(entity.getTotalAmount());
+		details.setPaymentName(entity.getPaymentName());
+		details.setPaymentType(entity.getPaymentType());
+		details.setCause(entity.getCause());
+		details.setAllowedPaymentModes(new ArrayList<>());
+		details.setPaymentCapita(entity.getPaymentCapita());
+		details.setAddedCharges(parseAddedCharges(entity.getAddedCharges()));
+		details.setTotalAddedCharges(entity.getTotalAddedCharges());
+		details.setEstimatedCollectionAmount(entity.getEstimatedCollectionAmount());
+		details.setGstPercentage(entity.getGstPercentage());
+		details.setDiscountCode(entity.getDiscountCode());
+		details.setFineCode(entity.getFineCode());
+		details.setDiscountMode(entity.getDiscountMode());
+		details.setCummilationCycle(entity.getCummilationCycle());
+		details.setDiscValue(entity.getDiscValue());
+		details.setFnValue(entity.getFnValue());
+		details.setDiscountedAmount(entity.getDiscountedAmount());
+		details.setFineAmount(entity.getFineAmount());
+		details.setFineMode(entity.getFineMode());
+		details.setFineType(entity.getFineType());
+		details.setRoundUpAmount(entity.getRoundUpAmount());
+		details.setAlreadyPaidAmount(entity.getAlreadyPaidAmount());
+		details.setAdminDiscount(entity.getAdminDiscount());
+		details.setPaymentStatus(entity.getPaymentStatus());
+		details.setPaymentDate(entity.getPaymentDate());
+		details.setCollectionCycle(entity.getCollectionCycle());
+		details.setApplicableFlats(parseStringList(entity.getApplicableFlats()));
+		return details;
+	}
+
+	private String buildDueDetailsKey(DueAmountDetailsEntity entity) {
+		return normalizeValue(entity.getDueId()) + "|" + normalizeValue(entity.getCollectionCycle()) + "|"
+				+ (entity.getDueDate() != null ? entity.getDueDate().toString() : "") + "|" + normalizeValue(entity.getFlatArea());
+	}
+
+	private List<String> parseStringList(String value) {
+		if (!hasText(value)) {
+			return new ArrayList<>();
+		}
+		try {
+			List<String> listValues = genericService.fromJson(value, new TypeReference<List<String>>() {
+			});
+			return listValues == null ? new ArrayList<>() : listValues;
+		} catch (Exception e) {
+			return new ArrayList<>();
+		}
+	}
+
+	private List<AddedCharges> parseAddedCharges(String value) {
+		if (!hasText(value)) {
+			return new ArrayList<>();
+		}
+		try {
+			List<AddedCharges> charges = genericService.fromJson(value, new TypeReference<List<AddedCharges>>() {
+			});
+			return charges == null ? new ArrayList<>() : charges;
+		} catch (Exception e) {
+			return new ArrayList<>();
+		}
+	}
+
+	private BigDecimal parseAmount(String value) {
+		if (!hasText(value)) {
+			return BigDecimal.ZERO;
+		}
+		try {
+			return new BigDecimal(value.trim());
+		} catch (NumberFormatException ex) {
+			return BigDecimal.ZERO;
+		}
+	}
+
+	private String formatAmount(BigDecimal value) {
+		if (value == null || BigDecimal.ZERO.compareTo(value) == 0) {
+			return "0";
+		}
+		return value.stripTrailingZeros().toPlainString();
+	}
+
+	private String normalizeValue(String value) {
+		return value == null ? "" : value.trim();
 	}
 
 	private String createProfileId() {

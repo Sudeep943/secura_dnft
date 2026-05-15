@@ -1,5 +1,8 @@
 package com.secura.dnft.controller;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +18,6 @@ import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
-import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
@@ -93,13 +95,14 @@ public class FlatController {
 
 	@PostMapping("/getDueAmountForFlat")
 	@CrossOrigin(origins = "*")
-	public GetDueAmountForFlatResponse getDueAmountForFlat(@RequestBody GetDueAmountForFlatRequest request) {
+	public Map<String, Object> getDueAmountForFlat(@RequestBody GetDueAmountForFlatRequest request) {
 		try {
 			return flatServices.getDueAmountForFlat(request);
 		} catch (Exception e) {
-			GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			Map<String, Object> response = new LinkedHashMap<>();
+			response.put("genericHeader", request != null ? request.getGenericHeader() : null);
+			response.put("message", ErrorMessage.ERR_MESSAGE_33);
+			response.put("messageCode", ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
 	}

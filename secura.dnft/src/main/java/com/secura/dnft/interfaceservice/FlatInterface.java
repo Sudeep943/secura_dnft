@@ -1,11 +1,12 @@
 package com.secura.dnft.interfaceservice;
 
+import java.util.Map;
+
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
-import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationRequest;
 import com.secura.dnft.request.response.GetDueAmountForPerHeadCalculationResponse;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
@@ -26,7 +27,7 @@ public interface FlatInterface {
 
 	GetAllFlatsResponse getAllFlats(GetAllFlatsRequest request);
 
-	GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request);
+	Map<String, Object> getDueAmountForFlat(GetDueAmountForFlatRequest request);
 
 	GetDueAmountForPerHeadCalculationResponse getDueAmountForPerHeadCalculation(
 			GetDueAmountForPerHeadCalculationRequest request);
