@@ -3,6 +3,9 @@ package com.secura.dnft.request.response;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
 @JsonPropertyOrder({ "paymentId", "paymentName" })
 public class PaymentDetail {
@@ -41,5 +44,24 @@ public class PaymentDetail {
 	@Override
 	public int hashCode() {
 		return Objects.hash(paymentId, paymentName);
+	}
+
+	@Override
+	public String toString() {
+		try {
+			return PaymentDetailWriterHolder.PAYMENT_DETAIL_WRITER.writeValueAsString(this);
+		} catch (JsonProcessingException exception) {
+			throw new IllegalStateException(
+					"Unable to serialize payment detail for paymentId=" + paymentId + ", paymentName=" + paymentName,
+					exception);
+		}
+	}
+
+	private static final class PaymentDetailWriterHolder {
+		private static final ObjectWriter PAYMENT_DETAIL_WRITER = JsonMapper.builder().findAndAddModules().build()
+				.writerFor(PaymentDetail.class);
+
+		private PaymentDetailWriterHolder() {
+		}
 	}
 }

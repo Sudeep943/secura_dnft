@@ -415,6 +415,15 @@ class FlatServicesTest {
 				dueDetailsNode.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}").get(0).get("dueId").asText());
 	}
 
+	@Test
+	void paymentDetail_toStringShouldExposePaymentIdAndNameAsJson() {
+		PaymentDetail paymentDetail = new PaymentDetail();
+		paymentDetail.setPaymentId("PAY\"1");
+		paymentDetail.setPaymentName("Main\\Fund");
+
+		assertEquals("{\"paymentId\":\"PAY\\\"1\",\"paymentName\":\"Main\\\\Fund\"}", paymentDetail.toString());
+	}
+
 	private UploadFlatDetailsRequest buildRequest(String documentData) {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APRT001");
