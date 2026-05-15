@@ -1,14 +1,13 @@
 package com.secura.dnft.request.response;
 
 import java.util.List;
-import java.util.Map;
 
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 
 public class GetDueAmountForFlatResponse {
 
 	private GenericHeader genericHeader;
-	private Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails;
+	private List<DueDetailGroup> dueDetails;
 	private String totalDue;
 	private Boolean penaltyAdded;
 	private String message;
@@ -22,11 +21,11 @@ public class GetDueAmountForFlatResponse {
 		this.genericHeader = genericHeader;
 	}
 
-	public Map<PaymentDetail, List<DueAmountDetailsEntity>> getDueDetails() {
+	public List<DueDetailGroup> getDueDetails() {
 		return dueDetails;
 	}
 
-	public void setDueDetails(Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails) {
+	public void setDueDetails(List<DueDetailGroup> dueDetails) {
 		this.dueDetails = dueDetails;
 	}
 
@@ -60,5 +59,26 @@ public class GetDueAmountForFlatResponse {
 
 	public void setMessageCode(String messageCode) {
 		this.messageCode = messageCode;
+	}
+
+	public static class DueDetailGroup {
+		private PaymentDetail paymentDetail;
+		private List<DueAmountDetailsEntity> dues;
+
+		public PaymentDetail getPaymentDetail() {
+			return paymentDetail;
+		}
+
+		public void setPaymentDetail(PaymentDetail paymentDetail) {
+			this.paymentDetail = paymentDetail;
+		}
+
+		public List<DueAmountDetailsEntity> getDues() {
+			return dues;
+		}
+
+		public void setDues(List<DueAmountDetailsEntity> dues) {
+			this.dues = dues;
+		}
 	}
 }

@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -56,7 +55,6 @@ import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GenericHeader;
-import com.secura.dnft.request.response.PaymentDetail;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
 
@@ -356,9 +354,10 @@ class FlatServicesTest {
 		assertNotNull(response.getDueDetails());
 		assertEquals(2, response.getDueDetails().size());
 
-		Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = response.getDueDetails();
-		List<DueAmountDetailsEntity> pay1Dues = dueDetails.entrySet().stream()
-				.filter(entry -> "PAY1".equals(entry.getKey().getPaymentId())).findFirst().map(Map.Entry::getValue).orElse(null);
+		List<GetDueAmountForFlatResponse.DueDetailGroup> dueDetails = response.getDueDetails();
+		List<DueAmountDetailsEntity> pay1Dues = dueDetails.stream().filter(group -> group.getPaymentDetail() != null)
+				.filter(group -> "PAY1".equals(group.getPaymentDetail().getPaymentId())).findFirst()
+				.map(GetDueAmountForFlatResponse.DueDetailGroup::getDues).orElse(null);
 		assertNotNull(pay1Dues);
 		assertEquals(3, pay1Dues.size());
 		assertTrue(pay1Dues.stream().anyMatch(due -> "D1".equals(due.getDueId())));
@@ -368,8 +367,9 @@ class FlatServicesTest {
 		assertTrue(pay1Dues.stream().noneMatch(due -> "D4".equals(due.getDueId())));
 		assertTrue(pay1Dues.stream().noneMatch(due -> "D6".equals(due.getDueId())));
 
-		List<DueAmountDetailsEntity> pay2Dues = dueDetails.entrySet().stream()
-				.filter(entry -> "PAY2".equals(entry.getKey().getPaymentId())).findFirst().map(Map.Entry::getValue).orElse(null);
+		List<DueAmountDetailsEntity> pay2Dues = dueDetails.stream().filter(group -> group.getPaymentDetail() != null)
+				.filter(group -> "PAY2".equals(group.getPaymentDetail().getPaymentId())).findFirst()
+				.map(GetDueAmountForFlatResponse.DueDetailGroup::getDues).orElse(null);
 		assertNotNull(pay2Dues);
 		assertEquals(2, pay2Dues.size());
 	}

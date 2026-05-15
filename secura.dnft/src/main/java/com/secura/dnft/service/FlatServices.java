@@ -481,9 +481,9 @@ public class FlatServices implements FlatInterface {
 		}
 	}
 
-	private Map<PaymentDetail, List<DueAmountDetailsEntity>> buildDueDetails(
+	private List<GetDueAmountForFlatResponse.DueDetailGroup> buildDueDetails(
 			Map<String, List<DueAmountDetailsEntity>> finalPaymentMap) {
-		Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = new LinkedHashMap<>();
+		List<GetDueAmountForFlatResponse.DueDetailGroup> dueDetails = new ArrayList<>();
 		if (finalPaymentMap == null || finalPaymentMap.isEmpty()) {
 			return dueDetails;
 		}
@@ -491,7 +491,10 @@ public class FlatServices implements FlatInterface {
 			PaymentDetail paymentDetail = new PaymentDetail();
 			paymentDetail.setPaymentId(entry.getKey());
 			paymentDetail.setPaymentName(resolvePaymentName(entry.getKey(), entry.getValue()));
-			dueDetails.put(paymentDetail, entry.getValue());
+			GetDueAmountForFlatResponse.DueDetailGroup group = new GetDueAmountForFlatResponse.DueDetailGroup();
+			group.setPaymentDetail(paymentDetail);
+			group.setDues(entry.getValue());
+			dueDetails.add(group);
 		}
 		return dueDetails;
 	}
@@ -573,7 +576,7 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private void initializeDefaultDueResponse(GetDueAmountForFlatResponse response) {
-		response.setDueDetails(new LinkedHashMap<>());
+		response.setDueDetails(new ArrayList<>());
 		response.setTotalDue(BigDecimal.ZERO.toPlainString());
 		response.setPenaltyAdded(Boolean.FALSE);
 	}
