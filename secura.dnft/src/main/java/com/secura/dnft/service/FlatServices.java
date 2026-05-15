@@ -453,9 +453,9 @@ public class FlatServices implements FlatInterface {
 							Comparator.nullsLast(Comparator.naturalOrder())))
 					.findFirst().ifPresent(selectedDues::add);
 		}
-		selectedDues.sort(Comparator.comparingInt(
-				dueEntity -> getCyclePriority(dueEntity != null ? dueEntity.getCollectionCycle() : null)).thenComparing(
-						DueAmountDetailsEntity::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())));
+		selectedDues.sort(Comparator
+				.comparingInt((DueAmountDetailsEntity dueEntity) -> getCyclePriority(dueEntity.getCollectionCycle()))
+				.thenComparing(dueEntity -> dueEntity.getDueDate(), Comparator.nullsLast(Comparator.naturalOrder())));
 		return selectedDues;
 	}
 
