@@ -267,14 +267,14 @@ public class FlatServices implements FlatInterface {
 	public GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request) {
 		GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		Map<String, List<DueAmountDetails>> duePaymentList = fetchDueDetailsForFlat(request != null ? request.getFlatId() : null);
-		response.setDuePaymentList(duePaymentList);
-		List<DueAmountDetails> dueAmountDetailsList = duePaymentList.values().stream().flatMap(List::stream)
+		Map<String, List<DueAmountDetails>> duePaymentMap = fetchDueDetailsForFlat(request != null ? request.getFlatId() : null);
+		response.setDuePaymentList(duePaymentMap);
+		List<DueAmountDetails> allDueDetails = duePaymentMap.values().stream().flatMap(List::stream)
 				.collect(Collectors.toList());
 		BigDecimal totalDueAmount = BigDecimal.ZERO;
 		BigDecimal totalMandatoryPaymentAmount = BigDecimal.ZERO;
 		BigDecimal totalOptionalPaymentAmount = BigDecimal.ZERO;
-		for (DueAmountDetails dueAmountDetails : dueAmountDetailsList) {
+		for (DueAmountDetails dueAmountDetails : allDueDetails) {
 			BigDecimal dueAmount = parseAmount(dueAmountDetails != null ? dueAmountDetails.getTotalAmount() : null);
 			totalDueAmount = totalDueAmount.add(dueAmount);
 			String paymentType = dueAmountDetails != null ? dueAmountDetails.getPaymentType() : null;
