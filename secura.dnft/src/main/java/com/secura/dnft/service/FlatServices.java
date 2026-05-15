@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -413,8 +414,9 @@ public class FlatServices implements FlatInterface {
 			return finalPaymentMap;
 		}
 		Map<String, List<DueAmountDetailsEntity>> dueEntitiesByPayment = dueEntities == null ? Collections.emptyMap()
-				: dueEntities.stream().filter(dueEntity -> hasText(dueEntity.getPaymentId())).collect(Collectors
-						.groupingBy(DueAmountDetailsEntity::getPaymentId, LinkedHashMap::new, Collectors.toList()));
+				: dueEntities.stream().filter(Objects::nonNull).filter(dueEntity -> hasText(dueEntity.getPaymentId()))
+						.collect(Collectors.groupingBy(dueEntity -> dueEntity.getPaymentId(), LinkedHashMap::new,
+								Collectors.toList()));
 		for (Map.Entry<String, List<String>> entry : paymentIdToDueIdsMap.entrySet()) {
 			List<DueAmountDetailsEntity> paymentDues = dueEntitiesByPayment.getOrDefault(entry.getKey(), Collections.emptyList())
 					.stream().filter(dueEntity -> entry.getValue().contains(dueEntity.getDueId())).collect(Collectors.toList());
@@ -430,7 +432,7 @@ public class FlatServices implements FlatInterface {
 		if (dueEntities == null || dueEntities.isEmpty()) {
 			return Collections.emptyList();
 		}
-		Map<String, List<DueAmountDetailsEntity>> duesByCycle = dueEntities.stream().collect(Collectors
+		Map<String, List<DueAmountDetailsEntity>> duesByCycle = dueEntities.stream().filter(Objects::nonNull).collect(Collectors
 				.groupingBy(dueEntity -> normalizeHierarchyKey(dueEntity != null ? dueEntity.getCollectionCycle() : null),
 						LinkedHashMap::new, Collectors.toList()));
 		List<DueAmountDetailsEntity> selectedDues = new ArrayList<>();
@@ -514,14 +516,16 @@ public class FlatServices implements FlatInterface {
 			if (paymentDues == null || paymentDues.isEmpty()) {
 				continue;
 			}
-			String highestPriorityCycle = paymentDues.stream().filter(dueEntity -> hasText(dueEntity.getCollectionCycle()))
+			String highestPriorityCycle = paymentDues.stream()
+					.filter(dueEntity -> dueEntity != null && hasText(dueEntity.getCollectionCycle()))
 					.min(Comparator.comparingInt(dueEntity -> getCyclePriority(dueEntity.getCollectionCycle())))
-					.map(DueAmountDetailsEntity::getCollectionCycle).orElse(null);
+					.map(dueEntity -> dueEntity.getCollectionCycle()).orElse(null);
 			if (highestPriorityCycle == null) {
 				continue;
 			}
 			BigDecimal totalDuePerPayment = paymentDues.stream()
-					.filter(dueEntity -> highestPriorityCycle.equalsIgnoreCase(dueEntity.getCollectionCycle()))
+					.filter(dueEntity -> dueEntity != null
+							&& highestPriorityCycle.equalsIgnoreCase(dueEntity.getCollectionCycle()))
 					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
 			totalDue = totalDue.add(totalDuePerPayment);
 		}
