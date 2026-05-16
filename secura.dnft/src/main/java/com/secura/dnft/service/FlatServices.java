@@ -288,10 +288,12 @@ public class FlatServices implements FlatInterface {
 					Map<String, List<String>> paymentIdToDueIdsMap = groupDueIdsByPayment(filteredDues);
 					Map<String, List<DueAmountDetailsEntity>> finalPaymentMap = buildFinalPaymentMap(paymentIdToDueIdsMap,
 							filteredDues);
-					response.setDueDetails(buildDueDetails(finalPaymentMap));
-					response.setTotalDue(formatAmount(calculateTotalDue(finalPaymentMap)));
-					response.setTotalMandatoryPayment(formatAmount(calculateTotalByPaymentType(finalPaymentMap, "MANDATORY")));
-					response.setTotalOptinalPayment(formatAmount(calculateTotalByPaymentType(finalPaymentMap, "OPTIONAL")));
+					Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = buildDueDetails(finalPaymentMap);
+					response.setDueDetails(dueDetails);
+					DueTotals dueTotals = calculateDueTotalsFromDueDetails(dueDetails);
+					response.setTotalDue(formatAmount(dueTotals.totalDue()));
+					response.setTotalMandatoryPayment(formatAmount(dueTotals.totalMandatoryPayment()));
+					response.setTotalOptinalPayment(formatAmount(dueTotals.totalOptionalPayment()));
 					response.setPenaltyAdded(hasPenalty(finalPaymentMap));
 				}
 			}
@@ -501,54 +503,79 @@ public class FlatServices implements FlatInterface {
 		return dueEntities.stream().map(DueAmountDetailsEntity::getPaymentName).filter(this::hasText).findFirst().orElse(null);
 	}
 
-	private BigDecimal calculateTotalDue(Map<String, List<DueAmountDetailsEntity>> finalPaymentMap) {
-		if (finalPaymentMap == null || finalPaymentMap.isEmpty()) {
-			return BigDecimal.ZERO;
+	private DueTotals calculateDueTotalsFromDueDetails(Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails) {
+		if (dueDetails == null || dueDetails.isEmpty()) {
+			return new DueTotals(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 		}
 		BigDecimal totalDue = BigDecimal.ZERO;
-		for (List<DueAmountDetailsEntity> paymentDues : finalPaymentMap.values()) {
-			totalDue = totalDue.add(calculateTotalDueForPayment(paymentDues));
-		}
-		return totalDue;
-	}
-
-	private BigDecimal calculateTotalByPaymentType(Map<String, List<DueAmountDetailsEntity>> finalPaymentMap,
-			String paymentType) {
-		if (finalPaymentMap == null || finalPaymentMap.isEmpty() || !hasText(paymentType)) {
-			return BigDecimal.ZERO;
-		}
-		BigDecimal totalByType = BigDecimal.ZERO;
-		for (List<DueAmountDetailsEntity> paymentDues : finalPaymentMap.values()) {
-			if (!isPaymentType(paymentDues, paymentType)) {
-				continue;
+		BigDecimal totalMandatoryPayment = BigDecimal.ZERO;
+		BigDecimal totalOptionalPayment = BigDecimal.ZERO;
+		for (List<DueAmountDetailsEntity> paymentDues : dueDetails.values()) {
+			List<DueAmountDetailsEntity> selectedCycleDues = selectCycleDuesForTotals(paymentDues);
+			BigDecimal totalDuePerPaymentId = selectedCycleDues.stream().filter(Objects::nonNull)
+					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
+			totalDue = totalDue.add(totalDuePerPaymentId);
+			String paymentType = selectedCycleDues.stream().filter(Objects::nonNull).findFirst()
+					.map(DueAmountDetailsEntity::getPaymentType).orElse(null);
+			if ("OPTIONAL".equalsIgnoreCase(paymentType)) {
+				totalOptionalPayment = totalOptionalPayment.add(totalDuePerPaymentId);
+			} else if ("MANDATORY".equalsIgnoreCase(paymentType)) {
+				totalMandatoryPayment = totalMandatoryPayment.add(totalDuePerPaymentId);
 			}
-			totalByType = totalByType.add(calculateTotalDueForPayment(paymentDues));
 		}
-		return totalByType;
+		return new DueTotals(totalDue, totalMandatoryPayment, totalOptionalPayment);
 	}
 
-	private boolean isPaymentType(List<DueAmountDetailsEntity> paymentDues, String paymentType) {
-		if (paymentDues == null || paymentDues.isEmpty() || !hasText(paymentType)) {
+	private List<DueAmountDetailsEntity> selectCycleDuesForTotals(List<DueAmountDetailsEntity> paymentDues) {
+		if (paymentDues == null || paymentDues.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<DueAmountDetailsEntity> onceCycleDues = paymentDues.stream().filter(Objects::nonNull)
+				.filter(dueEntity -> isOnceCycleForTotals(dueEntity.getCollectionCycle())).collect(Collectors.toList());
+		if (!onceCycleDues.isEmpty()) {
+			return onceCycleDues;
+		}
+		int highestCyclePriority = paymentDues.stream().filter(Objects::nonNull)
+				.map(DueAmountDetailsEntity::getCollectionCycle).map(this::getCyclePriorityForTotals).max(Integer::compareTo)
+				.orElse(Integer.MIN_VALUE);
+		if (highestCyclePriority <= 0) {
+			return Collections.emptyList();
+		}
+		return paymentDues.stream().filter(Objects::nonNull)
+				.filter(dueEntity -> getCyclePriorityForTotals(dueEntity.getCollectionCycle()) == highestCyclePriority)
+				.collect(Collectors.toList());
+	}
+
+	private boolean isOnceCycleForTotals(String cycle) {
+		if (!hasText(cycle)) {
 			return false;
 		}
-		return paymentDues.stream().filter(Objects::nonNull).map(DueAmountDetailsEntity::getPaymentType).filter(this::hasText)
-				.anyMatch(type -> paymentType.equalsIgnoreCase(type));
+		return SecuraConstants.PAYMENT_CYCLE_ONCE.equalsIgnoreCase(cycle.trim());
 	}
 
-	private BigDecimal calculateTotalDueForPayment(List<DueAmountDetailsEntity> paymentDues) {
-		if (paymentDues == null || paymentDues.isEmpty()) {
-			return BigDecimal.ZERO;
+	private int getCyclePriorityForTotals(String cycle) {
+		if (!hasText(cycle)) {
+			return 0;
 		}
-		String highestPriorityCycle = paymentDues.stream()
-				.filter(dueEntity -> dueEntity != null && hasText(dueEntity.getCollectionCycle()))
-				.min(Comparator.comparingInt(dueEntity -> getCyclePriority(dueEntity.getCollectionCycle())))
-				.map(DueAmountDetailsEntity::getCollectionCycle).orElse(null);
-		if (highestPriorityCycle == null) {
-			return BigDecimal.ZERO;
+		String normalizedCycle = cycle.trim().toUpperCase(Locale.ENGLISH);
+		switch (normalizedCycle) {
+		case "YEARLY":
+			return 4;
+		case "HALF YEARLY":
+		case "HALF_YEARLY":
+		case "HALFYEARLY":
+			return 3;
+		case "QUARTERLY":
+		case "QUATERLY":
+			return 2;
+		case "MONTHLY":
+			return 1;
+		default:
+			return 0;
 		}
-		return paymentDues.stream().filter(dueEntity -> dueEntity != null
-				&& highestPriorityCycle.equalsIgnoreCase(dueEntity.getCollectionCycle()))
-				.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
+	}
+
+	private record DueTotals(BigDecimal totalDue, BigDecimal totalMandatoryPayment, BigDecimal totalOptionalPayment) {
 	}
 
 	private boolean hasPenalty(Map<String, List<DueAmountDetailsEntity>> finalPaymentMap) {
