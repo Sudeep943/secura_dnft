@@ -279,15 +279,19 @@ public class FlatServices implements FlatInterface {
 			if (optionalFlat.isPresent()) {
 				Flat flat = optionalFlat.get();
 				List<String> pendingDueKeys = parseStringList(flat.getFlatPndngPaymntLst());
-				List<String> dueIds = extractDueIdsFromFlatPendingList(pendingDueKeys);
+				List<String> filteredPendingDueKeys = filterPendingDueKeys(pendingDueKeys);
+				List<String> dueIds = extractDueIdsFromFlatPendingList(filteredPendingDueKeys);
 				if (!dueIds.isEmpty()) {
 					List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueIdIn(dueIds);
-					List<DueAmountDetailsEntity> filteredDues = filterByFlatArea(dueEntities, flat.getFlatArea());
+					List<DueAmountDetailsEntity> filteredDues = filterDueEntitiesByPendingKeys(dueEntities,
+							filteredPendingDueKeys);
 					Map<String, List<String>> paymentIdToDueIdsMap = groupDueIdsByPayment(filteredDues);
 					Map<String, List<DueAmountDetailsEntity>> finalPaymentMap = buildFinalPaymentMap(paymentIdToDueIdsMap,
 							filteredDues);
 					response.setDueDetails(buildDueDetails(finalPaymentMap));
 					response.setTotalDue(formatAmount(calculateTotalDue(finalPaymentMap)));
+					response.setTotalMandatoryPayment(formatAmount(calculateTotalByPaymentType(finalPaymentMap, "MANDATORY")));
+					response.setTotalOptinalPayment(formatAmount(calculateTotalByPaymentType(finalPaymentMap, "OPTIONAL")));
 					response.setPenaltyAdded(hasPenalty(finalPaymentMap));
 				}
 			}
@@ -372,24 +376,6 @@ public class FlatServices implements FlatInterface {
 		return value == null ? "" : value.trim();
 	}
 
-	private List<DueAmountDetailsEntity> filterByFlatArea(List<DueAmountDetailsEntity> dueEntities, String flatArea) {
-		if (dueEntities == null || dueEntities.isEmpty()) {
-			return Collections.emptyList();
-		}
-		return dueEntities.stream().filter(dueEntity -> dueEntity != null && isMatchingFlatArea(dueEntity, flatArea))
-				.collect(Collectors.toList());
-	}
-
-	private boolean isMatchingFlatArea(DueAmountDetailsEntity dueEntity, String flatArea) {
-		String dueFlatArea = normalizeArea(dueEntity != null ? dueEntity.getFlatArea() : null);
-		String normalizedFlatArea = normalizeArea(flatArea);
-		return "ALL".equals(dueFlatArea) || dueFlatArea.equals(normalizedFlatArea);
-	}
-
-	private String normalizeArea(String flatArea) {
-		return flatArea == null ? "" : flatArea.trim().toUpperCase(Locale.ENGLISH);
-	}
-
 	private Map<String, List<String>> groupDueIdsByPayment(List<DueAmountDetailsEntity> dueEntities) {
 		Map<String, List<String>> paymentIdToDueIdsMap = new LinkedHashMap<>();
 		if (dueEntities == null || dueEntities.isEmpty()) {
@@ -434,25 +420,25 @@ public class FlatServices implements FlatInterface {
 		if (dueEntities == null || dueEntities.isEmpty()) {
 			return Collections.emptyList();
 		}
-		Map<String, List<DueAmountDetailsEntity>> duesByCycle = dueEntities.stream().filter(Objects::nonNull).collect(Collectors
-				.groupingBy(dueEntity -> normalizeHierarchyKey(dueEntity != null ? dueEntity.getCollectionCycle() : null),
-						LinkedHashMap::new, Collectors.toList()));
+		Map<String, List<DueAmountDetailsEntity>> duesByGroup = dueEntities.stream().filter(Objects::nonNull)
+				.collect(Collectors.groupingBy(this::buildDueSelectionGroupKey, LinkedHashMap::new, Collectors.toList()));
 		List<DueAmountDetailsEntity> selectedDues = new ArrayList<>();
 		LocalDate today = LocalDate.now();
-		for (List<DueAmountDetailsEntity> cycleDues : duesByCycle.values()) {
-			List<DueAmountDetailsEntity> overdueOrToday = cycleDues.stream()
-					.filter(dueEntity -> isPastOrToday(dueEntity != null ? dueEntity.getDueDate() : null, today))
-					.sorted(Comparator.comparing(DueAmountDetailsEntity::getDueDate,
-							Comparator.nullsLast(Comparator.naturalOrder())))
-					.collect(Collectors.toList());
-			if (!overdueOrToday.isEmpty()) {
-				selectedDues.addAll(overdueOrToday);
-				continue;
-			}
-			cycleDues.stream()
+		for (List<DueAmountDetailsEntity> groupDues : duesByGroup.values()) {
+			boolean allFuture = groupDues.stream()
+					.allMatch(dueEntity -> dueEntity != null && dueEntity.getDueDate() != null
+							&& dueEntity.getDueDate().isAfter(today));
+			if (allFuture) {
+				groupDues.stream()
 					.sorted(Comparator.comparing(DueAmountDetailsEntity::getDueDate,
 							Comparator.nullsLast(Comparator.naturalOrder())))
 					.findFirst().ifPresent(selectedDues::add);
+				continue;
+			}
+			selectedDues.addAll(groupDues.stream()
+					.sorted(Comparator.comparing(DueAmountDetailsEntity::getDueDate,
+							Comparator.nullsLast(Comparator.naturalOrder())))
+					.collect(Collectors.toList()));
 		}
 		selectedDues.sort(Comparator.comparingInt(
 				(DueAmountDetailsEntity dueEntity) -> getCyclePriority(dueEntity != null ? dueEntity.getCollectionCycle() : null))
@@ -461,8 +447,13 @@ public class FlatServices implements FlatInterface {
 		return selectedDues;
 	}
 
-	private boolean isPastOrToday(LocalDate dueDate, LocalDate today) {
-		return dueDate != null && (dueDate.isBefore(today) || dueDate.isEqual(today));
+	private String buildDueSelectionGroupKey(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null) {
+			return "";
+		}
+		return normalizeHierarchyKey(dueEntity.getDueId()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(dueEntity.getCollectionCycle()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(dueEntity.getFlatArea()).toUpperCase(Locale.ENGLISH);
 	}
 
 	private int getCyclePriority(String cycle) {
@@ -475,6 +466,7 @@ public class FlatServices implements FlatInterface {
 		case "QUARTERLY":
 			return 2;
 		case "HALF_YEARLY":
+		case "HALF YEARLY":
 			return 3;
 		case "YEARLY":
 			return 4;
@@ -515,23 +507,48 @@ public class FlatServices implements FlatInterface {
 		}
 		BigDecimal totalDue = BigDecimal.ZERO;
 		for (List<DueAmountDetailsEntity> paymentDues : finalPaymentMap.values()) {
-			if (paymentDues == null || paymentDues.isEmpty()) {
-				continue;
-			}
-			String highestPriorityCycle = paymentDues.stream()
-					.filter(dueEntity -> dueEntity != null && hasText(dueEntity.getCollectionCycle()))
-					.min(Comparator.comparingInt(dueEntity -> getCyclePriority(dueEntity.getCollectionCycle())))
-					.map(dueEntity -> dueEntity.getCollectionCycle()).orElse(null);
-			if (highestPriorityCycle == null) {
-				continue;
-			}
-			BigDecimal totalDuePerPayment = paymentDues.stream()
-					.filter(dueEntity -> dueEntity != null
-							&& highestPriorityCycle.equalsIgnoreCase(dueEntity.getCollectionCycle()))
-					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
-			totalDue = totalDue.add(totalDuePerPayment);
+			totalDue = totalDue.add(calculateTotalDueForPayment(paymentDues));
 		}
 		return totalDue;
+	}
+
+	private BigDecimal calculateTotalByPaymentType(Map<String, List<DueAmountDetailsEntity>> finalPaymentMap,
+			String paymentType) {
+		if (finalPaymentMap == null || finalPaymentMap.isEmpty() || !hasText(paymentType)) {
+			return BigDecimal.ZERO;
+		}
+		BigDecimal totalByType = BigDecimal.ZERO;
+		for (List<DueAmountDetailsEntity> paymentDues : finalPaymentMap.values()) {
+			if (!isPaymentType(paymentDues, paymentType)) {
+				continue;
+			}
+			totalByType = totalByType.add(calculateTotalDueForPayment(paymentDues));
+		}
+		return totalByType;
+	}
+
+	private boolean isPaymentType(List<DueAmountDetailsEntity> paymentDues, String paymentType) {
+		if (paymentDues == null || paymentDues.isEmpty() || !hasText(paymentType)) {
+			return false;
+		}
+		return paymentDues.stream().filter(Objects::nonNull).map(DueAmountDetailsEntity::getPaymentType).filter(this::hasText)
+				.anyMatch(type -> paymentType.equalsIgnoreCase(type));
+	}
+
+	private BigDecimal calculateTotalDueForPayment(List<DueAmountDetailsEntity> paymentDues) {
+		if (paymentDues == null || paymentDues.isEmpty()) {
+			return BigDecimal.ZERO;
+		}
+		String highestPriorityCycle = paymentDues.stream()
+				.filter(dueEntity -> dueEntity != null && hasText(dueEntity.getCollectionCycle()))
+				.min(Comparator.comparingInt(dueEntity -> getCyclePriority(dueEntity.getCollectionCycle())))
+				.map(DueAmountDetailsEntity::getCollectionCycle).orElse(null);
+		if (highestPriorityCycle == null) {
+			return BigDecimal.ZERO;
+		}
+		return paymentDues.stream().filter(dueEntity -> dueEntity != null
+				&& highestPriorityCycle.equalsIgnoreCase(dueEntity.getCollectionCycle()))
+				.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private boolean hasPenalty(Map<String, List<DueAmountDetailsEntity>> finalPaymentMap) {
@@ -592,10 +609,108 @@ public class FlatServices implements FlatInterface {
 		return new ArrayList<>(dueIds);
 	}
 
+	private List<String> filterPendingDueKeys(List<String> pendingDueKeys) {
+		if (pendingDueKeys == null || pendingDueKeys.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Map<String, List<PendingDueKey>> groupedKeys = pendingDueKeys.stream().map(this::parsePendingDueKey)
+				.filter(Objects::nonNull).collect(Collectors.groupingBy(this::buildPendingDueGroupKey, LinkedHashMap::new,
+						Collectors.toList()));
+		LocalDate today = LocalDate.now();
+		LinkedHashSet<String> selectedKeys = new LinkedHashSet<>();
+		for (List<PendingDueKey> groupedDueKeys : groupedKeys.values()) {
+			boolean allFuture = groupedDueKeys.stream()
+					.allMatch(pendingDueKey -> pendingDueKey.dueDate() != null && pendingDueKey.dueDate().isAfter(today));
+			if (allFuture) {
+				groupedDueKeys.stream().sorted(Comparator.comparing(PendingDueKey::dueDate))
+						.findFirst().ifPresent(dueKey -> selectedKeys.add(dueKey.originalKey()));
+				continue;
+			}
+			groupedDueKeys.stream().map(PendingDueKey::originalKey).forEach(selectedKeys::add);
+		}
+		return new ArrayList<>(selectedKeys);
+	}
+
+	private List<DueAmountDetailsEntity> filterDueEntitiesByPendingKeys(List<DueAmountDetailsEntity> dueEntities,
+			List<String> filteredPendingDueKeys) {
+		if (dueEntities == null || dueEntities.isEmpty() || filteredPendingDueKeys == null || filteredPendingDueKeys.isEmpty()) {
+			return Collections.emptyList();
+		}
+		LinkedHashSet<String> validDueEntityKeys = filteredPendingDueKeys.stream().map(this::parsePendingDueKey)
+				.filter(Objects::nonNull).map(this::buildPendingDueEntityKey).collect(Collectors.toCollection(LinkedHashSet::new));
+		return dueEntities.stream().filter(Objects::nonNull)
+				.filter(dueEntity -> validDueEntityKeys.contains(buildPendingDueEntityKey(dueEntity)))
+				.collect(Collectors.toList());
+	}
+
+	private PendingDueKey parsePendingDueKey(String pendingDueKey) {
+		if (!hasText(pendingDueKey)) {
+			return null;
+		}
+		String normalizedPendingKey = pendingDueKey.trim();
+		int firstSeparatorIndex = normalizedPendingKey.indexOf('_');
+		int lastSeparatorIndex = normalizedPendingKey.lastIndexOf('_');
+		if (firstSeparatorIndex <= 0 || lastSeparatorIndex <= firstSeparatorIndex) {
+			return null;
+		}
+		int secondLastSeparatorIndex = normalizedPendingKey.lastIndexOf('_', lastSeparatorIndex - 1);
+		if (secondLastSeparatorIndex <= firstSeparatorIndex) {
+			return null;
+		}
+		String dueId = normalizedPendingKey.substring(0, firstSeparatorIndex);
+		String collectionCycle = normalizedPendingKey.substring(firstSeparatorIndex + 1, secondLastSeparatorIndex);
+		String flatArea = normalizedPendingKey.substring(secondLastSeparatorIndex + 1, lastSeparatorIndex);
+		String dueDateValue = normalizedPendingKey.substring(lastSeparatorIndex + 1);
+		if (!hasText(dueId) || !hasText(collectionCycle) || !hasText(flatArea) || !hasText(dueDateValue)) {
+			return null;
+		}
+		try {
+			return new PendingDueKey(normalizedPendingKey, dueId.trim(), collectionCycle.trim(), flatArea.trim(),
+					LocalDate.parse(dueDateValue.trim()));
+		} catch (DateTimeParseException ex) {
+			return null;
+		}
+	}
+
+	private String buildPendingDueGroupKey(PendingDueKey pendingDueKey) {
+		if (pendingDueKey == null) {
+			return "";
+		}
+		return normalizeHierarchyKey(pendingDueKey.dueId()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(pendingDueKey.collectionCycle()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(pendingDueKey.flatArea()).toUpperCase(Locale.ENGLISH);
+	}
+
+	private String buildPendingDueEntityKey(PendingDueKey pendingDueKey) {
+		if (pendingDueKey == null || pendingDueKey.dueDate() == null) {
+			return "";
+		}
+		return normalizeHierarchyKey(pendingDueKey.dueId()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(pendingDueKey.collectionCycle()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(pendingDueKey.flatArea()).toUpperCase(Locale.ENGLISH) + "|"
+				+ pendingDueKey.dueDate();
+	}
+
+	private String buildPendingDueEntityKey(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null || dueEntity.getDueDate() == null) {
+			return "";
+		}
+		return normalizeHierarchyKey(dueEntity.getDueId()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(dueEntity.getCollectionCycle()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(dueEntity.getFlatArea()).toUpperCase(Locale.ENGLISH) + "|"
+				+ dueEntity.getDueDate();
+	}
+
 	private void initializeDefaultDueResponse(GetDueAmountForFlatResponse response) {
 		response.setDueDetails(new LinkedHashMap<>());
 		response.setTotalDue(BigDecimal.ZERO.toPlainString());
+		response.setTotalMandatoryPayment(BigDecimal.ZERO.toPlainString());
+		response.setTotalOptinalPayment(BigDecimal.ZERO.toPlainString());
 		response.setPenaltyAdded(Boolean.FALSE);
+	}
+
+	private record PendingDueKey(String originalKey, String dueId, String collectionCycle, String flatArea,
+			LocalDate dueDate) {
 	}
 
 	private boolean hasText(String value) {

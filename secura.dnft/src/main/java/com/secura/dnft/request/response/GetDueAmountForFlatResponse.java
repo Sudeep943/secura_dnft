@@ -12,6 +12,8 @@ public class GetDueAmountForFlatResponse {
 	@JsonSerialize(keyUsing = PaymentDetailKeySerializer.class)
 	private Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails;
 	private String totalDue;
+	private String totalMandatoryPayment;
+	private String totalOptinalPayment;
 	private Boolean penaltyAdded;
 	private String message;
 	private String messageCode;
@@ -38,6 +40,22 @@ public class GetDueAmountForFlatResponse {
 
 	public void setTotalDue(String totalDue) {
 		this.totalDue = totalDue;
+	}
+
+	public String getTotalMandatoryPayment() {
+		return totalMandatoryPayment;
+	}
+
+	public void setTotalMandatoryPayment(String totalMandatoryPayment) {
+		this.totalMandatoryPayment = totalMandatoryPayment;
+	}
+
+	public String getTotalOptinalPayment() {
+		return totalOptinalPayment;
+	}
+
+	public void setTotalOptinalPayment(String totalOptinalPayment) {
+		this.totalOptinalPayment = totalOptinalPayment;
 	}
 
 	public Boolean getPenaltyAdded() {
