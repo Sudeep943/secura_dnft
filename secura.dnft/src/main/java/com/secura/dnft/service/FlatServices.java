@@ -427,7 +427,7 @@ public class FlatServices implements FlatInterface {
 		List<DueAmountDetailsEntity> selectedDues = new ArrayList<>();
 		LocalDate today = LocalDate.now();
 		for (List<DueAmountDetailsEntity> groupDues : duesByGroup.values()) {
-			List<DueAmountDetailsEntity> sortedGroupDues = groupDues.stream()
+			List<DueAmountDetailsEntity> sortedGroupDues = groupDues.stream().filter(Objects::nonNull)
 					.sorted(Comparator.comparing(DueAmountDetailsEntity::getDueDate,
 							Comparator.nullsLast(Comparator.naturalOrder())))
 					.collect(Collectors.toList());
