@@ -316,18 +316,19 @@ public class DueDetailsService {
 		if (apartmentFlats == null || apartmentFlats.isEmpty() || dueEntities == null || dueEntities.isEmpty()) {
 			return;
 		}
-		List<String> dueEntityKeys = dueEntities.stream()
-				.map(this::buildFlatPendingDueKey)
-				.filter(Objects::nonNull)
-				.toList();
-		if (dueEntityKeys.isEmpty()) {
-			return;
-		}
 		List<Flat> updatedFlats = new ArrayList<>();
 		for (Flat flat : apartmentFlats) {
 			List<String> existingDueIds = parseStringList(flat.getFlatPndngPaymntLst());
+			String normalizedFlatArea = normalizeFlatArea(flat != null ? flat.getFlatArea() : null);
 			boolean modified = false;
-			for (String dueEntityKey : dueEntityKeys) {
+			for (DueAmountDetailsEntity dueEntity : dueEntities) {
+				if (!isDueApplicableToFlat(dueEntity, normalizedFlatArea)) {
+					continue;
+				}
+				String dueEntityKey = buildFlatPendingDueKey(dueEntity);
+				if (dueEntityKey == null) {
+					continue;
+				}
 				if (!existingDueIds.contains(dueEntityKey)) {
 					existingDueIds.add(dueEntityKey);
 					modified = true;
@@ -341,6 +342,17 @@ public class DueDetailsService {
 		if (!updatedFlats.isEmpty()) {
 			flatRepository.saveAll(updatedFlats);
 		}
+	}
+
+	private boolean isDueApplicableToFlat(DueAmountDetailsEntity dueEntity, String normalizedFlatArea) {
+		if (dueEntity == null) {
+			return false;
+		}
+		String dueFlatArea = dueEntity.getFlatArea();
+		if (dueFlatArea == null || dueFlatArea.isBlank()) {
+			return false;
+		}
+		return "ALL".equalsIgnoreCase(dueFlatArea.trim()) || dueFlatArea.trim().equals(normalizedFlatArea);
 	}
 
 	private String buildFlatPendingDueKey(DueAmountDetailsEntity dueEntity) {
