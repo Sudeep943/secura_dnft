@@ -15,6 +15,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -277,7 +278,7 @@ public class FlatServices implements FlatInterface {
 			Optional<Flat> optionalFlat = flatRepository.findById(request != null ? request.getFlatId() : null);
 			if (optionalFlat.isPresent()) {
 				Flat flat = optionalFlat.get();
-				List<String> dueIds = parseStringList(flat.getFlatPndngPaymntLst());
+				List<String> dueIds = extractDueIdsFromFlatPendingList(parseStringList(flat.getFlatPndngPaymntLst()));
 				if (!dueIds.isEmpty()) {
 					List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueIdIn(dueIds);
 					List<DueAmountDetailsEntity> filteredDues = filterByFlatArea(dueEntities, flat.getFlatArea());
@@ -570,6 +571,24 @@ public class FlatServices implements FlatInterface {
 		} catch (Exception ex) {
 			return new ArrayList<>();
 		}
+	}
+
+	private List<String> extractDueIdsFromFlatPendingList(List<String> pendingDueKeys) {
+		if (pendingDueKeys == null || pendingDueKeys.isEmpty()) {
+			return new ArrayList<>();
+		}
+		LinkedHashSet<String> dueIds = new LinkedHashSet<>();
+		for (String pendingDueKey : pendingDueKeys) {
+			if (!hasText(pendingDueKey)) {
+				continue;
+			}
+			int separatorIndex = pendingDueKey.indexOf('_');
+			String dueId = separatorIndex > 0 ? pendingDueKey.substring(0, separatorIndex) : pendingDueKey;
+			if (hasText(dueId)) {
+				dueIds.add(dueId);
+			}
+		}
+		return new ArrayList<>(dueIds);
 	}
 
 	private void initializeDefaultDueResponse(GetDueAmountForFlatResponse response) {
