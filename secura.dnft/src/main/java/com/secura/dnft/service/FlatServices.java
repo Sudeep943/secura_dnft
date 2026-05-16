@@ -427,20 +427,14 @@ public class FlatServices implements FlatInterface {
 		List<DueAmountDetailsEntity> selectedDues = new ArrayList<>();
 		LocalDate today = LocalDate.now();
 		for (List<DueAmountDetailsEntity> groupDues : duesByGroup.values()) {
-			boolean allFuture = groupDues.stream()
-					.allMatch(dueEntity -> dueEntity != null && dueEntity.getDueDate() != null
-							&& dueEntity.getDueDate().isAfter(today));
-			if (allFuture) {
-				groupDues.stream()
+			List<DueAmountDetailsEntity> sortedGroupDues = groupDues.stream()
 					.sorted(Comparator.comparing(DueAmountDetailsEntity::getDueDate,
 							Comparator.nullsLast(Comparator.naturalOrder())))
+					.collect(Collectors.toList());
+			selectedDues.addAll(sortedGroupDues.stream().filter(dueEntity -> dueEntity.getDueDate() == null
+					|| !dueEntity.getDueDate().isAfter(today)).collect(Collectors.toList()));
+			sortedGroupDues.stream().filter(dueEntity -> dueEntity.getDueDate() != null && dueEntity.getDueDate().isAfter(today))
 					.findFirst().ifPresent(selectedDues::add);
-				continue;
-			}
-			selectedDues.addAll(groupDues.stream()
-					.sorted(Comparator.comparing(DueAmountDetailsEntity::getDueDate,
-							Comparator.nullsLast(Comparator.naturalOrder())))
-					.collect(Collectors.toList()));
 		}
 		selectedDues.sort(Comparator.comparingInt(
 				(DueAmountDetailsEntity dueEntity) -> getCyclePriority(dueEntity != null ? dueEntity.getCollectionCycle() : null))

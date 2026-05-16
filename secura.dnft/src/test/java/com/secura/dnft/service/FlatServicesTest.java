@@ -334,19 +334,22 @@ class FlatServicesTest {
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst(
 				"[\"D1_MONTHLY_1200_" + LocalDate.now().minusDays(30) + "\",\"D1_MONTHLY_1200_"
-						+ LocalDate.now().plusDays(12) + "\",\"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(20) + "\","
-						+ "\"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(8) + "\",\"D3_YEARLY_ALL_"
+						+ LocalDate.now().plusDays(12) + "\",\"D1_MONTHLY_1200_" + LocalDate.now().plusDays(20)
+						+ "\",\"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(20) + "\",\"D2_QUARTERLY_1200_"
+						+ LocalDate.now().plusDays(8) + "\",\"D3_YEARLY_ALL_"
 						+ LocalDate.now().plusDays(60) + "\",\"D4_HALF YEARLY_1200_" + LocalDate.now().minusDays(5) + "\"]");
 
 		List<String> dueIds = Arrays.asList("D1", "D2", "D3", "D4");
 		List<String> pendingDueKeys = Arrays.asList("D1_MONTHLY_1200_" + LocalDate.now().minusDays(30),
-				"D1_MONTHLY_1200_" + LocalDate.now().plusDays(12), "D2_QUARTERLY_1200_" + LocalDate.now().plusDays(20),
-				"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(8), "D3_YEARLY_ALL_" + LocalDate.now().plusDays(60),
-				"D4_HALF YEARLY_1200_" + LocalDate.now().minusDays(5));
+				"D1_MONTHLY_1200_" + LocalDate.now().plusDays(12), "D1_MONTHLY_1200_" + LocalDate.now().plusDays(20),
+				"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(20), "D2_QUARTERLY_1200_" + LocalDate.now().plusDays(8),
+				"D3_YEARLY_ALL_" + LocalDate.now().plusDays(60), "D4_HALF YEARLY_1200_" + LocalDate.now().minusDays(5));
 		List<DueAmountDetailsEntity> dueEntities = Arrays.asList(
 				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now().minusDays(30), "100", "0", "Maintenance",
 						"MANDATORY"),
 				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now().plusDays(12), "130", "10", "Maintenance",
+						"MANDATORY"),
+				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now().plusDays(20), "150", "0", "Maintenance",
 						"MANDATORY"),
 				buildDueEntity("D2", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(20), "300", "0", "Maintenance",
 						"MANDATORY"),
@@ -381,6 +384,8 @@ class FlatServicesTest {
 		assertEquals(3, pay1Dues.size());
 		assertTrue(pay1Dues.stream().anyMatch(due -> "D1".equals(due.getDueId())));
 		assertEquals(2, pay1Dues.stream().filter(due -> "D1".equals(due.getDueId())).count());
+		assertTrue(pay1Dues.stream()
+				.noneMatch(due -> "D1".equals(due.getDueId()) && LocalDate.now().plusDays(20).equals(due.getDueDate())));
 		assertEquals(1, pay1Dues.stream().filter(due -> "D2".equals(due.getDueId())).count());
 		assertTrue(pay1Dues.stream().noneMatch(due -> "900".equals(due.getFlatArea())));
 
