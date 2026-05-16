@@ -88,7 +88,6 @@ public class DueDetailsService {
 
 		Set<String> visitedCycles = new LinkedHashSet<>();
 		List<DueRow> generatedRows = new ArrayList<>();
-		Collection<String> allGeneratedDueIds = new ArrayList<>();
 
 		for (PaymentEntity paymentEntity : paymentEntityList) {
 			if (!visitedCycles.add(normalizeCycle(paymentEntity.getPaymentCollectionCycle()))) {
@@ -103,7 +102,6 @@ public class DueDetailsService {
 
 			List<Map<String, DueAmountDetails>> duesForCycle = new ArrayList<>();
 			String dueId = createDueId();
-			allGeneratedDueIds.add(dueId);
 			for (LocalDate[] interval : intervals) {
 				Map<String, DueAmountDetails> duesByFlatType = createDuesForInterval(
 						paymentEntity, dueId, flatTypeCounts, apartmentFlats, interval[0], interval[1]);
@@ -129,7 +127,7 @@ public class DueDetailsService {
 			List<DueAmountDetailsEntity> entityList = generatedRows.stream()
 					.map(row -> toEntity(row, genericHeader != null ? genericHeader.getUserId() : null)).toList();
 			dueAmountDetailsRepository.saveAll(entityList);
-			appendDuesToFlatPendingPayments(apartmentFlats, allGeneratedDueIds);
+			appendDuesToFlatPendingPayments(apartmentFlats, entityList);
 		}
 
 		return dueByCycle;
@@ -314,17 +312,24 @@ public class DueDetailsService {
 		return flatTypeCounts;
 	}
 
-	private void appendDuesToFlatPendingPayments(List<Flat> apartmentFlats, Collection<String> dueIds) {
-		if (apartmentFlats == null || apartmentFlats.isEmpty() || dueIds == null || dueIds.isEmpty()) {
+	private void appendDuesToFlatPendingPayments(List<Flat> apartmentFlats, Collection<DueAmountDetailsEntity> dueEntities) {
+		if (apartmentFlats == null || apartmentFlats.isEmpty() || dueEntities == null || dueEntities.isEmpty()) {
+			return;
+		}
+		List<String> dueEntityKeys = dueEntities.stream()
+				.map(this::buildFlatPendingDueKey)
+				.filter(Objects::nonNull)
+				.toList();
+		if (dueEntityKeys.isEmpty()) {
 			return;
 		}
 		List<Flat> updatedFlats = new ArrayList<>();
 		for (Flat flat : apartmentFlats) {
 			List<String> existingDueIds = parseStringList(flat.getFlatPndngPaymntLst());
 			boolean modified = false;
-			for (String dueId : dueIds) {
-				if (!existingDueIds.contains(dueId)) {
-					existingDueIds.add(dueId);
+			for (String dueEntityKey : dueEntityKeys) {
+				if (!existingDueIds.contains(dueEntityKey)) {
+					existingDueIds.add(dueEntityKey);
 					modified = true;
 				}
 			}
@@ -336,6 +341,16 @@ public class DueDetailsService {
 		if (!updatedFlats.isEmpty()) {
 			flatRepository.saveAll(updatedFlats);
 		}
+	}
+
+	private String buildFlatPendingDueKey(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null || dueEntity.getDueDate() == null) {
+			return null;
+		}
+		return dueEntity.getDueId() + "_"
+				+ stringValue(dueEntity.getCollectionCycle()) + "_"
+				+ stringValue(dueEntity.getFlatArea()) + "_"
+				+ dueEntity.getDueDate();
 	}
 
 	private List<String> parseStringList(String json) {

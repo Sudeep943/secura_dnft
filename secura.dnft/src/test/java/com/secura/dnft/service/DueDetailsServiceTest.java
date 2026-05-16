@@ -477,7 +477,16 @@ class DueDetailsServiceTest {
 		when(flatRepository.findByAprmntId("APR007")).thenReturn(List.of(flat));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-		when(genericService.toJson(any())).thenReturn("[]");
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0);
+			if (value instanceof List<?> list
+					&& !list.isEmpty()
+					&& list.get(0) instanceof String stringValue
+					&& stringValue.startsWith("DUE")) {
+				return "[\"" + String.join("\",\"", list.stream().map(Object::toString).toList()) + "\"]";
+			}
+			return "[]";
+		});
 
 		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY7001");
 
@@ -487,6 +496,16 @@ class DueDetailsServiceTest {
 		assertEquals(LocalDate.of(2025, 11, 1), halfYearlyDues.get(1).get("ALL").getDueDate());
 		assertEquals("6000", halfYearlyDues.get(0).get("ALL").getAmount());
 		assertEquals("6000", halfYearlyDues.get(1).get("ALL").getAmount());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
+		List<Flat> savedFlats = flatCaptor.getValue();
+		assertEquals(1, savedFlats.size());
+		String pendingDueListJson = savedFlats.get(0).getFlatPndngPaymntLst();
+		assertNotNull(pendingDueListJson);
+		assertTrue(pendingDueListJson.contains("_HALF YEARLY_ALL_2025-05-01"));
+		assertTrue(pendingDueListJson.contains("_HALF YEARLY_ALL_2025-11-01"));
 	}
 
 	@Test
