@@ -1,6 +1,7 @@
 package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -90,7 +91,16 @@ class DueDetailsServiceTest {
 		when(flatRepository.findByAprmntId("APR001")).thenReturn(List.of(flat1000, flat1200));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-		when(genericService.toJson(any())).thenReturn("[\"DUE\"]");
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0);
+			if (value instanceof List<?> list
+					&& !list.isEmpty()
+					&& list.get(0) instanceof String stringValue
+					&& stringValue.startsWith("DUE")) {
+				return "[\"" + String.join("\",\"", list.stream().map(Object::toString).toList()) + "\"]";
+			}
+			return "[]";
+		});
 
 		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY1001", header);
 
@@ -112,7 +122,17 @@ class DueDetailsServiceTest {
 		assertEquals("USR001", savedDueEntities.get(0).getCreatUsrId());
 		assertEquals("1000", savedDueEntities.get(0).getFlatArea());
 
-		verify(flatRepository, times(1)).saveAll(any());
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(flatRepository, times(1)).saveAll(flatCaptor.capture());
+		List<Flat> savedFlats = flatCaptor.getValue();
+		assertEquals(2, savedFlats.size());
+		Flat savedFlat1000 = savedFlats.stream().filter(f -> "A-101".equals(f.getFlatNo())).findFirst().orElseThrow();
+		Flat savedFlat1200 = savedFlats.stream().filter(f -> "A-201".equals(f.getFlatNo())).findFirst().orElseThrow();
+		assertTrue(savedFlat1000.getFlatPndngPaymntLst().contains("_" + flat1000.getFlatArea() + "_"));
+		assertFalse(savedFlat1000.getFlatPndngPaymntLst().contains("_" + flat1200.getFlatArea() + "_"));
+		assertTrue(savedFlat1200.getFlatPndngPaymntLst().contains("_" + flat1200.getFlatArea() + "_"));
+		assertFalse(savedFlat1200.getFlatPndngPaymntLst().contains("_" + flat1000.getFlatArea() + "_"));
 	}
 
 	@Test
