@@ -333,23 +333,31 @@ class FlatServicesTest {
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst(
-				"[\"D1_MONTHLY_1200_2026-01-01\",\"D2_MONTHLY_1200_2026-02-01\",\"D3_MONTHLY_1200_2026-03-01\","
-						+ "\"D4_QUARTERLY_1200_2026-04-01\",\"D5_QUARTERLY_1200_2026-05-01\",\"D6_MONTHLY_900_2026-01-15\","
-						+ "\"D7_YEARLY_ALL_2026-12-31\",\"D8_HALF_YEARLY_1200_2026-06-30\"]");
+				"[\"D1_MONTHLY_1200_" + LocalDate.now().minusDays(30) + "\",\"D1_MONTHLY_1200_"
+						+ LocalDate.now().plusDays(12) + "\",\"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(20) + "\","
+						+ "\"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(8) + "\",\"D3_YEARLY_ALL_"
+						+ LocalDate.now().plusDays(60) + "\",\"D4_HALF YEARLY_1200_" + LocalDate.now().minusDays(5) + "\"]");
 
-		List<String> dueIds = Arrays.asList("D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8");
-		List<String> pendingDueKeys = Arrays.asList("D1_MONTHLY_1200_2026-01-01", "D2_MONTHLY_1200_2026-02-01",
-				"D3_MONTHLY_1200_2026-03-01", "D4_QUARTERLY_1200_2026-04-01", "D5_QUARTERLY_1200_2026-05-01",
-				"D6_MONTHLY_900_2026-01-15", "D7_YEARLY_ALL_2026-12-31", "D8_HALF_YEARLY_1200_2026-06-30");
+		List<String> dueIds = Arrays.asList("D1", "D2", "D3", "D4");
+		List<String> pendingDueKeys = Arrays.asList("D1_MONTHLY_1200_" + LocalDate.now().minusDays(30),
+				"D1_MONTHLY_1200_" + LocalDate.now().plusDays(12), "D2_QUARTERLY_1200_" + LocalDate.now().plusDays(20),
+				"D2_QUARTERLY_1200_" + LocalDate.now().plusDays(8), "D3_YEARLY_ALL_" + LocalDate.now().plusDays(60),
+				"D4_HALF YEARLY_1200_" + LocalDate.now().minusDays(5));
 		List<DueAmountDetailsEntity> dueEntities = Arrays.asList(
-				buildDueEntity("D1", "PAY1", "MONTHLY", "ALL", LocalDate.now().minusDays(30), "100", "0", "Maintenance"),
-				buildDueEntity("D2", "PAY1", "MONTHLY", "1200", LocalDate.now(), "120", "10", "Maintenance"),
-				buildDueEntity("D3", "PAY1", "MONTHLY", "1200", LocalDate.now().plusDays(12), "130", "0", "Maintenance"),
-				buildDueEntity("D4", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(20), "300", "0", "Maintenance"),
-				buildDueEntity("D5", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(8), "250", "0", "Maintenance"),
-				buildDueEntity("D6", "PAY1", "MONTHLY", "900", LocalDate.now().minusDays(2), "999", "0", "Maintenance"),
-				buildDueEntity("D7", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(60), "1000", "0", "Club Fund"),
-				buildDueEntity("D8", "PAY2", "HALF_YEARLY", "1200", LocalDate.now().minusDays(5), "600", "0", "Club Fund"));
+				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now().minusDays(30), "100", "0", "Maintenance",
+						"MANDATORY"),
+				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now().plusDays(12), "130", "10", "Maintenance",
+						"MANDATORY"),
+				buildDueEntity("D2", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(20), "300", "0", "Maintenance",
+						"MANDATORY"),
+				buildDueEntity("D2", "PAY1", "QUARTERLY", "1200", LocalDate.now().plusDays(8), "250", "0", "Maintenance",
+						"MANDATORY"),
+				buildDueEntity("D2", "PAY1", "QUARTERLY", "900", LocalDate.now().plusDays(8), "999", "0", "Maintenance",
+						"MANDATORY"),
+				buildDueEntity("D3", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(60), "1000", "0", "Club Fund",
+						"OPTIONAL"),
+				buildDueEntity("D4", "PAY2", "HALF YEARLY", "1200", LocalDate.now().minusDays(5), "600", "0", "Club Fund",
+						"OPTIONAL"));
 
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
@@ -359,7 +367,9 @@ class FlatServicesTest {
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
-		assertEquals("820", response.getTotalDue());
+		assertEquals("830", response.getTotalDue());
+		assertEquals("230", response.getTotalMandatoryPayment());
+		assertEquals("600", response.getTotalOptinalPayment());
 		assertEquals(Boolean.TRUE, response.getPenaltyAdded());
 		assertNotNull(response.getDueDetails());
 		assertEquals(2, response.getDueDetails().size());
@@ -370,11 +380,9 @@ class FlatServicesTest {
 		assertNotNull(pay1Dues);
 		assertEquals(3, pay1Dues.size());
 		assertTrue(pay1Dues.stream().anyMatch(due -> "D1".equals(due.getDueId())));
-		assertTrue(pay1Dues.stream().anyMatch(due -> "D2".equals(due.getDueId())));
-		assertTrue(pay1Dues.stream().anyMatch(due -> "D5".equals(due.getDueId())));
-		assertTrue(pay1Dues.stream().noneMatch(due -> "D3".equals(due.getDueId())));
-		assertTrue(pay1Dues.stream().noneMatch(due -> "D4".equals(due.getDueId())));
-		assertTrue(pay1Dues.stream().noneMatch(due -> "D6".equals(due.getDueId())));
+		assertEquals(2, pay1Dues.stream().filter(due -> "D1".equals(due.getDueId())).count());
+		assertEquals(1, pay1Dues.stream().filter(due -> "D2".equals(due.getDueId())).count());
+		assertTrue(pay1Dues.stream().noneMatch(due -> "900".equals(due.getFlatArea())));
 
 		List<DueAmountDetailsEntity> pay2Dues = dueDetails.entrySet().stream()
 				.filter(entry -> "PAY2".equals(entry.getKey().getPaymentId())).findFirst().map(Map.Entry::getValue).orElse(null);
@@ -393,13 +401,16 @@ class FlatServicesTest {
 		Flat flat = new Flat();
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
-		flat.setFlatPndngPaymntLst("[\"D1_MONTHLY_1200_2026-01-01\",\"D2_YEARLY_ALL_2026-12-31\"]");
+		flat.setFlatPndngPaymntLst(
+				"[\"D1_MONTHLY_1200_" + LocalDate.now() + "\",\"D2_YEARLY_ALL_" + LocalDate.now().plusDays(10) + "\"]");
 
 		List<String> dueIds = Arrays.asList("D1", "D2");
-		List<String> pendingDueKeys = Arrays.asList("D1_MONTHLY_1200_2026-01-01", "D2_YEARLY_ALL_2026-12-31");
+		List<String> pendingDueKeys = Arrays.asList("D1_MONTHLY_1200_" + LocalDate.now(),
+				"D2_YEARLY_ALL_" + LocalDate.now().plusDays(10));
 		List<DueAmountDetailsEntity> dueEntities = Arrays.asList(
-				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now(), "120", "10", "Maintenance"),
-				buildDueEntity("D2", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(10), "500", "0", "Club Fund"));
+				buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now(), "120", "10", "Maintenance", "MANDATORY"),
+				buildDueEntity("D2", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(10), "500", "0", "Club Fund",
+						"OPTIONAL"));
 
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
@@ -419,6 +430,8 @@ class FlatServicesTest {
 				dueDetailsNode.get("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}").get(0).get("dueId").asText());
 		assertEquals("D2",
 				dueDetailsNode.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}").get(0).get("dueId").asText());
+		assertEquals("120", response.getTotalMandatoryPayment());
+		assertEquals("500", response.getTotalOptinalPayment());
 	}
 
 	@Test
@@ -482,7 +495,7 @@ class FlatServicesTest {
 	}
 
 	private DueAmountDetailsEntity buildDueEntity(String dueId, String paymentId, String collectionCycle, String flatArea,
-			LocalDate dueDate, String totalAmount, String fineAmount, String paymentName) {
+			LocalDate dueDate, String totalAmount, String fineAmount, String paymentName, String paymentType) {
 		DueAmountDetailsEntity entity = new DueAmountDetailsEntity();
 		entity.setDueId(dueId);
 		entity.setPaymentId(paymentId);
@@ -492,6 +505,7 @@ class FlatServicesTest {
 		entity.setTotalAmount(totalAmount);
 		entity.setFineAmount(fineAmount);
 		entity.setPaymentName(paymentName);
+		entity.setPaymentType(paymentType);
 		return entity;
 	}
 
