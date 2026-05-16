@@ -369,7 +369,7 @@ class FlatServicesTest {
 
 		assertEquals("1250", response.getTotalDue());
 		assertEquals("250", response.getTotalMandatoryPayment());
-		assertEquals("1000", response.getTotalOptinalPayment());
+		assertEquals("1000", response.getTotalOptionalPayment());
 		assertEquals(Boolean.TRUE, response.getPenaltyAdded());
 		assertNotNull(response.getDueDetails());
 		assertEquals(2, response.getDueDetails().size());
@@ -431,7 +431,7 @@ class FlatServicesTest {
 		assertEquals("D2",
 				dueDetailsNode.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}").get(0).get("dueId").asText());
 		assertEquals("120", response.getTotalMandatoryPayment());
-		assertEquals("500", response.getTotalOptinalPayment());
+		assertEquals("500", response.getTotalOptionalPayment());
 	}
 
 	@Test

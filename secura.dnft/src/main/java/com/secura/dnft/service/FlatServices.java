@@ -293,7 +293,7 @@ public class FlatServices implements FlatInterface {
 					DueTotals dueTotals = calculateDueTotalsFromDueDetails(dueDetails);
 					response.setTotalDue(formatAmount(dueTotals.totalDue()));
 					response.setTotalMandatoryPayment(formatAmount(dueTotals.totalMandatoryPayment()));
-					response.setTotalOptinalPayment(formatAmount(dueTotals.totalOptionalPayment()));
+					response.setTotalOptionalPayment(formatAmount(dueTotals.totalOptionalPayment()));
 					response.setPenaltyAdded(hasPenalty(finalPaymentMap));
 				}
 			}
@@ -741,7 +741,7 @@ public class FlatServices implements FlatInterface {
 		response.setDueDetails(new LinkedHashMap<>());
 		response.setTotalDue(BigDecimal.ZERO.toPlainString());
 		response.setTotalMandatoryPayment(BigDecimal.ZERO.toPlainString());
-		response.setTotalOptinalPayment(BigDecimal.ZERO.toPlainString());
+		response.setTotalOptionalPayment(BigDecimal.ZERO.toPlainString());
 		response.setPenaltyAdded(Boolean.FALSE);
 	}
 

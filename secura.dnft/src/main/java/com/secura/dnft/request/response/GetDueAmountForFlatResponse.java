@@ -13,7 +13,7 @@ public class GetDueAmountForFlatResponse {
 	private Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails;
 	private String totalDue;
 	private String totalMandatoryPayment;
-	private String totalOptinalPayment;
+	private String totalOptionalPayment;
 	private Boolean penaltyAdded;
 	private String message;
 	private String messageCode;
@@ -50,12 +50,12 @@ public class GetDueAmountForFlatResponse {
 		this.totalMandatoryPayment = totalMandatoryPayment;
 	}
 
-	public String getTotalOptinalPayment() {
-		return totalOptinalPayment;
+	public String getTotalOptionalPayment() {
+		return totalOptionalPayment;
 	}
 
-	public void setTotalOptinalPayment(String totalOptinalPayment) {
-		this.totalOptinalPayment = totalOptinalPayment;
+	public void setTotalOptionalPayment(String totalOptionalPayment) {
+		this.totalOptionalPayment = totalOptionalPayment;
 	}
 
 	public Boolean getPenaltyAdded() {
