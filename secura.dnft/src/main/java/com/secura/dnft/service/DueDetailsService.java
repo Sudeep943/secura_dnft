@@ -352,7 +352,8 @@ public class DueDetailsService {
 		if (dueFlatArea == null || dueFlatArea.isBlank()) {
 			return false;
 		}
-		return "ALL".equalsIgnoreCase(dueFlatArea.trim()) || dueFlatArea.trim().equals(normalizedFlatArea);
+		String normalizedDueFlatArea = dueFlatArea.trim();
+		return "ALL".equalsIgnoreCase(normalizedDueFlatArea) || normalizedDueFlatArea.equals(normalizedFlatArea);
 	}
 
 	private String buildFlatPendingDueKey(DueAmountDetailsEntity dueEntity) {
