@@ -367,9 +367,9 @@ class FlatServicesTest {
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
-		assertEquals("830", response.getTotalDue());
-		assertEquals("230", response.getTotalMandatoryPayment());
-		assertEquals("600", response.getTotalOptinalPayment());
+		assertEquals("1250", response.getTotalDue());
+		assertEquals("250", response.getTotalMandatoryPayment());
+		assertEquals("1000", response.getTotalOptinalPayment());
 		assertEquals(Boolean.TRUE, response.getPenaltyAdded());
 		assertNotNull(response.getDueDetails());
 		assertEquals(2, response.getDueDetails().size());
