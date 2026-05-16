@@ -319,7 +319,7 @@ public class DueDetailsService {
 		List<Flat> updatedFlats = new ArrayList<>();
 		for (Flat flat : apartmentFlats) {
 			List<String> existingDueIds = parseStringList(flat.getFlatPndngPaymntLst());
-			String normalizedFlatArea = normalizeFlatArea(flat != null ? flat.getFlatArea() : null);
+			String normalizedFlatArea = normalizeFlatArea(flat.getFlatArea());
 			boolean modified = false;
 			for (DueAmountDetailsEntity dueEntity : dueEntities) {
 				if (!isDueApplicableToFlat(dueEntity, normalizedFlatArea)) {

@@ -129,10 +129,10 @@ class DueDetailsServiceTest {
 		assertEquals(2, savedFlats.size());
 		Flat savedFlat1000 = savedFlats.stream().filter(f -> "A-101".equals(f.getFlatNo())).findFirst().orElseThrow();
 		Flat savedFlat1200 = savedFlats.stream().filter(f -> "A-201".equals(f.getFlatNo())).findFirst().orElseThrow();
-		assertTrue(savedFlat1000.getFlatPndngPaymntLst().contains("_1000_"));
-		assertFalse(savedFlat1000.getFlatPndngPaymntLst().contains("_1200_"));
-		assertTrue(savedFlat1200.getFlatPndngPaymntLst().contains("_1200_"));
-		assertFalse(savedFlat1200.getFlatPndngPaymntLst().contains("_1000_"));
+		assertTrue(savedFlat1000.getFlatPndngPaymntLst().contains("_" + flat1000.getFlatArea() + "_"));
+		assertFalse(savedFlat1000.getFlatPndngPaymntLst().contains("_" + flat1200.getFlatArea() + "_"));
+		assertTrue(savedFlat1200.getFlatPndngPaymntLst().contains("_" + flat1200.getFlatArea() + "_"));
+		assertFalse(savedFlat1200.getFlatPndngPaymntLst().contains("_" + flat1000.getFlatArea() + "_"));
 	}
 
 	@Test
