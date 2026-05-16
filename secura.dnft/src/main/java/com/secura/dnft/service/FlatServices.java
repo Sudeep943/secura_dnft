@@ -557,22 +557,31 @@ public class FlatServices implements FlatInterface {
 		if (!hasText(cycle)) {
 			return 0;
 		}
-		String normalizedCycle = cycle.trim().toUpperCase(Locale.ENGLISH);
+		String normalizedCycle = normalizeCycleForTotals(cycle);
 		switch (normalizedCycle) {
-		case "YEARLY":
+		case SecuraConstants.PAYMENT_CYCLE_YEARLY:
 			return 4;
-		case "HALF YEARLY":
-		case "HALF_YEARLY":
-		case "HALFYEARLY":
+		case SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY:
 			return 3;
 		case "QUARTERLY":
-		case "QUATERLY":
+		case SecuraConstants.PAYMENT_CYCLE_QUATERLY:
 			return 2;
-		case "MONTHLY":
+		case SecuraConstants.PAYMENT_CYCLE_MONTHLY:
 			return 1;
 		default:
 			return 0;
 		}
+	}
+
+	private String normalizeCycleForTotals(String cycle) {
+		String normalized = cycle == null ? null : cycle.trim().toUpperCase(Locale.ENGLISH).replace("_", " ");
+		if ("HALFYEARLY".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY;
+		}
+		if ("QUATERLY".equals(normalized)) {
+			return SecuraConstants.PAYMENT_CYCLE_QUATERLY;
+		}
+		return normalized;
 	}
 
 	private record DueTotals(BigDecimal totalDue, BigDecimal totalMandatoryPayment, BigDecimal totalOptionalPayment) {
