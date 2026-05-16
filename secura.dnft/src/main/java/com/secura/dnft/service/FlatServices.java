@@ -278,7 +278,8 @@ public class FlatServices implements FlatInterface {
 			Optional<Flat> optionalFlat = flatRepository.findById(request != null ? request.getFlatId() : null);
 			if (optionalFlat.isPresent()) {
 				Flat flat = optionalFlat.get();
-				List<String> dueIds = extractDueIdsFromFlatPendingList(parseStringList(flat.getFlatPndngPaymntLst()));
+				List<String> pendingDueKeys = parseStringList(flat.getFlatPndngPaymntLst());
+				List<String> dueIds = extractDueIdsFromFlatPendingList(pendingDueKeys);
 				if (!dueIds.isEmpty()) {
 					List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueIdIn(dueIds);
 					List<DueAmountDetailsEntity> filteredDues = filterByFlatArea(dueEntities, flat.getFlatArea());

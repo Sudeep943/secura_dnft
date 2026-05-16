@@ -317,7 +317,6 @@ public class DueDetailsService {
 			return;
 		}
 		List<String> dueEntityKeys = dueEntities.stream()
-				.filter(Objects::nonNull)
 				.map(this::buildFlatPendingDueKey)
 				.filter(Objects::nonNull)
 				.toList();
