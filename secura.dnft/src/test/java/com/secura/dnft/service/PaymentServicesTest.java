@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.sql.Date;
+import java.util.ArrayList;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -664,8 +665,7 @@ class PaymentServicesTest {
 		dueEntity.setDueDate(LocalDate.parse("2026-06-01"));
 		dueEntity.setAmount("2500");
 		dueEntity.setTotalAmount("2500");
-		when(dueAmountDetailsRepository.findById(new DueAmountDetailsEntityId("DUE1004",
-				SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2026-06-01"))))
+		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class)))
 				.thenReturn(Optional.of(dueEntity));
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -861,8 +861,7 @@ class PaymentServicesTest {
 		dueEntity.setDueDate(LocalDate.parse("2026-05-29"));
 		dueEntity.setAmount("2500");
 		dueEntity.setTotalAmount("2500");
-		when(dueAmountDetailsRepository.findById(new DueAmountDetailsEntityId("DUE1003",
-				SecuraConstants.PAYMENT_CYCLE_ONCE, "1200", LocalDate.parse("2026-05-29"))))
+		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class)))
 				.thenReturn(Optional.of(dueEntity));
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -878,6 +877,126 @@ class PaymentServicesTest {
 		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
 		assertEquals("Club House Booking", receiptRequest.getItems().get(0).getItemName());
 		assertEquals("RCT-3003", response.getReceiptNumber());
+	}
+
+	@Test
+	void payDues_shouldRemoveCoveredDuesAndUpdateApplicableFlatsOnSuccessfulPayment() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-9001");
+		request.setPaymentName("Maintenance");
+		request.setAmount("9000");
+		request.setDueId("DUE-Q1");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_QUATERLY);
+		request.setDueDate(LocalDate.parse("2025-01-01"));
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "9000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-9001");
+		paymentEntity.setBankAccountId("BANK-9001");
+		paymentEntity.setPaymentCapita("PER_SQFT");
+		paymentEntity.setApplicableFor("PAYMENT_APPLICABLE");
+		when(paymentRepository.findFirstByPaymentId("PAY-9001")).thenReturn(Optional.of(paymentEntity));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-9001", "APR-001")).thenReturn(List.of(paymentEntity));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("FLAT_PENDING");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-03-31"), "PAY-9001",
+				"APPL_Q1");
+		DueAmountDetailsEntity monthly1 = createDueEntity("DUE-M1", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-31"), "PAY-9001",
+				"APPL_M1");
+		DueAmountDetailsEntity monthly2 = createDueEntity("DUE-M2", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200",
+				LocalDate.parse("2025-02-01"), LocalDate.parse("2025-02-01"), LocalDate.parse("2025-02-28"), "PAY-9001",
+				"APPL_M2");
+		DueAmountDetailsEntity monthly3 = createDueEntity("DUE-M3", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200",
+				LocalDate.parse("2025-03-01"), LocalDate.parse("2025-03-01"), LocalDate.parse("2025-03-31"), "PAY-9001",
+				"APPL_M3");
+		DueAmountDetailsEntity halfYearly = createDueEntity("DUE-H1", SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, "1200",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-06-30"), "PAY-9001",
+				"APPL_H1");
+
+		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-9001"))
+				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue, monthly1, monthly2, monthly3, halfYearly)));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenAnswer(invocation -> {
+			String marker = invocation.getArgument(0);
+			return switch (marker) {
+			case "FLAT_PENDING" -> new ArrayList<>(List.of("DUE-Q1_QUATERLY_1200_2025-01-01", "DUE-M1_MONTHLY_1200_2025-01-01",
+					"DUE-M2_MONTHLY_1200_2025-02-01", "DUE-M3_MONTHLY_1200_2025-03-01", "DUE-H1_HALF_YEARLY_1200_2025-01-01",
+					"OTHER_DUE_MONTHLY_1200_2025-04-01"));
+			case "APPL_Q1", "APPL_M1", "APPL_M2", "APPL_M3", "APPL_H1" -> new ArrayList<>(List.of("A-101", "A-102", "A-101"));
+			case "PAYMENT_APPLICABLE" -> new ArrayList<>(List.of("A-101", "A-102"));
+			default -> new ArrayList<>();
+			};
+		});
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0, Object.class);
+			return value == null ? null : value.toString();
+		});
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT");
+		createReceiptResponse.setReceiptNumber("RCT-9001");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		paymentServices.payDues(request);
+
+		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
+		verify(flatRepository).save(flatCaptor.capture());
+		assertFalse(flatCaptor.getValue().getFlatPndngPaymntLst().contains("DUE-Q1_QUATERLY_1200_2025-01-01"));
+		assertTrue(flatCaptor.getValue().getFlatPndngPaymntLst().contains("OTHER_DUE_MONTHLY_1200_2025-04-01"));
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository).saveAll(dueSaveCaptor.capture());
+		assertEquals(5, dueSaveCaptor.getValue().size());
+		assertTrue(dueSaveCaptor.getValue().stream().allMatch(due -> "[A-102]".equals(due.getApplicableFlats())));
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<PaymentEntity>> paymentSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(paymentRepository).saveAll(paymentSaveCaptor.capture());
+		assertEquals("[A-102]", paymentSaveCaptor.getValue().get(0).getApplicableFor());
+	}
+
+	@Test
+	void payDues_shouldNotRunCoveredDueRemovalWhenRequestStatusIsNotSuccess() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-9002");
+		request.setAmount("1000");
+		request.setTransactionStatus("FAILED");
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "1000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-9002");
+		paymentEntity.setBankAccountId("BANK-9002");
+		when(paymentRepository.findFirstByPaymentId("PAY-9002")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenReturn("JSON");
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		paymentServices.payDues(request);
+
+		verify(dueAmountDetailsRepository, never()).findByPaymentId("PAY-9002");
+		verify(flatRepository, never()).save(any(Flat.class));
+		verify(paymentRepository, never()).saveAll(any());
 	}
 
 	@Test
@@ -1076,6 +1195,20 @@ class PaymentServicesTest {
 		bankInstrumentTenderDetails.setTenderType("DD");
 		bankInstrumentTenderDetails.setDdPayAtBranch(ddPayAtBranch);
 		return bankInstrumentTenderDetails;
+	}
+
+	private DueAmountDetailsEntity createDueEntity(String dueId, String cycle, String flatArea, LocalDate dueDate,
+			LocalDate dueStartDate, LocalDate dueEndDate, String paymentId, String applicableFlatsMarker) {
+		DueAmountDetailsEntity due = new DueAmountDetailsEntity();
+		due.setDueId(dueId);
+		due.setCollectionCycle(cycle);
+		due.setFlatArea(flatArea);
+		due.setDueDate(dueDate);
+		due.setDueStartDate(dueStartDate);
+		due.setDueEndDate(dueEndDate);
+		due.setPaymentId(paymentId);
+		due.setApplicableFlats(applicableFlatsMarker);
+		return due;
 	}
 
 }

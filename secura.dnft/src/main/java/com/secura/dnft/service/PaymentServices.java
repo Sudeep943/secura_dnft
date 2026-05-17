@@ -495,6 +495,12 @@ public class PaymentServices implements PaymentInterface {
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
 		response.setTransactionId(transaction.getTrnscId());
 		response.setReceiptNumber(transaction.getReceiptNumber());
+		if (request != null && SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(request.getTransactionStatus())) {
+			removeCoveredDuesAfterSuccessfulPayment(
+					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
+					request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null,
+					request.getPaymentId(), transaction.getDueDetails());
+		}
 		return response;
 	}
 
@@ -955,6 +961,211 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		return dueId + "_" + paymentCycle + "_" + dueFlatAreaToken + "_" + dueDate;
+	}
+
+	private void removeCoveredDuesAfterSuccessfulPayment(String apartmentId, String flatId, String paymentId,
+			String paidDueId) {
+		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId) || !hasText(paidDueId)) {
+			return;
+		}
+		DueAmountDetailsEntityId paidDueEntityId = parsePendingDueKeyToEntityId(paidDueId);
+		if (paidDueEntityId == null) {
+			return;
+		}
+		DueAmountDetailsEntity paidDue = dueAmountDetailsRepository.findById(paidDueEntityId).orElse(null);
+		if (paidDue == null) {
+			return;
+		}
+		LocalDate paidStartDate = paidDue.getDueStartDate() != null ? paidDue.getDueStartDate() : paidDue.getDueDate();
+		LocalDate paidEndDate = paidDue.getDueEndDate() != null ? paidDue.getDueEndDate() : paidDue.getDueDate();
+		if (paidStartDate == null || paidEndDate == null) {
+			return;
+		}
+		List<DueAmountDetailsEntity> allDuesForPayment = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		if (allDuesForPayment == null || allDuesForPayment.isEmpty()) {
+			return;
+		}
+		List<DueAmountDetailsEntity> coveredDues = allDuesForPayment.stream().filter(Objects::nonNull)
+				.filter(due -> isCoveredDue(due, paidStartDate, paidEndDate)).collect(Collectors.toList());
+		if (coveredDues.isEmpty()) {
+			return;
+		}
+		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText)
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+		removeCoveredDueKeysFromFlat(flatId, coveredDueKeys);
+		removeFlatFromCoveredDueApplicableFlats(flatId, coveredDues);
+		removeFlatFromPaymentApplicableForWhenNoDuesRemain(apartmentId, flatId, paymentId);
+	}
+
+	private DueAmountDetailsEntityId parsePendingDueKeyToEntityId(String pendingDueKey) {
+		if (!hasText(pendingDueKey)) {
+			return null;
+		}
+		String normalizedPendingKey = pendingDueKey.trim();
+		int firstSeparatorIndex = normalizedPendingKey.indexOf('_');
+		int lastSeparatorIndex = normalizedPendingKey.lastIndexOf('_');
+		if (firstSeparatorIndex <= 0 || lastSeparatorIndex <= firstSeparatorIndex) {
+			return null;
+		}
+		int secondLastSeparatorIndex = normalizedPendingKey.lastIndexOf('_', lastSeparatorIndex - 1);
+		if (secondLastSeparatorIndex <= firstSeparatorIndex) {
+			return null;
+		}
+		String dueId = normalizedPendingKey.substring(0, firstSeparatorIndex);
+		String collectionCycle = normalizedPendingKey.substring(firstSeparatorIndex + 1, secondLastSeparatorIndex);
+		String flatArea = normalizedPendingKey.substring(secondLastSeparatorIndex + 1, lastSeparatorIndex);
+		String dueDateValue = normalizedPendingKey.substring(lastSeparatorIndex + 1);
+		if (!hasText(dueId) || !hasText(collectionCycle) || !hasText(flatArea) || !hasText(dueDateValue)) {
+			return null;
+		}
+		try {
+			return new DueAmountDetailsEntityId(dueId.trim(), collectionCycle.trim(), flatArea.trim(),
+					LocalDate.parse(dueDateValue.trim()));
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+
+	private boolean isCoveredDue(DueAmountDetailsEntity due, LocalDate paidStartDate, LocalDate paidEndDate) {
+		if (due == null) {
+			return false;
+		}
+		LocalDate dueStartDate = due.getDueStartDate() != null ? due.getDueStartDate() : due.getDueDate();
+		LocalDate dueEndDate = due.getDueEndDate() != null ? due.getDueEndDate() : due.getDueDate();
+		if (dueStartDate == null || dueEndDate == null) {
+			return false;
+		}
+		boolean childDueCovered = dueStartDate.compareTo(paidStartDate) >= 0 && dueEndDate.compareTo(paidEndDate) <= 0;
+		boolean parentDueCovered = dueStartDate.compareTo(paidStartDate) <= 0 && dueEndDate.compareTo(paidEndDate) >= 0;
+		return childDueCovered || parentDueCovered;
+	}
+
+	private String buildFlatPendingDueKey(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null || dueEntity.getDueDate() == null || !hasText(dueEntity.getDueId())
+				|| !hasText(dueEntity.getCollectionCycle()) || !hasText(dueEntity.getFlatArea())) {
+			return null;
+		}
+		return dueEntity.getDueId() + "_" + dueEntity.getCollectionCycle() + "_" + dueEntity.getFlatArea() + "_"
+				+ dueEntity.getDueDate();
+	}
+
+	private void removeCoveredDueKeysFromFlat(String flatId, Set<String> coveredDueKeys) {
+		if (!hasText(flatId) || coveredDueKeys == null || coveredDueKeys.isEmpty()) {
+			return;
+		}
+		Flat flat = flatRepository.findById(flatId).orElse(null);
+		if (flat == null) {
+			return;
+		}
+		List<String> pendingDueKeys = parseJsonStringList(flat.getFlatPndngPaymntLst());
+		if (pendingDueKeys.isEmpty()) {
+			return;
+		}
+		boolean modified = pendingDueKeys.removeIf(
+				pendingDueKey -> hasText(pendingDueKey) && coveredDueKeys.contains(pendingDueKey.trim()));
+		if (modified) {
+			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueKeys));
+			flatRepository.save(flat);
+		}
+	}
+
+	private void removeFlatFromCoveredDueApplicableFlats(String flatId, List<DueAmountDetailsEntity> coveredDues) {
+		if (!hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
+			return;
+		}
+		List<DueAmountDetailsEntity> updatedDues = new ArrayList<>();
+		for (DueAmountDetailsEntity due : coveredDues) {
+			if (due == null) {
+				continue;
+			}
+			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+			List<String> updatedApplicableFlats = removeFlatIdFromList(applicableFlats, flatId);
+			if (!applicableFlats.equals(updatedApplicableFlats)) {
+				due.setApplicableFlats(genericService.toJson(updatedApplicableFlats));
+				updatedDues.add(due);
+			}
+		}
+		if (!updatedDues.isEmpty()) {
+			dueAmountDetailsRepository.saveAll(updatedDues);
+		}
+	}
+
+	private void removeFlatFromPaymentApplicableForWhenNoDuesRemain(String apartmentId, String flatId, String paymentId) {
+		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId)) {
+			return;
+		}
+		List<DueAmountDetailsEntity> duesForPayment = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		if (duesForPayment == null) {
+			duesForPayment = List.of();
+		}
+		boolean hasRemainingDueForFlat = duesForPayment.stream().filter(Objects::nonNull)
+				.anyMatch(due -> containsFlatId(parseJsonStringList(due.getApplicableFlats()), flatId));
+		if (hasRemainingDueForFlat) {
+			return;
+		}
+		List<PaymentEntity> paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId);
+		if (paymentEntities == null || paymentEntities.isEmpty()) {
+			return;
+		}
+		List<PaymentEntity> updatedPayments = new ArrayList<>();
+		for (PaymentEntity paymentEntity : paymentEntities) {
+			if (paymentEntity == null) {
+				continue;
+			}
+			String updatedApplicableFor = removeFlatFromPaymentApplicableFor(paymentEntity.getApplicableFor(), flatId);
+			if (!Objects.equals(paymentEntity.getApplicableFor(), updatedApplicableFor)) {
+				paymentEntity.setApplicableFor(updatedApplicableFor);
+				updatedPayments.add(paymentEntity);
+			}
+		}
+		if (!updatedPayments.isEmpty()) {
+			paymentRepository.saveAll(updatedPayments);
+		}
+	}
+
+	private String removeFlatFromPaymentApplicableFor(String applicableFor, String flatId) {
+		if (!hasText(applicableFor) || !hasText(flatId)) {
+			return applicableFor;
+		}
+		if ("ALL".equalsIgnoreCase(applicableFor.trim())) {
+			return applicableFor;
+		}
+		List<String> applicableFlats = parseJsonStringList(applicableFor);
+		List<String> updatedApplicableFlats = removeFlatIdFromList(applicableFlats, flatId);
+		return genericService.toJson(updatedApplicableFlats);
+	}
+
+	private List<String> parseJsonStringList(String json) {
+		if (!hasText(json)) {
+			return new ArrayList<>();
+		}
+		try {
+			List<String> values = genericService.fromJson(json, new TypeReference<List<String>>() {
+			});
+			if (values == null) {
+				return new ArrayList<>();
+			}
+			return values.stream().filter(this::hasText).map(String::trim).collect(Collectors.toCollection(ArrayList::new));
+		} catch (Exception ex) {
+			return new ArrayList<>();
+		}
+	}
+
+	private List<String> removeFlatIdFromList(List<String> values, String flatId) {
+		if (values == null || values.isEmpty()) {
+			return new ArrayList<>();
+		}
+		String normalizedFlatId = flatId.trim();
+		return values.stream().filter(this::hasText).map(String::trim)
+				.filter(value -> !value.equalsIgnoreCase(normalizedFlatId)).distinct()
+				.collect(Collectors.toCollection(ArrayList::new));
+	}
+
+	private boolean containsFlatId(List<String> values, String flatId) {
+		if (values == null || values.isEmpty() || !hasText(flatId)) {
+			return false;
+		}
+		return values.stream().filter(this::hasText).map(String::trim).anyMatch(value -> value.equalsIgnoreCase(flatId.trim()));
 	}
 
 	private String resolvePrimaryTender(List<PaymentTenderData> paymentTenderDataList) {
