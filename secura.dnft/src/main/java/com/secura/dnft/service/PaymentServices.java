@@ -59,6 +59,7 @@ import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
@@ -412,12 +413,13 @@ public class PaymentServices implements PaymentInterface {
 			response.setPaymentList(new ArrayList<>());
 			return response;
 		}
-		List<PaymentEntity> paymentList = new ArrayList<>();
+		List<PaymentEntity> paymentEntities = new ArrayList<>();
 		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
-			paymentList = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(), apartmentId);
+			paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(), apartmentId);
 		} else {
-			paymentList = paymentRepository.findByAprmtId(apartmentId);
+			paymentEntities = paymentRepository.findByAprmtId(apartmentId);
 		}
+		List<PaymentEntityModel> paymentList = buildPaymentEntityModels(paymentEntities);
 		response.setPaymentList(paymentList);
 		if (paymentList.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
@@ -427,6 +429,77 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
 		}
 		return response;
+	}
+
+	private List<PaymentEntityModel> buildPaymentEntityModels(List<PaymentEntity> paymentEntities) {
+		if (paymentEntities == null || paymentEntities.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Map<String, List<PaymentEntity>> paymentIdToEntityMap = paymentEntities.stream().filter(Objects::nonNull)
+				.collect(Collectors.groupingBy(PaymentEntity::getPaymentId, LinkedHashMap::new, Collectors.toList()));
+		List<PaymentEntityModel> paymentList = new ArrayList<>();
+		for (List<PaymentEntity> paymentEntityList : paymentIdToEntityMap.values()) {
+			if (paymentEntityList == null || paymentEntityList.isEmpty()) {
+				continue;
+			}
+			PaymentEntity primaryPaymentEntity = paymentEntityList.get(0);
+			PaymentEntityModel paymentModel = new PaymentEntityModel();
+			paymentModel.setPaymentId(primaryPaymentEntity.getPaymentId());
+			paymentModel.setPaymentName(primaryPaymentEntity.getPaymentName());
+			paymentModel.setShortDetails(primaryPaymentEntity.getShortDetails());
+			paymentModel.setPaymentCapita(primaryPaymentEntity.getPaymentCapita());
+			paymentModel.setPaymentAmount(primaryPaymentEntity.getPaymentAmount());
+			paymentModel.setGst(primaryPaymentEntity.getGst());
+			paymentModel.setCurrency(primaryPaymentEntity.getCurrency());
+			paymentModel.setDueDate(primaryPaymentEntity.getDueDate());
+			paymentModel.setCollectionStartDate(primaryPaymentEntity.getCollectionStartDate());
+			paymentModel.setCollectionEndDate(primaryPaymentEntity.getCollectionEndDate());
+			paymentModel.setPaymentCollectionCycleList(paymentEntityList.stream().map(PaymentEntity::getPaymentCollectionCycle)
+					.filter(this::hasText).map(this::trimValue).distinct().collect(Collectors.toList()));
+			paymentModel.setPaymentCollectionMode(primaryPaymentEntity.getPaymentCollectionMode());
+			paymentModel.setPartialPaymentAllowed(primaryPaymentEntity.isPartialPaymentAllowed());
+			paymentModel.setApplicableFor(primaryPaymentEntity.getApplicableFor());
+			paymentModel.setAllowedPaymentModes(primaryPaymentEntity.getAllowedPaymentModes());
+			paymentModel.setPaidFlats(primaryPaymentEntity.getPaidFlats());
+			paymentModel.setPaymentType(primaryPaymentEntity.getPaymentType());
+			paymentModel.setBankAccountId(primaryPaymentEntity.getBankAccountId());
+			paymentModel.setStatus(primaryPaymentEntity.getStatus());
+			paymentModel.setAprmtId(primaryPaymentEntity.getAprmtId());
+			paymentModel.setCauseId(primaryPaymentEntity.getCauseId());
+			paymentModel.setAddedCharges(primaryPaymentEntity.getAddedCharges());
+			paymentModel.setCreatTs(primaryPaymentEntity.getCreatTs());
+			paymentModel.setCreatUsrId(primaryPaymentEntity.getCreatUsrId());
+			paymentModel.setLstUpdtTs(primaryPaymentEntity.getLstUpdtTs());
+			paymentModel.setLstUpdtUsrId(primaryPaymentEntity.getLstUpdtUsrId());
+			setDiscountAndFineCode(primaryPaymentEntity, paymentModel);
+			paymentList.add(paymentModel);
+		}
+		return paymentList;
+	}
+
+	private void setDiscountAndFineCode(PaymentEntity paymentEntity, PaymentEntityModel paymentModel) {
+		if (paymentEntity == null || paymentModel == null || !hasText(paymentEntity.getDiscFin())) {
+			return;
+		}
+		List<Map<String, String>> discFinList = genericService.fromJson(paymentEntity.getDiscFin(),
+				new TypeReference<List<Map<String, String>>>() {
+				});
+		if (discFinList == null || discFinList.isEmpty()) {
+			return;
+		}
+		for (Map<String, String> discFin : discFinList) {
+			if (discFin == null) {
+				continue;
+			}
+			String discFinType = trimValue(discFin.get("DISTFIN_TYPE"));
+			String code = trimValue(discFin.get("code"));
+			if ("DISCOUNT".equalsIgnoreCase(discFinType) && paymentModel.getDiscountCode() == null) {
+				paymentModel.setDiscountCode(code);
+			}
+			if ("FINE".equalsIgnoreCase(discFinType) && paymentModel.getFineCode() == null) {
+				paymentModel.setFineCode(code);
+			}
+		}
 	}
 
 	@Override

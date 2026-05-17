@@ -29,6 +29,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
@@ -60,6 +61,7 @@ import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 
 @ExtendWith(MockitoExtension.class)
@@ -102,12 +104,14 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-1");
+		payment.setPaymentCollectionCycle("MONTHLY");
 		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
 		assertEquals(1, response.getPaymentList().size());
 		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
+		assertEquals(List.of("MONTHLY"), response.getPaymentList().get(0).getPaymentCollectionCycleList());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
 	}
@@ -123,12 +127,14 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-1");
+		payment.setPaymentCollectionCycle("MONTHLY");
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of(payment));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
 		assertEquals(1, response.getPaymentList().size());
 		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
+		assertEquals(List.of("MONTHLY"), response.getPaymentList().get(0).getPaymentCollectionCycleList());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
 	}
@@ -162,6 +168,48 @@ class PaymentServicesTest {
 		assertTrue(response.getPaymentList().isEmpty());
 		assertEquals(com.secura.dnft.generic.bean.ErrorMessage.ERR_MESSAGE_05, response.getMessage());
 		assertEquals(com.secura.dnft.generic.bean.ErrorMessageCode.ERR_MESSAGE_05, response.getMessageCode());
+	}
+
+	@Test
+	void getPayments_shouldGroupByPaymentIdAndMapDiscountFineCodes() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		GetPaymentRequest request = new GetPaymentRequest();
+		request.setGenericHeader(header);
+
+		PaymentEntity monthly = new PaymentEntity();
+		monthly.setPaymentId("PAY-1");
+		monthly.setAprmtId("APR-1");
+		monthly.setPaymentName("Maintenance");
+		monthly.setPaymentCollectionCycle("MONTHLY");
+		String discFinJson = "[{\"DISTFIN_TYPE\":\"DISCOUNT\",\"code\":\"DISC1\",\"Status\":\"Active\"},"
+				+ "{\"DISTFIN_TYPE\":\"FINE\",\"code\":\"FINE1\",\"Status\":\"Active\"}]";
+		monthly.setDiscFin(discFinJson);
+
+		PaymentEntity quarterly = new PaymentEntity();
+		quarterly.setPaymentId("PAY-1");
+		quarterly.setAprmtId("APR-1");
+		quarterly.setPaymentCollectionCycle("QUARTERLY");
+
+		Map<String, String> discount = new LinkedHashMap<>();
+		discount.put("DISTFIN_TYPE", "DISCOUNT");
+		discount.put("code", "DISC1");
+		Map<String, String> fine = new LinkedHashMap<>();
+		fine.put("DISTFIN_TYPE", "FINE");
+		fine.put("code", "FINE1");
+		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(monthly, quarterly));
+		when(genericService.fromJson(eq(discFinJson), any(TypeReference.class)))
+				.thenReturn(List.of(discount, fine));
+
+		GetPaymentResponse response = paymentServices.getPayments(request);
+
+		assertEquals(1, response.getPaymentList().size());
+		PaymentEntityModel payment = response.getPaymentList().get(0);
+		assertEquals("PAY-1", payment.getPaymentId());
+		assertEquals("Maintenance", payment.getPaymentName());
+		assertEquals(List.of("MONTHLY", "QUARTERLY"), payment.getPaymentCollectionCycleList());
+		assertEquals("DISC1", payment.getDiscountCode());
+		assertEquals("FINE1", payment.getFineCode());
 	}
 
 	@Test
