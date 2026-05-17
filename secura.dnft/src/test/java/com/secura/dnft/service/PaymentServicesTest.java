@@ -938,6 +938,7 @@ class PaymentServicesTest {
 					"DUE-M2_MONTHLY_1200_2025-02-01", "DUE-M3_MONTHLY_1200_2025-03-01", "DUE-H1_HALF_YEARLY_1200_2025-01-01",
 					"OTHER_DUE_MONTHLY_1200_2025-04-01"));
 			case "APPL_Q1", "APPL_M1", "APPL_M2", "APPL_M3", "APPL_H1" -> new ArrayList<>(List.of("A-101", "A-102", "A-101"));
+			case "[A-101]" -> new ArrayList<>(List.of("A-101"));
 			case "PAYMENT_APPLICABLE" -> new ArrayList<>(List.of("A-101", "A-102"));
 			default -> new ArrayList<>();
 			};
