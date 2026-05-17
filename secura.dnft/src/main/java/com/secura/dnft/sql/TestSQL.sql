@@ -22,6 +22,12 @@ drop Table secura_profl_access;
 ALTER TABLE secura_payments
 ADD COLUMN allowed_payment_modes TEXT;
 
+ALTER TABLE secura_payments
+ADD COLUMN paid_flats TEXT;
+
+ALTER TABLE secura_due_amount_details
+ADD COLUMN paid_flats TEXT;
+
 
 
 INSERT INTO secura_aprmnt (

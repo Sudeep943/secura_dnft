@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -880,7 +881,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void payDues_shouldRemoveCoveredDuesAndUpdateApplicableFlatsOnSuccessfulPayment() throws Exception {
+	void payDues_shouldRemoveCoveredDuesAndTrackPaidFlatsOnSuccessfulPayment() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -933,6 +934,13 @@ class PaymentServicesTest {
 
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenAnswer(invocation -> {
 			String marker = invocation.getArgument(0);
+			if (marker != null && marker.startsWith("[") && marker.endsWith("]")) {
+				String content = marker.substring(1, marker.length() - 1).trim();
+				if (content.isEmpty()) {
+					return new ArrayList<>();
+				}
+				return new ArrayList<>(List.of(content.split(",\\s*")));
+			}
 			return switch (marker) {
 			case "FLAT_PENDING" -> new ArrayList<>(List.of("DUE-Q1_QUATERLY_1200_2025-01-01", "DUE-M1_MONTHLY_1200_2025-01-01",
 					"DUE-M2_MONTHLY_1200_2025-02-01", "DUE-M3_MONTHLY_1200_2025-03-01", "DUE-H1_HALF_YEARLY_1200_2025-01-01",
@@ -964,12 +972,20 @@ class PaymentServicesTest {
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
 		verify(dueAmountDetailsRepository).saveAll(dueSaveCaptor.capture());
 		assertEquals(5, dueSaveCaptor.getValue().size());
-		assertTrue(dueSaveCaptor.getValue().stream().allMatch(due -> "[A-102]".equals(due.getApplicableFlats())));
+		assertTrue(dueSaveCaptor.getValue().stream().allMatch(due -> "[A-101]".equals(due.getPaidFlats())));
+		Map<String, String> applicableFlatsByDueId = dueSaveCaptor.getValue().stream()
+				.collect(Collectors.toMap(DueAmountDetailsEntity::getDueId, DueAmountDetailsEntity::getApplicableFlats));
+		assertEquals("APPL_Q1", applicableFlatsByDueId.get("DUE-Q1"));
+		assertEquals("APPL_M1", applicableFlatsByDueId.get("DUE-M1"));
+		assertEquals("APPL_M2", applicableFlatsByDueId.get("DUE-M2"));
+		assertEquals("APPL_M3", applicableFlatsByDueId.get("DUE-M3"));
+		assertEquals("APPL_H1", applicableFlatsByDueId.get("DUE-H1"));
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<PaymentEntity>> paymentSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
 		verify(paymentRepository).saveAll(paymentSaveCaptor.capture());
-		assertEquals("[A-102]", paymentSaveCaptor.getValue().get(0).getApplicableFor());
+		assertEquals("[A-101]", paymentSaveCaptor.getValue().get(0).getPaidFlats());
+		assertEquals("PAYMENT_APPLICABLE", paymentSaveCaptor.getValue().get(0).getApplicableFor());
 	}
 
 	@Test

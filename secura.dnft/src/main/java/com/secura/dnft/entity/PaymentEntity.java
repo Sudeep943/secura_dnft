@@ -69,6 +69,9 @@ public class PaymentEntity {
     @Column(name = "allowed_payment_modes", columnDefinition = "TEXT")
     private String allowedPaymentModes;
 
+    @Column(name = "paid_flats", columnDefinition = "TEXT")
+    private String paidFlats;
+
     @Column(name = "payment_type")
     private String paymentType;
 
@@ -221,6 +224,14 @@ public class PaymentEntity {
 
     public String getAllowedPaymentModes() {
 		return allowedPaymentModes;
+	}
+
+	public String getPaidFlats() {
+		return paidFlats;
+	}
+
+	public void setPaidFlats(String paidFlats) {
+		this.paidFlats = paidFlats;
 	}
 
 	public void setAllowedPaymentModes(String allowedPaymentModes) {
