@@ -819,10 +819,7 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		Optional<Flat> flatOptional = flatRepository.findById(flatId);
-		if (flatOptional == null || flatOptional.isEmpty()) {
-			return null;
-		}
-		return flatOptional.get().getFlatArea();
+		return flatOptional.isPresent() ? flatOptional.get().getFlatArea() : null;
 	}
 
 	private DueAmountDetailsEntity resolveDueAmountDetailsEntity(PayDueRequest request, String flatArea) {
@@ -835,9 +832,9 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
 			return null;
 		}
-		Optional<DueAmountDetailsEntity> entityOptional = dueAmountDetailsRepository
-				.findById(new DueAmountDetailsEntityId(dueId, paymentCycle, flatArea, dueDate));
-		return (entityOptional != null && entityOptional.isPresent()) ? entityOptional.get() : null;
+		return dueAmountDetailsRepository
+				.findById(new DueAmountDetailsEntityId(dueId, paymentCycle, flatArea, dueDate))
+				.orElse(null);
 	}
 
 	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetailsEntity dueEntity) {
