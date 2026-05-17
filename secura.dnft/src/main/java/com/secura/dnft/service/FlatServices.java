@@ -508,6 +508,14 @@ public class FlatServices implements FlatInterface {
 		if (dueDetails == null || dueDetails.isEmpty()) {
 			return new DueTotals(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 		}
+		List<String> paymentIds = dueDetails.keySet().stream().filter(Objects::nonNull).map(PaymentDetail::getPaymentId)
+				.filter(this::hasText).collect(Collectors.toList());
+		List<DueAmountDetailsEntity> duesForPayments = paymentIds.isEmpty() ? Collections.emptyList()
+				: dueAmountDetailsRepository.findByPaymentIdIn(paymentIds);
+		Map<String, List<DueAmountDetailsEntity>> duesByPaymentId = (duesForPayments == null ? Collections.<DueAmountDetailsEntity>emptyList()
+				: duesForPayments)
+				.stream().filter(Objects::nonNull).filter(due -> hasText(due.getPaymentId()))
+				.collect(Collectors.groupingBy(DueAmountDetailsEntity::getPaymentId, LinkedHashMap::new, Collectors.toList()));
 		BigDecimal totalDue = BigDecimal.ZERO;
 		BigDecimal totalMandatoryPayment = BigDecimal.ZERO;
 		BigDecimal totalOptionalPayment = BigDecimal.ZERO;
@@ -517,7 +525,7 @@ public class FlatServices implements FlatInterface {
 			if (!hasText(paymentId)) {
 				continue;
 			}
-			List<DueAmountDetailsEntity> paymentDues = dueAmountDetailsRepository.findByPaymentId(paymentId);
+			List<DueAmountDetailsEntity> paymentDues = duesByPaymentId.get(paymentId);
 			if (paymentDues == null || paymentDues.isEmpty()) {
 				paymentDues = entry.getValue();
 			}
@@ -526,8 +534,9 @@ public class FlatServices implements FlatInterface {
 			BigDecimal totalDuePerPaymentId = filteredCycleDues.stream().filter(Objects::nonNull)
 					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
 			List<Transaction> paymentTransactions = transactionRepository.findByPymntIdAndFlatId(paymentId, flatId);
-			BigDecimal totalAmountPaidPerPaymentId = (paymentTransactions == null ? Collections.<Transaction>emptyList()
-					: paymentTransactions).stream()
+			List<Transaction> normalizedTransactions = paymentTransactions == null ? Collections.emptyList()
+					: paymentTransactions;
+			BigDecimal totalAmountPaidPerPaymentId = normalizedTransactions.stream()
 					.map(Transaction::getTrnsAmt).map(this::parseAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 			BigDecimal netDueForPaymentId = totalDuePerPaymentId.subtract(totalAmountPaidPerPaymentId);
 			if (netDueForPaymentId.compareTo(BigDecimal.ZERO) < 0) {

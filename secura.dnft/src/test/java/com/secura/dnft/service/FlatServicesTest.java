@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -370,10 +371,7 @@ class FlatServicesTest {
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
-		when(dueAmountDetailsRepository.findByPaymentId("PAY1")).thenReturn(dueEntities.stream()
-				.filter(due -> "PAY1".equals(due.getPaymentId())).toList());
-		when(dueAmountDetailsRepository.findByPaymentId("PAY2")).thenReturn(dueEntities.stream()
-				.filter(due -> "PAY2".equals(due.getPaymentId())).toList());
+		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
 		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
 		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101"))
@@ -433,10 +431,7 @@ class FlatServicesTest {
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
-		when(dueAmountDetailsRepository.findByPaymentId("PAY1")).thenReturn(dueEntities.stream()
-				.filter(due -> "PAY1".equals(due.getPaymentId())).toList());
-		when(dueAmountDetailsRepository.findByPaymentId("PAY2")).thenReturn(dueEntities.stream()
-				.filter(due -> "PAY2".equals(due.getPaymentId())).toList());
+		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
 		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
 		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101")).thenReturn(List.of());

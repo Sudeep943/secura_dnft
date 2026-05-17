@@ -14,4 +14,6 @@ public interface DueAmountDetailsRepository extends JpaRepository<DueAmountDetai
 	List<DueAmountDetailsEntity> findByDueIdIn(List<String> dueIds);
 
 	List<DueAmountDetailsEntity> findByPaymentId(String paymentId);
+
+	List<DueAmountDetailsEntity> findByPaymentIdIn(List<String> paymentIds);
 }
