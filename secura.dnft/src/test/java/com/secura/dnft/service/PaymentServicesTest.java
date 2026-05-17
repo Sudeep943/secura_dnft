@@ -28,9 +28,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.secura.dnft.dao.DocumentRepository;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DocumentEntity;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.DueAmountDetailsEntityId;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
@@ -75,6 +80,12 @@ class PaymentServicesTest {
 
 	@Mock
 	private DueDetailsService dueDetailsService;
+
+	@Mock
+	private FlatRepository flatRepository;
+
+	@Mock
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -549,6 +560,25 @@ class PaymentServicesTest {
 			}
 			return "JSON";
 		});
+
+		Flat flat = new Flat();
+		flat.setFlatArea("1200");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
+		dueEntity.setDueId("DUE1001");
+		dueEntity.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		dueEntity.setFlatArea("1200");
+		dueEntity.setDueDate(LocalDate.parse("2027-03-01"));
+		dueEntity.setAmount("4500");
+		dueEntity.setGstAmount("270");
+		dueEntity.setTotalAmount("4770");
+		dueEntity.setAddedCharges("[]");
+		when(dueAmountDetailsRepository.findById(
+				new DueAmountDetailsEntityId("DUE1001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01"))))
+				.thenReturn(Optional.of(dueEntity));
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
+
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
@@ -562,7 +592,7 @@ class PaymentServicesTest {
 		Transaction createdTransaction = transactionCaptor.getValue();
 		assertEquals("TRNS_TENDER_JSON", createdTransaction.getTrnsTender());
 		assertEquals("BANK_INSTR_JSON", createdTransaction.getBankInstrumentTenderDetails());
-		assertEquals("DUE1001_MONTHLY_2027-03-01", createdTransaction.getDueDetails());
+		assertEquals("DUE1001_MONTHLY_1200_2027-03-01", createdTransaction.getDueDetails());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, createdTransaction.getTrnsStatus());
 		assertEquals("BANK-001", createdTransaction.getTrnsBnkAccnt());
 		assertEquals("EVENT", createdTransaction.getCause());
@@ -577,6 +607,11 @@ class PaymentServicesTest {
 				receiptRequest.getPaymentTenderDataList().get(0).getTenderName());
 		assertEquals("5000", receiptRequest.getPaymentTenderDataList().get(0).getAmountPaid());
 		assertEquals("CAM 2026-27 (Period: 1-Mar-2027 to 31-May-2028)", receiptRequest.getItems().get(0).getItemName());
+		assertEquals("4500", receiptRequest.getItems().get(0).getAmount());
+		assertEquals("4770", receiptRequest.getTotalAmount());
+		assertEquals(1, receiptRequest.getAddedCharges().size());
+		assertEquals("GST", receiptRequest.getAddedCharges().get(0).getChargeName());
+		assertEquals("270", receiptRequest.getAddedCharges().get(0).getFinalChargeValue());
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());

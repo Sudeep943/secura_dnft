@@ -22,10 +22,16 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DocumentEntity;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.DueAmountDetailsEntityId;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
@@ -41,6 +47,7 @@ import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
@@ -81,6 +88,12 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	DueDetailsService dueDetailsService;
+
+	@Autowired
+	FlatRepository flatRepository;
+
+	@Autowired
+	DueAmountDetailsRepository dueAmountDetailsRepository;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -464,10 +477,13 @@ public class PaymentServices implements PaymentInterface {
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		Transaction transaction = buildTransaction(request);
+		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
+		String flatArea = resolveFlatArea(flatId);
+		Transaction transaction = buildTransaction(request, flatArea);
 		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
+			DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea);
 			CreateReceiptResponse receiptResponse = receiptServices
-					.createReceipt(buildReceiptRequest(request, transaction.getTrnscId()));
+					.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
 			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
@@ -599,7 +615,7 @@ public class PaymentServices implements PaymentInterface {
 		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
 	}
 
-	private Transaction buildTransaction(PayDueRequest request) {
+	private Transaction buildTransaction(PayDueRequest request, String flatArea) {
 		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
@@ -626,7 +642,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, dueDate));
+		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate));
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
 				request.getBankInstrumentTenderDetails()));
@@ -768,22 +784,25 @@ public class PaymentServices implements PaymentInterface {
 		return item;
 	}
 
-	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, String transactionId) {
-		String requestedAmount = request != null ? request.getAmount() : null;
+	private CreateReceiptRequest buildReceiptRequest(PayDueRequest request, String transactionId, DueAmountDetailsEntity dueEntity) {
+		String itemAmount = dueEntity != null && hasText(dueEntity.getAmount()) ? dueEntity.getAmount()
+				: (request != null ? request.getAmount() : null);
+		String totalAmount = dueEntity != null && hasText(dueEntity.getTotalAmount()) ? dueEntity.getTotalAmount()
+				: (request != null ? request.getAmount() : null);
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		Items item = new Items();
 		item.setItemName(buildPayDueReceiptItemName(request));
-		item.setAmount(requestedAmount);
+		item.setAmount(itemAmount);
 		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setItems(List.of(item));
-		receiptRequest.setAddedCharges(null);
-		receiptRequest.setDiscFinReceipt(null);
+		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueEntity));
+		receiptRequest.setDiscFinReceipt(buildReceiptDiscFin(dueEntity));
 		receiptRequest.setReceiptType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setPerheadFlag(false);
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(false);
-		receiptRequest.setTotalAmount(requestedAmount);
+		receiptRequest.setTotalAmount(totalAmount);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		receiptRequest.setCreatedBy("Auto Generated");
@@ -793,6 +812,78 @@ public class PaymentServices implements PaymentInterface {
 
 	private List<PaymentTenderData> buildPaymentTenderDataList(PayDueRequest request) {
 		return normalizePaymentTenderDataList(request != null ? request.getPaymentTenderDataList() : null);
+	}
+
+	private String resolveFlatArea(String flatId) {
+		if (!hasText(flatId)) {
+			return null;
+		}
+		Optional<Flat> flatOptional = flatRepository.findById(flatId);
+		return flatOptional.isPresent() ? flatOptional.get().getFlatArea() : null;
+	}
+
+	private DueAmountDetailsEntity resolveDueAmountDetailsEntity(PayDueRequest request, String flatArea) {
+		if (request == null) {
+			return null;
+		}
+		String dueId = request.getDueId();
+		String paymentCycle = request.getPaymentCycle();
+		LocalDate dueDate = request.getDueDate();
+		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
+			return null;
+		}
+		return dueAmountDetailsRepository
+				.findById(new DueAmountDetailsEntityId(dueId, paymentCycle, flatArea, dueDate))
+				.orElse(null);
+	}
+
+	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetailsEntity dueEntity) {
+		List<AddedCharges> charges = new ArrayList<>();
+		if (dueEntity == null) {
+			return charges;
+		}
+		if (hasText(dueEntity.getAddedCharges())) {
+			List<AddedCharges> entityCharges = genericService.fromJson(dueEntity.getAddedCharges(),
+					new TypeReference<List<AddedCharges>>() {});
+			if (entityCharges != null) {
+				charges.addAll(entityCharges);
+			}
+		}
+		if (hasText(dueEntity.getGstAmount())) {
+			AddedCharges gstCharge = new AddedCharges();
+			gstCharge.setChargeName("GST");
+			gstCharge.setChargeType("GST");
+			gstCharge.setValue(dueEntity.getGstAmount());
+			gstCharge.setFinalChargeValue(dueEntity.getGstAmount());
+			charges.add(gstCharge);
+		}
+		return charges;
+	}
+
+	private DiscFinReceipt buildReceiptDiscFin(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null) {
+			return null;
+		}
+		boolean hasDiscount = hasText(dueEntity.getDiscountedAmount());
+		boolean hasFine = hasText(dueEntity.getFineAmount());
+		if (!hasDiscount && !hasFine) {
+			return null;
+		}
+		DiscFinReceipt discFin = new DiscFinReceipt();
+		if (hasDiscount) {
+			discFin.setDiscountCode(dueEntity.getDiscountCode());
+			discFin.setDiscountPercentage(dueEntity.getDiscValue());
+			discFin.setDiscountType(dueEntity.getDiscountMode());
+			discFin.setDiscountAmount(dueEntity.getDiscountedAmount());
+		}
+		if (hasFine) {
+			discFin.setFineCode(dueEntity.getFineCode());
+			discFin.setFinePercentage(dueEntity.getFnValue());
+			discFin.setFineType(dueEntity.getFineType());
+			discFin.setFineAmount(dueEntity.getFineAmount());
+			discFin.setFineCycleMode(dueEntity.getFineMode());
+		}
+		return discFin;
 	}
 
 	private String buildPayDueReceiptItemName(PayDueRequest request) {
@@ -805,11 +896,11 @@ public class PaymentServices implements PaymentInterface {
 				+ request.getDueEndDate().format(dateFormatter) + ")";
 	}
 
-	private String createFlatPendingDueId(String dueId, String paymentCycle, LocalDate dueDate) {
-		if (!hasText(dueId) || !hasText(paymentCycle) || dueDate == null) {
+	private String createFlatPendingDueId(String dueId, String paymentCycle, String flatArea, LocalDate dueDate) {
+		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
 			return null;
 		}
-		return dueId + "_" + paymentCycle + "_" + dueDate;
+		return dueId + "_" + paymentCycle + "_" + flatArea + "_" + dueDate;
 	}
 
 	private String resolvePrimaryTender(List<PaymentTenderData> paymentTenderDataList) {
