@@ -1098,9 +1098,14 @@ public class PaymentServices implements PaymentInterface {
 		if (duesForPayment == null) {
 			duesForPayment = List.of();
 		}
-		boolean hasRemainingDueForFlat = duesForPayment.stream().filter(Objects::nonNull)
-				.anyMatch(due -> containsFlatId(parseJsonStringList(due.getApplicableFlats()), flatId)
-						&& !containsFlatId(parseJsonStringList(due.getPaidFlats()), flatId));
+		boolean hasRemainingDueForFlat = duesForPayment.stream().filter(Objects::nonNull).anyMatch(due -> {
+			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+			if (!containsFlatId(applicableFlats, flatId)) {
+				return false;
+			}
+			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+			return !containsFlatId(paidFlats, flatId);
+		});
 		if (hasRemainingDueForFlat) {
 			return;
 		}
