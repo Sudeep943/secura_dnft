@@ -92,6 +92,7 @@ class DueDetailsServiceTest {
 		when(flatRepository.findByAprmntId("APR001")).thenReturn(List.of(flat1000, flat1200));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.fromJson(eq("[\"UPI\",\"CARD\"]"), any(TypeReference.class))).thenReturn(List.of("UPI", "CARD"));
 		when(genericService.toJson(any())).thenAnswer(invocation -> {
 			Object value = invocation.getArgument(0);
 			if (value instanceof List<?> list
