@@ -488,12 +488,15 @@ public class PaymentServices implements PaymentInterface {
 			return;
 		}
 		for (Map<String, String> discFin : discFinList) {
-			String discFinType = trimValue(discFin != null ? discFin.get("DISTFIN_TYPE") : null);
-			String code = trimValue(discFin != null ? discFin.get("code") : null);
-			if ("DISCOUNT".equalsIgnoreCase(discFinType)) {
+			if (discFin == null) {
+				continue;
+			}
+			String discFinType = trimValue(discFin.get("DISTFIN_TYPE"));
+			String code = trimValue(discFin.get("code"));
+			if ("DISCOUNT".equalsIgnoreCase(discFinType) && paymentModel.getDiscountCode() == null) {
 				paymentModel.setDiscountCode(code);
 			}
-			if ("FINE".equalsIgnoreCase(discFinType)) {
+			if ("FINE".equalsIgnoreCase(discFinType) && paymentModel.getFineCode() == null) {
 				paymentModel.setFineCode(code);
 			}
 		}
