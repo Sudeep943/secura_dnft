@@ -292,6 +292,7 @@ public class DueDetailsService {
 		entity.setAlreadyPaidAmount(defaultZeroValue(due.getAlreadyPaidAmount()));
 		entity.setAdminDiscount(defaultZeroValue(due.getAdminDiscount()));
 		entity.setApplicableFlats(genericService.toJson(due.getApplicableFlats() != null ? due.getApplicableFlats() : List.of()));
+		entity.setAllowedTenders(serializeAllowedTenders(due.getAllowedPaymentModes()));
 		entity.setPaymentStatus(due.getPaymentStatus());
 		entity.setPaymentDate(due.getPaymentDate());
 		entity.setCreatUsrId(userId);
@@ -468,6 +469,13 @@ public class DueDetailsService {
 		} catch (Exception ex) {
 			return new ArrayList<>();
 		}
+	}
+
+	private String serializeAllowedTenders(List<String> allowedTenders) {
+		if (allowedTenders == null || allowedTenders.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(allowedTenders);
 	}
 
 	private BigDecimal applyAddedChargesAndCalculateTotal(List<AddedCharges> addedCharges, BigDecimal baseAmount) {
