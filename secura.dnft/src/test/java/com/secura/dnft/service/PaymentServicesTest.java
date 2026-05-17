@@ -942,7 +942,10 @@ class PaymentServicesTest {
 			default -> new ArrayList<>();
 			};
 		});
-		when(genericService.toJson(any())).thenAnswer(invocation -> String.valueOf(invocation.getArgument(0)));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0, Object.class);
+			return value == null ? null : value.toString();
+		});
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
