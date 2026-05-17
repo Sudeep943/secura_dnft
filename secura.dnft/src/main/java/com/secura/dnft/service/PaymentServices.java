@@ -793,6 +793,9 @@ public class PaymentServices implements PaymentInterface {
 		String totalAmount = dueEntity != null && hasText(dueEntity.getTotalAmount()) ? dueEntity.getTotalAmount()
 				: (request != null ? request.getAmount() : null);
 		boolean perHead = isPerHeadCapita(dueEntity != null ? dueEntity.getPaymentCapita() : null);
+		BigDecimal perHeadMultiplier = perHead
+				? resolvePerHeadMultiplier(request != null ? request.getNoOfPersons() : null)
+				: BigDecimal.ONE;
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		Items item = new Items();
@@ -800,19 +803,19 @@ public class PaymentServices implements PaymentInterface {
 		if (perHead) {
 			item.setUnitPrice(itemAmount);
 			item.setQuantity(request != null ? trimValue(request.getNoOfPersons()) : null);
-			item.setAmount(totalAmount);
+			item.setAmount(multiplyAmount(itemAmount, perHeadMultiplier));
 		} else {
 			item.setAmount(itemAmount);
 		}
 		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setItems(List.of(item));
-		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueEntity));
-		receiptRequest.setDiscFinReceipt(buildReceiptDiscFin(dueEntity));
+		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueEntity, perHeadMultiplier));
+		receiptRequest.setDiscFinReceipt(buildReceiptDiscFin(dueEntity, perHeadMultiplier));
 		receiptRequest.setReceiptType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setPerheadFlag(perHead);
 		receiptRequest.setRemarks(null);
 		receiptRequest.setUnitPriceRequired(perHead);
-		receiptRequest.setTotalAmount(totalAmount);
+		receiptRequest.setTotalAmount(perHead ? multiplyAmount(totalAmount, perHeadMultiplier) : totalAmount);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		receiptRequest.setCreatedBy("Auto Generated");
@@ -848,7 +851,7 @@ public class PaymentServices implements PaymentInterface {
 				.orElse(null);
 	}
 
-	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetailsEntity dueEntity) {
+	private List<AddedCharges> buildReceiptAddedCharges(DueAmountDetailsEntity dueEntity, BigDecimal multiplier) {
 		List<AddedCharges> charges = new ArrayList<>();
 		if (dueEntity == null) {
 			return charges;
@@ -857,6 +860,15 @@ public class PaymentServices implements PaymentInterface {
 			List<AddedCharges> entityCharges = genericService.fromJson(dueEntity.getAddedCharges(),
 					new TypeReference<List<AddedCharges>>() {});
 			if (entityCharges != null) {
+				for (AddedCharges charge : entityCharges) {
+					if (charge == null) {
+						continue;
+					}
+					charge.setFinalChargeValue(multiplyAmount(charge.getFinalChargeValue(), multiplier));
+					if (!"percentage".equalsIgnoreCase(trimValue(charge.getChargeType()))) {
+						charge.setValue(multiplyAmount(charge.getValue(), multiplier));
+					}
+				}
 				charges.addAll(entityCharges);
 			}
 		}
@@ -864,14 +876,15 @@ public class PaymentServices implements PaymentInterface {
 			AddedCharges gstCharge = new AddedCharges();
 			gstCharge.setChargeName("GST");
 			gstCharge.setChargeType("GST");
-			gstCharge.setValue(dueEntity.getGstAmount());
-			gstCharge.setFinalChargeValue(dueEntity.getGstAmount());
+			String gstAmount = multiplyAmount(dueEntity.getGstAmount(), multiplier);
+			gstCharge.setValue(gstAmount);
+			gstCharge.setFinalChargeValue(gstAmount);
 			charges.add(gstCharge);
 		}
 		return charges;
 	}
 
-	private DiscFinReceipt buildReceiptDiscFin(DueAmountDetailsEntity dueEntity) {
+	private DiscFinReceipt buildReceiptDiscFin(DueAmountDetailsEntity dueEntity, BigDecimal multiplier) {
 		if (dueEntity == null) {
 			return null;
 		}
@@ -885,16 +898,36 @@ public class PaymentServices implements PaymentInterface {
 			discFin.setDiscountCode(dueEntity.getDiscountCode());
 			discFin.setDiscountPercentage(dueEntity.getDiscValue());
 			discFin.setDiscountType(dueEntity.getDiscountMode());
-			discFin.setDiscountAmount(dueEntity.getDiscountedAmount());
+			discFin.setDiscountAmount(multiplyAmount(dueEntity.getDiscountedAmount(), multiplier));
 		}
 		if (hasFine) {
 			discFin.setFineCode(dueEntity.getFineCode());
 			discFin.setFinePercentage(dueEntity.getFnValue());
 			discFin.setFineType(dueEntity.getFineType());
-			discFin.setFineAmount(dueEntity.getFineAmount());
+			discFin.setFineAmount(multiplyAmount(dueEntity.getFineAmount(), multiplier));
 			discFin.setFineCycleMode(dueEntity.getFineMode());
 		}
 		return discFin;
+	}
+
+	private BigDecimal resolvePerHeadMultiplier(String noOfPersons) {
+		BigDecimal quantity = parseNumeric(noOfPersons);
+		if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+			return BigDecimal.ONE;
+		}
+		return quantity;
+	}
+
+	private String multiplyAmount(String amount, BigDecimal multiplier) {
+		if (!hasText(amount) || multiplier == null || multiplier.compareTo(BigDecimal.ONE) == 0) {
+			return amount;
+		}
+		String normalized = amount.replace(",", "").trim();
+		try {
+			return formatNumber(new BigDecimal(normalized).multiply(multiplier));
+		} catch (NumberFormatException ex) {
+			return amount;
+		}
 	}
 
 	private String buildPayDueReceiptItemName(PayDueRequest request) {
