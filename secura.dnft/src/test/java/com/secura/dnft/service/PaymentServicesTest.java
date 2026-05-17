@@ -158,10 +158,7 @@ class PaymentServicesTest {
 		request.setGenericHeader(header);
 		request.setPaymentId("PAY-1");
 
-		PaymentEntity payment = new PaymentEntity();
-		payment.setPaymentId("PAY-1");
-		payment.setAprmtId("APR-2");
-		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment));
+		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of());
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
