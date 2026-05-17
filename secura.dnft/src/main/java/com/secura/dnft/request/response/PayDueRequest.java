@@ -1,8 +1,10 @@
 package com.secura.dnft.request.response;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class PayDueRequest {
 
@@ -11,7 +13,16 @@ public class PayDueRequest {
 	@JsonAlias({ "DueId" })
 	private String dueId;
 	private String amount;
-	private String tender;
+	private List<BankInstrumentTenderDetails> bankInstrumentTenderDetails;
+	private List<PaymentTenderData> paymentTenderDataList;
+	private String paymentCycle;
+	private String paymentName;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate dueDate;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate dueStartDate;
+	@JsonFormat(pattern = "d-MMM-yyyy")
+	private LocalDate dueEndDate;
 	@JsonAlias({ "thirdPatyTransactioId", "thirdPartyTransactionId" })
 	private String thirdPartyTransactionId;
 	@JsonAlias({ "tarnsactionStatus", "trnsactionStatus", "transactionStatus" })
@@ -54,12 +65,60 @@ public class PayDueRequest {
 		this.amount = amount;
 	}
 
-	public String getTender() {
-		return tender;
+	public List<BankInstrumentTenderDetails> getBankInstrumentTenderDetails() {
+		return bankInstrumentTenderDetails;
 	}
 
-	public void setTender(String tender) {
-		this.tender = tender;
+	public void setBankInstrumentTenderDetails(List<BankInstrumentTenderDetails> bankInstrumentTenderDetails) {
+		this.bankInstrumentTenderDetails = bankInstrumentTenderDetails;
+	}
+
+	public List<PaymentTenderData> getPaymentTenderDataList() {
+		return paymentTenderDataList;
+	}
+
+	public void setPaymentTenderDataList(List<PaymentTenderData> paymentTenderDataList) {
+		this.paymentTenderDataList = paymentTenderDataList;
+	}
+
+	public String getPaymentCycle() {
+		return paymentCycle;
+	}
+
+	public void setPaymentCycle(String paymentCycle) {
+		this.paymentCycle = paymentCycle;
+	}
+
+	public String getPaymentName() {
+		return paymentName;
+	}
+
+	public void setPaymentName(String paymentName) {
+		this.paymentName = paymentName;
+	}
+
+	public LocalDate getDueDate() {
+		return dueDate;
+	}
+
+	public void setDueDate(LocalDate dueDate) {
+		this.dueDate = dueDate;
+	}
+
+	public LocalDate getDueStartDate() {
+		return dueStartDate;
+	}
+
+	public void setDueStartDate(LocalDate dueStartDate) {
+		this.dueStartDate = dueStartDate;
+	}
+
+	public LocalDate getDueEndDate() {
+		return dueEndDate;
+	}
+
+	public void setDueEndDate(LocalDate dueEndDate) {
+		this.dueEndDate = dueEndDate;
 	}
 
 	public String getThirdPartyTransactionId() {

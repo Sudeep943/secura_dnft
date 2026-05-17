@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -602,13 +603,17 @@ public class PaymentServices implements PaymentInterface {
 		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
+		String dueId = request.getDueId();
+		String paymentCycle = request.getPaymentCycle();
+		LocalDate dueDate = request.getDueDate();
+		List<PaymentTenderData> paymentTenderDataList = buildPaymentTenderDataList(request);
+		String primaryTender = resolvePrimaryTender(paymentTenderDataList);
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-		transaction.setTrnscId(createTransactionId(request.getTender(), request.getAmount(), request.getPaymentId(),
+		transaction.setTrnscId(createTransactionId(primaryTender, request.getAmount(), request.getPaymentId(),
 				currentTimestamp.toLocalDate()));
 		transaction.setTrnsDate(currentTimestamp);
 		transaction.setTrnsBy(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		List<PaymentTenderData> paymentTenderDataList = buildPaymentTenderDataList(request.getTender(), request.getAmount());
 		transaction.setTrnsTender(paymentTenderDataList == null ? null : genericService.toJson(paymentTenderDataList));
 		transaction.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		transaction.setTrnsShrtDesc("");
@@ -617,18 +622,20 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setTrnsAmt(request.getAmount());
 		transaction.setTrnsCurrency(SecuraConstants.PAYMENT_CURRENCY);
 		transaction.setPymntId(request.getPaymentId());
-		transaction.setTrnsStatus(resolveTransactionStatus(request.getTender(), request.getTransactionStatus()));
+		transaction.setTrnsStatus(resolveTransactionStatus(primaryTender, request.getTransactionStatus()));
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(null); // TODO: populate from DueAmountDetails on reimplementation
+		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, dueDate));
 		transaction.setCause(resolveTransactionCause(paymentEntity));
+		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
+				request.getBankInstrumentTenderDetails()));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		transaction.setLstUpdtTs(null);
 		transaction.setLstUpdtUsrId(null);
-		if (requiresWorklist(request.getTender())) {
+		if (requiresWorklist(paymentTenderDataList)) {
 			Worklist worklist = genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_TRANSACTION,
 					request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null,
 					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
@@ -766,6 +773,7 @@ public class PaymentServices implements PaymentInterface {
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		Items item = new Items();
+		item.setItemName(buildPayDueReceiptItemName(request));
 		item.setAmount(requestedAmount);
 		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setItems(List.of(item));
@@ -784,17 +792,24 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private List<PaymentTenderData> buildPaymentTenderDataList(PayDueRequest request) {
-		return buildPaymentTenderDataList(request != null ? request.getTender() : null, request != null ? request.getAmount() : null);
+		return normalizePaymentTenderDataList(request != null ? request.getPaymentTenderDataList() : null);
 	}
 
-	private List<PaymentTenderData> buildPaymentTenderDataList(String tender, String amount) {
-		if (!hasText(tender) || !hasText(amount)) {
+	private String buildPayDueReceiptItemName(PayDueRequest request) {
+		if (request == null || !hasText(request.getPaymentName()) || request.getDueStartDate() == null
+				|| request.getDueEndDate() == null) {
 			return null;
 		}
-		PaymentTenderData tenderData = new PaymentTenderData();
-		tenderData.setTenderName(tender);
-		tenderData.setAmountPaid(amount);
-		return List.of(tenderData);
+		DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
+		return request.getPaymentName() + " (Period: " + request.getDueStartDate().format(dateFormatter) + " to "
+				+ request.getDueEndDate().format(dateFormatter) + ")";
+	}
+
+	private String createFlatPendingDueId(String dueId, String paymentCycle, LocalDate dueDate) {
+		if (!hasText(dueId) || !hasText(paymentCycle) || dueDate == null) {
+			return null;
+		}
+		return dueId + "_" + paymentCycle + "_" + dueDate;
 	}
 
 	private String resolvePrimaryTender(List<PaymentTenderData> paymentTenderDataList) {
@@ -840,10 +855,16 @@ public class PaymentServices implements PaymentInterface {
 		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
 	}
 
-	private boolean requiresWorklist(String tender) {
-		String normalizedTender = trimValue(tender);
-		return SecuraConstants.TRANSACTION_TENDER_CASH.equalsIgnoreCase(normalizedTender)
-				|| SecuraConstants.TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER.equalsIgnoreCase(normalizedTender);
+	private boolean requiresWorklist(List<PaymentTenderData> paymentTenderDataList) {
+		if (paymentTenderDataList == null || paymentTenderDataList.isEmpty()) {
+			return false;
+		}
+		return paymentTenderDataList.stream()
+				.filter(Objects::nonNull)
+				.map(PaymentTenderData::getTenderName)
+				.map(this::trimValue)
+				.anyMatch(normalizedTender -> SecuraConstants.TRANSACTION_TENDER_CASH.equalsIgnoreCase(normalizedTender)
+						|| SecuraConstants.TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER.equalsIgnoreCase(normalizedTender));
 	}
 
 	private String trimValue(String value) {

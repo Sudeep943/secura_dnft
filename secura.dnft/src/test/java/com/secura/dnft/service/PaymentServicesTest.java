@@ -512,6 +512,122 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldUseTenderListPersistBankInstrumentAndBuildFormattedReceiptItem() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1001");
+		request.setAmount("5000");
+		request.setDueId("DUE1001");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		request.setDueDate(LocalDate.parse("2027-03-01"));
+		request.setPaymentName("CAM 2026-27");
+		request.setDueStartDate(LocalDate.parse("2027-03-01"));
+		request.setDueEndDate(LocalDate.parse("2028-05-31"));
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "5000")));
+		request.setBankInstrumentTenderDetails(List.of(createBankInstrumentTenderDetails("DDPAB-001")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-1001");
+		paymentEntity.setBankAccountId("BANK-001");
+		paymentEntity.setCauseId("EVENT");
+		when(paymentRepository.findFirstByPaymentId("PAY-1001")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof BankInstrumentTenderDetails) {
+				return "BANK_INSTR_JSON";
+			}
+			return "JSON";
+		});
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-3001");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		Transaction createdTransaction = transactionCaptor.getValue();
+		assertEquals("TRNS_TENDER_JSON", createdTransaction.getTrnsTender());
+		assertEquals("BANK_INSTR_JSON", createdTransaction.getBankInstrumentTenderDetails());
+		assertEquals("DUE1001_MONTHLY_2027-03-01", createdTransaction.getDueDetails());
+		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, createdTransaction.getTrnsStatus());
+		assertEquals("BANK-001", createdTransaction.getTrnsBnkAccnt());
+		assertEquals("EVENT", createdTransaction.getCause());
+		assertEquals("RCT-3001", createdTransaction.getReceiptNumber());
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertEquals(createdTransaction.getTrnscId(), receiptRequest.getTransactionId());
+		assertEquals(1, receiptRequest.getPaymentTenderDataList().size());
+		assertEquals(SecuraConstants.TRANSACTION_TENDER_ONLINE,
+				receiptRequest.getPaymentTenderDataList().get(0).getTenderName());
+		assertEquals("5000", receiptRequest.getPaymentTenderDataList().get(0).getAmountPaid());
+		assertEquals("CAM 2026-27 (Period: 1-Mar-2027 to 31-May-2028)", receiptRequest.getItems().get(0).getItemName());
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
+		assertEquals("RCT-3001", response.getReceiptNumber());
+		assertEquals("RECEIPT_BASE64", response.getReceipt());
+	}
+
+	@Test
+	void payDues_shouldCreateWorklistWhenAnyTenderIsCash() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1002");
+		request.setAmount("1500");
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_CASH, "1500")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-1002");
+		paymentEntity.setBankAccountId("BANK-002");
+		when(paymentRepository.findFirstByPaymentId("PAY-1002")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			return "JSON";
+		});
+		Worklist worklist = new Worklist();
+		worklist.setWorklistTaskId("WL-1001");
+		when(genericService.createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"), eq("APR-001"),
+				any())).thenReturn(worklist);
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		verify(genericService, times(1)).createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"),
+				eq("APR-001"), any());
+		verify(genericService, times(1)).createWorklistAssignmentFlow("WL-1001", List.of("admin"));
+		verify(receiptServices, never()).createReceipt(any(CreateReceiptRequest.class));
+		assertNull(response.getReceipt());
+		assertNull(response.getReceiptNumber());
+	}
+
+	@Test
 	void ledgerEntry_shouldCreateSingleTransactionAndAttachReceipt() throws Exception {
 		LedgerEntryRequest request = new LedgerEntryRequest();
 		GenericHeader header = new GenericHeader();
