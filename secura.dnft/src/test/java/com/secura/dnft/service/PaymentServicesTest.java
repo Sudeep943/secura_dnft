@@ -768,10 +768,26 @@ class PaymentServicesTest {
 		dueEntity.setDueDate(LocalDate.parse("2027-04-01"));
 		dueEntity.setPaymentCapita("PER_HEAD");
 		dueEntity.setAmount("1000");
-		dueEntity.setTotalAmount("3000");
-		when(dueAmountDetailsRepository.findById(
-				new DueAmountDetailsEntityId("DUE2001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-04-01"))))
-				.thenReturn(Optional.of(dueEntity));
+		dueEntity.setGstAmount("120");
+		dueEntity.setAddedCharges("[{\"chargeName\":\"Maintenance\",\"chargeType\":\"amount\",\"value\":\"50\",\"finalChargeValue\":\"50\"}]");
+		dueEntity.setDiscountCode("DISC-1");
+		dueEntity.setDiscValue("2");
+		dueEntity.setDiscountMode("amount");
+		dueEntity.setDiscountedAmount("20");
+		dueEntity.setFineCode("FINE-1");
+		dueEntity.setFnValue("1");
+		dueEntity.setFineType("amount");
+		dueEntity.setFineMode("monthly");
+		dueEntity.setFineAmount("30");
+		dueEntity.setTotalAmount("1180");
+		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(dueEntity));
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+				.thenReturn(List.of(new AddedCharges() {{
+					setChargeName("Maintenance");
+					setChargeType("amount");
+					setValue("50");
+					setFinalChargeValue("50");
+				}}));
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
@@ -789,7 +805,15 @@ class PaymentServicesTest {
 		assertEquals("1000", receiptRequest.getItems().get(0).getUnitPrice());
 		assertEquals("3", receiptRequest.getItems().get(0).getQuantity());
 		assertEquals("3000", receiptRequest.getItems().get(0).getAmount());
-		assertEquals("3000", receiptRequest.getTotalAmount());
+		assertEquals("3540", receiptRequest.getTotalAmount());
+		assertEquals(2, receiptRequest.getAddedCharges().size());
+		assertEquals("150", receiptRequest.getAddedCharges().get(0).getValue());
+		assertEquals("150", receiptRequest.getAddedCharges().get(0).getFinalChargeValue());
+		assertEquals("360", receiptRequest.getAddedCharges().get(1).getValue());
+		assertEquals("360", receiptRequest.getAddedCharges().get(1).getFinalChargeValue());
+		assertNotNull(receiptRequest.getDiscFinReceipt());
+		assertEquals("60", receiptRequest.getDiscFinReceipt().getDiscountAmount());
+		assertEquals("90", receiptRequest.getDiscFinReceipt().getFineAmount());
 	}
 
 	@Test
