@@ -603,6 +603,9 @@ public class PaymentServices implements PaymentInterface {
 		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
+		String dueId = request.getDueId();
+		String paymentCycle = request.getPaymentCycle();
+		LocalDate dueDate = request.getDueDate();
 		List<PaymentTenderData> paymentTenderDataList = buildPaymentTenderDataList(request);
 		String primaryTender = resolvePrimaryTender(paymentTenderDataList);
 		Transaction transaction = new Transaction();
@@ -623,13 +626,10 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(createFlatPendingDueId(
-				request != null ? request.getDueId() : null,
-				request != null ? request.getPaymentCycle() : null,
-				request != null ? request.getDueDate() : null));
+		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, dueDate));
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
-				request != null ? request.getBankInstrumentTenderDetails() : null));
+				request.getBankInstrumentTenderDetails()));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
