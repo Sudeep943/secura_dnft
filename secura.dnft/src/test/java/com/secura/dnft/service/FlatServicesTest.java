@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -47,11 +48,13 @@ import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
@@ -83,6 +86,9 @@ class FlatServicesTest {
 
 	@Mock
 	private GenericService genericService;
+
+	@Mock
+	private TransactionRepository transactionRepository;
 
 	@InjectMocks
 	private FlatServices flatServices;
@@ -365,14 +371,19 @@ class FlatServicesTest {
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
+		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
 		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
+		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101"))
+				.thenReturn(List.of(buildTransactionEntity("PAY1", "A-101", "200")));
+		when(transactionRepository.findByPymntIdAndFlatId("PAY2", "A-101"))
+				.thenReturn(List.of(buildTransactionEntity("PAY2", "A-101", "1200")));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
-		assertEquals("1250", response.getTotalDue());
-		assertEquals("250", response.getTotalMandatoryPayment());
-		assertEquals("1000", response.getTotalOptionalPayment());
+		assertEquals("350", response.getTotalDue());
+		assertEquals("350", response.getTotalMandatoryPayment());
+		assertEquals("0", response.getTotalOptionalPayment());
 		assertEquals(Boolean.TRUE, response.getPenaltyAdded());
 		assertNotNull(response.getDueDetails());
 		assertEquals(2, response.getDueDetails().size());
@@ -420,8 +431,11 @@ class FlatServicesTest {
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
+		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
 		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
+		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101")).thenReturn(List.of());
+		when(transactionRepository.findByPymntIdAndFlatId("PAY2", "A-101")).thenReturn(List.of());
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 
@@ -519,6 +533,14 @@ class FlatServicesTest {
 		paymentEntity.setPaymentId(paymentId);
 		paymentEntity.setPaymentName(paymentName);
 		return paymentEntity;
+	}
+
+	private Transaction buildTransactionEntity(String paymentId, String flatId, String amount) {
+		Transaction transaction = new Transaction();
+		transaction.setPymntId(paymentId);
+		transaction.setFlatId(flatId);
+		transaction.setTrnsAmt(amount);
+		return transaction;
 	}
 
 	private int expectedColumnWidth(Sheet sheet, int columnIndex) {
