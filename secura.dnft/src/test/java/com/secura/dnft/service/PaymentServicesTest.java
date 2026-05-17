@@ -980,6 +980,92 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldAddFlatToPaymentPaidFlatsWhenAllDuesCleared() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-9001");
+		request.setPaymentName("Maintenance");
+		request.setAmount("9000");
+		request.setDueId("DUE-Q1");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_QUATERLY);
+		request.setDueDate(LocalDate.parse("2025-01-01"));
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "9000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-9001");
+		paymentEntity.setBankAccountId("BANK-9001");
+		paymentEntity.setPaymentCapita("PER_SQFT");
+		paymentEntity.setApplicableFor("PAYMENT_APPLICABLE");
+		when(paymentRepository.findFirstByPaymentId("PAY-9001")).thenReturn(Optional.of(paymentEntity));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("FLAT_PENDING_ONLY_Q1");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-03-31"), "PAY-9001",
+				"APPL_Q1");
+		paidQuarterlyDue.setPaymentCapita("PER_SQFT");
+
+		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-9001"))
+				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue)));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		PaymentEntity paymentForAprmtId = new PaymentEntity();
+		paymentForAprmtId.setPaymentId("PAY-9001");
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-9001", "APR-001"))
+				.thenReturn(new ArrayList<>(List.of(paymentForAprmtId)));
+		when(paymentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenAnswer(invocation -> {
+			String marker = invocation.getArgument(0);
+			if (marker != null && marker.startsWith("[") && marker.endsWith("]")) {
+				String content = marker.substring(1, marker.length() - 1).trim();
+				if (content.isEmpty()) {
+					return new ArrayList<>();
+				}
+				return new ArrayList<>(List.of(content.split(",\\s*")));
+			}
+			return switch (marker) {
+			case "FLAT_PENDING_ONLY_Q1" -> new ArrayList<>(List.of("DUE-Q1_QUATERLY_1200_2025-01-01"));
+			case "APPL_Q1" -> new ArrayList<>(List.of("A-101", "A-102"));
+			case "PAYMENT_APPLICABLE" -> new ArrayList<>(List.of("A-101", "A-102"));
+			default -> new ArrayList<>();
+			};
+		});
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0, Object.class);
+			return value == null ? null : value.toString();
+		});
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT");
+		createReceiptResponse.setReceiptNumber("RCT-9001");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		paymentServices.payDues(request);
+
+		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
+		verify(flatRepository).save(flatCaptor.capture());
+		assertFalse(flatCaptor.getValue().getFlatPndngPaymntLst().contains("DUE-Q1_QUATERLY_1200_2025-01-01"));
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<PaymentEntity>> paymentSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(paymentRepository).saveAll(paymentSaveCaptor.capture());
+		assertEquals(1, paymentSaveCaptor.getValue().size());
+		assertTrue(paymentSaveCaptor.getValue().get(0).getPaidFlats().contains("A-101"));
+	}
+
+	@Test
 	void payDues_shouldNotRunCoveredDueRemovalWhenRequestStatusIsNotSuccess() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
