@@ -117,6 +117,9 @@ public class DueAmountDetailsEntity {
 	@Column(name = "applicable_flats", columnDefinition = "TEXT")
 	private String applicableFlats;
 
+	@Column(name = "allowed_tenders", columnDefinition = "TEXT")
+	private String allowedTenders;
+
 	@Column(name = "payment_status")
 	private String paymentStatus;
 
@@ -392,6 +395,14 @@ public class DueAmountDetailsEntity {
 
 	public void setApplicableFlats(String applicableFlats) {
 		this.applicableFlats = applicableFlats;
+	}
+
+	public String getAllowedTenders() {
+		return allowedTenders;
+	}
+
+	public void setAllowedTenders(String allowedTenders) {
+		this.allowedTenders = allowedTenders;
 	}
 
 	public String getPaymentStatus() {

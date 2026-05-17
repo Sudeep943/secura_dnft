@@ -74,6 +74,7 @@ class DueDetailsServiceTest {
 		payment.setPaymentType("MAINTENANCE");
 		payment.setGst("10");
 		payment.setCauseId("COMMON_AREA");
+		payment.setAllowedPaymentModes("[\"UPI\",\"CARD\"]");
 
 		Flat flat1000 = new Flat();
 		flat1000.setFlatNo("A-101");
@@ -95,8 +96,7 @@ class DueDetailsServiceTest {
 			Object value = invocation.getArgument(0);
 			if (value instanceof List<?> list
 					&& !list.isEmpty()
-					&& list.get(0) instanceof String stringValue
-					&& stringValue.startsWith("DUE")) {
+					&& list.get(0) instanceof String stringValue) {
 				return "[\"" + String.join("\",\"", list.stream().map(Object::toString).toList()) + "\"]";
 			}
 			return "[]";
@@ -121,6 +121,7 @@ class DueDetailsServiceTest {
 		assertEquals(2, savedDueEntities.size());
 		assertEquals("USR001", savedDueEntities.get(0).getCreatUsrId());
 		assertEquals("1000", savedDueEntities.get(0).getFlatArea());
+		assertEquals("[\"UPI\",\"CARD\"]", savedDueEntities.get(0).getAllowedTenders());
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
