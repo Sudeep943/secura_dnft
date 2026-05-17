@@ -993,7 +993,7 @@ public class PaymentServices implements PaymentInterface {
 		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
 		removeCoveredDueKeysFromFlat(flatId, coveredDueKeys);
-		addFlatToCoveredDuePaidFlats(flatId, coveredDues);
+		addFlatToCoveredDuePaidFlats(flatId, coveredDues, paidDue);
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatId, paymentId);
 	}
 
@@ -1069,13 +1069,18 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private void addFlatToCoveredDuePaidFlats(String flatId, List<DueAmountDetailsEntity> coveredDues) {
+	private void addFlatToCoveredDuePaidFlats(String flatId, List<DueAmountDetailsEntity> coveredDues,
+			DueAmountDetailsEntity paidDue) {
 		if (!hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
+		boolean perSqftCapita = paidDue != null && isPerSqftCapita(paidDue.getPaymentCapita());
 		List<DueAmountDetailsEntity> updatedDues = new ArrayList<>();
 		for (DueAmountDetailsEntity due : coveredDues) {
 			if (due == null) {
+				continue;
+			}
+			if (perSqftCapita && !isSameDueIdentity(due, paidDue)) {
 				continue;
 			}
 			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
@@ -1088,6 +1093,16 @@ public class PaymentServices implements PaymentInterface {
 		if (!updatedDues.isEmpty()) {
 			dueAmountDetailsRepository.saveAll(updatedDues);
 		}
+	}
+
+	private boolean isSameDueIdentity(DueAmountDetailsEntity due, DueAmountDetailsEntity otherDue) {
+		if (due == null || otherDue == null) {
+			return false;
+		}
+		return Objects.equals(due.getDueId(), otherDue.getDueId())
+				&& Objects.equals(due.getCollectionCycle(), otherDue.getCollectionCycle())
+				&& Objects.equals(due.getFlatArea(), otherDue.getFlatArea())
+				&& Objects.equals(due.getDueDate(), otherDue.getDueDate());
 	}
 
 	private void addFlatToPaymentPaidFlatsWhenNoDuesRemain(String apartmentId, String flatId, String paymentId) {
