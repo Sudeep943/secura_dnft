@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.util.List;
+import java.util.Map;
 
 import com.secura.dnft.entity.DiscFin;
 
@@ -9,7 +10,7 @@ public class GetDiscfinResponse {
 	private GenericHeader genericHeader;
 	private String message;
 	private String messageCode;
-	private List<DiscFin> discFinList;
+	private Map<String, List<DiscFin>> discFinList;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -35,11 +36,11 @@ public class GetDiscfinResponse {
 		this.messageCode = messageCode;
 	}
 
-	public List<DiscFin> getDiscFinList() {
+	public Map<String, List<DiscFin>> getDiscFinList() {
 		return discFinList;
 	}
 
-	public void setDiscFinList(List<DiscFin> discFinList) {
+	public void setDiscFinList(Map<String, List<DiscFin>> discFinList) {
 		this.discFinList = discFinList;
 	}
 }
