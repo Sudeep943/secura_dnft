@@ -993,8 +993,8 @@ public class PaymentServices implements PaymentInterface {
 		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
 		removeCoveredDueKeysFromFlat(flatId, coveredDueKeys);
-		removeFlatFromCoveredDueApplicableFlats(flatId, coveredDues);
-		removeFlatFromPaymentApplicableForWhenNoDuesRemain(apartmentId, flatId, paymentId);
+		addFlatToCoveredDuePaidFlats(flatId, coveredDues);
+		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatId, paymentId);
 	}
 
 	private DueAmountDetailsEntityId parsePendingDueKeyToEntityId(String pendingDueKey) {
@@ -1069,7 +1069,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private void removeFlatFromCoveredDueApplicableFlats(String flatId, List<DueAmountDetailsEntity> coveredDues) {
+	private void addFlatToCoveredDuePaidFlats(String flatId, List<DueAmountDetailsEntity> coveredDues) {
 		if (!hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
@@ -1078,10 +1078,10 @@ public class PaymentServices implements PaymentInterface {
 			if (due == null) {
 				continue;
 			}
-			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
-			List<String> updatedApplicableFlats = removeFlatIdFromList(applicableFlats, flatId);
-			if (!applicableFlats.equals(updatedApplicableFlats)) {
-				due.setApplicableFlats(genericService.toJson(updatedApplicableFlats));
+			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+			List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
+			if (!paidFlats.equals(updatedPaidFlats)) {
+				due.setPaidFlats(genericService.toJson(updatedPaidFlats));
 				updatedDues.add(due);
 			}
 		}
@@ -1090,7 +1090,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private void removeFlatFromPaymentApplicableForWhenNoDuesRemain(String apartmentId, String flatId, String paymentId) {
+	private void addFlatToPaymentPaidFlatsWhenNoDuesRemain(String apartmentId, String flatId, String paymentId) {
 		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId)) {
 			return;
 		}
@@ -1099,7 +1099,8 @@ public class PaymentServices implements PaymentInterface {
 			duesForPayment = List.of();
 		}
 		boolean hasRemainingDueForFlat = duesForPayment.stream().filter(Objects::nonNull)
-				.anyMatch(due -> containsFlatId(parseJsonStringList(due.getApplicableFlats()), flatId));
+				.anyMatch(due -> containsFlatId(parseJsonStringList(due.getApplicableFlats()), flatId)
+						&& !containsFlatId(parseJsonStringList(due.getPaidFlats()), flatId));
 		if (hasRemainingDueForFlat) {
 			return;
 		}
@@ -1112,27 +1113,16 @@ public class PaymentServices implements PaymentInterface {
 			if (paymentEntity == null) {
 				continue;
 			}
-			String updatedApplicableFor = removeFlatFromPaymentApplicableFor(paymentEntity.getApplicableFor(), flatId);
-			if (!Objects.equals(paymentEntity.getApplicableFor(), updatedApplicableFor)) {
-				paymentEntity.setApplicableFor(updatedApplicableFor);
+			List<String> paidFlats = parseJsonStringList(paymentEntity.getPaidFlats());
+			List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
+			if (!paidFlats.equals(updatedPaidFlats)) {
+				paymentEntity.setPaidFlats(genericService.toJson(updatedPaidFlats));
 				updatedPayments.add(paymentEntity);
 			}
 		}
 		if (!updatedPayments.isEmpty()) {
 			paymentRepository.saveAll(updatedPayments);
 		}
-	}
-
-	private String removeFlatFromPaymentApplicableFor(String applicableFor, String flatId) {
-		if (!hasText(applicableFor) || !hasText(flatId)) {
-			return applicableFor;
-		}
-		if ("ALL".equalsIgnoreCase(applicableFor.trim())) {
-			return applicableFor;
-		}
-		List<String> applicableFlats = parseJsonStringList(applicableFor);
-		List<String> updatedApplicableFlats = removeFlatIdFromList(applicableFlats, flatId);
-		return genericService.toJson(updatedApplicableFlats);
 	}
 
 	private List<String> parseJsonStringList(String json) {
@@ -1151,14 +1141,18 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private List<String> removeFlatIdFromList(List<String> values, String flatId) {
-		if (values == null || values.isEmpty()) {
-			return new ArrayList<>();
+	private List<String> addFlatIdToList(List<String> values, String flatId) {
+		if (!hasText(flatId)) {
+			return values != null ? new ArrayList<>(values) : new ArrayList<>();
 		}
+		List<String> normalizedValues = values == null ? new ArrayList<>()
+				: values.stream().filter(this::hasText).map(String::trim).distinct()
+						.collect(Collectors.toCollection(ArrayList::new));
 		String normalizedFlatId = flatId.trim();
-		return values.stream().filter(this::hasText).map(String::trim)
-				.filter(value -> !value.equalsIgnoreCase(normalizedFlatId)).distinct()
-				.collect(Collectors.toCollection(ArrayList::new));
+		if (normalizedValues.stream().noneMatch(value -> value.equalsIgnoreCase(normalizedFlatId))) {
+			normalizedValues.add(normalizedFlatId);
+		}
+		return normalizedValues;
 	}
 
 	private boolean containsFlatId(List<String> values, String flatId) {

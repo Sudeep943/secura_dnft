@@ -880,7 +880,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void payDues_shouldRemoveCoveredDuesAndUpdateApplicableFlatsOnSuccessfulPayment() throws Exception {
+	void payDues_shouldRemoveCoveredDuesAndTrackPaidFlatsOnSuccessfulPayment() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -964,12 +964,15 @@ class PaymentServicesTest {
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
 		verify(dueAmountDetailsRepository).saveAll(dueSaveCaptor.capture());
 		assertEquals(5, dueSaveCaptor.getValue().size());
-		assertTrue(dueSaveCaptor.getValue().stream().allMatch(due -> "[A-102]".equals(due.getApplicableFlats())));
+		assertTrue(dueSaveCaptor.getValue().stream().allMatch(due -> "[A-101]".equals(due.getPaidFlats())));
+		assertTrue(dueSaveCaptor.getValue().stream()
+				.allMatch(due -> List.of("APPL_Q1", "APPL_M1", "APPL_M2", "APPL_M3", "APPL_H1").contains(due.getApplicableFlats())));
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<PaymentEntity>> paymentSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
 		verify(paymentRepository).saveAll(paymentSaveCaptor.capture());
-		assertEquals("[A-102]", paymentSaveCaptor.getValue().get(0).getApplicableFor());
+		assertEquals("[A-101]", paymentSaveCaptor.getValue().get(0).getPaidFlats());
+		assertEquals("PAYMENT_APPLICABLE", paymentSaveCaptor.getValue().get(0).getApplicableFor());
 	}
 
 	@Test
