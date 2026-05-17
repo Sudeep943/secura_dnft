@@ -114,7 +114,11 @@ public class DiscFinServices implements DiscFinInterface {
 
 		Map<String, List<DiscFin>> discFinMap = new LinkedHashMap<>();
 		for (DiscFin discFin : discFinList) {
-			discFinMap.computeIfAbsent(discFin.getDiscFnId(), key -> new ArrayList<>()).add(discFin);
+			String discFnId = discFin.getDiscFnId();
+			if (discFnId == null || discFnId.isBlank()) {
+				discFnId = "UNKNOWN";
+			}
+			discFinMap.computeIfAbsent(discFnId, key -> new ArrayList<>()).add(discFin);
 		}
 		response.setDiscFinList(discFinMap);
 		if (discFinMap.isEmpty()) {
