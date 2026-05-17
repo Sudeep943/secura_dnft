@@ -29,6 +29,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
@@ -181,15 +182,24 @@ class PaymentServicesTest {
 		monthly.setAprmtId("APR-1");
 		monthly.setPaymentName("Maintenance");
 		monthly.setPaymentCollectionCycle("MONTHLY");
-		monthly.setDiscFin("[{\"DISTFIN_TYPE\":\"DISCOUNT\",\"code\":\"DISC1\",\"Status\":\"Active\"},"
-				+ "{\"DISTFIN_TYPE\":\"FINE\",\"code\":\"FINE1\",\"Status\":\"Active\"}]");
+		String discFinJson = "[{\"DISTFIN_TYPE\":\"DISCOUNT\",\"code\":\"DISC1\",\"Status\":\"Active\"},"
+				+ "{\"DISTFIN_TYPE\":\"FINE\",\"code\":\"FINE1\",\"Status\":\"Active\"}]";
+		monthly.setDiscFin(discFinJson);
 
 		PaymentEntity quarterly = new PaymentEntity();
 		quarterly.setPaymentId("PAY-1");
 		quarterly.setAprmtId("APR-1");
 		quarterly.setPaymentCollectionCycle("QUARTERLY");
 
+		Map<String, String> discount = new LinkedHashMap<>();
+		discount.put("DISTFIN_TYPE", "DISCOUNT");
+		discount.put("code", "DISC1");
+		Map<String, String> fine = new LinkedHashMap<>();
+		fine.put("DISTFIN_TYPE", "FINE");
+		fine.put("code", "FINE1");
 		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(monthly, quarterly));
+		when(genericService.fromJson(eq(discFinJson), any(TypeReference.class)))
+				.thenReturn(List.of(discount, fine));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
