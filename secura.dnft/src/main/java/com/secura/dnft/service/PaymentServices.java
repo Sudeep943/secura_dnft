@@ -1021,7 +1021,7 @@ public class PaymentServices implements PaymentInterface {
 			return false;
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
-		return "PER_HEAD".equals(normalized);
+		return "PERHEAD".equals(normalized);
 	}
 
 	private boolean isPerSqftCapita(String paymentCapita) {
@@ -1029,7 +1029,7 @@ public class PaymentServices implements PaymentInterface {
 			return false;
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
-		return "PER_SQFT".equals(normalized);
+		return "PERSQFT".equals(normalized);
 	}
 
 }
