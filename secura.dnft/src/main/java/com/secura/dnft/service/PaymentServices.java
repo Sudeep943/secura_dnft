@@ -481,24 +481,21 @@ public class PaymentServices implements PaymentInterface {
 		if (paymentEntity == null || paymentModel == null || !hasText(paymentEntity.getDiscFin())) {
 			return;
 		}
-		try {
-			List<Map<String, String>> discFinList = genericService.fromJson(paymentEntity.getDiscFin(),
-					new TypeReference<List<Map<String, String>>>() {
-					});
-			if (discFinList == null || discFinList.isEmpty()) {
-				return;
+		List<Map<String, String>> discFinList = genericService.fromJson(paymentEntity.getDiscFin(),
+				new TypeReference<List<Map<String, String>>>() {
+				});
+		if (discFinList == null || discFinList.isEmpty()) {
+			return;
+		}
+		for (Map<String, String> discFin : discFinList) {
+			String discFinType = trimValue(discFin != null ? discFin.get("DISTFIN_TYPE") : null);
+			String code = trimValue(discFin != null ? discFin.get("code") : null);
+			if ("DISCOUNT".equalsIgnoreCase(discFinType)) {
+				paymentModel.setDiscountCode(code);
 			}
-			for (Map<String, String> discFin : discFinList) {
-				String distFinType = trimValue(discFin != null ? discFin.get("DISTFIN_TYPE") : null);
-				String code = trimValue(discFin != null ? discFin.get("code") : null);
-				if ("DISCOUNT".equalsIgnoreCase(distFinType)) {
-					paymentModel.setDiscountCode(code);
-				}
-				if ("FINE".equalsIgnoreCase(distFinType)) {
-					paymentModel.setFineCode(code);
-				}
+			if ("FINE".equalsIgnoreCase(discFinType)) {
+				paymentModel.setFineCode(code);
 			}
-		} catch (RuntimeException ignored) {
 		}
 	}
 
