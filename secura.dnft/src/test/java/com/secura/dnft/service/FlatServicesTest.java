@@ -407,6 +407,41 @@ class FlatServicesTest {
 	}
 
 	@Test
+	void getDueAmountForFlat_shouldIgnorePaidAmountWhenAnyDueIsPerHead() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+		request.setFlatId("A-101");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("[\"D1_MONTHLY_1200_" + LocalDate.now() + "\"]");
+
+		List<String> dueIds = List.of("D1");
+		List<String> pendingDueKeys = List.of("D1_MONTHLY_1200_" + LocalDate.now());
+		DueAmountDetailsEntity dueEntity = buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now(), "100", "0",
+				"Maintenance", "MANDATORY");
+		dueEntity.setPaymentCapita("per_head");
+		List<DueAmountDetailsEntity> dueEntities = List.of(dueEntity);
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
+		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
+		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
+		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
+		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101"))
+				.thenReturn(List.of(buildTransactionEntity("PAY1", "A-101", "100")));
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		assertEquals("100", response.getTotalDue());
+		assertEquals("100", response.getTotalMandatoryPayment());
+		assertEquals("0", response.getTotalOptionalPayment());
+	}
+
+	@Test
 	void getDueAmountForFlat_shouldSerializeDueDetailsWithPaymentDetailJsonKeys() throws Exception {
 		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
 		GenericHeader header = new GenericHeader();

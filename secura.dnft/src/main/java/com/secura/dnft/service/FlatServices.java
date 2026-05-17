@@ -536,8 +536,11 @@ public class FlatServices implements FlatInterface {
 			List<Transaction> paymentTransactions = transactionRepository.findByPymntIdAndFlatId(paymentId, flatId);
 			List<Transaction> normalizedTransactions = paymentTransactions == null ? Collections.emptyList()
 					: paymentTransactions;
-			BigDecimal totalAmountPaidPerPaymentId = normalizedTransactions.stream()
-					.map(Transaction::getTrnsAmt).map(this::parseAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+			boolean hasPerHeadCapita = filteredCycleDues.stream().filter(Objects::nonNull)
+					.anyMatch(dueEntity -> isPerHeadCapita(dueEntity.getPaymentCapita()));
+			BigDecimal totalAmountPaidPerPaymentId = hasPerHeadCapita ? BigDecimal.ZERO
+					: normalizedTransactions.stream().map(Transaction::getTrnsAmt).map(this::parseAmount)
+							.reduce(BigDecimal.ZERO, BigDecimal::add);
 			BigDecimal netDueForPaymentId = totalDuePerPaymentId.subtract(totalAmountPaidPerPaymentId);
 			if (netDueForPaymentId.compareTo(BigDecimal.ZERO) < 0) {
 				netDueForPaymentId = BigDecimal.ZERO;
@@ -595,6 +598,14 @@ public class FlatServices implements FlatInterface {
 			return false;
 		}
 		return SecuraConstants.PAYMENT_CYCLE_ONCE.equalsIgnoreCase(cycle.trim());
+	}
+
+	private boolean isPerHeadCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return false;
+		}
+		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		return "PERHEAD".equals(normalized);
 	}
 
 	private int getCyclePriorityForTotals(String cycle) {
