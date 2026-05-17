@@ -117,7 +117,7 @@ public class DiscFinServices implements DiscFinInterface {
 			discFinMap.computeIfAbsent(discFin.getDiscFnId(), key -> new ArrayList<>()).add(discFin);
 		}
 		response.setDiscFinList(discFinMap);
-		if (discFinList.isEmpty()) {
+		if (discFinMap.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);
 		} else {
