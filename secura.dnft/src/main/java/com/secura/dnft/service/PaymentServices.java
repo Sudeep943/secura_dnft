@@ -992,7 +992,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
-		removeCoveredDueKeysFromFlat(flatId, coveredDueKeys);
+		removeCoveredDueKeysFromFlat(flatId, coveredDues, coveredDueKeys);
 		addFlatToCoveredDuePaidFlats(flatId, coveredDues, paidDue);
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatId, paymentId);
 	}
@@ -1049,8 +1049,10 @@ public class PaymentServices implements PaymentInterface {
 				+ dueEntity.getDueDate();
 	}
 
-	private void removeCoveredDueKeysFromFlat(String flatId, Set<String> coveredDueKeys) {
-		if (!hasText(flatId) || coveredDueKeys == null || coveredDueKeys.isEmpty()) {
+	private void removeCoveredDueKeysFromFlat(String flatId, List<DueAmountDetailsEntity> coveredDues,
+			Set<String> coveredDueKeys) {
+		if (!hasText(flatId) || coveredDueKeys == null || coveredDueKeys.isEmpty() || coveredDues == null
+				|| coveredDues.isEmpty()) {
 			return;
 		}
 		Flat flat = flatRepository.findById(flatId).orElse(null);
@@ -1061,8 +1063,11 @@ public class PaymentServices implements PaymentInterface {
 		if (pendingDueKeys.isEmpty()) {
 			return;
 		}
-		boolean modified = pendingDueKeys.removeIf(
-				pendingDueKey -> hasText(pendingDueKey) && coveredDueKeys.contains(pendingDueKey.trim()));
+		Set<String> perHeadCoveredDueKeys = coveredDues.stream().filter(Objects::nonNull)
+				.filter(due -> isPerHeadCapita(due.getPaymentCapita())).map(this::buildFlatPendingDueKey).filter(this::hasText)
+				.map(String::trim).collect(Collectors.toSet());
+		boolean modified = pendingDueKeys.removeIf(pendingDueKey -> hasText(pendingDueKey)
+				&& coveredDueKeys.contains(pendingDueKey.trim()) && !perHeadCoveredDueKeys.contains(pendingDueKey.trim()));
 		if (modified) {
 			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueKeys));
 			flatRepository.save(flat);
@@ -1084,6 +1089,9 @@ public class PaymentServices implements PaymentInterface {
 				continue;
 			}
 			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+			if (containsFlatId(paidFlats, flatId)) {
+				continue;
+			}
 			List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
 			if (!paidFlats.equals(updatedPaidFlats)) {
 				due.setPaidFlats(genericService.toJson(updatedPaidFlats));
@@ -1139,6 +1147,9 @@ public class PaymentServices implements PaymentInterface {
 				continue;
 			}
 			List<String> paidFlats = parseJsonStringList(paymentEntity.getPaidFlats());
+			if (containsFlatId(paidFlats, flatId)) {
+				continue;
+			}
 			List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
 			if (!paidFlats.equals(updatedPaidFlats)) {
 				paymentEntity.setPaidFlats(genericService.toJson(updatedPaidFlats));
