@@ -663,6 +663,74 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldSetUnitPriceQuantityAndPerHeadFlagsForPerHeadPayments() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-2001");
+		request.setAmount("3000");
+		request.setDueId("DUE2001");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		request.setDueDate(LocalDate.parse("2027-04-01"));
+		request.setPaymentName("Water");
+		request.setNoOfPersons("3");
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "3000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-2001");
+		paymentEntity.setBankAccountId("BANK-010");
+		when(paymentRepository.findFirstByPaymentId("PAY-2001")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			return "JSON";
+		});
+
+		Flat flat = new Flat();
+		flat.setFlatArea("1200");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
+		dueEntity.setDueId("DUE2001");
+		dueEntity.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		dueEntity.setFlatArea("1200");
+		dueEntity.setDueDate(LocalDate.parse("2027-04-01"));
+		dueEntity.setPaymentCapita("PER_HEAD");
+		dueEntity.setAmount("1000");
+		dueEntity.setTotalAmount("3000");
+		when(dueAmountDetailsRepository.findById(
+				new DueAmountDetailsEntityId("DUE2001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-04-01"))))
+				.thenReturn(Optional.of(dueEntity));
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-5001");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		paymentServices.payDues(request);
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertTrue(receiptRequest.isPerheadFlag());
+		assertTrue(receiptRequest.isUnitPriceRequired());
+		assertEquals("1000", receiptRequest.getItems().get(0).getUnitPrice());
+		assertEquals("3", receiptRequest.getItems().get(0).getQuantity());
+		assertEquals("3000", receiptRequest.getItems().get(0).getAmount());
+		assertEquals("3000", receiptRequest.getTotalAmount());
+	}
+
+	@Test
 	void payDues_shouldOmitPeriodSuffixForOnceCycleReceiptItem() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
