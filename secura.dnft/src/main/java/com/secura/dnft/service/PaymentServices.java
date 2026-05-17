@@ -789,19 +789,26 @@ public class PaymentServices implements PaymentInterface {
 				: (request != null ? request.getAmount() : null);
 		String totalAmount = dueEntity != null && hasText(dueEntity.getTotalAmount()) ? dueEntity.getTotalAmount()
 				: (request != null ? request.getAmount() : null);
+		boolean perHead = isPerHeadCapita(dueEntity != null ? dueEntity.getPaymentCapita() : null);
 		CreateReceiptRequest receiptRequest = new CreateReceiptRequest();
 		receiptRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		Items item = new Items();
 		item.setItemName(buildPayDueReceiptItemName(request));
-		item.setAmount(itemAmount);
+		if (perHead) {
+			item.setUnitPrice(itemAmount);
+			item.setQuantity(request != null ? trimValue(request.getNoOfPersons()) : null);
+			item.setAmount(totalAmount);
+		} else {
+			item.setAmount(itemAmount);
+		}
 		item.setType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
 		receiptRequest.setItems(List.of(item));
 		receiptRequest.setAddedCharges(buildReceiptAddedCharges(dueEntity));
 		receiptRequest.setDiscFinReceipt(buildReceiptDiscFin(dueEntity));
 		receiptRequest.setReceiptType(SecuraConstants.RECEIPT_TYPE_PAYMENT);
-		receiptRequest.setPerheadFlag(false);
+		receiptRequest.setPerheadFlag(perHead);
 		receiptRequest.setRemarks(null);
-		receiptRequest.setUnitPriceRequired(false);
+		receiptRequest.setUnitPriceRequired(perHead);
 		receiptRequest.setTotalAmount(totalAmount);
 		receiptRequest.setTransactionId(transactionId);
 		receiptRequest.setFlatId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
@@ -965,6 +972,14 @@ public class PaymentServices implements PaymentInterface {
 
 	private String trimValue(String value) {
 		return value == null ? null : value.trim();
+	}
+
+	private boolean isPerHeadCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return false;
+		}
+		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		return "PERHEAD".equals(normalized);
 	}
 
 }
