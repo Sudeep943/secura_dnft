@@ -642,7 +642,8 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate, request.getPaymentId()));
+		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate, request.getPaymentId(),
+				paymentEntity.getPaymentCapita()));
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
 				request.getBankInstrumentTenderDetails()));
@@ -909,12 +910,10 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String createFlatPendingDueId(String dueId, String paymentCycle, String flatArea, LocalDate dueDate,
-			String paymentId) {
-		if (!hasText(dueId) || !hasText(paymentCycle) || dueDate == null) {
+			String paymentId, String paymentCapita) {
+		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(paymentId) || dueDate == null) {
 			return null;
 		}
-		String paymentCapita = paymentRepository.findFirstByPaymentId(paymentId).map(PaymentEntity::getPaymentCapita)
-				.orElse(null);
 		String dueFlatAreaToken = isPerSqftCapita(paymentCapita) ? trimValue(flatArea) : "ALL";
 		if (!hasText(dueFlatAreaToken)) {
 			return null;
@@ -994,7 +993,7 @@ public class PaymentServices implements PaymentInterface {
 			return false;
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
-		return normalized.contains("PERSQFT");
+		return "PERSQFT".equals(normalized);
 	}
 
 }
