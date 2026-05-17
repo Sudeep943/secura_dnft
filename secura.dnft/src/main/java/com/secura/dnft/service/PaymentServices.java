@@ -887,8 +887,13 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String buildPayDueReceiptItemName(PayDueRequest request) {
-		if (request == null || !hasText(request.getPaymentName()) || request.getDueStartDate() == null
-				|| request.getDueEndDate() == null) {
+		if (request == null || !hasText(request.getPaymentName())) {
+			return null;
+		}
+		if (isOnceCycle(request.getPaymentCycle())) {
+			return request.getPaymentName();
+		}
+		if (request.getDueStartDate() == null || request.getDueEndDate() == null) {
 			return null;
 		}
 		DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);

@@ -663,6 +663,70 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldOmitPeriodSuffixForOnceCycleReceiptItem() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1003");
+		request.setAmount("2500");
+		request.setDueId("DUE1003");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_ONCE);
+		request.setDueDate(LocalDate.parse("2026-05-29"));
+		request.setPaymentName("Club House Booking");
+		request.setDueStartDate(LocalDate.parse("2026-05-29"));
+		request.setDueEndDate(LocalDate.parse("2026-05-31"));
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "2500")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-1003");
+		paymentEntity.setBankAccountId("BANK-003");
+		when(paymentRepository.findFirstByPaymentId("PAY-1003")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			return "JSON";
+		});
+
+		Flat flat = new Flat();
+		flat.setFlatArea("1200");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
+		dueEntity.setDueId("DUE1003");
+		dueEntity.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_ONCE);
+		dueEntity.setFlatArea("1200");
+		dueEntity.setDueDate(LocalDate.parse("2026-05-29"));
+		dueEntity.setAmount("2500");
+		dueEntity.setTotalAmount("2500");
+		when(dueAmountDetailsRepository.findById(new DueAmountDetailsEntityId("DUE1003",
+				SecuraConstants.PAYMENT_CYCLE_ONCE, "1200", LocalDate.parse("2026-05-29"))))
+				.thenReturn(Optional.of(dueEntity));
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-3003");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		CreateReceiptRequest receiptRequest = receiptRequestCaptor.getValue();
+		assertEquals("Club House Booking", receiptRequest.getItems().get(0).getItemName());
+		assertEquals("RCT-3003", response.getReceiptNumber());
+	}
+
+	@Test
 	void ledgerEntry_shouldCreateSingleTransactionAndAttachReceipt() throws Exception {
 		LedgerEntryRequest request = new LedgerEntryRequest();
 		GenericHeader header = new GenericHeader();
