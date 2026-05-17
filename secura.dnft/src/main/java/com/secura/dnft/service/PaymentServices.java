@@ -409,23 +409,50 @@ public class PaymentServices implements PaymentInterface {
 		if (apartmentId == null || apartmentId.isBlank()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
-			response.setPaymentList(new ArrayList<>());
 			return response;
 		}
-		List<PaymentEntity> paymentList = new ArrayList<>();
-		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
-			paymentList = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(), apartmentId);
-		} else {
-			paymentList = paymentRepository.findByAprmtId(apartmentId);
-		}
-		response.setPaymentList(paymentList);
+		List<PaymentEntity> apartmentPayments = paymentRepository.findByAprmtId(apartmentId);
+		String paymentId = request != null ? request.getPaymentId() : null;
+		List<PaymentEntity> paymentList = apartmentPayments.stream()
+				.filter(entity -> paymentId == null || paymentId.isBlank() || paymentId.equals(entity.getPaymentId()))
+				.toList();
 		if (paymentList.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_38);
-		} else {
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_37);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
+			return response;
 		}
+		PaymentEntity sample = paymentList.get(0);
+		response.setPaymentId(sample.getPaymentId());
+		response.setPaymentName(sample.getPaymentName());
+		response.setShortDetails(sample.getShortDetails());
+		response.setPaymentCapita(sample.getPaymentCapita());
+		response.setPaymentAmount(sample.getPaymentAmount());
+		response.setGst(sample.getGst());
+		response.setCurrency(sample.getCurrency());
+		response.setDueDate(sample.getDueDate());
+		response.setCollectionStartDate(sample.getCollectionStartDate());
+		response.setCollectionEndDate(sample.getCollectionEndDate());
+		response.setPaymentCollectionCycleList(paymentList.stream().map(PaymentEntity::getPaymentCollectionCycle)
+				.filter(Objects::nonNull).distinct().toList());
+		response.setPaymentCollectionMode(sample.getPaymentCollectionMode());
+		response.setPartialPaymentAllowed(sample.isPartialPaymentAllowed());
+		response.setApplicableFor(sample.getApplicableFor());
+		response.setAllowedPaymentModes(sample.getAllowedPaymentModes());
+		response.setPaidFlats(sample.getPaidFlats());
+		response.setPaymentType(sample.getPaymentType());
+		response.setBankAccountId(sample.getBankAccountId());
+		response.setStatus(sample.getStatus());
+		response.setAprmtId(sample.getAprmtId());
+		response.setCauseId(sample.getCauseId());
+		response.setAddedCharges(sample.getAddedCharges());
+		response.setDiscFin(paymentList.stream().map(PaymentEntity::getDiscFin).filter(this::hasText).findFirst()
+				.orElse(null));
+		response.setCreatTs(sample.getCreatTs());
+		response.setCreatUsrId(sample.getCreatUsrId());
+		response.setLstUpdtTs(sample.getLstUpdtTs());
+		response.setLstUpdtUsrId(sample.getLstUpdtUsrId());
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_37);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
 		return response;
 	}
 

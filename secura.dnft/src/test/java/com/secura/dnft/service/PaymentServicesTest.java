@@ -99,15 +99,27 @@ class PaymentServicesTest {
 		GetPaymentRequest request = new GetPaymentRequest();
 		request.setGenericHeader(header);
 
-		PaymentEntity payment = new PaymentEntity();
-		payment.setPaymentId("PAY-1");
-		payment.setAprmtId("APR-1");
-		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment));
+		PaymentEntity monthly = new PaymentEntity();
+		monthly.setPaymentId("PAY-1");
+		monthly.setAprmtId("APR-1");
+		monthly.setPaymentCollectionCycle("MONTHLY");
+		monthly.setPaymentAmount("1000");
+		monthly.setPaymentCapita("PER_FLAT");
+		monthly.setDiscFin("");
+		PaymentEntity yearly = new PaymentEntity();
+		yearly.setPaymentId("PAY-1");
+		yearly.setAprmtId("APR-1");
+		yearly.setPaymentCollectionCycle("YEARLY");
+		yearly.setPaymentAmount("1000");
+		yearly.setPaymentCapita("PER_FLAT");
+		yearly.setDiscFin("DISC-FIN");
+		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(monthly, yearly));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
-		assertEquals(1, response.getPaymentList().size());
-		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
+		assertEquals("PAY-1", response.getPaymentId());
+		assertEquals(List.of("MONTHLY", "YEARLY"), response.getPaymentCollectionCycleList());
+		assertEquals("DISC-FIN", response.getDiscFin());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
 	}
@@ -123,12 +135,17 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-1");
-		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of(payment));
+		payment.setPaymentCollectionCycle("MONTHLY");
+		PaymentEntity otherPayment = new PaymentEntity();
+		otherPayment.setPaymentId("PAY-2");
+		otherPayment.setAprmtId("APR-1");
+		otherPayment.setPaymentCollectionCycle("YEARLY");
+		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment, otherPayment));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
-		assertEquals(1, response.getPaymentList().size());
-		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
+		assertEquals("PAY-1", response.getPaymentId());
+		assertEquals(List.of("MONTHLY"), response.getPaymentCollectionCycleList());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
 	}
@@ -144,11 +161,12 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-2");
-		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of());
+		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
-		assertTrue(response.getPaymentList().isEmpty());
+		assertNull(response.getPaymentId());
+		assertNull(response.getPaymentCollectionCycleList());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_38, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_38, response.getMessageCode());
 	}
@@ -159,7 +177,8 @@ class PaymentServicesTest {
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
-		assertTrue(response.getPaymentList().isEmpty());
+		assertNull(response.getPaymentId());
+		assertNull(response.getPaymentCollectionCycleList());
 		assertEquals(com.secura.dnft.generic.bean.ErrorMessage.ERR_MESSAGE_05, response.getMessage());
 		assertEquals(com.secura.dnft.generic.bean.ErrorMessageCode.ERR_MESSAGE_05, response.getMessageCode());
 	}
