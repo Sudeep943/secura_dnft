@@ -536,9 +536,19 @@ class PaymentServicesTest {
 		paymentEntity.setBankAccountId("BANK-001");
 		paymentEntity.setCauseId("EVENT");
 		when(paymentRepository.findFirstByPaymentId("PAY-1001")).thenReturn(Optional.of(paymentEntity));
-		when(genericService.toJson(eq(request.getPaymentTenderDataList()))).thenReturn("TRNS_TENDER_JSON");
-		when(genericService.toJson(eq(List.of()))).thenReturn("FILES_JSON");
-		when(genericService.toJson(eq(request.getBankInstrumentTenderDetails()))).thenReturn("BANK_INSTR_JSON");
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof BankInstrumentTenderDetails) {
+				return "BANK_INSTR_JSON";
+			}
+			return "JSON";
+		});
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
@@ -591,8 +601,16 @@ class PaymentServicesTest {
 		paymentEntity.setPaymentId("PAY-1002");
 		paymentEntity.setBankAccountId("BANK-002");
 		when(paymentRepository.findFirstByPaymentId("PAY-1002")).thenReturn(Optional.of(paymentEntity));
-		when(genericService.toJson(eq(request.getPaymentTenderDataList()))).thenReturn("TRNS_TENDER_JSON");
-		when(genericService.toJson(eq(List.of()))).thenReturn("FILES_JSON");
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			return "JSON";
+		});
 		Worklist worklist = new Worklist();
 		worklist.setWorklistTaskId("WL-1001");
 		when(genericService.createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"), eq("APR-001"),
