@@ -478,9 +478,38 @@ class DueDetailsServiceTest {
 		assertEquals("6000", quarterlyDues.get(1).get("ALL").getAmount());
 		assertEquals("6000", quarterlyDues.get(2).get("ALL").getAmount());
 
-		// Due 4 (Feb 1 – Mar 30): covers Feb and Mar = 2 months → 2000 * 2 = 4000
-		assertEquals("4000", quarterlyDues.get(3).get("ALL").getAmount());
+		// Due 4 (Feb 1 – Mar 30): Feb full month + 30/31 of Mar
+		assertEquals("3935.48", quarterlyDues.get(3).get("ALL").getAmount());
 		assertEquals(LocalDate.of(2026, 2, 1), quarterlyDues.get(3).get("ALL").getDueDate());
+	}
+
+	@Test
+	void calculateDuesForPayment_shouldProrateHalfYearlyPerSqftAmountForOneDayTail() {
+		PaymentEntity payment = createPayment("PAY14001", "APR140", "HALF YEARLY", "2.75", null, null);
+		payment.setCollectionStartDate(LocalDate.of(2026, 8, 1));
+		payment.setCollectionEndDate(LocalDate.of(2027, 8, 1));
+		payment.setPaymentCapita("PER SQFT");
+		payment.setGst("0");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("J-101");
+		flat.setFlatArea("1590");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY14001")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR140")).thenReturn(List.of(flat));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("[]");
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY14001");
+
+		List<Map<String, DueAmountDetails>> halfYearlyDues = response.get("HALF YEARLY");
+		assertEquals(3, halfYearlyDues.size());
+		DueAmountDetails tailDue = halfYearlyDues.get(2).get("1590");
+		assertEquals(LocalDate.of(2027, 8, 1), tailDue.getDueDate());
+		assertEquals(LocalDate.of(2027, 8, 1), tailDue.getDueEndDate());
+		assertEquals("141.05", tailDue.getAmount());
 	}
 
 	@Test

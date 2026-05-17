@@ -3,7 +3,6 @@ package com.secura.dnft.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -683,13 +682,23 @@ public class DueDetailsService {
 		if (!naturalCycleEnd.isAfter(endDate)) {
 			return fullCycleAmount.setScale(2, RoundingMode.HALF_UP);
 		}
-
-		long coveredMonths = (long) YearMonth.from(endDate).compareTo(YearMonth.from(startDate)) + 1;
-		if (coveredMonths <= 0) {
+		BigDecimal coveredMonths = BigDecimal.ZERO;
+		LocalDate cursor = startDate;
+		while (!cursor.isAfter(endDate)) {
+			LocalDate monthEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
+			LocalDate segmentEnd = monthEnd.isBefore(endDate) ? monthEnd : endDate;
+			long coveredDays = ChronoUnit.DAYS.between(cursor, segmentEnd) + 1;
+			int daysInMonth = cursor.lengthOfMonth();
+			if (coveredDays > 0 && daysInMonth > 0) {
+				coveredMonths = coveredMonths.add(BigDecimal.valueOf(coveredDays)
+						.divide(BigDecimal.valueOf(daysInMonth), 8, RoundingMode.HALF_UP));
+			}
+			cursor = segmentEnd.plusDays(1);
+		}
+		if (coveredMonths.compareTo(BigDecimal.ZERO) <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-		return paymentAmountPerMonth.multiply(BigDecimal.valueOf(coveredMonths)).multiply(areaMultiplier)
-				.setScale(2, RoundingMode.HALF_UP);
+		return paymentAmountPerMonth.multiply(coveredMonths).multiply(areaMultiplier).setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private LocalDate calculateDueDate(LocalDate startDate, LocalDate endDate, String paymentCycle, String paymentCollectionMode) {
