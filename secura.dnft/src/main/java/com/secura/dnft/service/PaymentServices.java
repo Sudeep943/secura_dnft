@@ -642,7 +642,8 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
-		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate));
+		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate, request.getPaymentId(),
+				paymentEntity.getPaymentCapita()));
 		transaction.setCause(resolveTransactionCause(paymentEntity));
 		transaction.setBankInstrumentTenderDetails(serializeBankInstrumentTenderDetails(
 				request.getBankInstrumentTenderDetails()));
@@ -908,11 +909,16 @@ public class PaymentServices implements PaymentInterface {
 				+ request.getDueEndDate().format(dateFormatter) + ")";
 	}
 
-	private String createFlatPendingDueId(String dueId, String paymentCycle, String flatArea, LocalDate dueDate) {
-		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
+	private String createFlatPendingDueId(String dueId, String paymentCycle, String flatArea, LocalDate dueDate,
+			String paymentId, String paymentCapita) {
+		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(paymentId) || dueDate == null) {
 			return null;
 		}
-		return dueId + "_" + paymentCycle + "_" + flatArea + "_" + dueDate;
+		String dueFlatAreaToken = isPerSqftCapita(paymentCapita) ? trimValue(flatArea) : "ALL";
+		if (!hasText(dueFlatAreaToken)) {
+			return null;
+		}
+		return dueId + "_" + paymentCycle + "_" + dueFlatAreaToken + "_" + dueDate;
 	}
 
 	private String resolvePrimaryTender(List<PaymentTenderData> paymentTenderDataList) {
@@ -980,6 +986,14 @@ public class PaymentServices implements PaymentInterface {
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		return "PER_HEAD".equals(normalized);
+	}
+
+	private boolean isPerSqftCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return false;
+		}
+		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		return "PERSQFT".equals(normalized);
 	}
 
 }
