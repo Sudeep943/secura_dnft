@@ -4,7 +4,6 @@ import java.sql.Date;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.secura.dnft.entity.PaymentEntity;
 
 public class GetPaymentResponse {
 	
@@ -15,7 +14,7 @@ public class GetPaymentResponse {
     private Date dueDate;
     private String amount;
     private String capita;
-    private List<PaymentEntity> paymentList;
+    private List<PaymentEntityModel> paymentList;
     
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -54,11 +53,11 @@ public class GetPaymentResponse {
 		this.capita = capita;
 	}
 
-	public List<PaymentEntity> getPaymentList() {
+	public List<PaymentEntityModel> getPaymentList() {
 		return paymentList;
 	}
 
-	public void setPaymentList(List<PaymentEntity> paymentList) {
+	public void setPaymentList(List<PaymentEntityModel> paymentList) {
 		this.paymentList = paymentList;
 	}
      
