@@ -97,7 +97,8 @@ class DueDetailsServiceTest {
 			Object value = invocation.getArgument(0);
 			if (value instanceof List<?> list
 					&& !list.isEmpty()
-					&& list.get(0) instanceof String stringValue) {
+					&& list.get(0) instanceof String stringValue
+					&& (stringValue.startsWith("DUE") || List.of("UPI", "CARD").equals(list))) {
 				return "[\"" + String.join("\",\"", list.stream().map(Object::toString).toList()) + "\"]";
 			}
 			return "[]";
