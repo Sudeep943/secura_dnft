@@ -1,7 +1,9 @@
 package com.secura.dnft.service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,7 +112,11 @@ public class DiscFinServices implements DiscFinInterface {
 			discFinList = discFinRepository.findAll();
 		}
 
-		response.setDiscFinList(discFinList);
+		Map<String, List<DiscFin>> discFinMap = new LinkedHashMap<>();
+		for (DiscFin discFin : discFinList) {
+			discFinMap.computeIfAbsent(discFin.getDiscFnId(), key -> new ArrayList<>()).add(discFin);
+		}
+		response.setDiscFinList(discFinMap);
 		if (discFinList.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_31);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_31);
