@@ -979,7 +979,7 @@ public class PaymentServices implements PaymentInterface {
 			return false;
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
-		return "PERHEAD".equals(normalized);
+		return "PER_HEAD".equals(normalized);
 	}
 
 }
