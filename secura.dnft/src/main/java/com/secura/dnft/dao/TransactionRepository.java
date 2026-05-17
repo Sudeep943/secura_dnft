@@ -9,6 +9,8 @@ import com.secura.dnft.entity.Transaction;
 
 public interface TransactionRepository extends JpaRepository<Transaction, String> {
 
+	List<Transaction> findByPymntIdAndFlatId(String pymntId, String flatId);
+
 	List<Transaction> findByAprmntIdAndTrnsTypeAndTrnsDateBetween(
 			String aprmntId, String trnsType, LocalDateTime from, LocalDateTime to);
 

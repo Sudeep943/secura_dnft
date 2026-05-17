@@ -46,11 +46,13 @@ import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.Name;
@@ -98,6 +100,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private GenericService genericService;
+
+	@Autowired
+	private TransactionRepository transactionRepository;
 
 	private final DataFormatter dataFormatter = new DataFormatter();
 
@@ -275,7 +280,8 @@ public class FlatServices implements FlatInterface {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		initializeDefaultDueResponse(response);
 		try {
-			Optional<Flat> optionalFlat = flatRepository.findById(request != null ? request.getFlatId() : null);
+			String flatId = request != null ? request.getFlatId() : null;
+			Optional<Flat> optionalFlat = flatRepository.findById(flatId);
 			if (optionalFlat.isPresent()) {
 				Flat flat = optionalFlat.get();
 				List<String> pendingDueKeys = parseStringList(flat.getFlatPndngPaymntLst());
@@ -290,7 +296,7 @@ public class FlatServices implements FlatInterface {
 							filteredDues);
 					Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = buildDueDetails(finalPaymentMap);
 					response.setDueDetails(dueDetails);
-					DueTotals dueTotals = calculateDueTotalsFromDueDetails(dueDetails);
+					DueTotals dueTotals = calculateDueTotalsFromDueDetails(dueDetails, flatId, flat.getFlatArea());
 					response.setTotalDue(formatAmount(dueTotals.totalDue()));
 					response.setTotalMandatoryPayment(formatAmount(dueTotals.totalMandatoryPayment()));
 					response.setTotalOptionalPayment(formatAmount(dueTotals.totalOptionalPayment()));
@@ -497,27 +503,62 @@ public class FlatServices implements FlatInterface {
 		return dueEntities.stream().map(DueAmountDetailsEntity::getPaymentName).filter(this::hasText).findFirst().orElse(null);
 	}
 
-	private DueTotals calculateDueTotalsFromDueDetails(Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails) {
+	private DueTotals calculateDueTotalsFromDueDetails(Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails, String flatId,
+			String flatArea) {
 		if (dueDetails == null || dueDetails.isEmpty()) {
 			return new DueTotals(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 		}
 		BigDecimal totalDue = BigDecimal.ZERO;
 		BigDecimal totalMandatoryPayment = BigDecimal.ZERO;
 		BigDecimal totalOptionalPayment = BigDecimal.ZERO;
-		for (List<DueAmountDetailsEntity> paymentDues : dueDetails.values()) {
+		for (Map.Entry<PaymentDetail, List<DueAmountDetailsEntity>> entry : dueDetails.entrySet()) {
+			PaymentDetail paymentDetail = entry.getKey();
+			String paymentId = paymentDetail != null ? paymentDetail.getPaymentId() : null;
+			if (!hasText(paymentId)) {
+				continue;
+			}
+			List<DueAmountDetailsEntity> paymentDues = dueAmountDetailsRepository.findByPaymentId(paymentId);
+			if (paymentDues == null || paymentDues.isEmpty()) {
+				paymentDues = entry.getValue();
+			}
 			List<DueAmountDetailsEntity> selectedCycleDues = selectCycleDuesForTotals(paymentDues);
-			BigDecimal totalDuePerPaymentId = selectedCycleDues.stream().filter(Objects::nonNull)
+			List<DueAmountDetailsEntity> filteredCycleDues = filterDuesByFlatArea(selectedCycleDues, flatArea);
+			BigDecimal totalDuePerPaymentId = filteredCycleDues.stream().filter(Objects::nonNull)
 					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
-			totalDue = totalDue.add(totalDuePerPaymentId);
-			String paymentType = selectedCycleDues.stream().filter(Objects::nonNull).findFirst()
+			List<Transaction> paymentTransactions = transactionRepository.findByPymntIdAndFlatId(paymentId, flatId);
+			BigDecimal totalAmountPaidPerPaymentId = (paymentTransactions == null ? Collections.<Transaction>emptyList()
+					: paymentTransactions).stream()
+					.map(Transaction::getTrnsAmt).map(this::parseAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+			BigDecimal netDueForPaymentId = totalDuePerPaymentId.subtract(totalAmountPaidPerPaymentId);
+			if (netDueForPaymentId.compareTo(BigDecimal.ZERO) < 0) {
+				netDueForPaymentId = BigDecimal.ZERO;
+			}
+			totalDue = totalDue.add(netDueForPaymentId);
+			String paymentType = filteredCycleDues.stream().filter(Objects::nonNull).findFirst()
 					.map(DueAmountDetailsEntity::getPaymentType).orElse(null);
 			if ("OPTIONAL".equalsIgnoreCase(paymentType)) {
-				totalOptionalPayment = totalOptionalPayment.add(totalDuePerPaymentId);
+				totalOptionalPayment = totalOptionalPayment.add(netDueForPaymentId);
 			} else if ("MANDATORY".equalsIgnoreCase(paymentType)) {
-				totalMandatoryPayment = totalMandatoryPayment.add(totalDuePerPaymentId);
+				totalMandatoryPayment = totalMandatoryPayment.add(netDueForPaymentId);
 			}
 		}
 		return new DueTotals(totalDue, totalMandatoryPayment, totalOptionalPayment);
+	}
+
+	private List<DueAmountDetailsEntity> filterDuesByFlatArea(List<DueAmountDetailsEntity> selectedCycleDues, String flatArea) {
+		if (selectedCycleDues == null || selectedCycleDues.isEmpty()) {
+			return Collections.emptyList();
+		}
+		DueAmountDetailsEntity firstDue = selectedCycleDues.stream().filter(Objects::nonNull).findFirst().orElse(null);
+		if (firstDue == null) {
+			return Collections.emptyList();
+		}
+		if ("ALL".equalsIgnoreCase(firstDue.getFlatArea()) || !hasText(flatArea)) {
+			return selectedCycleDues.stream().filter(Objects::nonNull).collect(Collectors.toList());
+		}
+		return selectedCycleDues.stream().filter(Objects::nonNull)
+				.filter(dueEntity -> hasText(dueEntity.getFlatArea()) && dueEntity.getFlatArea().equalsIgnoreCase(flatArea))
+				.collect(Collectors.toList());
 	}
 
 	private List<DueAmountDetailsEntity> selectCycleDuesForTotals(List<DueAmountDetailsEntity> paymentDues) {
