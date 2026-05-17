@@ -476,12 +476,14 @@ public class PaymentServices implements PaymentInterface {
 	@Override
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
+				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
+				response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
 		String flatArea = resolveFlatArea(flatId);
-		Transaction transaction = buildTransaction(request, flatArea);
+		Transaction transaction = buildTransaction(request, flatArea,paymentEntity);
 		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
-			DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea);
+			DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea,paymentEntity);
 			CreateReceiptResponse receiptResponse = receiptServices
 					.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
@@ -615,9 +617,9 @@ public class PaymentServices implements PaymentInterface {
 		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
 	}
 
-	private Transaction buildTransaction(PayDueRequest request, String flatArea) {
-		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
-				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
+	private Transaction buildTransaction(PayDueRequest request, String flatArea,PaymentEntity paymentEntity) {
+//		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
+//				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		String dueId = request.getDueId();
 		String paymentCycle = request.getPaymentCycle();
@@ -830,7 +832,7 @@ public class PaymentServices implements PaymentInterface {
 		return flatOptional.isPresent() ? flatOptional.get().getFlatArea() : null;
 	}
 
-	private DueAmountDetailsEntity resolveDueAmountDetailsEntity(PayDueRequest request, String flatArea) {
+	private DueAmountDetailsEntity resolveDueAmountDetailsEntity(PayDueRequest request, String flatArea,PaymentEntity paymentEntity) {
 		if (request == null) {
 			return null;
 		}
@@ -840,8 +842,9 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
 			return null;
 		}
+		String dueFlatAreaToken = isPerSqftCapita(paymentEntity.getPaymentCapita()) ? trimValue(flatArea) : "ALL";
 		return dueAmountDetailsRepository
-				.findById(new DueAmountDetailsEntityId(dueId, paymentCycle, flatArea, dueDate))
+				.findById(new DueAmountDetailsEntityId(dueId, paymentCycle, dueFlatAreaToken, dueDate))
 				.orElse(null);
 	}
 
@@ -993,7 +996,7 @@ public class PaymentServices implements PaymentInterface {
 			return false;
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
-		return "PERSQFT".equals(normalized);
+		return "PER_SQFT".equals(normalized);
 	}
 
 }
