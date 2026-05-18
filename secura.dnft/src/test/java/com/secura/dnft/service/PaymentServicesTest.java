@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -22,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -93,6 +96,11 @@ class PaymentServicesTest {
 
 	@InjectMocks
 	private PaymentServices paymentServices;
+
+	@BeforeEach
+	void setUp() {
+		lenient().when(paymentRepository.findFirstByPaymentId(any())).thenReturn(Optional.empty());
+	}
 
 	@Test
 	void getPayments_shouldReturnApartmentPaymentsWhenPaymentIdMissing() throws Exception {
@@ -411,6 +419,31 @@ class PaymentServicesTest {
 		assertTrue(response.getDuePaymentAmountDetailsMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
 		assertEquals(1, response.getDueAmountDetailsEntityMap().size());
 		assertTrue(response.getDueAmountDetailsEntityMap().containsKey(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY));
+	}
+
+	@Test
+	void getPaymentId_shouldUsePymntPrefixWithCycleStartAndEndYear() {
+		String paymentId = paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), LocalDate.parse("2027-03-31"));
+
+		assertTrue(paymentId.matches("^PYMNT20262027\\d{4}$"));
+	}
+
+	@Test
+	void getPaymentId_shouldThrowWhenStartDateIsNull() {
+		assertThrows(IllegalArgumentException.class,
+				() -> paymentServices.getPaymentId(null, LocalDate.parse("2027-03-31")));
+	}
+
+	@Test
+	void getPaymentId_shouldThrowWhenEndDateIsNull() {
+		assertThrows(IllegalArgumentException.class,
+				() -> paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), null));
+	}
+
+	@Test
+	void getPaymentId_shouldThrowWhenEndDateBeforeStartDate() {
+		assertThrows(IllegalArgumentException.class,
+				() -> paymentServices.getPaymentId(LocalDate.parse("2027-04-01"), LocalDate.parse("2026-03-31")));
 	}
 
 	@Test

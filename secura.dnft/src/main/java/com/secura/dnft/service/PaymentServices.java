@@ -510,10 +510,10 @@ public class PaymentServices implements PaymentInterface {
 	public CreatePaymentResponse createPayment(CreatePaymentRequest request) throws Exception {
 		CreatePaymentResponse response = new CreatePaymentResponse();
 		response.setGenericHeader(request.getGenericHeader());
-		String paymentId = getPaymentId(request.getPaymentType());
 		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
 		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate() : null;
 		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
+		String paymentId = getPaymentId(collectionStartDate, collectionEndDate);
 		String applicableFor = serializeApplicableFor(request.getApplicableFor());
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
@@ -607,12 +607,23 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
-	public String getPaymentId(String paymentType) {
-		StringBuffer paymentId = new StringBuffer();
-		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
-		paymentId.append(paymentType);
-		paymentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
-		return paymentId.toString().toUpperCase();
+	public String getPaymentId(LocalDate collectionStartDate, LocalDate collectionEndDate) {
+		if (collectionStartDate == null || collectionEndDate == null) {
+			throw new IllegalArgumentException("Collection start and end date are required");
+		}
+		if (collectionEndDate.isBefore(collectionStartDate)) {
+			throw new IllegalArgumentException("Collection end date cannot be before start date");
+		}
+		String basePaymentId = (SecuraConstants.PAYMENT_ID_PREFIX + collectionStartDate.getYear() + collectionEndDate.getYear())
+				.toUpperCase(Locale.ROOT);
+		for (int attempt = 0; attempt < 10000; attempt++) {
+			String candidatePaymentId = basePaymentId
+					+ String.format(Locale.ROOT, "%04d", ThreadLocalRandom.current().nextInt(10000));
+			if (paymentRepository.findFirstByPaymentId(candidatePaymentId).isEmpty()) {
+				return candidatePaymentId;
+			}
+		}
+		throw new IllegalStateException("Unable to generate unique payment id");
 	}
 
 	private String serializeAddedCharges(List<AddedCharges> addedCharges) {
