@@ -53,12 +53,15 @@ public class TransactionAndReportsService {
 
 		List<Transaction> transactions = new ArrayList<>();
 		String transactionId = request != null ? request.getTransactionId() : null;
+		String aprmntId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
 
-		if (transactionId == null || transactionId.isBlank()) {
-			transactions = transactionRepository.findAll();
-		} else {
+		if (transactionId != null && !transactionId.isBlank()) {
 			Optional<Transaction> transaction = transactionRepository.findById(transactionId);
 			transaction.ifPresent(transactions::add);
+		} else if (aprmntId != null && !aprmntId.isBlank()) {
+			transactions = transactionRepository.findByAprmntId(aprmntId);
 		}
 
 		List<TransactionResponseItem> transactionList = new ArrayList<>();
@@ -236,7 +239,9 @@ public class TransactionAndReportsService {
 				parseList(transaction.getBankInstrumentTenderDetails(),
 						new TypeReference<List<BankInstrumentTenderDetails>>() {}));
 		item.setWorkListId(transaction.getWorkListId());
-		item.setReceiptNumber(transaction.getReceiptNumber());
+		item.setReceiptNumber(TRNS_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())
+				? transaction.getReceiptNumber()
+				: null);
 		item.setCreatTs(transaction.getCreatTs());
 		item.setCreatUsrId(transaction.getCreatUsrId());
 		item.setLstUpdtTs(transaction.getLstUpdtTs());
