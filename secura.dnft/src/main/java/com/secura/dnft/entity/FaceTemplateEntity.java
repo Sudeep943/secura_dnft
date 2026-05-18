@@ -28,4 +28,38 @@ public class FaceTemplateEntity {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public Long getEmployeeId() {
+		return employeeId;
+	}
+
+	public void setEmployeeId(Long employeeId) {
+		this.employeeId = employeeId;
+	}
+
+	public String getEmbeddingJson() {
+		return embeddingJson;
+	}
+
+	public void setEmbeddingJson(String embeddingJson) {
+		this.embeddingJson = embeddingJson;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
+	}
+    
+    
 }

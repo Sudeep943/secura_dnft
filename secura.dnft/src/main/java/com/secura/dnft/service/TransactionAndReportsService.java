@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -64,10 +65,12 @@ public class TransactionAndReportsService {
 			transactions = transactionRepository.findByAprmntId(aprmntId);
 		}
 
-		List<TransactionResponseItem> transactionList = new ArrayList<>();
-		for (Transaction transaction : transactions) {
-			transactionList.add(toResponseItem(transaction));
-		}
+		//List<TransactionResponseItem> transactionList = new ArrayList<>();
+		List<TransactionResponseItem> transactionList = transactions.stream().map(trns->toResponseItem(trns)).collect(Collectors.toList());
+
+//		for (Transaction transaction : transactions) {
+//			transactionList.add(toResponseItem(transaction));
+//		}
 
 		response.setTransactionList(transactionList);
 		if (transactionList.isEmpty()) {
