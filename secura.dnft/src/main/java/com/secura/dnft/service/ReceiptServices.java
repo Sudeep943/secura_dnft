@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.math.BigDecimal;
@@ -37,6 +36,7 @@ import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.ApartmentRepository;
@@ -98,7 +98,9 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic Generated Receipt and Required No Signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final String RECEIPT_NUMBER_PREFIX = "INV-";
-	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
+	private static final int RECEIPT_NUMBER_DIGITS = 6;
+	private static final long MAX_RECEIPT_SEQUENCE = 999_999L;
+	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong(-1L);
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
 			"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf" };
@@ -483,9 +485,44 @@ public class ReceiptServices implements ReceiptInterface {
 	}
 
 	private String generateReceiptNumber() {
-		long candidate = Instant.now().toEpochMilli() % 10_000_000_000L;
-		long next = LAST_RECEIPT_NUMBER.updateAndGet(previous -> candidate > previous ? candidate : previous + 1);
-		return RECEIPT_NUMBER_PREFIX + String.format(Locale.ENGLISH, "%010d", next % 10_000_000_000L);
+		initializeReceiptCounterIfRequired();
+		long next = LAST_RECEIPT_NUMBER.incrementAndGet();
+		if (next > MAX_RECEIPT_SEQUENCE) {
+			throw new IllegalStateException("Receipt number sequence exceeded supported range");
+		}
+		return RECEIPT_NUMBER_PREFIX + String.format(Locale.ENGLISH, "%0" + RECEIPT_NUMBER_DIGITS + "d", next);
+	}
+
+	private void initializeReceiptCounterIfRequired() {
+		if (LAST_RECEIPT_NUMBER.get() < 0) {
+			synchronized (LAST_RECEIPT_NUMBER) {
+				if (LAST_RECEIPT_NUMBER.get() < 0) {
+					int expectedLength = RECEIPT_NUMBER_PREFIX.length() + RECEIPT_NUMBER_DIGITS;
+					List<String> latestReceiptIds = receiptRepository.findLatestReceiptIdsByPrefix(RECEIPT_NUMBER_PREFIX,
+							expectedLength, PageRequest.of(0, 1));
+					long currentMax = latestReceiptIds.stream()
+							.mapToLong(this::extractSequentialPart)
+							.max()
+							.orElse(0L);
+					LAST_RECEIPT_NUMBER.set(currentMax);
+				}
+			}
+		}
+	}
+
+	private long extractSequentialPart(String receiptId) {
+		if (!hasText(receiptId) || !receiptId.startsWith(RECEIPT_NUMBER_PREFIX)) {
+			return -1L;
+		}
+		String suffix = receiptId.substring(RECEIPT_NUMBER_PREFIX.length());
+		if (suffix.length() != RECEIPT_NUMBER_DIGITS || !suffix.chars().allMatch(Character::isDigit)) {
+			return -1L;
+		}
+		try {
+			return Long.parseLong(suffix);
+		} catch (NumberFormatException ex) {
+			return -1L;
+		}
 	}
 
 	private static final class PdfCanvas {
