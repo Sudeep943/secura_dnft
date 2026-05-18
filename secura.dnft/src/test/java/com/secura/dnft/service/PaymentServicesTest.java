@@ -422,10 +422,10 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void getPaymentId_shouldUsePymntPrefixWithCycleStartAndEndYear() {
+	void getPaymentId_shouldUsePmntPrefixWithCycleStartAndEndYear() {
 		String paymentId = paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), LocalDate.parse("2027-03-31"));
 
-		assertTrue(paymentId.matches("^PYMNT20262027\\d{4}$"));
+		assertTrue(paymentId.matches("^PMNT20262027\\d{4}$"));
 	}
 
 	@Test
