@@ -97,6 +97,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final int LINE_CAP_BUTT = 0;
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic Generated Receipt and Required No Signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
+	private static final String RECEIPT_NUMBER_PREFIX = "INV-";
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong();
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
@@ -484,7 +485,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private String generateReceiptNumber() {
 		long candidate = Instant.now().toEpochMilli() % 10_000_000_000L;
 		long next = LAST_RECEIPT_NUMBER.updateAndGet(previous -> candidate > previous ? candidate : previous + 1);
-		return String.format(Locale.ENGLISH, "%010d", next % 10_000_000_000L);
+		return RECEIPT_NUMBER_PREFIX + String.format(Locale.ENGLISH, "%010d", next % 10_000_000_000L);
 	}
 
 	private static final class PdfCanvas {
