@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,6 +28,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -81,6 +83,11 @@ class ReceiptServicesTest {
 	@InjectMocks
 	private ReceiptServices receiptServices;
 
+	@BeforeEach
+	void setUp() {
+		lenient().when(receiptRepository.findAll()).thenReturn(List.of());
+	}
+
 	@Test
 	void createReceipt_shouldBuildBase64PdfWithRequestedSections() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
@@ -119,6 +126,7 @@ class ReceiptServicesTest {
 		assertNotNull(response.getReceiptNumber());
 		assertFalse(response.getReceipt().isBlank());
 		assertTrue(response.getReceiptNumber().startsWith("INV-"));
+		assertTrue(response.getReceiptNumber().matches("INV-\\d{6}"));
 
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("Secura Heights"));
