@@ -608,11 +608,10 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	public String getPaymentId(String paymentType) {
-		StringBuffer paymentId = new StringBuffer();
+		StringBuilder paymentId = new StringBuilder();
 		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
-		paymentId.append(paymentType);
 		paymentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
-		return paymentId.toString().toUpperCase();
+		return paymentId.toString().toUpperCase(Locale.ROOT);
 	}
 
 	private String serializeAddedCharges(List<AddedCharges> addedCharges) {

@@ -414,6 +414,13 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void getPaymentId_shouldUsePymntPrefixAndFourDigitSuffix() {
+		String paymentId = paymentServices.getPaymentId("CAM");
+
+		assertTrue(paymentId.matches("^PYMNT\\d{4}$"));
+	}
+
+	@Test
 	void createPayment_shouldSetCauseDirectlyFromRequest() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
