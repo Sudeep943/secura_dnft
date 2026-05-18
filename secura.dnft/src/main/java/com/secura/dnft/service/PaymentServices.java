@@ -555,14 +555,12 @@ public class PaymentServices implements PaymentInterface {
 		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
 		String flatArea = resolveFlatArea(flatId);
 		Transaction transaction = buildTransaction(request, flatArea,paymentEntity);
-		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
-			DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea,paymentEntity);
-			CreateReceiptResponse receiptResponse = receiptServices
-					.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
-			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
-			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
-			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
-		}
+		DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea,paymentEntity);
+		CreateReceiptResponse receiptResponse = receiptServices
+				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
+		response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+		response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+		transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 		transactionRepository.save(transaction);
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
