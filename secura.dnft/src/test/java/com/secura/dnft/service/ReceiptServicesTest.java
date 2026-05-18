@@ -118,6 +118,7 @@ class ReceiptServicesTest {
 		assertNotNull(response.getReceipt());
 		assertNotNull(response.getReceiptNumber());
 		assertFalse(response.getReceipt().isBlank());
+		assertTrue(response.getReceiptNumber().startsWith("INV-"));
 
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("Secura Heights"));
