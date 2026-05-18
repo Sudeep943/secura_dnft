@@ -608,14 +608,17 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	public String getPaymentId(LocalDate collectionStartDate, LocalDate collectionEndDate) {
+		if (collectionStartDate == null || collectionEndDate == null) {
+			throw new IllegalArgumentException("Collection start and end date are required");
+		}
+		if (collectionEndDate.isBefore(collectionStartDate)) {
+			throw new IllegalArgumentException("Collection end date cannot be before start date");
+		}
 		StringBuilder paymentId = new StringBuilder();
 		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
-		if (collectionStartDate != null) {
-			paymentId.append(collectionStartDate.getYear());
-		}
-		if (collectionEndDate != null) {
-			paymentId.append(collectionEndDate.getYear());
-		}
+		paymentId.append(collectionStartDate.getYear());
+		paymentId.append(collectionEndDate.getYear());
+		paymentId.append(String.format(Locale.ROOT, "%04d", ThreadLocalRandom.current().nextInt(10000)));
 		return paymentId.toString().toUpperCase(Locale.ROOT);
 	}
 

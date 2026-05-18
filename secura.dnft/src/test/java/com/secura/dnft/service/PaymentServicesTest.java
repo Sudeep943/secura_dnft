@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -417,7 +418,25 @@ class PaymentServicesTest {
 	void getPaymentId_shouldUsePymntPrefixWithCycleStartAndEndYear() {
 		String paymentId = paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), LocalDate.parse("2027-03-31"));
 
-		assertEquals("PYMNT20262027", paymentId);
+		assertTrue(paymentId.matches("^PYMNT20262027\\d{4}$"));
+	}
+
+	@Test
+	void getPaymentId_shouldThrowWhenStartDateIsNull() {
+		assertThrows(IllegalArgumentException.class,
+				() -> paymentServices.getPaymentId(null, LocalDate.parse("2027-03-31")));
+	}
+
+	@Test
+	void getPaymentId_shouldThrowWhenEndDateIsNull() {
+		assertThrows(IllegalArgumentException.class,
+				() -> paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), null));
+	}
+
+	@Test
+	void getPaymentId_shouldThrowWhenEndDateBeforeStartDate() {
+		assertThrows(IllegalArgumentException.class,
+				() -> paymentServices.getPaymentId(LocalDate.parse("2027-04-01"), LocalDate.parse("2026-03-31")));
 	}
 
 	@Test
