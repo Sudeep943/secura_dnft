@@ -414,10 +414,10 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void getPaymentId_shouldUsePymntPrefixAndFourDigitSuffix() {
-		String paymentId = paymentServices.getPaymentId();
+	void getPaymentId_shouldUsePymntPrefixWithCycleStartAndEndYear() {
+		String paymentId = paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), LocalDate.parse("2027-03-31"));
 
-		assertTrue(paymentId.matches("^PYMNT\\d{4}$"));
+		assertEquals("PYMNT20262027", paymentId);
 	}
 
 	@Test

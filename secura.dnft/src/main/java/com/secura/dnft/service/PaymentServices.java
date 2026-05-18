@@ -510,10 +510,10 @@ public class PaymentServices implements PaymentInterface {
 	public CreatePaymentResponse createPayment(CreatePaymentRequest request) throws Exception {
 		CreatePaymentResponse response = new CreatePaymentResponse();
 		response.setGenericHeader(request.getGenericHeader());
-		String paymentId = getPaymentId();
 		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
 		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate() : null;
 		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
+		String paymentId = getPaymentId(collectionStartDate, collectionEndDate);
 		String applicableFor = serializeApplicableFor(request.getApplicableFor());
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
@@ -607,10 +607,15 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
-	public String getPaymentId() {
+	public String getPaymentId(LocalDate collectionStartDate, LocalDate collectionEndDate) {
 		StringBuilder paymentId = new StringBuilder();
 		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
-		paymentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
+		if (collectionStartDate != null) {
+			paymentId.append(collectionStartDate.getYear());
+		}
+		if (collectionEndDate != null) {
+			paymentId.append(collectionEndDate.getYear());
+		}
 		return paymentId.toString().toUpperCase(Locale.ROOT);
 	}
 
