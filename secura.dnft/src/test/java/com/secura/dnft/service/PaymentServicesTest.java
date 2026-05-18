@@ -415,7 +415,7 @@ class PaymentServicesTest {
 
 	@Test
 	void getPaymentId_shouldUsePymntPrefixAndFourDigitSuffix() {
-		String paymentId = paymentServices.getPaymentId("CAM");
+		String paymentId = paymentServices.getPaymentId();
 
 		assertTrue(paymentId.matches("^PYMNT\\d{4}$"));
 	}
