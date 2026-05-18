@@ -1281,10 +1281,11 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String createTransactionId(String apartmentId, LocalDateTime currentTimestamp) {
+		LocalDateTime effectiveTimestamp = currentTimestamp != null ? currentTimestamp : LocalDateTime.now();
 		StringBuilder transactionId = new StringBuilder();
 		transactionId.append(TRANSACTION_ID_PREFIX);
 		transactionId.append(normalizeTransactionIdPart(apartmentId));
-		transactionId.append(currentTimestamp != null ? currentTimestamp.format(TRANSACTION_ID_TIMESTAMP_FORMATTER) : "");
+		transactionId.append(effectiveTimestamp.format(TRANSACTION_ID_TIMESTAMP_FORMATTER));
 		transactionId.append(generateTransactionRandomSuffix());
 		return transactionId.toString().toUpperCase();
 	}
