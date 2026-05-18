@@ -374,9 +374,9 @@ class FlatServicesTest {
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
 		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
-		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101"))
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY1", "A-101", "SUCCESS"))
 				.thenReturn(List.of(buildTransactionEntity("PAY1", "A-101", "200")));
-		when(transactionRepository.findByPymntIdAndFlatId("PAY2", "A-101"))
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY2", "A-101", "SUCCESS"))
 				.thenReturn(List.of(buildTransactionEntity("PAY2", "A-101", "1200")));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
@@ -431,7 +431,7 @@ class FlatServicesTest {
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
-		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101"))
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY1", "A-101", "SUCCESS"))
 				.thenReturn(List.of(buildTransactionEntity("PAY1", "A-101", "100")));
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
@@ -469,8 +469,8 @@ class FlatServicesTest {
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
 		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
 		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
-		when(transactionRepository.findByPymntIdAndFlatId("PAY1", "A-101")).thenReturn(List.of());
-		when(transactionRepository.findByPymntIdAndFlatId("PAY2", "A-101")).thenReturn(List.of());
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY1", "A-101", "SUCCESS")).thenReturn(List.of());
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY2", "A-101", "SUCCESS")).thenReturn(List.of());
 
 		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
 

@@ -533,7 +533,8 @@ public class FlatServices implements FlatInterface {
 			List<DueAmountDetailsEntity> filteredCycleDues = filterDuesByFlatArea(selectedCycleDues, flatArea);
 			BigDecimal totalDuePerPaymentId = filteredCycleDues.stream().filter(Objects::nonNull)
 					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
-			List<Transaction> paymentTransactions = transactionRepository.findByPymntIdAndFlatId(paymentId, flatId);
+			List<Transaction> paymentTransactions = transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus(paymentId, flatId,
+					"SUCCESS");
 			List<Transaction> normalizedTransactions = paymentTransactions == null ? Collections.emptyList()
 					: paymentTransactions;
 			boolean hasPerHeadCapita = filteredCycleDues.stream().filter(Objects::nonNull)
