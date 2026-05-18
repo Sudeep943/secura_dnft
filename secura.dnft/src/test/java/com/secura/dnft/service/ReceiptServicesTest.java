@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -85,7 +87,7 @@ class ReceiptServicesTest {
 
 	@BeforeEach
 	void setUp() {
-		lenient().when(receiptRepository.findAll()).thenReturn(List.of());
+		lenient().when(receiptRepository.findLatestReceiptIdsByPrefix(anyString(), anyInt(), any())).thenReturn(List.of());
 	}
 
 	@Test

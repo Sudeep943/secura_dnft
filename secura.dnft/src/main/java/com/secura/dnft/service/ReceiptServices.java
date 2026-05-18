@@ -36,6 +36,7 @@ import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.ApartmentRepository;
@@ -98,6 +99,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final String RECEIPT_NUMBER_PREFIX = "INV-";
 	private static final int RECEIPT_NUMBER_DIGITS = 6;
+	private static final long MAX_RECEIPT_SEQUENCE = 999_999L;
 	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong(-1L);
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
@@ -485,19 +487,27 @@ public class ReceiptServices implements ReceiptInterface {
 	private String generateReceiptNumber() {
 		initializeReceiptCounterIfRequired();
 		long next = LAST_RECEIPT_NUMBER.incrementAndGet();
+		if (next > MAX_RECEIPT_SEQUENCE) {
+			throw new IllegalStateException("Receipt number sequence exceeded supported range");
+		}
 		return RECEIPT_NUMBER_PREFIX + String.format(Locale.ENGLISH, "%0" + RECEIPT_NUMBER_DIGITS + "d", next);
 	}
 
 	private void initializeReceiptCounterIfRequired() {
-		if (LAST_RECEIPT_NUMBER.get() >= 0) {
-			return;
+		if (LAST_RECEIPT_NUMBER.get() < 0) {
+			synchronized (LAST_RECEIPT_NUMBER) {
+				if (LAST_RECEIPT_NUMBER.get() < 0) {
+					int expectedLength = RECEIPT_NUMBER_PREFIX.length() + RECEIPT_NUMBER_DIGITS;
+					List<String> latestReceiptIds = receiptRepository.findLatestReceiptIdsByPrefix(RECEIPT_NUMBER_PREFIX,
+							expectedLength, PageRequest.of(0, 1));
+					long currentMax = latestReceiptIds.stream()
+							.mapToLong(this::extractSequentialPart)
+							.max()
+							.orElse(0L);
+					LAST_RECEIPT_NUMBER.set(currentMax);
+				}
+			}
 		}
-		long currentMax = receiptRepository.findAll().stream()
-				.map(Receipt::getReceiptId)
-				.mapToLong(this::extractSequentialPart)
-				.max()
-				.orElse(0L);
-		LAST_RECEIPT_NUMBER.compareAndSet(-1L, currentMax);
 	}
 
 	private long extractSequentialPart(String receiptId) {
