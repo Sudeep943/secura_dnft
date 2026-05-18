@@ -71,6 +71,10 @@ public class PaymentServices implements PaymentInterface {
 
 	// Synthetic id used only for non-persisting due preview calculation.
 	private static final String DUE_PREVIEW_PAYMENT_ID = "DUE_PREVIEW";
+	private static final String TRANSACTION_ID_PREFIX = "TRN-";
+	private static final DateTimeFormatter TRANSACTION_ID_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	private static final int TRANSACTION_ID_RANDOM_LENGTH = 6;
 
 	@Autowired
 	GenericService genericService;
@@ -705,8 +709,8 @@ public class PaymentServices implements PaymentInterface {
 		String primaryTender = resolvePrimaryTender(paymentTenderDataList);
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-		transaction.setTrnscId(createTransactionId(primaryTender, request.getAmount(), request.getPaymentId(),
-				currentTimestamp.toLocalDate()));
+		transaction.setTrnscId(createTransactionId(
+				request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null, currentTimestamp));
 		transaction.setTrnsDate(currentTimestamp);
 		transaction.setTrnsBy(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setTrnsTender(paymentTenderDataList == null ? null : genericService.toJson(paymentTenderDataList));
@@ -803,9 +807,9 @@ public class PaymentServices implements PaymentInterface {
 			LocalDateTime transactionDate, LocalDateTime currentTimestamp, List<String> documentIdList) {
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-		transaction.setTrnscId(createTransactionId(resolvePrimaryTender(paymentTenderDataList),
-				request != null ? request.getTrnsAmt() : null,
-				request != null ? request.getLedgerfor() : null, transactionDate.toLocalDate()));
+		transaction.setTrnscId(createTransactionId(
+				request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
+				currentTimestamp));
 		transaction.setTrnsDate(transactionDate);
 		transaction.setTrnsBy(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setTrnsTender(genericService.toJson(paymentTenderDataList));
@@ -1276,18 +1280,26 @@ public class PaymentServices implements PaymentInterface {
 		return paymentTenderDataList.get(0) != null ? paymentTenderDataList.get(0).getTenderName() : null;
 	}
 
-	private String createTransactionId(String tender, String amount, String paymentId, LocalDate todayDate) {
+	private String createTransactionId(String apartmentId, LocalDateTime currentTimestamp) {
 		StringBuilder transactionId = new StringBuilder();
-		transactionId.append(normalizeTransactionIdPart(tender));
-		transactionId.append(normalizeTransactionIdPart(amount));
-		transactionId.append(normalizeTransactionIdPart(paymentId));
-		transactionId.append(todayDate != null ? todayDate.format(DateTimeFormatter.BASIC_ISO_DATE) : "");
-		transactionId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
+		transactionId.append(TRANSACTION_ID_PREFIX);
+		transactionId.append(normalizeTransactionIdPart(apartmentId));
+		transactionId.append(currentTimestamp != null ? currentTimestamp.format(TRANSACTION_ID_TIMESTAMP_FORMATTER) : "");
+		transactionId.append(generateTransactionRandomSuffix());
 		return transactionId.toString().toUpperCase();
 	}
 
 	private String normalizeTransactionIdPart(String value) {
 		return value == null ? "" : value.replaceAll("\\s+", "");
+	}
+
+	private String generateTransactionRandomSuffix() {
+		StringBuilder suffix = new StringBuilder(TRANSACTION_ID_RANDOM_LENGTH);
+		for (int index = 0; index < TRANSACTION_ID_RANDOM_LENGTH; index++) {
+			int randomIndex = ThreadLocalRandom.current().nextInt(TRANSACTION_ID_RANDOM_CHARACTERS.length());
+			suffix.append(TRANSACTION_ID_RANDOM_CHARACTERS.charAt(randomIndex));
+		}
+		return suffix.toString();
 	}
 
 	private String resolveTransactionStatus(String tender, String transactionStatus) {

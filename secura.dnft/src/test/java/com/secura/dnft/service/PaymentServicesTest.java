@@ -648,6 +648,7 @@ class PaymentServicesTest {
 		assertEquals("BANK-001", createdTransaction.getTrnsBnkAccnt());
 		assertEquals("EVENT", createdTransaction.getCause());
 		assertEquals("RCT-3001", createdTransaction.getReceiptNumber());
+		assertTransactionIdFormat(createdTransaction.getTrnscId(), "APR-001");
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
@@ -1345,6 +1346,7 @@ class PaymentServicesTest {
 		assertEquals("FILES_JSON", createdTransaction.getTrnsFiles());
 		assertEquals(LocalDate.parse("2026-04-20").atStartOfDay(), createdTransaction.getTrnsDate());
 		assertEquals("RCT-2001", createdTransaction.getReceiptNumber());
+		assertTransactionIdFormat(createdTransaction.getTrnscId(), "APR-001");
 		assertEquals("RECEIPT_BASE64", response.getReceipt());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_40, response.getMessageCode());
@@ -1502,6 +1504,12 @@ class PaymentServicesTest {
 		due.setPaymentId(paymentId);
 		due.setApplicableFlats(applicableFlatsMarker);
 		return due;
+	}
+
+	private void assertTransactionIdFormat(String transactionId, String apartmentId) {
+		assertNotNull(transactionId);
+		assertTrue(transactionId.matches("^TRN-" + apartmentId + "\\d{14}[A-Z0-9]{6}$"),
+				() -> "Unexpected transaction id format: " + transactionId);
 	}
 
 }
