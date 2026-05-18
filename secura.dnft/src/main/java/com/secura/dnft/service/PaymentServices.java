@@ -614,12 +614,16 @@ public class PaymentServices implements PaymentInterface {
 		if (collectionEndDate.isBefore(collectionStartDate)) {
 			throw new IllegalArgumentException("Collection end date cannot be before start date");
 		}
-		StringBuilder paymentId = new StringBuilder();
-		paymentId.append(SecuraConstants.PAYMENT_ID_PREFIX);
-		paymentId.append(collectionStartDate.getYear());
-		paymentId.append(collectionEndDate.getYear());
-		paymentId.append(String.format(Locale.ROOT, "%04d", ThreadLocalRandom.current().nextInt(10000)));
-		return paymentId.toString().toUpperCase(Locale.ROOT);
+		String basePaymentId = (SecuraConstants.PAYMENT_ID_PREFIX + collectionStartDate.getYear() + collectionEndDate.getYear())
+				.toUpperCase(Locale.ROOT);
+		for (int attempt = 0; attempt < 10000; attempt++) {
+			String candidatePaymentId = basePaymentId
+					+ String.format(Locale.ROOT, "%04d", ThreadLocalRandom.current().nextInt(10000));
+			if (paymentRepository.findFirstByPaymentId(candidatePaymentId).isEmpty()) {
+				return candidatePaymentId;
+			}
+		}
+		throw new IllegalStateException("Unable to generate unique payment id");
 	}
 
 	private String serializeAddedCharges(List<AddedCharges> addedCharges) {

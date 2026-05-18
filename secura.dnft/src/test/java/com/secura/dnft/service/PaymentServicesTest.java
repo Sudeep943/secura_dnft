@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -94,6 +96,11 @@ class PaymentServicesTest {
 
 	@InjectMocks
 	private PaymentServices paymentServices;
+
+	@BeforeEach
+	void setUp() {
+		lenient().when(paymentRepository.findFirstByPaymentId(any())).thenReturn(Optional.empty());
+	}
 
 	@Test
 	void getPayments_shouldReturnApartmentPaymentsWhenPaymentIdMissing() throws Exception {
