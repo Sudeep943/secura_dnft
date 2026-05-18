@@ -82,6 +82,7 @@ public class FlatServices implements FlatInterface {
 			"Possesion Date", "Owner Type", "Flat Area", "Owner DOB", "Owner Phone Number", "Owner Email Number" };
 	private static final DateTimeFormatter SAMPLE_DATE_FORMAT = new DateTimeFormatterBuilder().parseCaseInsensitive()
 			.appendPattern("d-MMM-yyyy").toFormatter(Locale.ENGLISH);
+	private static final String SUCCESS_TRANSACTION_STATUS = "SUCCESS";
 
 	@Autowired
 	private FlatRepository flatRepository;
@@ -533,8 +534,8 @@ public class FlatServices implements FlatInterface {
 			List<DueAmountDetailsEntity> filteredCycleDues = filterDuesByFlatArea(selectedCycleDues, flatArea);
 			BigDecimal totalDuePerPaymentId = filteredCycleDues.stream().filter(Objects::nonNull)
 					.map(dueEntity -> parseAmount(dueEntity.getTotalAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
-			List<Transaction> paymentTransactions = transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus(paymentId, flatId,
-					"SUCCESS");
+			List<Transaction> paymentTransactions = transactionRepository
+					.findByPymntIdAndFlatIdAndTrnsStatus(paymentId, flatId, SUCCESS_TRANSACTION_STATUS);
 			List<Transaction> normalizedTransactions = paymentTransactions == null ? Collections.emptyList()
 					: paymentTransactions;
 			boolean hasPerHeadCapita = filteredCycleDues.stream().filter(Objects::nonNull)
