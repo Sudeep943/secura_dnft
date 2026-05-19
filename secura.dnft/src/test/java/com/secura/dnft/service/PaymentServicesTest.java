@@ -422,28 +422,24 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void getPaymentId_shouldUsePymntPrefixWithCycleStartAndEndYear() {
-		String paymentId = paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), LocalDate.parse("2027-03-31"));
+	void getPaymentId_shouldUseCauseCodeForKnownCause() {
+		String paymentId = paymentServices.getPaymentId("FESTIVAL_FUND");
 
-		assertTrue(paymentId.matches("^PYMNT20262027\\d{4}$"));
+		assertTrue(paymentId.matches("^PMNTEVNT[A-Z0-9]{3}$"));
 	}
 
 	@Test
-	void getPaymentId_shouldThrowWhenStartDateIsNull() {
-		assertThrows(IllegalArgumentException.class,
-				() -> paymentServices.getPaymentId(null, LocalDate.parse("2027-03-31")));
+	void getPaymentId_shouldUseOtherCodeForUnknownCause() {
+		String paymentId = paymentServices.getPaymentId("unknown-cause");
+
+		assertTrue(paymentId.matches("^PMNTOTHR[A-Z0-9]{3}$"));
 	}
 
 	@Test
-	void getPaymentId_shouldThrowWhenEndDateIsNull() {
-		assertThrows(IllegalArgumentException.class,
-				() -> paymentServices.getPaymentId(LocalDate.parse("2026-04-01"), null));
-	}
+	void getPaymentId_shouldUseOtherCodeForNullCause() {
+		String paymentId = paymentServices.getPaymentId(null);
 
-	@Test
-	void getPaymentId_shouldThrowWhenEndDateBeforeStartDate() {
-		assertThrows(IllegalArgumentException.class,
-				() -> paymentServices.getPaymentId(LocalDate.parse("2027-04-01"), LocalDate.parse("2026-03-31")));
+		assertTrue(paymentId.matches("^PMNTOTHR[A-Z0-9]{3}$"));
 	}
 
 	@Test

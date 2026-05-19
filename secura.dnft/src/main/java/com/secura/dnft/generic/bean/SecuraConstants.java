@@ -47,7 +47,7 @@ public interface SecuraConstants {
 
 	
 	
-	public final String PAYMENT_ID_PREFIX="PYMNT" ;
+	public final String PAYMENT_ID_PREFIX="PMNT" ;
 	public final String PAYMENT_CURRENCY="INR" ;
 	public final String PAYMENT_STATUS_CREATED="CREATED" ;
 	public final String PAYMENT_STATUS_ACTIVE="ACTIVE" ;
