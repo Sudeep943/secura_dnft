@@ -46,10 +46,28 @@ PaymentCauseCode paymentCauseCode = LOOKUP.get(normalized);
 return paymentCauseCode != null ? paymentCauseCode.code : DEFAULT_CODE;
 }
 
-private static String normalizeCause(String cause) {
-if (cause == null) {
-return null;
-}
-return cause.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_").replaceAll("^_+|_+$", "");
-}
+	private static String normalizeCause(String cause) {
+		if (cause == null) {
+			return null;
+		}
+		String value = cause.trim().toUpperCase(Locale.ROOT);
+		StringBuilder normalized = new StringBuilder(value.length());
+		boolean lastUnderscore = false;
+		for (int index = 0; index < value.length(); index++) {
+			char currentChar = value.charAt(index);
+			boolean isAlphaNumeric = (currentChar >= 'A' && currentChar <= 'Z')
+					|| (currentChar >= '0' && currentChar <= '9');
+			if (isAlphaNumeric) {
+				normalized.append(currentChar);
+				lastUnderscore = false;
+			} else if (!lastUnderscore && normalized.length() > 0) {
+				normalized.append('_');
+				lastUnderscore = true;
+			}
+		}
+		if (normalized.length() > 0 && normalized.charAt(normalized.length() - 1) == '_') {
+			normalized.deleteCharAt(normalized.length() - 1);
+		}
+		return normalized.toString();
+	}
 }

@@ -1299,15 +1299,14 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String generateTransactionRandomSuffix() {
-		StringBuilder suffix = new StringBuilder(TRANSACTION_ID_RANDOM_LENGTH);
-		for (int index = 0; index < TRANSACTION_ID_RANDOM_LENGTH; index++) {
-			int randomIndex = ThreadLocalRandom.current().nextInt(TRANSACTION_ID_RANDOM_CHARACTERS.length());
-			suffix.append(TRANSACTION_ID_RANDOM_CHARACTERS.charAt(randomIndex));
-		}
-		return suffix.toString();
+		return generateRandomSuffix(TRANSACTION_ID_RANDOM_LENGTH);
 	}
 
 	private String generatePaymentIdRandomSuffix(int length) {
+		return generateRandomSuffix(length);
+	}
+
+	private String generateRandomSuffix(int length) {
 		StringBuilder suffix = new StringBuilder(length);
 		for (int index = 0; index < length; index++) {
 			int randomIndex = ThreadLocalRandom.current().nextInt(TRANSACTION_ID_RANDOM_CHARACTERS.length());
