@@ -37,6 +37,7 @@ import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.generic.bean.PaymentCauseCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
@@ -513,7 +514,7 @@ public class PaymentServices implements PaymentInterface {
 		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
 		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate() : null;
 		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
-		String paymentId = getPaymentId(collectionStartDate, collectionEndDate);
+		String paymentId = getPaymentId(request != null ? request.getCause() : null);
 		String applicableFor = serializeApplicableFor(request.getApplicableFor());
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
@@ -607,18 +608,10 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
-	public String getPaymentId(LocalDate collectionStartDate, LocalDate collectionEndDate) {
-		if (collectionStartDate == null || collectionEndDate == null) {
-			throw new IllegalArgumentException("Collection start and end date are required");
-		}
-		if (collectionEndDate.isBefore(collectionStartDate)) {
-			throw new IllegalArgumentException("Collection end date cannot be before start date");
-		}
-		String basePaymentId = (SecuraConstants.PAYMENT_ID_PREFIX + collectionStartDate.getYear() + collectionEndDate.getYear())
-				.toUpperCase(Locale.ROOT);
+	public String getPaymentId(String cause) {
+		String causeCode = PaymentCauseCode.getCode(cause);
 		for (int attempt = 0; attempt < 10000; attempt++) {
-			String candidatePaymentId = basePaymentId
-					+ String.format(Locale.ROOT, "%04d", ThreadLocalRandom.current().nextInt(10000));
+			String candidatePaymentId = SecuraConstants.PAYMENT_ID_PREFIX + causeCode + generatePaymentIdRandomSuffix(3);
 			if (paymentRepository.findFirstByPaymentId(candidatePaymentId).isEmpty()) {
 				return candidatePaymentId;
 			}
@@ -1308,6 +1301,15 @@ public class PaymentServices implements PaymentInterface {
 	private String generateTransactionRandomSuffix() {
 		StringBuilder suffix = new StringBuilder(TRANSACTION_ID_RANDOM_LENGTH);
 		for (int index = 0; index < TRANSACTION_ID_RANDOM_LENGTH; index++) {
+			int randomIndex = ThreadLocalRandom.current().nextInt(TRANSACTION_ID_RANDOM_CHARACTERS.length());
+			suffix.append(TRANSACTION_ID_RANDOM_CHARACTERS.charAt(randomIndex));
+		}
+		return suffix.toString();
+	}
+
+	private String generatePaymentIdRandomSuffix(int length) {
+		StringBuilder suffix = new StringBuilder(length);
+		for (int index = 0; index < length; index++) {
 			int randomIndex = ThreadLocalRandom.current().nextInt(TRANSACTION_ID_RANDOM_CHARACTERS.length());
 			suffix.append(TRANSACTION_ID_RANDOM_CHARACTERS.charAt(randomIndex));
 		}
