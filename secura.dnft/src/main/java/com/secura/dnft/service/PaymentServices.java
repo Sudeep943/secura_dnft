@@ -101,6 +101,9 @@ public class PaymentServices implements PaymentInterface {
 	@Autowired
 	DueAmountDetailsRepository dueAmountDetailsRepository;
 
+	@Autowired
+	WorklistService worklistService;
+
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
 		DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
@@ -556,22 +559,34 @@ public class PaymentServices implements PaymentInterface {
 		PayDueResponse response = new PayDueResponse();
 		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
-				response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
 		String flatArea = resolveFlatArea(flatId);
+		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
+				request != null ? request.getPaymentTenderDataList() : null);
+		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea,paymentEntity);
 		DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea,paymentEntity);
 		CreateReceiptResponse receiptResponse = receiptServices
 				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
-		response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
-		response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 		transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 		transactionRepository.save(transaction);
+		if (!onlinePayment) {
+			Worklist worklist = worklistService.createTransactionReviewWorklist(transaction.getTrnscId(),
+					request != null ? request.getGenericHeader() : null);
+			transaction.setWorkListId(worklist.getWorklistId());
+			transactionRepository.save(transaction);
+		} else {
+			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
 		response.setTransactionId(transaction.getTrnscId());
-		response.setReceiptNumber(transaction.getReceiptNumber());
-		if (request != null && SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(request.getTransactionStatus())) {
+		if (onlinePayment) {
+			response.setReceiptNumber(transaction.getReceiptNumber());
+		}
+		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
 			removeCoveredDuesAfterSuccessfulPayment(
 					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
 					request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null,
@@ -739,14 +754,6 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		transaction.setLstUpdtTs(null);
 		transaction.setLstUpdtUsrId(null);
-		if (requiresWorklist(paymentTenderDataList)) {
-			Worklist worklist = genericService.createWorklist(SecuraConstants.WORKLIST_TYPE_TRANSACTION,
-					request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null,
-					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
-					transaction.getTrnscId());
-			genericService.createWorklistAssignmentFlow(worklist.getWorklistTaskId(), List.of("admin"));
-			transaction.setWorkListId(worklist.getWorklistTaskId());
-		}
 		return transaction;
 	}
 
@@ -1316,11 +1323,14 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String resolveTransactionStatus(String tender, String transactionStatus) {
-		if (SecuraConstants.TRANSACTION_TENDER_ONLINE.equalsIgnoreCase(trimValue(tender))
+		if (SecuraConstants.TENDER_ONLINE.equalsIgnoreCase(trimValue(tender))
 				&& SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(trimValue(transactionStatus))) {
 			return SecuraConstants.TRANSACTION_STATUS_SUCCESS;
 		}
-		return SecuraConstants.TRANSACTION_STATUS_ON_HOLD;
+		if (SecuraConstants.TENDER_ONLINE.equalsIgnoreCase(trimValue(tender))) {
+			return trimValue(transactionStatus);
+		}
+		return SecuraConstants.TRANSACTION_STATUS_PENDING;
 	}
 
 	private String resolveTransactionCause(PaymentEntity paymentEntity) {
@@ -1345,8 +1355,11 @@ public class PaymentServices implements PaymentInterface {
 				.filter(Objects::nonNull)
 				.map(PaymentTenderData::getTenderName)
 				.map(this::trimValue)
-				.anyMatch(normalizedTender -> SecuraConstants.TRANSACTION_TENDER_CASH.equalsIgnoreCase(normalizedTender)
-						|| SecuraConstants.TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER.equalsIgnoreCase(normalizedTender));
+				.anyMatch(normalizedTender -> !SecuraConstants.TENDER_ONLINE.equalsIgnoreCase(normalizedTender));
+	}
+
+	private boolean isOnlinePayment(List<PaymentTenderData> paymentTenderDataList) {
+		return !requiresWorklist(paymentTenderDataList);
 	}
 
 	private String trimValue(String value) {

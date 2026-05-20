@@ -16,11 +16,12 @@ public interface SecuraConstants {
 	public final String RECEIPT_TYPE_PAYMENT="PAYMENT" ;
 	
 	public final String WORKLIST_STATUS_PENDING="PENDING" ;
-	public final String WORKLIST_STATUS_COMPLETE="BOOKING" ;
+	public final String WORKLIST_STATUS_COMPLETE="COMPLETE" ;
 	public final String WORKLIST_STATUS_CANCELLED="CANCELLED" ;
 	public final String WORKLIST_ASSIGNMENT_STATUS_ACTIVE="ACTIVE" ;
 	public final String WORKLIST_ASSIGNMENT_STATUS_TRANSFERRED="TRANSFERRED" ;
 	public final String WORKLIST_ASSIGNMENT_STATUS_TRANSFERED=WORKLIST_ASSIGNMENT_STATUS_TRANSFERRED ;
+	public final String WORKLIST_TYPE_TRANSACTION_REVIEW="TRANSACTION REVIEW" ;
 	
 	public final String WORKLIST_TYPE_BOOKING="BOOKING" ;
 	public final String WORKLIST_TYPE_PAYMENT="PAYMENT" ;
@@ -54,15 +55,22 @@ public interface SecuraConstants {
 	public final String PAYMENT_STATUS_CANCLLED="CANCLLED" ;
 	public final String PAYMENT_STATUS_COMPLETED="COMPLETED" ;
 	public final String TRANSACTION_TYPE_CREDIT="CREDIT" ;
+	public final String TENDER_ONLINE="Online" ;
+	public final String TRANSACTION_STATUS_PENDING="PENDING" ;
 	public final String TRANSACTION_STATUS_SUCCESS="SUCCESS" ;
+	public final String TRANSACTION_STATUS_FAILED="FAILED" ;
 	public final String TRANSACTION_STATUS_ON_HOLD="ON HOLD" ;
-	public final String TRANSACTION_TENDER_ONLINE="ONLINE" ;
+	public final String TRANSACTION_TENDER_ONLINE=TENDER_ONLINE ;
 	public final String TRANSACTION_TENDER_CASH="CASH" ;
 	public final String TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER="OFFLINE_BANK_TRANSFER" ;
 	public final String TRANSACTION_THIRD_PARTY_RAZOR_PAY="RAZOR PAY" ;
 	public final String TRANSACTION_CAUSE_MAINTENANCE="MAINTENANCE" ;
 	public final String TRANSACTION_CAUSE_EVENT="EVENT" ;
 	public final String TRANSACTION_CAUSE_OTHERS="OTHERS" ;
+	public final String ACTION_APPROVE="APPROVE" ;
+	public final String ACTION_REJECT="REJECT" ;
+	public final String ERROR_INVALID_WORKLIST_TYPE="Select correct Worklist for Transaction review." ;
+	public final String ERROR_INVALID_WORKLIST_TYPE_CODE="INVALID_WORKLIST_TYPE" ;
 	
 	public final String PAYMENT_CYCLE_MONTHLY="MONTHLY" ;
 	public final String PAYMENT_CYCLE_QUATERLY="QUATERLY" ;
