@@ -172,13 +172,13 @@ public class GenericService {
         }
     }
     
-     public String createDocumentId(String documentType, String documentFor) {
-     	StringBuffer documentId= new StringBuffer();
-     	documentId.append(documentType);
-         documentId.append(documentFor);
+	public String createDocumentId(String documentType, String documentFor) {
+		StringBuffer documentId= new StringBuffer();
+		documentId.append(documentType);
+		documentId.append(documentFor);
 		documentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
- 		return documentId.toString().toUpperCase();
-     }
+		return documentId.toString().toUpperCase();
+	}
 
 	public String encrypt(String value) {
 		if (value == null) {
