@@ -176,7 +176,7 @@ public class GenericService {
      	StringBuffer documentId= new StringBuffer();
      	documentId.append(documentType);
          documentId.append(documentFor);
-        documentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
+		documentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
  		return documentId.toString().toUpperCase();
      }
 

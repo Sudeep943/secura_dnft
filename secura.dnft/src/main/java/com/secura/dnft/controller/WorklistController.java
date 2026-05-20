@@ -39,7 +39,7 @@ public class WorklistController {
 
 	@PostMapping("/actionTransctionReviewWorkList")
 	@CrossOrigin(origins = "*")
-	public GenericResponse actionTransctionReviewWorkList(@RequestBody ActionTransactionReviewWorkListRequest request) {
+	public GenericResponse actionTransactionReviewWorkList(@RequestBody ActionTransactionReviewWorkListRequest request) {
 		GenericResponse response = new GenericResponse();
 		try {
 			return worklistService.actionTransactionReviewWorkList(request);

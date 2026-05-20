@@ -54,24 +54,24 @@ class WorklistControllerTest {
 	}
 
 	@Test
-	void actionTransctionReviewWorkList_shouldReturnServiceResponse() {
+	void actionTransactionReviewWorkList_shouldReturnServiceResponse() {
 		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
 		GenericResponse expected = new GenericResponse();
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
 		when(worklistService.actionTransactionReviewWorkList(request)).thenReturn(expected);
 
-		GenericResponse actual = worklistController.actionTransctionReviewWorkList(request);
+		GenericResponse actual = worklistController.actionTransactionReviewWorkList(request);
 
 		assertEquals(expected, actual);
 	}
 
 	@Test
-	void actionTransctionReviewWorkList_shouldReturnGenericErrorWhenServiceThrows() {
+	void actionTransactionReviewWorkList_shouldReturnGenericErrorWhenServiceThrows() {
 		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
 		when(worklistService.actionTransactionReviewWorkList(request)).thenThrow(new RuntimeException("boom"));
 
-		GenericResponse actual = worklistController.actionTransctionReviewWorkList(request);
+		GenericResponse actual = worklistController.actionTransactionReviewWorkList(request);
 
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());

@@ -565,7 +565,7 @@ public class PaymentServices implements PaymentInterface {
 		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
 				request != null ? request.getPaymentTenderDataList() : null);
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
-		Transaction transaction = buildTransaction(request, flatArea,paymentEntity);
+		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
 		DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea,paymentEntity);
 		CreateReceiptResponse receiptResponse = receiptServices
 				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
@@ -717,22 +717,26 @@ public class PaymentServices implements PaymentInterface {
 		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
 	}
 
-	private Transaction buildTransaction(PayDueRequest request, String flatArea,PaymentEntity paymentEntity) {
+	private Transaction buildTransaction(PayDueRequest request, String flatArea, PaymentEntity paymentEntity,
+			List<PaymentTenderData> paymentTenderDataList) {
 //		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
 //				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		LocalDateTime currentTimestamp = LocalDateTime.now();
 		String dueId = request.getDueId();
 		String paymentCycle = request.getPaymentCycle();
 		LocalDate dueDate = request.getDueDate();
-		List<PaymentTenderData> paymentTenderDataList = buildPaymentTenderDataList(request);
-		String primaryTender = resolvePrimaryTender(paymentTenderDataList);
+		List<PaymentTenderData> resolvedTenderDataList = paymentTenderDataList != null
+				? paymentTenderDataList
+				: buildPaymentTenderDataList(request);
+		String primaryTender = resolvePrimaryTender(resolvedTenderDataList);
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 		transaction.setTrnscId(createTransactionId(
 				request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null, currentTimestamp));
 		transaction.setTrnsDate(currentTimestamp);
 		transaction.setTrnsBy(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		transaction.setTrnsTender(paymentTenderDataList == null ? null : genericService.toJson(paymentTenderDataList));
+		transaction.setTrnsTender(
+				resolvedTenderDataList == null ? null : genericService.toJson(resolvedTenderDataList));
 		transaction.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		transaction.setTrnsShrtDesc("");
 		transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
