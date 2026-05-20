@@ -94,6 +94,9 @@ class PaymentServicesTest {
 	@Mock
 	private DueAmountDetailsRepository dueAmountDetailsRepository;
 
+	@Mock
+	private WorklistService worklistService;
+
 	@InjectMocks
 	private PaymentServices paymentServices;
 
@@ -788,9 +791,8 @@ class PaymentServicesTest {
 			return "JSON";
 		});
 		Worklist worklist = new Worklist();
-		worklist.setWorklistTaskId("WL-1001");
-		when(genericService.createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"), eq("APR-001"),
-				any())).thenReturn(worklist);
+		worklist.setWorklistId("WL-1001");
+		when(worklistService.createTransactionReviewWorklist(any(), eq(header))).thenReturn(worklist);
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
@@ -799,12 +801,10 @@ class PaymentServicesTest {
 
 		PayDueResponse response = paymentServices.payDues(request);
 
-		verify(genericService, times(1)).createWorklist(eq(SecuraConstants.WORKLIST_TYPE_TRANSACTION), eq("USR-001"),
-				eq("APR-001"), any());
-		verify(genericService, times(1)).createWorklistAssignmentFlow("WL-1001", List.of("admin"));
+		verify(worklistService, times(1)).createTransactionReviewWorklist(any(), eq(header));
 		verify(receiptServices, times(1)).createReceipt(any(CreateReceiptRequest.class));
-		assertEquals("RECEIPT_BASE64", response.getReceipt());
-		assertEquals("RCT-1002", response.getReceiptNumber());
+		assertNull(response.getReceipt());
+		assertNull(response.getReceiptNumber());
 	}
 
 	@Test

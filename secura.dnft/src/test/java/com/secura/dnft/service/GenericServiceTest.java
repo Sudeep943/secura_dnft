@@ -126,16 +126,17 @@ class GenericServiceTest {
 
 	@Test
 	void worklistsAssignFlowColumnShouldBeText() throws NoSuchFieldException {
-		Field field = Worklist.class.getDeclaredField("worklistsAssignFlow");
+		Field field = Worklist.class.getDeclaredField("worklistAssignmentFlow");
 		Column column = field.getAnnotation(Column.class);
 
 		assertEquals("TEXT", column.columnDefinition());
 	}
 
 	@Test
-	void createWorklistId_shouldAlwaysReturnUppercaseValue() {
+	void createWorklistId_shouldUseWrkPrefixAndUppercaseValue() {
 		String worklistId = genericService.createWorklistId("transaction", "user-1");
 
+		assertEquals("WRK", worklistId.substring(0, 3));
 		assertEquals(worklistId.toUpperCase(), worklistId);
 	}
 }

@@ -3,6 +3,8 @@ package com.secura.dnft.entity;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.*;
@@ -13,19 +15,22 @@ public class Worklist {
 
     @Id
     @Column(name = "worklist_task_id")
-    private String worklistTaskId;
+    private String worklistId;
         
     @Column(name = "aprmt_id")
-    private String aprmtId;
+    private String apartmentId;
     
     @Column(name = "worklists_type")
-    private String worklistsType;
+    private String worklistType;
 
     @Column(name = "status")
     private String status;
     
     @Column(name = "worklists_assign_flow", columnDefinition = "TEXT")
-    private String worklistsAssignFlow;
+    private String worklistAssignmentFlow;
+
+    @Column(name = "current_assignee")
+    private String currentAssignee;
     
     @Column(name = "short_remark")
     private String shortRemark;
@@ -44,25 +49,65 @@ public class Worklist {
     private String lstUpdtUsrId;
     
     @Column(name = "refference_id")
-    private String refferenceID;
+    private String referenceId;
 
-    public String getWorklistsAssignFlow() {
-		return worklistsAssignFlow;
+    public String getWorklistId() {
+		return worklistId;
 	}
 
 
-	public String getRefferenceID() {
-		return refferenceID;
+	public void setWorklistId(String worklistId) {
+		this.worklistId = worklistId;
 	}
 
 
-	public void setRefferenceID(String refferenceID) {
-		this.refferenceID = refferenceID;
+	public String getApartmentId() {
+		return apartmentId;
 	}
 
 
-	public void setWorklistsAssignFlow(String worklistsAssignFlow) {
-		this.worklistsAssignFlow = worklistsAssignFlow;
+	public void setApartmentId(String apartmentId) {
+		this.apartmentId = apartmentId;
+	}
+
+
+	public String getWorklistType() {
+		return worklistType;
+	}
+
+
+	public void setWorklistType(String worklistType) {
+		this.worklistType = worklistType;
+	}
+
+
+	public String getStatus() {
+		return status;
+	}
+
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+
+	public String getWorklistAssignmentFlow() {
+		return worklistAssignmentFlow;
+	}
+
+
+	public void setWorklistAssignmentFlow(String worklistAssignmentFlow) {
+		this.worklistAssignmentFlow = worklistAssignmentFlow;
+	}
+
+
+	public String getCurrentAssignee() {
+		return currentAssignee;
+	}
+
+
+	public void setCurrentAssignee(String currentAssignee) {
+		this.currentAssignee = currentAssignee;
 	}
 
 
@@ -77,41 +122,6 @@ public class Worklist {
 
 
 	public Worklist() {}
-
-
-    public String getAprmtId() {
-		return aprmtId;
-	}
-
-
-	public void setAprmtId(String aprmtId) {
-		this.aprmtId = aprmtId;
-	}
-
-
-	public String getWorklistTaskId() {
-        return worklistTaskId;
-    }
-
-    public void setWorklistTaskId(String worklistTaskId) {
-        this.worklistTaskId = worklistTaskId;
-    }
-
-    public String getWorklistsType() {
-        return worklistsType;
-    }
-
-    public void setWorklistsType(String worklistsType) {
-        this.worklistsType = worklistsType;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
 
 
 	public LocalDateTime getCreatTs() {
@@ -151,5 +161,66 @@ public class Worklist {
 
 	public void setLstUpdtUsrId(String lstUpdtUsrId) {
 		this.lstUpdtUsrId = lstUpdtUsrId;
+	}
+
+
+	public String getReferenceId() {
+		return referenceId;
+	}
+
+
+	public void setReferenceId(String referenceId) {
+		this.referenceId = referenceId;
+	}
+
+
+	@JsonIgnore
+    public String getWorklistTaskId() {
+        return worklistId;
+    }
+
+	@JsonIgnore
+    public void setWorklistTaskId(String worklistTaskId) {
+        this.worklistId = worklistTaskId;
+    }
+
+	@JsonIgnore
+    public String getAprmtId() {
+		return apartmentId;
+	}
+
+	@JsonIgnore
+	public void setAprmtId(String aprmtId) {
+		this.apartmentId = aprmtId;
+	}
+
+	@JsonIgnore
+    public String getWorklistsType() {
+        return worklistType;
+    }
+
+	@JsonIgnore
+    public void setWorklistsType(String worklistsType) {
+        this.worklistType = worklistsType;
+    }
+
+	@JsonIgnore
+    public String getWorklistsAssignFlow() {
+		return worklistAssignmentFlow;
+	}
+
+	@JsonIgnore
+	public void setWorklistsAssignFlow(String worklistsAssignFlow) {
+		this.worklistAssignmentFlow = worklistsAssignFlow;
+	}
+
+	@JsonIgnore
+	public String getRefferenceID() {
+		return referenceId;
+	}
+
+	@JsonIgnore
+	public void setRefferenceID(String refferenceID) {
+		this.referenceId = refferenceID;
 	}
 }

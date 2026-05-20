@@ -8,7 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -87,12 +87,13 @@ public class GenericService {
 	public Worklist createWorklist(String worklistType,String createdBy, String apartmenId,String refferenceID) {
 		Worklist worklist = new Worklist();
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_PENDING);
-		worklist.setWorklistsType(worklistType);
-		worklist.setWorklistTaskId(createWorklistId(worklistType,createdBy));
+		worklist.setWorklistType(worklistType);
+		worklist.setWorklistId(createWorklistId(worklistType,createdBy));
 		worklist.setCreatUsrId(createdBy);
 		worklist.setCreatTs( LocalDateTime.now());
-		worklist.setAprmtId(apartmenId);
-		worklist.setRefferenceID(refferenceID);
+		worklist.setApartmentId(apartmenId);
+		worklist.setReferenceId(refferenceID);
+		worklist.setCurrentAssignee(createdBy);
 		worklistRepository.save(worklist);
 		return worklist;
 	}
@@ -136,11 +137,9 @@ public class GenericService {
 	public void getLatestPaymentsCredit() {}
 
 	public String createWorklistId(String worklistType,String createdBy) {
-		StringBuffer worklistId= new StringBuffer();
-		worklistId.append(worklistType +"_");
-		worklistId.append(createdBy +"_");
-		Random random = new Random();
-		worklistId.append( 1000 + random.nextInt(9000));
+		StringBuilder worklistId = new StringBuilder("WRK");
+		worklistId.append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+		worklistId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
 		return worklistId.toString().toUpperCase();
 	}
 	
@@ -173,14 +172,13 @@ public class GenericService {
         }
     }
     
-     public String createDocumentId(String documentType, String documentFor) {
-     	StringBuffer documentId= new StringBuffer();
-     	documentId.append(documentType);
-        documentId.append(documentFor);
-        Random random = new Random();
-        documentId.append(1000 + random.nextInt(9000));
+	public String createDocumentId(String documentType, String documentFor) {
+		StringBuffer documentId= new StringBuffer();
+		documentId.append(documentType);
+		documentId.append(documentFor);
+		documentId.append(1000 + ThreadLocalRandom.current().nextInt(9000));
 		return documentId.toString().toUpperCase();
-     }
+	}
 
 	public String encrypt(String value) {
 		if (value == null) {
