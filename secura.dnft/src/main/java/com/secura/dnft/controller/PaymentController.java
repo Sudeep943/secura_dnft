@@ -147,19 +147,18 @@ public class PaymentController {
  			return response;
 	            }
  	 
- 	 @PostMapping("/uploadPastDue")
-	    @CrossOrigin(origins = "*")
-	    public UploadPastDueResponse uploadPastDue(@RequestBody UploadPastDueRequest request) {
+	@PostMapping("/uploadPastDue")
+	@CrossOrigin(origins = "*")
+	public UploadPastDueResponse uploadPastDue(@RequestBody UploadPastDueRequest request) {
 		 UploadPastDueResponse response = new UploadPastDueResponse();
 		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		 try {
 			 return paymentServices.uploadPastDue(request);
 		 }
 		 catch (Exception e) {
-			 e.printStackTrace();
 			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		 }
 		 return response;
-	            }
+	}
 }

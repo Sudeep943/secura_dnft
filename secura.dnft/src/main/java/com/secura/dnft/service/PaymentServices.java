@@ -1715,7 +1715,7 @@ public class PaymentServices implements PaymentInterface {
 		try {
 			new BigDecimal(value.trim());
 			return true;
-		} catch (Exception ex) {
+		} catch (NumberFormatException ex) {
 			return false;
 		}
 	}
