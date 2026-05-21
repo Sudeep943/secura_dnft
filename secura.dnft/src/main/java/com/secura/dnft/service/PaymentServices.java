@@ -1,13 +1,19 @@
 package com.secura.dnft.service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,8 +25,19 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
@@ -42,6 +59,7 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.PaymentInterface;
+import com.secura.dnft.request.response.AddDiscfinRequest;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
@@ -52,12 +70,15 @@ import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
+import com.secura.dnft.request.response.PastDueUploadRequest;
+import com.secura.dnft.request.response.PastDueUploadResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentEntityModel;
@@ -76,6 +97,13 @@ public class PaymentServices implements PaymentInterface {
 	private static final DateTimeFormatter TRANSACTION_ID_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	private static final int TRANSACTION_ID_RANDOM_LENGTH = 6;
+	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Name",
+			"Due Amount", "Penalty Amount", "Fine Eligible", "Fine %", "Fine Type" };
+	private static final DateTimeFormatter PAST_DUE_DATE_FORMATTER = new DateTimeFormatterBuilder()
+			.parseCaseInsensitive()
+			.appendPattern("d-MMM-yyyy")
+			.toFormatter(Locale.ENGLISH);
+	private final DataFormatter dataFormatter = new DataFormatter();
 
 	@Autowired
 	GenericService genericService;
@@ -103,6 +131,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	WorklistService worklistService;
+
+	@Autowired
+	DiscFinServices discFinServices;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -551,6 +582,62 @@ public class PaymentServices implements PaymentInterface {
 		dueDetailsService.calculateDuesForPayment(paymentId, request.getGenericHeader());
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
+		return response;
+	}
+
+	public PastDueUploadResponse uploadPastDue(MultipartFile file, GenericHeader genericHeader) {
+		PastDueUploadResponse response = new PastDueUploadResponse();
+		try {
+			if (genericHeader == null || !hasText(genericHeader.getApartmentId())) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+				return response;
+			}
+			validatePastDueFile(file);
+			Set<String> validFlatIds = flatRepository.findByAprmntId(genericHeader.getApartmentId()).stream()
+					.map(Flat::getFlatNo)
+					.filter(this::hasText)
+					.map(value -> value.trim().toUpperCase(Locale.ROOT))
+					.collect(Collectors.toCollection(LinkedHashSet::new));
+			List<PastDueUploadRequest> failedRows = new ArrayList<>();
+			try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+				Sheet sheet = workbook.getSheetAt(0);
+				validatePastDueHeaders(sheet != null ? sheet.getRow(0) : null);
+				for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+					Row row = sheet.getRow(rowIndex);
+					if (row == null || isPastDueRowBlank(row)) {
+						continue;
+					}
+					ParsedPastDueRow parsedRow = extractPastDueRow(row);
+					List<String> validationErrors = validatePastDueRow(parsedRow.request(), parsedRow.rawValues(), validFlatIds);
+					if (!validationErrors.isEmpty()) {
+						parsedRow.request().setReason(String.join(", ", validationErrors));
+						failedRows.add(parsedRow.request());
+						continue;
+					}
+					try {
+						processPastDueRow(parsedRow.request(), genericHeader);
+					} catch (Exception ex) {
+						parsedRow.request().setReason(hasText(ex.getMessage()) ? ex.getMessage() : ErrorMessage.ERR_MESSAGE_33);
+						failedRows.add(parsedRow.request());
+					}
+				}
+			}
+			if (!failedRows.isEmpty()) {
+				response.setErrorfile(generatePastDueErrorWorkbook(failedRows));
+				response.setMessage(ErrorMessage.ERR_MESSAGE_50);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_50);
+			} else {
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_44);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_44);
+			}
+		} catch (IllegalArgumentException ex) {
+			response.setMessage(ex.getMessage());
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		} catch (Exception ex) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
 		return response;
 	}
 
@@ -1288,6 +1375,273 @@ public class PaymentServices implements PaymentInterface {
 		return values.stream().filter(this::hasText).map(String::trim).anyMatch(value -> value.equalsIgnoreCase(flatId.trim()));
 	}
 
+	private void validatePastDueFile(MultipartFile file) {
+		if (file == null || file.isEmpty()) {
+			throw new IllegalArgumentException("file is required");
+		}
+		String originalFilename = file.getOriginalFilename();
+		if (!hasText(originalFilename) || !originalFilename.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
+			throw new IllegalArgumentException("Only .xlsx files are supported");
+		}
+	}
+
+	private void validatePastDueHeaders(Row headerRow) {
+		if (headerRow == null) {
+			throw new IllegalArgumentException("Invalid upload template");
+		}
+		for (int index = 0; index < PAST_DUE_UPLOAD_HEADERS.length; index++) {
+			String actualValue = getPastDueCellValue(headerRow, index);
+			if (!PAST_DUE_UPLOAD_HEADERS[index].equals(actualValue)) {
+				throw new IllegalArgumentException("Invalid upload template");
+			}
+		}
+	}
+
+	private boolean isPastDueRowBlank(Row row) {
+		for (int index = 0; index < PAST_DUE_UPLOAD_HEADERS.length; index++) {
+			if (hasText(getPastDueCellValue(row, index))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private ParsedPastDueRow extractPastDueRow(Row row) {
+		List<String> rawValues = new ArrayList<>();
+		for (int index = 0; index < PAST_DUE_UPLOAD_HEADERS.length; index++) {
+			rawValues.add(getPastDueCellValue(row, index));
+		}
+		PastDueUploadRequest request = new PastDueUploadRequest();
+		request.setFlatId(rawValues.get(0));
+		request.setDueFrom(rawValues.get(1));
+		request.setDueTill(rawValues.get(2));
+		request.setDueName(rawValues.get(3));
+		request.setDueAmount(parsePastDueNumeric(rawValues.get(4)));
+		request.setPenaltyAmount(parsePastDueNumeric(rawValues.get(5)));
+		request.setFineEligible(rawValues.get(6));
+		request.setFinePercentage(parsePastDueNumeric(rawValues.get(7)));
+		request.setFineType(rawValues.get(8));
+		return new ParsedPastDueRow(request, rawValues);
+	}
+
+	private List<String> validatePastDueRow(PastDueUploadRequest request, List<String> rawValues, Set<String> validFlatIds) {
+		List<String> errors = new ArrayList<>();
+		String flatId = trimValue(request.getFlatId());
+		if (!hasText(flatId)) {
+			errors.add("Flat Id missing");
+		} else if (validFlatIds.stream().noneMatch(flat -> flat.equalsIgnoreCase(flatId))) {
+			errors.add("Invalid Flat Id");
+		}
+		validatePastDueDate(rawValues.get(1), "Due From", errors);
+		validatePastDueDate(rawValues.get(2), "Due Till", errors);
+		if (!hasText(request.getDueName())) {
+			errors.add("Due Name missing");
+		}
+		if (!hasText(rawValues.get(4))) {
+			errors.add("Due Amount missing");
+		} else if (request.getDueAmount() == null) {
+			errors.add("Invalid Due Amount");
+		}
+		if (hasText(rawValues.get(5)) && request.getPenaltyAmount() == null) {
+			errors.add("Invalid Penalty Amount");
+		}
+		if (hasText(rawValues.get(6))) {
+			String normalizedFineEligible = rawValues.get(6).trim();
+			if (!"YES".equalsIgnoreCase(normalizedFineEligible) && !"NO".equalsIgnoreCase(normalizedFineEligible)) {
+				errors.add("Invalid Fine Eligible");
+			}
+		}
+		if (hasText(rawValues.get(7)) && request.getFinePercentage() == null) {
+			errors.add("Invalid Fine %");
+		}
+		if (hasText(rawValues.get(8))) {
+			String normalizedFineType = rawValues.get(8).trim();
+			if (!SecuraConstants.DISC_FN_CYCLE_TYPE_SIMPLE.equalsIgnoreCase(normalizedFineType)
+					&& !SecuraConstants.DISC_FN_CYCLE_TYPE_CUMULATIVE.equalsIgnoreCase(normalizedFineType)) {
+				errors.add("Invalid Fine Type");
+			}
+		}
+		return errors;
+	}
+
+	private void validatePastDueDate(String rawValue, String fieldName, List<String> errors) {
+		if (!hasText(rawValue)) {
+			errors.add(fieldName + " missing");
+			return;
+		}
+		try {
+			LocalDate.parse(rawValue.trim(), PAST_DUE_DATE_FORMATTER);
+		} catch (DateTimeParseException ex) {
+			errors.add("Invalid " + fieldName + " format");
+		}
+	}
+
+	private void processPastDueRow(PastDueUploadRequest request, GenericHeader genericHeader) throws Exception {
+		CreatePaymentRequest paymentRequest = buildPastDuePaymentRequest(request, genericHeader);
+		createPayment(paymentRequest);
+	}
+
+	private CreatePaymentRequest buildPastDuePaymentRequest(PastDueUploadRequest request, GenericHeader genericHeader)
+			throws Exception {
+		CreatePaymentRequest paymentRequest = new CreatePaymentRequest();
+		paymentRequest.setGenericHeader(genericHeader);
+		paymentRequest.setAllowedPaymentModes(List.of("ONLINE", "CASH", "CHEQUE"));
+		paymentRequest.setPaymentCollectionCycleList(List.of(SecuraConstants.PAYMENT_CYCLE_ONCE));
+		paymentRequest.setPaymentName(trimValue(request.getDueName()));
+		paymentRequest.setShortDetails(trimValue(request.getDueName()));
+		paymentRequest.setCollectionStartDate(Date.valueOf(LocalDate.parse(request.getDueFrom().trim(), PAST_DUE_DATE_FORMATTER)));
+		paymentRequest.setCollectionEndDate(Date.valueOf(LocalDate.parse(request.getDueTill().trim(), PAST_DUE_DATE_FORMATTER)));
+		paymentRequest.setPaymentCollectionMode("PRE");
+		paymentRequest.setApplicableFor(List.of(trimValue(request.getFlatId())));
+		paymentRequest.setPaymentType("MANDATORY");
+		paymentRequest.setPartialPaymentAllowed(false);
+		paymentRequest.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+		paymentRequest.setPaymentAmount(request.getDueAmount().stripTrailingZeros().toPlainString());
+		paymentRequest.setPaymentCapita("PER_FLAT");
+		paymentRequest.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
+		paymentRequest.setGst("0");
+		paymentRequest.setCause(SecuraConstants.TRANSACTION_CAUSE_OTHERS);
+
+		if (request.getPenaltyAmount() != null && request.getPenaltyAmount().compareTo(BigDecimal.ZERO) > 0) {
+			AddedCharges penaltyCharge = new AddedCharges();
+			penaltyCharge.setChargeName("Penalty Amount");
+			penaltyCharge.setChargeType(SecuraConstants.DISC_FN_MODE_AMOUNT);
+			penaltyCharge.setValue(request.getPenaltyAmount().stripTrailingZeros().toPlainString());
+			paymentRequest.setAddedCharges(List.of(penaltyCharge));
+		}
+
+		if ("YES".equalsIgnoreCase(trimValue(request.getFineEligible()))
+				&& request.getFinePercentage() != null
+				&& request.getFinePercentage().compareTo(BigDecimal.ZERO) > 0) {
+			AddDiscfinRequest addDiscfinRequest = new AddDiscfinRequest();
+			addDiscfinRequest.setGenericHeader(genericHeader);
+			addDiscfinRequest.setDiscFnType(SecuraConstants.DISC_FN_TYPE_FINE);
+			addDiscfinRequest.setDueDateAsStartDateFlag(Boolean.TRUE);
+			addDiscfinRequest.setDiscFnMode(SecuraConstants.DISC_FN_MODE_PERCENTAGE);
+			addDiscfinRequest.setDiscFnValue(request.getFinePercentage().stripTrailingZeros().toPlainString());
+			addDiscfinRequest.setDiscFnCycleType(normalizeFineType(request.getFineType()));
+			addDiscfinRequest.setDiscFnCumlatonCycle(SecuraConstants.DISC_FN_CYCLE_MONTHLY);
+			paymentRequest.setFineCode(discFinServices.addDiscfin(addDiscfinRequest).getDiscFnId());
+		}
+
+		return paymentRequest;
+	}
+
+	private String normalizeFineType(String fineType) {
+		if (!hasText(fineType)) {
+			return SecuraConstants.DISC_FN_CYCLE_TYPE_SIMPLE;
+		}
+		return fineType.trim().toUpperCase(Locale.ROOT);
+	}
+
+	private BigDecimal parsePastDueNumeric(String rawValue) {
+		if (!hasText(rawValue)) {
+			return null;
+		}
+		try {
+			return new BigDecimal(rawValue.trim());
+		} catch (NumberFormatException ex) {
+			return null;
+		}
+	}
+
+	private String generatePastDueErrorWorkbook(List<PastDueUploadRequest> failedRows) throws IOException {
+		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet("failed_rows");
+			CellStyle headerStyle = createPastDueHeaderStyle(workbook);
+			CellStyle reasonStyle = createPastDueReasonStyle(workbook);
+			Row headerRow = sheet.createRow(0);
+			for (int index = 0; index < PAST_DUE_UPLOAD_HEADERS.length; index++) {
+				createPastDueStyledCell(headerRow, index, PAST_DUE_UPLOAD_HEADERS[index], headerStyle);
+			}
+			createPastDueStyledCell(headerRow, PAST_DUE_UPLOAD_HEADERS.length, "Reason", headerStyle);
+
+			for (int rowIndex = 0; rowIndex < failedRows.size(); rowIndex++) {
+				PastDueUploadRequest request = failedRows.get(rowIndex);
+				Row row = sheet.createRow(rowIndex + 1);
+				createPastDueStyledCell(row, 0, valueOrBlank(request.getFlatId()), null);
+				createPastDueStyledCell(row, 1, valueOrBlank(request.getDueFrom()), null);
+				createPastDueStyledCell(row, 2, valueOrBlank(request.getDueTill()), null);
+				createPastDueStyledCell(row, 3, valueOrBlank(request.getDueName()), null);
+				createPastDueStyledCell(row, 4, valueOrBlank(request.getDueAmount()), null);
+				createPastDueStyledCell(row, 5, valueOrBlank(request.getPenaltyAmount()), null);
+				createPastDueStyledCell(row, 6, valueOrBlank(request.getFineEligible()), null);
+				createPastDueStyledCell(row, 7, valueOrBlank(request.getFinePercentage()), null);
+				createPastDueStyledCell(row, 8, valueOrBlank(request.getFineType()), null);
+				createPastDueStyledCell(row, 9, valueOrBlank(request.getReason()), reasonStyle);
+			}
+
+			setPastDueColumnWidths(sheet, PAST_DUE_UPLOAD_HEADERS.length + 1);
+			workbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
+	}
+
+	private void createPastDueStyledCell(Row row, int columnIndex, String value, CellStyle style) {
+		Cell cell = row.createCell(columnIndex);
+		cell.setCellValue(value);
+		if (style != null) {
+			cell.setCellStyle(style);
+		}
+	}
+
+	private CellStyle createPastDueHeaderStyle(Workbook workbook) {
+		CellStyle headerStyle = workbook.createCellStyle();
+		headerStyle.setFillForegroundColor(IndexedColors.GREEN.getIndex());
+		headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		Font headerFont = workbook.createFont();
+		headerFont.setColor(IndexedColors.WHITE.getIndex());
+		headerFont.setBold(true);
+		headerStyle.setFont(headerFont);
+		return headerStyle;
+	}
+
+	private CellStyle createPastDueReasonStyle(Workbook workbook) {
+		CellStyle reasonStyle = workbook.createCellStyle();
+		reasonStyle.setFillForegroundColor(IndexedColors.RED.getIndex());
+		reasonStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		Font reasonFont = workbook.createFont();
+		reasonFont.setBold(true);
+		reasonStyle.setFont(reasonFont);
+		return reasonStyle;
+	}
+
+	private void setPastDueColumnWidths(Sheet sheet, int columnCount) {
+		for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+			int maxTextLength = 1;
+			for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+				Row row = sheet.getRow(rowIndex);
+				if (row == null) {
+					continue;
+				}
+				Cell cell = row.getCell(columnIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+				if (cell == null) {
+					continue;
+				}
+				maxTextLength = Math.max(maxTextLength, dataFormatter.formatCellValue(cell).length());
+			}
+			int width = (int) Math.ceil(maxTextLength * 1.5 * 256);
+			sheet.setColumnWidth(columnIndex, Math.min(width, 255 * 256));
+		}
+	}
+
+	private String getPastDueCellValue(Row row, int cellIndex) {
+		Cell cell = row.getCell(cellIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+		if (cell == null) {
+			return "";
+		}
+		String value = dataFormatter.formatCellValue(cell);
+		return value != null ? value.trim() : "";
+	}
+
+	private String valueOrBlank(String value) {
+		return value == null ? "" : value;
+	}
+
+	private String valueOrBlank(BigDecimal value) {
+		return value == null ? "" : value.stripTrailingZeros().toPlainString();
+	}
+
 	private String resolvePrimaryTender(List<PaymentTenderData> paymentTenderDataList) {
 		if (paymentTenderDataList == null || paymentTenderDataList.isEmpty()) {
 			return null;
@@ -1391,6 +1745,9 @@ public class PaymentServices implements PaymentInterface {
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		return "PERSQFT".equals(normalized);
+	}
+
+	private record ParsedPastDueRow(PastDueUploadRequest request, List<String> rawValues) {
 	}
 
 }

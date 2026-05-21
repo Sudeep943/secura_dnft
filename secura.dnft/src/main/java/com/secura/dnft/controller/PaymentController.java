@@ -1,24 +1,32 @@
 package com.secura.dnft.controller;
 
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
+import com.secura.dnft.request.response.PastDueUploadResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
@@ -130,10 +138,10 @@ public class PaymentController {
  	            }
  	 
  	 @PostMapping("/ledgerEntry")
-	    @CrossOrigin(origins = "*")
-	    public LedgerEntryResponse ledgerEntry(@RequestBody LedgerEntryRequest request) {
- 		 LedgerEntryResponse response = new LedgerEntryResponse();
- 		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+ 	    @CrossOrigin(origins = "*")
+ 	    public LedgerEntryResponse ledgerEntry(@RequestBody LedgerEntryRequest request) {
+  		 LedgerEntryResponse response = new LedgerEntryResponse();
+  		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
  		 try {
  			 return paymentServices.ledgerEntry(request);
  			}
@@ -141,7 +149,52 @@ public class PaymentController {
  				e.printStackTrace();
  				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
  				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
- 			}
- 			return response;
-	            }
+  			}
+  			return response;
+ 	            }
+
+	@PostMapping(value = "/uploadPastDue", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@CrossOrigin(origins = "*")
+	public PastDueUploadResponse uploadPastDue(@RequestPart("file") MultipartFile file,
+			@RequestHeader(required = false) Map<String, String> headers) {
+		PastDueUploadResponse response = new PastDueUploadResponse();
+		try {
+			return paymentServices.uploadPastDue(file, buildGenericHeader(headers));
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	private GenericHeader buildGenericHeader(Map<String, String> headers) {
+		GenericHeader genericHeader = new GenericHeader();
+		if (headers == null || headers.isEmpty()) {
+			return genericHeader;
+		}
+		Map<String, String> normalizedHeaders = new HashMap<>();
+		headers.forEach((key, value) -> {
+			if (key != null) {
+				normalizedHeaders.put(normalizeHeaderName(key), value);
+			}
+		});
+		genericHeader.setUserId(resolveHeader(normalizedHeaders, "userid"));
+		genericHeader.setApartmentId(resolveHeader(normalizedHeaders, "apartmentid"));
+		genericHeader.setRole(resolveHeader(normalizedHeaders, "role"));
+		genericHeader.setAccess(resolveHeader(normalizedHeaders, "access"));
+		genericHeader.setFlatNo(resolveHeader(normalizedHeaders, "flatno"));
+		genericHeader.setProfileName(resolveHeader(normalizedHeaders, "profilename"));
+		genericHeader.setApartmentName(resolveHeader(normalizedHeaders, "apartmentname"));
+		genericHeader.setPosition(resolveHeader(normalizedHeaders, "position"));
+		genericHeader.setProfilepic(resolveHeader(normalizedHeaders, "profilepic"));
+		return genericHeader;
+	}
+
+	private String resolveHeader(Map<String, String> normalizedHeaders, String key) {
+		return normalizedHeaders.get(key);
+	}
+
+	private String normalizeHeaderName(String headerName) {
+		return headerName.replaceAll("[^A-Za-z0-9]", "").toLowerCase(Locale.ROOT);
+	}
 }

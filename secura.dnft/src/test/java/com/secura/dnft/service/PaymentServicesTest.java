@@ -17,13 +17,20 @@ import static org.mockito.Mockito.when;
 
 import java.sql.Date;
 import java.util.ArrayList;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
@@ -45,11 +53,15 @@ import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
+import com.secura.dnft.request.response.AddDiscfinRequest;
+import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -62,6 +74,7 @@ import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
+import com.secura.dnft.request.response.PastDueUploadResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentEntityModel;
@@ -96,6 +109,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private WorklistService worklistService;
+
+	@Mock
+	private DiscFinServices discFinServices;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -602,6 +618,88 @@ class PaymentServicesTest {
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
 		assertEquals("[\"A-101\",\"A-102\",\"A-103\"]", paymentCaptor.getValue().getApplicableFor());
+	}
+
+	@Test
+	void uploadPastDue_shouldCreatePaymentsForValidRowsAndReturnErrorWorkbookForFailures() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		when(flatRepository.findByAprmntId("APR-1")).thenReturn(List.of(flat));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("JSON");
+
+		AddDiscfinResponse addDiscfinResponse = new AddDiscfinResponse();
+		addDiscfinResponse.setDiscFnId("DFNFINE1");
+		when(discFinServices.addDiscfin(any(AddDiscfinRequest.class))).thenReturn(addDiscfinResponse);
+
+		PastDueUploadResponse response = paymentServices.uploadPastDue(
+				new MockMultipartFile("file", "past-due.xlsx",
+						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+						buildPastDueWorkbook(new String[] { "A-101", "1-Mar-2026", "31-Mar-2026", "Maintenance", "1500",
+								"50", "Yes", "2.5", "Simple" },
+								new String[] { "B-202", "bad-date", "31-Mar-2026", "Water", "800", "", "No", "", "" })),
+				header);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_50, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_50, response.getMessageCode());
+		assertNotNull(response.getErrorfile());
+
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository).save(paymentCaptor.capture());
+		PaymentEntity savedPayment = paymentCaptor.getValue();
+		assertEquals("Maintenance", savedPayment.getPaymentName());
+		assertEquals("1500", savedPayment.getPaymentAmount());
+		assertEquals("APR-1", savedPayment.getAprmtId());
+		assertEquals("USR-1", savedPayment.getCreatUsrId());
+		assertEquals("JSON", savedPayment.getAddedCharges());
+		assertEquals("JSON", savedPayment.getDiscFin());
+
+		ArgumentCaptor<AddDiscfinRequest> discfinCaptor = ArgumentCaptor.forClass(AddDiscfinRequest.class);
+		verify(discFinServices).addDiscfin(discfinCaptor.capture());
+		assertEquals(SecuraConstants.DISC_FN_TYPE_FINE, discfinCaptor.getValue().getDiscFnType());
+		assertEquals(SecuraConstants.DISC_FN_MODE_PERCENTAGE, discfinCaptor.getValue().getDiscFnMode());
+		assertEquals("2.5", discfinCaptor.getValue().getDiscFnValue());
+		assertEquals("SIMPLE", discfinCaptor.getValue().getDiscFnCycleType());
+
+		verify(dueDetailsService).calculateDuesForPayment(any(), eq(header));
+
+		byte[] decodedWorkbook = Base64.getDecoder().decode(response.getErrorfile());
+		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(decodedWorkbook))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			assertEquals("Reason", sheet.getRow(0).getCell(9).getStringCellValue());
+			assertTrue(sheet.getRow(1).getCell(9).getStringCellValue().contains("Invalid Flat Id"));
+			assertTrue(sheet.getRow(1).getCell(9).getStringCellValue().contains("Invalid Due From format"));
+		}
+	}
+
+	@Test
+	void uploadPastDue_shouldReturnSuccessWhenAllRowsAreValid() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		when(flatRepository.findByAprmntId("APR-1")).thenReturn(List.of(flat));
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.toJson(any())).thenReturn("JSON");
+
+		PastDueUploadResponse response = paymentServices.uploadPastDue(
+				new MockMultipartFile("file", "past-due.xlsx",
+						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+						buildPastDueWorkbook(new String[] { "A-101", "1-Mar-2026", "31-Mar-2026", "Maintenance", "1500",
+								"", "No", "", "" })),
+				header);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_44, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_44, response.getMessageCode());
+		assertNull(response.getErrorfile());
+		verify(paymentRepository).save(any(PaymentEntity.class));
+		verify(discFinServices, never()).addDiscfin(any());
 	}
 
 	@Test
@@ -1537,6 +1635,26 @@ class PaymentServicesTest {
 		due.setPaymentId(paymentId);
 		due.setApplicableFlats(applicableFlatsMarker);
 		return due;
+	}
+
+	private byte[] buildPastDueWorkbook(String[]... rows) throws Exception {
+		try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet("Sheet1");
+			Row headerRow = sheet.createRow(0);
+			String[] headers = { "Flat Id", "Due From", "Due Till", "Due Name", "Due Amount", "Penalty Amount",
+					"Fine Eligible", "Fine %", "Fine Type" };
+			for (int index = 0; index < headers.length; index++) {
+				headerRow.createCell(index).setCellValue(headers[index]);
+			}
+			for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+				Row row = sheet.createRow(rowIndex + 1);
+				for (int cellIndex = 0; cellIndex < rows[rowIndex].length; cellIndex++) {
+					row.createCell(cellIndex).setCellValue(rows[rowIndex][cellIndex]);
+				}
+			}
+			workbook.write(outputStream);
+			return outputStream.toByteArray();
+		}
 	}
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {

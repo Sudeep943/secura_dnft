@@ -52,5 +52,6 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_47="Apartment Details Not Found" ;
 	public final String ERR_MESSAGE_48="You Are Not Allowed To Update This DiscFin" ;
 	public final String ERR_MESSAGE_49="Receipt Not Found" ;
+	public final String ERR_MESSAGE_50="Past Due Upload Completed With Errors. Download failed rows report." ;
 	
 }
