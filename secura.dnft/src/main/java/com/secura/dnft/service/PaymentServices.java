@@ -747,7 +747,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setTrnsStatus(resolveTransactionStatus(primaryTender, request.getTransactionStatus()));
 		transaction.setNoOfPerson(request.getNoOfPersons());
 		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
-		transaction.setThirdPartyName(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY);
+		transaction.setThirdPartyName(resolveThirdPartyName(primaryTender));
 		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate, request.getPaymentId(),
 				paymentEntity.getPaymentCapita()));
 		transaction.setCause(resolveTransactionCause(paymentEntity));
@@ -1335,6 +1335,13 @@ public class PaymentServices implements PaymentInterface {
 			return trimValue(transactionStatus);
 		}
 		return SecuraConstants.TRANSACTION_STATUS_PENDING;
+	}
+
+	private String resolveThirdPartyName(String tender) {
+		if (SecuraConstants.TENDER_ONLINE.equalsIgnoreCase(trimValue(tender))) {
+			return SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY;
+		}
+		return "";
 	}
 
 	private String resolveTransactionCause(PaymentEntity paymentEntity) {
