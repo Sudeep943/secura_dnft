@@ -678,6 +678,7 @@ class PaymentServicesTest {
 		assertEquals("DUE1001_MONTHLY_1200_2027-03-01", createdTransaction.getDueDetails());
 		assertEquals(SecuraConstants.TRANSACTION_STATUS_SUCCESS, createdTransaction.getTrnsStatus());
 		assertEquals("BANK-001", createdTransaction.getTrnsBnkAccnt());
+		assertEquals(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY, createdTransaction.getThirdPartyName());
 		assertEquals("EVENT", createdTransaction.getCause());
 		assertEquals("RCT-3001", createdTransaction.getReceiptNumber());
 		assertTransactionIdFormat(createdTransaction.getTrnscId(), "APR-001");
@@ -802,6 +803,9 @@ class PaymentServicesTest {
 		PayDueResponse response = paymentServices.payDues(request);
 
 		verify(worklistService, times(1)).createTransactionReviewWorklist(any(), eq(header));
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository, atLeastOnce()).save(transactionCaptor.capture());
+		assertEquals("", transactionCaptor.getAllValues().get(0).getThirdPartyName());
 		verify(receiptServices, times(1)).createReceipt(any(CreateReceiptRequest.class));
 		assertNull(response.getReceipt());
 		assertNull(response.getReceiptNumber());

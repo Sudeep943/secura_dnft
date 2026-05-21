@@ -51,6 +51,9 @@ public class Worklist {
     @Column(name = "refference_id")
     private String referenceId;
 
+    @Column(name = "flat_no")
+    private String flatNo;
+
     public String getWorklistId() {
 		return worklistId;
 	}
@@ -171,6 +174,14 @@ public class Worklist {
 
 	public void setReferenceId(String referenceId) {
 		this.referenceId = referenceId;
+	}
+
+	public String getFlatNo() {
+		return flatNo;
+	}
+
+	public void setFlatNo(String flatNo) {
+		this.flatNo = flatNo;
 	}
 
 

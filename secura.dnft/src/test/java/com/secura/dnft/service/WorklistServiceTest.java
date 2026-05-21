@@ -8,6 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,10 +21,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.bean.WorklistAssignmentFlow;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.dao.WorklistRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
@@ -43,6 +49,12 @@ class WorklistServiceTest {
 	@Mock
 	private GenericService genericService;
 
+	@Mock
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
+
+	@Mock
+	private FlatRepository flatRepository;
+
 	@InjectMocks
 	private WorklistService worklistService;
 
@@ -51,6 +63,7 @@ class WorklistServiceTest {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
 		header.setUserId("USR-1");
+		header.setFlatNo("A-101");
 		when(genericService.createWorklistId(any(), eq("USR-1"))).thenReturn("WRK202605201234561001");
 		when(genericService.toJson(any())).thenCallRealMethod();
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -63,6 +76,7 @@ class WorklistServiceTest {
 		assertEquals(SecuraConstants.WORKLIST_STATUS_PENDING, worklist.getStatus());
 		assertEquals("TRN-1", worklist.getReferenceId());
 		assertEquals("USR-1", worklist.getCurrentAssignee());
+		assertEquals("A-101", worklist.getFlatNo());
 		List<WorklistAssignmentFlow> flow = new GenericService().fromJson(worklist.getWorklistAssignmentFlow(),
 				new TypeReference<List<WorklistAssignmentFlow>>() {
 				});
@@ -150,7 +164,54 @@ class WorklistServiceTest {
 		verify(worklistRepository).save(worklistCaptor.capture());
 		assertEquals(SecuraConstants.WORKLIST_STATUS_COMPLETE, worklistCaptor.getValue().getStatus());
 		assertEquals("USR-2", worklistCaptor.getValue().getLstUpdtUsrId());
+		verify(flatRepository, never()).save(any(Flat.class));
 		assertEquals("Transaction review updated successfully", response.getMessage());
 		assertEquals("TRANSACTION_REVIEW_UPDATED", response.getMessageCode());
+	}
+
+	@Test
+	void actionTransactionReviewWorkList_shouldRemovePendingDueOnApproveWhenAmountMatches() {
+		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
+		request.setWorklistId("WL-5");
+		request.setAction(SecuraConstants.ACTION_APPROVE);
+		GenericHeader header = new GenericHeader();
+		header.setUserId("USR-2");
+		request.setGenericHeader(header);
+
+		Worklist worklist = new Worklist();
+		worklist.setWorklistId("WL-5");
+		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
+		worklist.setReferenceId("TRN-5");
+		worklist.setFlatNo("A-101");
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("TRN-5");
+		transaction.setTrnsAmt("1500.00");
+		transaction.setDueDetails("DUE1001_MONTHLY_ALL_2026-06-01");
+		DueAmountDetailsEntity due = new DueAmountDetailsEntity();
+		due.setDueId("DUE1001");
+		due.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		due.setFlatArea("ALL");
+		due.setDueDate(LocalDate.parse("2026-06-01"));
+		due.setTotalAmount("1500");
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("[\"DUE1001_MONTHLY_ALL_2026-06-01\",\"DUE1002_MONTHLY_ALL_2026-07-01\"]");
+
+		when(worklistRepository.findById("WL-5")).thenReturn(Optional.of(worklist));
+		when(transactionRepository.findById("TRN-5")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(due));
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("DUE1001_MONTHLY_ALL_2026-06-01", "DUE1002_MONTHLY_ALL_2026-07-01")));
+		when(genericService.toJson(any())).thenCallRealMethod();
+		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		worklistService.actionTransactionReviewWorkList(request);
+
+		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
+		verify(flatRepository).save(flatCaptor.capture());
+		assertEquals("[\"DUE1002_MONTHLY_ALL_2026-07-01\"]", flatCaptor.getValue().getFlatPndngPaymntLst());
 	}
 }
