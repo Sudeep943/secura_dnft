@@ -15,15 +15,21 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,10 +51,14 @@ import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.AddDiscfinRequest;
+import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -66,6 +76,8 @@ import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
+import com.secura.dnft.request.response.UploadPastDueRequest;
+import com.secura.dnft.request.response.UploadPastDueResponse;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServicesTest {
@@ -96,6 +108,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private WorklistService worklistService;
+
+	@Mock
+	private DiscFinServices discFinServices;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -1501,6 +1516,67 @@ class PaymentServicesTest {
 		verify(receiptServices, never()).createReceipt(any(CreateReceiptRequest.class));
 		assertNull(response.getReceipt());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_40, response.getMessage());
+	}
+
+	@Test
+	void uploadPastDue_shouldCreatePaymentForValidRowsAndReturnErrorFileForInvalidRows() throws Exception {
+		UploadPastDueRequest request = new UploadPastDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+		request.setGenericHeader(header);
+		request.setFile(buildPastDueWorkbookBase64(
+				List.of(List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200", "", "Yes", "5", "Simple"),
+						List.of("A-999", "1-Mar-2026", "31-Mar-2026", "Bad Flat", "1300", "", "No", "", ""))));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		when(flatRepository.findByAprmntId("APR-1")).thenReturn(List.of(flat));
+		AddDiscfinResponse addDiscfinResponse = new AddDiscfinResponse();
+		addDiscfinResponse.setDiscFnId("DFNFINE1234");
+		when(discFinServices.addDiscfin(any(AddDiscfinRequest.class))).thenReturn(addDiscfinResponse);
+		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		UploadPastDueResponse response = paymentServices.uploadPastDue(request);
+
+		verify(paymentRepository, atLeastOnce()).save(any(PaymentEntity.class));
+		verify(dueDetailsService, times(1)).calculateDuesForPayment(any(), eq(header));
+		verify(discFinServices, times(1)).addDiscfin(any(AddDiscfinRequest.class));
+		assertEquals(ErrorMessage.ERR_MESSAGE_42, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_42, response.getMessageCode());
+		assertTrue(response.getFile() != null && !response.getFile().isBlank());
+	}
+
+	@Test
+	void uploadPastDue_shouldReturnServiceErrorForInvalidInput() throws Exception {
+		UploadPastDueRequest request = new UploadPastDueRequest();
+		request.setFile("");
+
+		UploadPastDueResponse response = paymentServices.uploadPastDue(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, response.getMessageCode());
+	}
+
+	private String buildPastDueWorkbookBase64(List<List<String>> rows) throws Exception {
+		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet("past_due");
+			Row headerRow = sheet.createRow(0);
+			String[] headers = { "Flat Id", "Due From", "Due Till", "Due Name", "Due Amount", "Penalty Amount", "Fine Eligible",
+					"Fine %", "Fine Type" };
+			for (int i = 0; i < headers.length; i++) {
+				headerRow.createCell(i).setCellValue(headers[i]);
+			}
+			for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+				Row row = sheet.createRow(rowIndex + 1);
+				List<String> values = rows.get(rowIndex);
+				for (int col = 0; col < values.size(); col++) {
+					row.createCell(col).setCellValue(values.get(col));
+				}
+			}
+			workbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
 	}
 
 	private DocumentEntity createLedgerDocument(String documentType, String documentName, String documentData) {

@@ -16,6 +16,8 @@ import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
+import com.secura.dnft.request.response.UploadPastDueRequest;
+import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
@@ -91,6 +93,41 @@ class PaymentControllerTest {
 		when(paymentServices.ledgerEntry(request)).thenThrow(new RuntimeException("boom"));
 
 		LedgerEntryResponse actual = paymentController.ledgerEntry(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void uploadPastDue_shouldReturnServiceResponse() throws Exception {
+		UploadPastDueRequest request = new UploadPastDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setFile("base64");
+
+		UploadPastDueResponse expected = new UploadPastDueResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(paymentServices.uploadPastDue(request)).thenReturn(expected);
+
+		UploadPastDueResponse actual = paymentController.uploadPastDue(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void uploadPastDue_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		UploadPastDueRequest request = new UploadPastDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setFile("base64");
+		when(paymentServices.uploadPastDue(request)).thenThrow(new RuntimeException("boom"));
+
+		UploadPastDueResponse actual = paymentController.uploadPastDue(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
