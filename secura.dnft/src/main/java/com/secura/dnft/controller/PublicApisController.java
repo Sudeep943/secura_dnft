@@ -15,8 +15,11 @@ import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.RazorPayPaymentRequest;
+import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
+import com.secura.dnft.service.RazorPayPaymentServices;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -28,6 +31,9 @@ public class PublicApisController {
 
 	@Autowired
 	private PaymentServices paymentServices;
+
+	@Autowired
+	private RazorPayPaymentServices razorPayPaymentServices;
 
 	@PostMapping("/getFlatsPublic")
 	@CrossOrigin(origins = "*")
@@ -61,5 +67,11 @@ public class PublicApisController {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
 		return response;
+	}
+
+	@PostMapping("/razorPayCreateOrderPublic")
+	@CrossOrigin(origins = "*")
+	public RazorPayPaymentResponse createOrderPublic(@RequestBody RazorPayPaymentRequest request) {
+		return razorPayPaymentServices.createOrder(request);
 	}
 }
