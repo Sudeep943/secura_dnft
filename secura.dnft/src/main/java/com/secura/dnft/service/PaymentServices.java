@@ -627,8 +627,8 @@ public class PaymentServices implements PaymentInterface {
 				}
 			}
 		} catch (Exception exception) {
-			response.setSuccessRows(0);
-			response.setFailedRows(0);
+			response.setSuccessRows(successRows);
+			response.setFailedRows(failedRows.size());
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
