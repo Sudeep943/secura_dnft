@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -635,7 +636,7 @@ class PaymentServicesTest {
 		request.setPaymentName("CAM 2026-27");
 		request.setDueStartDate(LocalDate.parse("2027-03-01"));
 		request.setDueEndDate(LocalDate.parse("2028-05-31"));
-		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setTransactionStatus("success");
 		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "5000")));
 		request.setBankInstrumentTenderDetails(List.of(createBankInstrumentTenderDetails("DDPAB-001")));
 
@@ -781,8 +782,8 @@ class PaymentServicesTest {
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
-		assertEquals(null, response.getReceiptNumber());
-		assertEquals(null, response.getReceipt());
+		assertNull(response.getReceiptNumber());
+		assertNull(response.getReceipt());
 	}
 
 	@Test
