@@ -72,8 +72,6 @@ public class PublicApisController {
 	@PostMapping("/razorPayCreateOrderPublic")
 	@CrossOrigin(origins = "*")
 	public RazorPayPaymentResponse createOrderPublic(@RequestBody RazorPayPaymentRequest request) {
-		RazorPayPaymentResponse reazorPayOrder = new RazorPayPaymentResponse();
-		reazorPayOrder = razorPayPaymentServices.createOrder(request);
-		return reazorPayOrder;
+		return razorPayPaymentServices.createOrder(request);
 	}
 }
