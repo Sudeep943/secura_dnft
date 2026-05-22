@@ -1,6 +1,6 @@
 package com.secura.dnft.request.response;
 
-public class RazorPayPaymentVerificationResponse {
+public class PaymentGayewayOrderVerificationResponse {
 
 	private String message;
 	private String messageCode;

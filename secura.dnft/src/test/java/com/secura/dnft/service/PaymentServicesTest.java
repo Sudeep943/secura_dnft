@@ -720,6 +720,72 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldNotSetReceiptInResponseWhenOnlinePaymentFails() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1002");
+		request.setAmount("5000");
+		request.setDueId("DUE1002");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		request.setDueDate(LocalDate.parse("2027-03-01"));
+		request.setPaymentName("CAM 2026-27");
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_FAILED);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "5000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-1002");
+		paymentEntity.setBankAccountId("BANK-001");
+		paymentEntity.setCauseId("EVENT");
+		paymentEntity.setPaymentCapita("PER_SQFT");
+		when(paymentRepository.findFirstByPaymentId("PAY-1002")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			return "JSON";
+		});
+
+		Flat flat = new Flat();
+		flat.setFlatArea("1200");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
+		dueEntity.setDueId("DUE1002");
+		dueEntity.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		dueEntity.setFlatArea("1200");
+		dueEntity.setDueDate(LocalDate.parse("2027-03-01"));
+		dueEntity.setAmount("4500");
+		dueEntity.setGstAmount("270");
+		dueEntity.setTotalAmount("4770");
+		dueEntity.setAddedCharges("[]");
+		when(dueAmountDetailsRepository.findById(
+				new DueAmountDetailsEntityId("DUE1002", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01"))))
+				.thenReturn(Optional.of(dueEntity));
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-3002");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
+		assertEquals(null, response.getReceiptNumber());
+		assertEquals(null, response.getReceipt());
+	}
+
+	@Test
 	void payDues_shouldUseAllInDueDetailsWhenPaymentCapitaIsNotPerSqft() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();

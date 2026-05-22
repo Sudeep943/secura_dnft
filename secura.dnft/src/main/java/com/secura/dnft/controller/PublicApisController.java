@@ -1,7 +1,5 @@
 package com.secura.dnft.controller;
 
-import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,9 +15,10 @@ import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
-import com.secura.dnft.request.response.RazorPayPaymentRequest;
-import com.secura.dnft.request.response.RazorPayPaymentResponse;
-import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationResponse;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
@@ -74,13 +73,13 @@ public class PublicApisController {
 
 	@PostMapping("/razorPayCreateOrderPublic")
 	@CrossOrigin(origins = "*")
-	public RazorPayPaymentResponse createOrderPublic(@RequestBody RazorPayPaymentRequest request) {
+	public PaymentGayewayOrderResponse createOrderPublic(@RequestBody PaymentGayewayOrderRequest request) {
 		return razorPayPaymentServices.createOrder(request);
 	}
 
 	@PostMapping("/verifyPaymentPublic")
 	@CrossOrigin(origins = "*")
-	public RazorPayPaymentVerificationResponse verifyPaymentPublic(@RequestBody Map<String, String> request) {
-		return razorPayPaymentServices.paymentVerification(request);
+	public PaymentGayewayOrderVerificationResponse verifyPaymentPublic(@RequestBody PaymentGayewayOrderVerificationRequest request) {
+		return razorPayPaymentServices.verifypayment(request);
 	}
 }

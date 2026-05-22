@@ -659,6 +659,7 @@ public class PaymentServices implements PaymentInterface {
 				request != null ? request.getPaymentTenderDataList() : null);
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
+		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
 		DueAmountDetailsEntity dueEntity = resolveDueAmountDetailsEntity(request, flatArea,paymentEntity);
 		CreateReceiptResponse receiptResponse = receiptServices
 				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
@@ -669,17 +670,17 @@ public class PaymentServices implements PaymentInterface {
 					request != null ? request.getGenericHeader() : null);
 			transaction.setWorkListId(worklist.getWorklistId());
 			transactionRepository.save(transaction);
-		} else {
+		} else if (successfulTransaction) {
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
 			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 		}
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
 		response.setTransactionId(transaction.getTrnscId());
-		if (onlinePayment) {
+		if (onlinePayment && successfulTransaction) {
 			response.setReceiptNumber(transaction.getReceiptNumber());
 		}
-		if (SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())) {
+		if (successfulTransaction) {
 			removeCoveredDuesAfterSuccessfulPayment(
 					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
 					request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null,
@@ -1449,6 +1450,10 @@ public class PaymentServices implements PaymentInterface {
 			return SecuraConstants.TRANSACTION_CAUSE_EVENT;
 		}
 		return SecuraConstants.TRANSACTION_CAUSE_OTHERS;
+	}
+
+	private boolean isSuccessfulTransaction(String transactionStatus) {
+		return SecuraConstants.TRANSACTION_STATUS_SUCCESS.equalsIgnoreCase(trimValue(transactionStatus));
 	}
 
 	private boolean requiresWorklist(List<PaymentTenderData> paymentTenderDataList) {
