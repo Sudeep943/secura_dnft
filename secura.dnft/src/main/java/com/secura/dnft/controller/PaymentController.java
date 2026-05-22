@@ -23,10 +23,16 @@ import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
 import com.secura.dnft.request.response.PaymentGayewayOrderResponse;
 import com.secura.dnft.request.response.PaymentGayewayOrderVerificationRequest;
 import com.secura.dnft.request.response.PaymentGayewayOrderVerificationResponse;
+import com.secura.dnft.request.response.PaymentGayewayPayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayPayOrderResponse;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
+import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
+import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
+import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
+import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
@@ -38,6 +44,9 @@ public class PaymentController {
 
 	@Autowired
 	RazorPayPaymentServices razorPayPaymentServices;
+	
+	@Autowired
+	AtomsPaymentServices atomsPaymentServices;
 
 	@Autowired
 	PaymentServices paymentServices;
@@ -45,27 +54,68 @@ public class PaymentController {
 	 @PostMapping("/razorPayCreateOrder")
 	    @CrossOrigin(origins = "*")
 	    public PaymentGayewayOrderResponse createOrder(@RequestBody PaymentGayewayOrderRequest request) {
-		 PaymentGayewayOrderResponse reazorPayOrder = new PaymentGayewayOrderResponse();
-		 reazorPayOrder=razorPayPaymentServices.createOrder(request);
-	    	return reazorPayOrder;
+		 try {
+			 return resolvePaymentGatewayService(request != null ? request.getPaymentGateway() : null).createOrder(request);
+		 } catch (Exception e) {
+			 PaymentGayewayOrderResponse response = new PaymentGayewayOrderResponse();
+			 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			 return response;
+		 }
 	            }
 	 
 
 	 @PostMapping("/verifyPayment")
 	    @CrossOrigin(origins = "*")
 	    public PaymentGayewayOrderVerificationResponse verifyPayment(@RequestBody PaymentGayewayOrderVerificationRequest request) {
-		 PaymentGayewayOrderVerificationResponse reazorPayOrder = new PaymentGayewayOrderVerificationResponse();
-		 reazorPayOrder=razorPayPaymentServices.verifypayment(request);
-	    	return reazorPayOrder;
+		 try {
+			 return resolvePaymentGatewayService(request != null ? request.getPaymentGateway() : null).verifypayment(request);
+		 } catch (Exception e) {
+			 PaymentGayewayOrderVerificationResponse response = new PaymentGayewayOrderVerificationResponse();
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			 return response;
+		 }
 	            }
 	 
 	 @PostMapping("/getPaymentDetails")
 	    @CrossOrigin(origins = "*")
 	    public PaymentGayewayPaymentDetailResponse getPaymentDetails(@RequestBody PaymentGayewayPaymentDetailRequest request) {
-		 PaymentGayewayPaymentDetailResponse reazorPaymentDetails = new PaymentGayewayPaymentDetailResponse();
-		 reazorPaymentDetails=razorPayPaymentServices.getPaymentDetails(request);
-	    	return reazorPaymentDetails;
+		 try {
+			 return resolvePaymentGatewayService(request != null ? request.getPaymentGateway() : null).getPaymentDetails(request);
+		 } catch (Exception e) {
+			 return new PaymentGayewayPaymentDetailResponse();
+		 }
 	            }
+	 
+	 @PostMapping("/payOrder")
+	 @CrossOrigin(origins = "*")
+	 public PaymentGayewayPayOrderResponse payOrder(@RequestBody PaymentGayewayPayOrderRequest request) {
+		 try {
+			 return resolvePaymentGatewayService(request != null ? request.getPaymentGateway() : null).payorder(request);
+		 } catch (Exception e) {
+			 PaymentGayewayPayOrderResponse response = new PaymentGayewayPayOrderResponse();
+			 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			 return response;
+		 }
+	 }
+	 
+	 @PostMapping("/processRefund")
+	 @CrossOrigin(origins = "*")
+	 public PaymentGayewayProcessRefundResponse processRefund(@RequestBody PaymentGayewayProcessRefundRequest request) {
+		 try {
+			 return resolvePaymentGatewayService(request != null ? request.getPaymentGateway() : null).processRefund(request);
+		 } catch (Exception e) {
+			 PaymentGayewayProcessRefundResponse response = new PaymentGayewayProcessRefundResponse();
+			 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			 return response;
+		 }
+	 }
 
 	 @PostMapping("/getDuePaymentAmountDetails")
 	    @CrossOrigin(origins = "*")
@@ -161,5 +211,15 @@ public class PaymentController {
 			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		 }
 		 return response;
+	}
+	
+	private ThirdPartyPaymentGayeway resolvePaymentGatewayService(String paymentGateway) {
+		if ("RAZORPAY".equalsIgnoreCase(paymentGateway)) {
+			return razorPayPaymentServices;
+		}
+		if ("ATOMS".equalsIgnoreCase(paymentGateway)) {
+			return atomsPaymentServices;
+		}
+		throw new IllegalArgumentException("Unsupported payment gateway");
 	}
 }

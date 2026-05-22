@@ -3,6 +3,8 @@ package com.secura.dnft.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,8 +18,19 @@ import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationResponse;
+import com.secura.dnft.request.response.PaymentGayewayPayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayPayOrderResponse;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
+import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
+import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
+import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
@@ -26,12 +39,84 @@ class PaymentControllerTest {
 
 	@Mock
 	private RazorPayPaymentServices razorPayPaymentServices;
+	
+	@Mock
+	private AtomsPaymentServices atomsPaymentServices;
 
 	@Mock
 	private PaymentServices paymentServices;
 
 	@InjectMocks
 	private PaymentController paymentController;
+	
+	@Test
+	void createOrder_shouldRouteToAtomsWhenGatewayIsAtoms() {
+		PaymentGayewayOrderRequest request = new PaymentGayewayOrderRequest();
+		request.setPaymentGateway("ATOMS");
+		PaymentGayewayOrderResponse expected = new PaymentGayewayOrderResponse();
+		expected.setMessage("ok");
+		when(atomsPaymentServices.createOrder(request)).thenReturn(expected);
+
+		PaymentGayewayOrderResponse actual = paymentController.createOrder(request);
+
+		assertEquals(expected, actual);
+	}
+	
+	@Test
+	void verifyPayment_shouldRouteToRazorpayWhenGatewayIsRazorpay() {
+		PaymentGayewayOrderVerificationRequest request = new PaymentGayewayOrderVerificationRequest();
+		request.setPaymentGateway("RAZORPAY");
+		request.setData(Map.of(
+				"razorpay_order_id", "order_123",
+				"razorpay_payment_id", "pay_123",
+				"razorpay_signature", "sig_123"));
+		PaymentGayewayOrderVerificationResponse expected = new PaymentGayewayOrderVerificationResponse();
+		expected.setMessage("ok");
+		when(razorPayPaymentServices.verifypayment(request)).thenReturn(expected);
+
+		PaymentGayewayOrderVerificationResponse actual = paymentController.verifyPayment(request);
+
+		assertEquals(expected, actual);
+	}
+	
+	@Test
+	void payOrder_shouldRouteToAtomsWhenGatewayIsAtoms() {
+		PaymentGayewayPayOrderRequest request = new PaymentGayewayPayOrderRequest();
+		request.setPaymentGateway("ATOMS");
+		PaymentGayewayPayOrderResponse expected = new PaymentGayewayPayOrderResponse();
+		expected.setMessage("ok");
+		when(atomsPaymentServices.payorder(request)).thenReturn(expected);
+
+		PaymentGayewayPayOrderResponse actual = paymentController.payOrder(request);
+
+		assertEquals(expected, actual);
+	}
+	
+	@Test
+	void processRefund_shouldRouteToRazorpayWhenGatewayIsRazorpay() {
+		PaymentGayewayProcessRefundRequest request = new PaymentGayewayProcessRefundRequest();
+		request.setPaymentGateway("RAZORPAY");
+		PaymentGayewayProcessRefundResponse expected = new PaymentGayewayProcessRefundResponse();
+		expected.setMessage("ok");
+		when(razorPayPaymentServices.processRefund(request)).thenReturn(expected);
+
+		PaymentGayewayProcessRefundResponse actual = paymentController.processRefund(request);
+
+		assertEquals(expected, actual);
+	}
+	
+	@Test
+	void getPaymentDetails_shouldRouteToRazorpayWhenGatewayIsRazorpay() {
+		PaymentGayewayPaymentDetailRequest request = new PaymentGayewayPaymentDetailRequest();
+		request.setPaymentGateway("RAZORPAY");
+		PaymentGayewayPaymentDetailResponse expected = new PaymentGayewayPaymentDetailResponse();
+		expected.setId("pay_123");
+		when(razorPayPaymentServices.getPaymentDetails(request)).thenReturn(expected);
+
+		PaymentGayewayPaymentDetailResponse actual = paymentController.getPaymentDetails(request);
+
+		assertEquals(expected, actual);
+	}
 
 	@Test
 	void getPayment_shouldReturnServiceResponse() throws Exception {
