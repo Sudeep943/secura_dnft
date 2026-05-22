@@ -1,5 +1,7 @@
 package com.secura.dnft.controller;
 
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,7 @@ import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
+import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
@@ -73,5 +76,11 @@ public class PublicApisController {
 	@CrossOrigin(origins = "*")
 	public RazorPayPaymentResponse createOrderPublic(@RequestBody RazorPayPaymentRequest request) {
 		return razorPayPaymentServices.createOrder(request);
+	}
+
+	@PostMapping("/verifyPaymentPublic")
+	@CrossOrigin(origins = "*")
+	public RazorPayPaymentVerificationResponse verifyPaymentPublic(@RequestBody Map<String, String> request) {
+		return razorPayPaymentServices.paymentVerification(request);
 	}
 }

@@ -3,6 +3,9 @@ package com.secura.dnft.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +23,7 @@ import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
+import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
@@ -118,6 +122,23 @@ class PublicApisControllerTest {
 		when(razorPayPaymentServices.createOrder(request)).thenReturn(expected);
 
 		RazorPayPaymentResponse actual = publicApisController.createOrderPublic(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void verifyPaymentPublic_shouldReturnServiceResponse() {
+		Map<String, String> request = new HashMap<>();
+		request.put("razorpay_order_id", "order_123");
+		request.put("razorpay_payment_id", "pay_123");
+		request.put("razorpay_signature", "sig_123");
+
+		RazorPayPaymentVerificationResponse expected = new RazorPayPaymentVerificationResponse();
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(razorPayPaymentServices.paymentVerification(request)).thenReturn(expected);
+
+		RazorPayPaymentVerificationResponse actual = publicApisController.verifyPaymentPublic(request);
 
 		assertEquals(expected, actual);
 	}
