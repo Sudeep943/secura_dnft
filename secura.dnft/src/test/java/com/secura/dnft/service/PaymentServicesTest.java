@@ -1544,6 +1544,8 @@ class PaymentServicesTest {
 		verify(discFinServices, times(1)).addDiscfin(any(AddDiscfinRequest.class));
 		assertEquals(ErrorMessage.ERR_MESSAGE_42, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_42, response.getMessageCode());
+		assertEquals(1, response.getSuccessRows());
+		assertEquals(1, response.getFailedRows());
 		assertTrue(response.getFile() != null && !response.getFile().isBlank());
 	}
 
@@ -1556,6 +1558,8 @@ class PaymentServicesTest {
 
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, response.getMessageCode());
+		assertEquals(0, response.getSuccessRows());
+		assertEquals(0, response.getFailedRows());
 	}
 
 	private String buildPastDueWorkbookBase64(List<List<String>> rows) throws Exception {

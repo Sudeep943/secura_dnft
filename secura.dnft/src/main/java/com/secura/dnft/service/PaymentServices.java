@@ -591,12 +591,15 @@ public class PaymentServices implements PaymentInterface {
 				? trimValue(request.getGenericHeader().getApartmentId())
 				: null;
 		if (!hasText(apartmentId) || request == null || !hasText(request.getFile())) {
+			response.setSuccessRows(0);
+			response.setFailedRows(0);
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
 
 		List<List<String>> failedRows = new ArrayList<>();
+		int successRows = 0;
 		Set<String> validFlatIds = flatRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
 				.map(Flat::getFlatNo).filter(this::hasText).map(this::normalizeFlatNoForMatch).filter(Objects::nonNull)
 				.collect(Collectors.toCollection(HashSet::new));
@@ -618,15 +621,20 @@ public class PaymentServices implements PaymentInterface {
 					}
 					CreatePaymentRequest createPaymentRequest = buildPastDueCreatePaymentRequest(request, uploadRow);
 					createPayment(createPaymentRequest);
+					successRows++;
 				} catch (Exception rowException) {
 					failedRows.add(buildPastDueFailedRow(row, rowException.getMessage()));
 				}
 			}
 		} catch (Exception exception) {
+			response.setSuccessRows(successRows);
+			response.setFailedRows(failedRows.size());
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
+		response.setSuccessRows(successRows);
+		response.setFailedRows(failedRows.size());
 
 		if (!failedRows.isEmpty()) {
 			response.setFile(generatePastDueFailedRowsWorkbook(failedRows));
