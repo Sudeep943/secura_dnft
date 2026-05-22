@@ -5,6 +5,7 @@ import java.sql.Date;
 public class PaymentGayewayOrderRequest {
 
 	private GenericHeader genericHeader;
+	private String paymentGateway;
 	private String amountInPaisa;
 	private String currency;
 	private Date eventDate;
@@ -15,6 +16,12 @@ public class PaymentGayewayOrderRequest {
 	}
 	public void setGenericHeader(GenericHeader genericHeader) {
 		this.genericHeader = genericHeader;
+	}
+	public String getPaymentGateway() {
+		return paymentGateway;
+	}
+	public void setPaymentGateway(String paymentGateway) {
+		this.paymentGateway = paymentGateway;
 	}
 	public String getAmountInPaisa() {
 		return amountInPaisa;
