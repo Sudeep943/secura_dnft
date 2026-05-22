@@ -1,6 +1,6 @@
 package com.secura.dnft.request.response;
 
-public class RazorPayPaymentDetailsResponse {
+public class PaymentGayewayPaymentDetailsResponse {
 	    
 	    private String id;
 	    private String entity;

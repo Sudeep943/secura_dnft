@@ -1,7 +1,5 @@
 package com.secura.dnft.controller;
 
-import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailsResponse;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -21,9 +19,12 @@ import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
-import com.secura.dnft.request.response.RazorPayPaymentRequest;
-import com.secura.dnft.request.response.RazorPayPaymentResponse;
-import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationResponse;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.service.PaymentServices;
@@ -43,8 +44,8 @@ public class PaymentController {
 	
 	 @PostMapping("/razorPayCreateOrder")
 	    @CrossOrigin(origins = "*")
-	    public RazorPayPaymentResponse createOrder(@RequestBody RazorPayPaymentRequest request) {
-		 RazorPayPaymentResponse reazorPayOrder = new RazorPayPaymentResponse();
+	    public PaymentGayewayOrderResponse createOrder(@RequestBody PaymentGayewayOrderRequest request) {
+		 PaymentGayewayOrderResponse reazorPayOrder = new PaymentGayewayOrderResponse();
 		 reazorPayOrder=razorPayPaymentServices.createOrder(request);
 	    	return reazorPayOrder;
 	            }
@@ -52,17 +53,17 @@ public class PaymentController {
 
 	 @PostMapping("/verifyPayment")
 	    @CrossOrigin(origins = "*")
-	    public RazorPayPaymentVerificationResponse verifyPayment(@RequestBody Map<String, String> request) {
-		 RazorPayPaymentVerificationResponse reazorPayOrder = new RazorPayPaymentVerificationResponse();
-		 reazorPayOrder=razorPayPaymentServices.paymentVerification(request);
+	    public PaymentGayewayOrderVerificationResponse verifyPayment(@RequestBody PaymentGayewayOrderVerificationRequest request) {
+		 PaymentGayewayOrderVerificationResponse reazorPayOrder = new PaymentGayewayOrderVerificationResponse();
+		 reazorPayOrder=razorPayPaymentServices.verifypayment(request);
 	    	return reazorPayOrder;
 	            }
 	 
 	 @PostMapping("/getPaymentDetails")
 	    @CrossOrigin(origins = "*")
-	    public RazorPayPaymentDetailsResponse getPaymentDetails(@RequestBody String paymentId) {
-		 RazorPayPaymentDetailsResponse reazorPaymentDetails = new RazorPayPaymentDetailsResponse();
-		 reazorPaymentDetails=razorPayPaymentServices.getRazorPayPaymentDetails(paymentId);
+	    public PaymentGayewayPaymentDetailResponse getPaymentDetails(@RequestBody PaymentGayewayPaymentDetailRequest request) {
+		 PaymentGayewayPaymentDetailResponse reazorPaymentDetails = new PaymentGayewayPaymentDetailResponse();
+		 reazorPaymentDetails=razorPayPaymentServices.getPaymentDetails(request);
 	    	return reazorPaymentDetails;
 	            }
 

@@ -20,14 +20,22 @@ import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationRequest;
 import com.secura.dnft.request.response.RazorPayOrderResponse;
-import com.secura.dnft.request.response.RazorPayPaymentRequest;
-import com.secura.dnft.request.response.RazorPayPaymentResponse;
-import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
-import com.secura.dnft.request.response.RazorPayPaymentDetailsResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayOrderResponse;
+import com.secura.dnft.request.response.PaymentGayewayOrderVerificationResponse;
+import com.secura.dnft.request.response.PaymentGayewayPayOrderRequest;
+import com.secura.dnft.request.response.PaymentGayewayPayOrderResponse;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
+import com.secura.dnft.request.response.PaymentGayewayPaymentDetailsResponse;
+import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
+import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 
 @Service
-public class RazorPayPaymentServices {
+public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 	
 	
 	//@Value("${razorPay.key}")
@@ -40,8 +48,9 @@ public class RazorPayPaymentServices {
 	
 	
 	
-	public RazorPayPaymentResponse createOrder(RazorPayPaymentRequest paymentRequest) {
-		RazorPayPaymentResponse paymentResponse = new RazorPayPaymentResponse();
+	@Override
+	public PaymentGayewayOrderResponse createOrder(PaymentGayewayOrderRequest paymentRequest) {
+		PaymentGayewayOrderResponse paymentResponse = new PaymentGayewayOrderResponse();
 		paymentResponse.setGenericHeader(paymentRequest.getGenericHeader());
 		try {
 		RazorpayClient client = new RazorpayClient(key, secret);
@@ -80,8 +89,15 @@ public class RazorPayPaymentServices {
 		return paymentResponse;
 	}
 	
-	public RazorPayPaymentVerificationResponse paymentVerification(Map<String, String> data) {
-		RazorPayPaymentVerificationResponse response= new RazorPayPaymentVerificationResponse();   
+	@Override
+	public PaymentGayewayOrderVerificationResponse verifypayment(PaymentGayewayOrderVerificationRequest request) {
+		PaymentGayewayOrderVerificationResponse response= new PaymentGayewayOrderVerificationResponse();   
+		Map<String, String> data = request != null ? request.getData() : null;
+		if (data == null || data.isEmpty()) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_23);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_23);
+			return response;
+		}
 		String orderId = data.get("razorpay_order_id");
 		    String paymentId = data.get("razorpay_payment_id");
 		    String signature = data.get("razorpay_signature");
@@ -109,6 +125,13 @@ public class RazorPayPaymentServices {
 		  
          return response;
 	}
+
+	@Override
+	public PaymentGayewayPayOrderResponse payorder(PaymentGayewayPayOrderRequest request) {
+		PaymentGayewayPayOrderResponse response = new PaymentGayewayPayOrderResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		return response;
+	}
 	
 	public String  createPaymentReceiptIdentifier(String receiptType, Date eventDate, String flatNo) {
 		StringBuffer receipt= new StringBuffer();
@@ -125,12 +148,13 @@ public class RazorPayPaymentServices {
 		return receipt.toString();
 	}
 	
-	public RazorPayPaymentDetailsResponse getRazorPayPaymentDetails(String paymentId) {
-		RazorPayPaymentDetailsResponse razorPayPaymentDetailsResponse = new RazorPayPaymentDetailsResponse(); 
+	@Override
+	public PaymentGayewayPaymentDetailResponse getPaymentDetails(PaymentGayewayPaymentDetailRequest request) {
+		PaymentGayewayPaymentDetailResponse razorPayPaymentDetailsResponse = new PaymentGayewayPaymentDetailResponse(); 
 		try {
 	            RazorpayClient razorpay = new RazorpayClient(key, secret);
 
-	            Payment payment = razorpay.payments.fetch(paymentId);
+	            Payment payment = razorpay.payments.fetch(request != null ? request.getPaymentId() : null);
 	            razorPayPaymentDetailsResponse=convertPaymentDetailsJsonToObject(payment.toString());
 	        } catch (Exception e) {
 	            e.printStackTrace();
@@ -139,11 +163,18 @@ public class RazorPayPaymentServices {
 		return razorPayPaymentDetailsResponse;
 	    
 	}
+
+	@Override
+	public PaymentGayewayProcessRefundResponse processRefund(PaymentGayewayProcessRefundRequest request) {
+		PaymentGayewayProcessRefundResponse response = new PaymentGayewayProcessRefundResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		return response;
+	}
 	
-	   public RazorPayPaymentDetailsResponse convertPaymentDetailsJsonToObject(String json) {
+	   public PaymentGayewayPaymentDetailResponse convertPaymentDetailsJsonToObject(String json) {
 	    	ObjectMapper objectMapper = new ObjectMapper();
 	        try {
-	            return objectMapper.readValue(json, RazorPayPaymentDetailsResponse.class);
+	            return objectMapper.readValue(json, PaymentGayewayPaymentDetailResponse.class);
 	        } catch (Exception e) {
 	            throw new RuntimeException("Failed to parse JSON", e);
 	        }
