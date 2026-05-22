@@ -47,31 +47,31 @@ class PublicApisControllerTest {
 	}
 
 	@Test
-	void detDueDetailsForFlatPublic_shouldReturnServiceResponse() throws Exception {
+	void getDueDetailsForFlatPublic_shouldReturnServiceResponse() throws Exception {
 		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
 		GetDueAmountForFlatResponse expected = new GetDueAmountForFlatResponse();
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
 		when(flatServices.getDueAmountForFlat(request)).thenReturn(expected);
 
-		GetDueAmountForFlatResponse actual = publicApisController.detDueDetailsForFlatPublic(request);
+		GetDueAmountForFlatResponse actual = publicApisController.getDueDetailsForFlatPublic(request);
 
 		assertEquals(expected, actual);
 	}
 
 	@Test
-	void detDueDetailsForFlatPublic_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+	void getDueDetailsForFlatPublic_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
 		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
 		when(flatServices.getDueAmountForFlat(request)).thenThrow(new RuntimeException("boom"));
 
-		GetDueAmountForFlatResponse actual = publicApisController.detDueDetailsForFlatPublic(request);
+		GetDueAmountForFlatResponse actual = publicApisController.getDueDetailsForFlatPublic(request);
 
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
 	}
 
 	@Test
-	void payduesPublic_shouldReturnServiceResponse() throws Exception {
+	void payDuesPublic_shouldReturnServiceResponse() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
@@ -83,20 +83,20 @@ class PublicApisControllerTest {
 		expected.setMessageCode("CODE");
 		when(paymentServices.payDues(request)).thenReturn(expected);
 
-		PayDueResponse actual = publicApisController.payduesPublic(request);
+		PayDueResponse actual = publicApisController.payDuesPublic(request);
 
 		assertEquals(expected, actual);
 	}
 
 	@Test
-	void payduesPublic_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+	void payDuesPublic_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
 		request.setGenericHeader(header);
 		when(paymentServices.payDues(request)).thenThrow(new RuntimeException("boom"));
 
-		PayDueResponse actual = publicApisController.payduesPublic(request);
+		PayDueResponse actual = publicApisController.payDuesPublic(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());

@@ -37,7 +37,7 @@ public class PublicApisController {
 
 	@PostMapping("/detDueDetailsForFlatPublic")
 	@CrossOrigin(origins = "*")
-	public GetDueAmountForFlatResponse detDueDetailsForFlatPublic(@RequestBody GetDueAmountForFlatRequest request) {
+	public GetDueAmountForFlatResponse getDueDetailsForFlatPublic(@RequestBody GetDueAmountForFlatRequest request) {
 		try {
 			return flatServices.getDueAmountForFlat(request);
 		} catch (Exception e) {
@@ -50,12 +50,13 @@ public class PublicApisController {
 
 	@PostMapping("/payduesPublic")
 	@CrossOrigin(origins = "*")
-	public PayDueResponse payduesPublic(@RequestBody PayDueRequest request) {
+	public PayDueResponse payDuesPublic(@RequestBody PayDueRequest request) {
 		PayDueResponse response = new PayDueResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
 			return paymentServices.payDues(request);
 		} catch (Exception e) {
+			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
