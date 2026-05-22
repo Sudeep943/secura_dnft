@@ -18,8 +18,11 @@ import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.RazorPayPaymentRequest;
+import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
+import com.secura.dnft.service.RazorPayPaymentServices;
 
 @ExtendWith(MockitoExtension.class)
 class PublicApisControllerTest {
@@ -29,6 +32,9 @@ class PublicApisControllerTest {
 
 	@Mock
 	private PaymentServices paymentServices;
+
+	@Mock
+	private RazorPayPaymentServices razorPayPaymentServices;
 
 	@InjectMocks
 	private PublicApisController publicApisController;
@@ -101,5 +107,18 @@ class PublicApisControllerTest {
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void createOrderPublic_shouldReturnServiceResponse() {
+		RazorPayPaymentRequest request = new RazorPayPaymentRequest();
+		RazorPayPaymentResponse expected = new RazorPayPaymentResponse();
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(razorPayPaymentServices.createOrder(request)).thenReturn(expected);
+
+		RazorPayPaymentResponse actual = publicApisController.createOrderPublic(request);
+
+		assertEquals(expected, actual);
 	}
 }
