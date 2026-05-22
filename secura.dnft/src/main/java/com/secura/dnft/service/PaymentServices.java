@@ -587,6 +587,8 @@ public class PaymentServices implements PaymentInterface {
 	public UploadPastDueResponse uploadPastDue(UploadPastDueRequest request) throws Exception {
 		UploadPastDueResponse response = new UploadPastDueResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setSuccessRows(0);
+		response.setFailedRows(0);
 		String apartmentId = request != null && request.getGenericHeader() != null
 				? trimValue(request.getGenericHeader().getApartmentId())
 				: null;
@@ -597,6 +599,7 @@ public class PaymentServices implements PaymentInterface {
 		}
 
 		List<List<String>> failedRows = new ArrayList<>();
+		int successRows = 0;
 		Set<String> validFlatIds = flatRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
 				.map(Flat::getFlatNo).filter(this::hasText).map(this::normalizeFlatNoForMatch).filter(Objects::nonNull)
 				.collect(Collectors.toCollection(HashSet::new));
@@ -618,6 +621,7 @@ public class PaymentServices implements PaymentInterface {
 					}
 					CreatePaymentRequest createPaymentRequest = buildPastDueCreatePaymentRequest(request, uploadRow);
 					createPayment(createPaymentRequest);
+					successRows++;
 				} catch (Exception rowException) {
 					failedRows.add(buildPastDueFailedRow(row, rowException.getMessage()));
 				}
@@ -627,6 +631,8 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
+		response.setSuccessRows(successRows);
+		response.setFailedRows(failedRows.size());
 
 		if (!failedRows.isEmpty()) {
 			response.setFile(generatePastDueFailedRowsWorkbook(failedRows));

@@ -6,6 +6,8 @@ public class UploadPastDueResponse {
 	private String message;
 	private String messageCode;
 	private String file;
+	private Integer successRows;
+	private Integer failedRows;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -37,5 +39,21 @@ public class UploadPastDueResponse {
 
 	public void setFile(String file) {
 		this.file = file;
+	}
+
+	public Integer getSuccessRows() {
+		return successRows;
+	}
+
+	public void setSuccessRows(Integer successRows) {
+		this.successRows = successRows;
+	}
+
+	public Integer getFailedRows() {
+		return failedRows;
+	}
+
+	public void setFailedRows(Integer failedRows) {
+		this.failedRows = failedRows;
 	}
 }
