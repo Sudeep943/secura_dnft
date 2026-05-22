@@ -24,6 +24,8 @@ import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.RazorPayPaymentRequest;
 import com.secura.dnft.request.response.RazorPayPaymentResponse;
 import com.secura.dnft.request.response.RazorPayPaymentVerificationResponse;
+import com.secura.dnft.request.response.UploadPastDueRequest;
+import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
@@ -144,4 +146,19 @@ public class PaymentController {
  			}
  			return response;
 	            }
+ 	 
+	@PostMapping("/uploadPastDue")
+	@CrossOrigin(origins = "*")
+	public UploadPastDueResponse uploadPastDue(@RequestBody UploadPastDueRequest request) {
+		 UploadPastDueResponse response = new UploadPastDueResponse();
+		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		 try {
+			 return paymentServices.uploadPastDue(request);
+		 }
+		 catch (Exception e) {
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		 }
+		 return response;
+	}
 }
