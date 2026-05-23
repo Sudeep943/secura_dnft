@@ -71,6 +71,7 @@ class ApartmentServiceTest {
 		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
 		when(genericService.encrypt("ABC Bank")).thenReturn("encrypted-bank-name");
 		when(genericService.encrypt("12345")).thenReturn("encrypted-account-number");
+		when(genericService.encrypt("Razorpay")).thenReturn("encrypted-pg-name");
 		when(genericService.encrypt("[\"BANK-ID\"]")).thenReturn("encrypted-bank-json");
 
 		UpdateApartmentDetailsResponse response = apartmentService.updateApartmentDetails(request);
@@ -81,6 +82,8 @@ class ApartmentServiceTest {
 		verify(bankEntityRepository).save(bankCaptor.capture());
 		assertEquals("APR-1", bankCaptor.getValue().getAprmntId());
 		assertEquals("encrypted-bank-name", bankCaptor.getValue().getBankName());
+		assertEquals("encrypted-pg-name", bankCaptor.getValue().getPgName());
+		org.junit.jupiter.api.Assertions.assertTrue(bankCaptor.getValue().getBankDetailsID().matches("ABCB\\d{4}2345"));
 		ArgumentCaptor<ApartmentMaster> captor = ArgumentCaptor.forClass(ApartmentMaster.class);
 		verify(repository).save(captor.capture());
 		assertEquals("{\"city\":\"Springfield\"}", captor.getValue().getAprmntAddress());
@@ -107,6 +110,7 @@ class ApartmentServiceTest {
 		bankEntity.setAprmntId("APR-1");
 		bankEntity.setBankDetailsID("BANK-1");
 		bankEntity.setBankName("encrypted-bank-name");
+		bankEntity.setPgName("encrypted-pg-name");
 		Address address = new Address();
 		address.setAddressLine1("12 Main Street");
 		address.setCity("Springfield");
@@ -121,6 +125,7 @@ class ApartmentServiceTest {
 		when(genericService.fromJson(eq("[\"BANK-1\"]"), any(TypeReference.class))).thenReturn(List.of("BANK-1"));
 		when(bankEntityRepository.findByAprmntIdAndBankDetailsID("APR-1", "BANK-1")).thenReturn(Optional.of(bankEntity));
 		when(genericService.decrypt("encrypted-bank-name")).thenReturn("ABC Bank");
+		when(genericService.decrypt("encrypted-pg-name")).thenReturn("Razorpay");
 		when(genericService.fromJson(eq("[{\"memberId\":\"MEM-1\"}]"), any(TypeReference.class)))
 				.thenReturn(List.of(executiveMember));
 
@@ -132,8 +137,35 @@ class ApartmentServiceTest {
 		assertEquals("logo-data", response.getApartmentLogo());
 		assertSame(address, response.getAddress());
 		assertEquals("ABC Bank", response.getBankAccountDetails().get(0).getBankName());
+		assertEquals("Razorpay", response.getBankAccountDetails().get(0).getPgName());
 		assertEquals("MEM-1", response.getExecutiveMemberList().get(0).getMemberId());
 		assertEquals("letter-head-data", response.getApartmentLetterHead());
+	}
+
+	@Test
+	void updateApartmentDetails_shouldGeneratePaddedBankDetailsIdForShortInputs() throws Exception {
+		UpdateApartmentDetailsRequest request = buildUpdateRequest();
+		request.getBankAccountDetails().get(0).setBankName("S!");
+		request.getBankAccountDetails().get(0).setAccountNumber("9#");
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+
+		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
+		when(repository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericService.toJson(request.getAddress())).thenReturn("{\"city\":\"Springfield\"}");
+		when(genericService.toJson(argThat(value -> value instanceof List<?> list
+				&& (list.isEmpty() || list.get(0) instanceof String)))).thenReturn("[\"BANK-ID\"]");
+		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
+		when(genericService.encrypt("S!")).thenReturn("encrypted-bank-name");
+		when(genericService.encrypt("9#")).thenReturn("encrypted-account-number");
+		when(genericService.encrypt("Razorpay")).thenReturn("encrypted-pg-name");
+		when(genericService.encrypt("[\"BANK-ID\"]")).thenReturn("encrypted-bank-json");
+
+		apartmentService.updateApartmentDetails(request);
+
+		ArgumentCaptor<BankEntity> bankCaptor = ArgumentCaptor.forClass(BankEntity.class);
+		verify(bankEntityRepository).save(bankCaptor.capture());
+		org.junit.jupiter.api.Assertions.assertTrue(bankCaptor.getValue().getBankDetailsID().matches("SXXX\\d{4}0009"));
 	}
 
 	@Test
@@ -162,6 +194,7 @@ class ApartmentServiceTest {
 		BankAccountDetails bankAccountDetails = new BankAccountDetails();
 		bankAccountDetails.setBankName("ABC Bank");
 		bankAccountDetails.setAccountNumber("12345");
+		bankAccountDetails.setPgName("Razorpay");
 		request.setBankAccountDetails(List.of(bankAccountDetails));
 		ExecutiveMember executiveMember = new ExecutiveMember();
 		executiveMember.setMemberId("MEM-1");

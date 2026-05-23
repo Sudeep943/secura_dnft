@@ -3,8 +3,9 @@ package com.secura.dnft.service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,9 @@ import com.secura.dnft.validation.CommonValidations;
 
 @Service
 public class ApartmentService {
+
+	    private static final char BANK_NAME_PADDING_CHAR = 'X';
+	    private static final char ACCOUNT_NUMBER_PADDING_CHAR = '0';
 
 	
 	
@@ -199,7 +203,7 @@ public class ApartmentService {
 	    		if (bankAccountDetails == null) {
 	    			continue;
 	    		}
-	    		String bankDetailsID = ensureBankDetailsId(bankAccountDetails.getBankDetailsID(), apartmentId);
+	    		String bankDetailsID = ensureBankDetailsId(bankAccountDetails.getBankDetailsID(), bankAccountDetails);
 	    		bankAccountDetails.setBankDetailsID(bankDetailsID);
 	    		saveBankEntity(apartmentId, bankAccountDetails);
 	    		bankDetailIds.add(bankDetailsID);
@@ -219,13 +223,14 @@ public class ApartmentService {
 	    	bankEntity.setAccountName(encryptNullable(bankAccountDetails.getAccountName()));
 	    	bankEntity.setPgKey(encryptNullable(bankAccountDetails.getPgKey()));
 	    	bankEntity.setPgSecret(encryptNullable(bankAccountDetails.getPgSecret()));
+	    	bankEntity.setPgName(encryptNullable(bankAccountDetails.getPgName()));
 	    	bankEntity.setUpiId(encryptNullable(bankAccountDetails.getUpiId()));
 	    	bankEntityRepository.save(bankEntity);
 	    }
 
 	    private String upsertBankDetailsForApartment(ApartmentMaster apartment, String userId, BankAccountDetails bankAccountDetails) {
 	    	BankAccountDetails details = bankAccountDetails == null ? new BankAccountDetails() : bankAccountDetails;
-	    	String bankDetailsID = ensureBankDetailsId(details.getBankDetailsID(), apartment.getAprmntId());
+	    	String bankDetailsID = ensureBankDetailsId(details.getBankDetailsID(), details);
 	    	details.setBankDetailsID(bankDetailsID);
 	    	saveBankEntity(apartment.getAprmntId(), details);
 	    	List<String> existingBankIds = readBankDetailIds(apartment.getAprmnt_bank_acccount_list(), apartment.getAprmntId());
@@ -304,6 +309,7 @@ public class ApartmentService {
 	    	bankAccountDetails.setAccountName(decryptNullable(bankEntity.getAccountName()));
 	    	bankAccountDetails.setPgKey(decryptNullable(bankEntity.getPgKey()));
 	    	bankAccountDetails.setPgSecret(decryptNullable(bankEntity.getPgSecret()));
+	    	bankAccountDetails.setPgName(decryptNullable(bankEntity.getPgName()));
 	    	bankAccountDetails.setUpiId(decryptNullable(bankEntity.getUpiId()));
 	    	return bankAccountDetails;
 	    }
@@ -322,11 +328,37 @@ public class ApartmentService {
 	    	return genericService.decrypt(value);
 	    }
 
-	    private String ensureBankDetailsId(String bankDetailsID, String apartmentId) {
+	    private String ensureBankDetailsId(String bankDetailsID, BankAccountDetails bankAccountDetails) {
 	    	if (bankDetailsID != null && !bankDetailsID.isBlank()) {
 	    		return bankDetailsID;
 	    	}
-	    	return "BNK" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
+	    	String bankPrefix = firstFourBankName(bankAccountDetails != null ? bankAccountDetails.getBankName() : null);
+	    	String randomDigits = String.format("%04d", ThreadLocalRandom.current().nextInt(10000));
+	    	String accountSuffix = lastFourAccountNumber(bankAccountDetails != null ? bankAccountDetails.getAccountNumber() : null);
+	    	return (bankPrefix + randomDigits + accountSuffix).toUpperCase(Locale.ROOT);
+	    }
+
+	    private String firstFourBankName(String bankName) {
+	    	String cleaned = alphanumeric(bankName);
+	    	if (cleaned.length() >= 4) {
+	    		return cleaned.substring(0, 4);
+	    	}
+	    	return cleaned + String.valueOf(BANK_NAME_PADDING_CHAR).repeat(4 - cleaned.length());
+	    }
+
+	    private String lastFourAccountNumber(String accountNumber) {
+	    	String cleaned = alphanumeric(accountNumber);
+	    	if (cleaned.length() >= 4) {
+	    		return cleaned.substring(cleaned.length() - 4);
+	    	}
+	    	return String.valueOf(ACCOUNT_NUMBER_PADDING_CHAR).repeat(4 - cleaned.length()) + cleaned;
+	    }
+
+	    private String alphanumeric(String value) {
+	    	if (value == null || value.isBlank()) {
+	    		return "";
+	    	}
+	    	return value.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
 	    }
 
 	    private List<ExecutiveMember> readExecutiveMembers(String value) {
