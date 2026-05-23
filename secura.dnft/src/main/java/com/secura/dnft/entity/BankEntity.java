@@ -1,24 +1,55 @@
-package com.secura.dnft.bean;
+package com.secura.dnft.entity;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
+import jakarta.persistence.Table;
 
-public class BankAccountDetails {
+@Entity
+@IdClass(BankEntityId.class)
+@Table(name = "bankentity")
+public class BankEntity {
 
-	@JsonProperty("BankDetailsID")
-	@JsonAlias("bankDetailsID")
+	@Id
+	@Column(name = "aprmnt_id")
+	private String aprmntId;
+
+	@Id
+	@Column(name = "BankDetailsID")
 	private String bankDetailsID;
+
+	@Column(name = "bankName", columnDefinition = "TEXT")
 	private String bankName;
+
+	@Column(name = "accountNumber", columnDefinition = "TEXT")
 	private String accountNumber;
+
+	@Column(name = "ifscCode", columnDefinition = "TEXT")
 	private String ifscCode;
+
+	@Column(name = "branch", columnDefinition = "TEXT")
 	private String branch;
+
+	@Column(name = "accountName", columnDefinition = "TEXT")
 	private String accountName;
-	@JsonAlias("razorPayKey")
+
+	@Column(name = "pgKey", columnDefinition = "TEXT")
 	private String pgKey;
-	@JsonProperty("PgSecret")
-	@JsonAlias({ "pgSecret", "razorPaySecret" })
+
+	@Column(name = "PgSecret", columnDefinition = "TEXT")
 	private String pgSecret;
+
+	@Column(name = "upiId", columnDefinition = "TEXT")
 	private String upiId;
+
+	public String getAprmntId() {
+		return aprmntId;
+	}
+
+	public void setAprmntId(String aprmntId) {
+		this.aprmntId = aprmntId;
+	}
 
 	public String getBankDetailsID() {
 		return bankDetailsID;

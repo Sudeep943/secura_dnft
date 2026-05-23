@@ -13,10 +13,16 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.request.response.AddBankDetailsRequest;
+import com.secura.dnft.request.response.AddBankDetailsResponse;
 import com.secura.dnft.request.response.GetApartmentDetailsRequest;
 import com.secura.dnft.request.response.GetApartmentDetailsResponse;
+import com.secura.dnft.request.response.GetBankDetailsRequest;
+import com.secura.dnft.request.response.GetBankDetailsResponse;
 import com.secura.dnft.request.response.UpdateApartmentDetailsRequest;
 import com.secura.dnft.request.response.UpdateApartmentDetailsResponse;
+import com.secura.dnft.request.response.UpdateBankDetailsRequest;
+import com.secura.dnft.request.response.UpdateBankDetailsResponse;
 import com.secura.dnft.service.ApartmentService;
 
 
@@ -57,6 +63,48 @@ public class ApartmentController {
     	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
     	try {
     		return service.getApartmentDetails(request);
+    	} catch (Exception e) {
+    		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+    		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+    	}
+    	return response;
+    }
+
+    @PostMapping("/addBankDetail")
+    @CrossOrigin(origins = "*")
+    public AddBankDetailsResponse addBankDetail(@RequestBody AddBankDetailsRequest request) {
+    	AddBankDetailsResponse response = new AddBankDetailsResponse();
+    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+    	try {
+    		return service.addBankDetails(request);
+    	} catch (Exception e) {
+    		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+    		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+    	}
+    	return response;
+    }
+
+    @PostMapping("/getBankDetails")
+    @CrossOrigin(origins = "*")
+    public GetBankDetailsResponse getBankDetails(@RequestBody GetBankDetailsRequest request) {
+    	GetBankDetailsResponse response = new GetBankDetailsResponse();
+    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+    	try {
+    		return service.getBankDetails(request);
+    	} catch (Exception e) {
+    		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+    		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+    	}
+    	return response;
+    }
+
+    @PostMapping("/updateBankDetails")
+    @CrossOrigin(origins = "*")
+    public UpdateBankDetailsResponse updateBankDetails(@RequestBody UpdateBankDetailsRequest request) {
+    	UpdateBankDetailsResponse response = new UpdateBankDetailsResponse();
+    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+    	try {
+    		return service.updateBankDetails(request);
     	} catch (Exception e) {
     		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
     		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
