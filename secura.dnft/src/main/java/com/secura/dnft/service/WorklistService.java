@@ -5,6 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,11 +16,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.WorklistAssignmentFlow;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntityId;
 import com.secura.dnft.entity.Flat;
+import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
@@ -53,6 +58,9 @@ public class WorklistService {
 
 	@Autowired
 	private FlatRepository flatRepository;
+
+	@Autowired
+	private PaymentRepository paymentRepository;
 
 	public Worklist createTransactionReviewWorklist(String transactionId, GenericHeader genericHeader) {
 		LocalDateTime now = LocalDateTime.now();
@@ -156,6 +164,11 @@ public class WorklistService {
 		if (!hasText(flatNo)) {
 			return;
 		}
+		String apartmentId = resolveApartmentId(worklist, transaction);
+		String paymentId = trimValue(dueEntity.getPaymentId());
+		if (!hasText(paymentId)) {
+			paymentId = trimValue(transaction.getPymntId());
+		}
 		Flat flat = flatRepository.findById(flatNo).orElse(null);
 		if (flat == null || !hasText(flat.getFlatPndngPaymntLst())) {
 			return;
@@ -170,6 +183,8 @@ public class WorklistService {
 		if (removed) {
 			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueList));
 			flatRepository.save(flat);
+			addFlatToDuePaidFlats(dueEntity, flatNo);
+			addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatNo, paymentId, pendingDueList);
 		}
 	}
 
@@ -178,6 +193,13 @@ public class WorklistService {
 			return worklist.getFlatNo().trim();
 		}
 		return trimValue(transaction != null ? transaction.getFlatId() : null);
+	}
+
+	private String resolveApartmentId(Worklist worklist, Transaction transaction) {
+		if (worklist != null && hasText(worklist.getApartmentId())) {
+			return worklist.getApartmentId().trim();
+		}
+		return trimValue(transaction != null ? transaction.getAprmntId() : null);
 	}
 
 	private DueAmountDetailsEntityId parsePendingDueKeyToEntityId(String pendingDueKey) {
@@ -220,6 +242,78 @@ public class WorklistService {
 		} catch (Exception ex) {
 			return new ArrayList<>();
 		}
+	}
+
+	private void addFlatToDuePaidFlats(DueAmountDetailsEntity dueEntity, String flatNo) {
+		if (dueEntity == null || !hasText(flatNo)) {
+			return;
+		}
+		List<String> paidFlats = parsePendingDueList(dueEntity.getPaidFlats());
+		if (containsFlatId(paidFlats, flatNo)) {
+			return;
+		}
+		paidFlats.add(flatNo.trim());
+		dueEntity.setPaidFlats(genericService.toJson(paidFlats));
+		dueAmountDetailsRepository.save(dueEntity);
+	}
+
+	private void addFlatToPaymentPaidFlatsWhenNoDuesRemain(String apartmentId, String flatNo, String paymentId,
+			List<String> pendingDueList) {
+		if (!hasText(apartmentId) || !hasText(flatNo) || !hasText(paymentId)) {
+			return;
+		}
+		List<DueAmountDetailsEntity> duesForPayment = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		if (duesForPayment == null || duesForPayment.isEmpty()) {
+			return;
+		}
+		Set<String> paymentDueKeysForFlat = duesForPayment.stream().filter(Objects::nonNull)
+				.filter(due -> containsFlatId(parsePendingDueList(due.getApplicableFlats()), flatNo))
+				.map(this::buildFlatPendingDueKey).filter(this::hasText).map(String::trim).collect(Collectors.toSet());
+		if (paymentDueKeysForFlat.isEmpty()) {
+			return;
+		}
+		boolean hasRemainingDueForFlat = pendingDueList.stream().filter(this::hasText).map(String::trim)
+				.anyMatch(paymentDueKeysForFlat::contains);
+		if (hasRemainingDueForFlat) {
+			return;
+		}
+		List<PaymentEntity> paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId);
+		if (paymentEntities == null || paymentEntities.isEmpty()) {
+			return;
+		}
+		List<PaymentEntity> updatedPayments = new ArrayList<>();
+		for (PaymentEntity paymentEntity : paymentEntities) {
+			if (paymentEntity == null) {
+				continue;
+			}
+			List<String> paidFlats = parsePendingDueList(paymentEntity.getPaidFlats());
+			if (containsFlatId(paidFlats, flatNo)) {
+				continue;
+			}
+			paidFlats.add(flatNo.trim());
+			paymentEntity.setPaidFlats(genericService.toJson(paidFlats));
+			updatedPayments.add(paymentEntity);
+		}
+		if (!updatedPayments.isEmpty()) {
+			paymentRepository.saveAll(updatedPayments);
+		}
+	}
+
+	private String buildFlatPendingDueKey(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null || dueEntity.getDueDate() == null || !hasText(dueEntity.getDueId())
+				|| !hasText(dueEntity.getCollectionCycle()) || !hasText(dueEntity.getFlatArea())) {
+			return null;
+		}
+		return dueEntity.getDueId() + "_" + dueEntity.getCollectionCycle() + "_" + dueEntity.getFlatArea() + "_"
+				+ dueEntity.getDueDate();
+	}
+
+	private boolean containsFlatId(List<String> flatIds, String flatId) {
+		if (flatIds == null || flatIds.isEmpty() || !hasText(flatId)) {
+			return false;
+		}
+		String trimmedFlatId = flatId.trim();
+		return flatIds.stream().anyMatch(item -> hasText(item) && trimmedFlatId.equalsIgnoreCase(item.trim()));
 	}
 
 	private BigDecimal parseAmount(String amount) {
