@@ -70,6 +70,7 @@ class ApartmentServiceTest {
 				&& (list.isEmpty() || list.get(0) instanceof String)))).thenReturn("[\"BANK-ID\"]");
 		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
 		when(genericService.encrypt("ABC Bank")).thenReturn("encrypted-bank-name");
+		when(genericService.encrypt("12345")).thenReturn("encrypted-account-number");
 		when(genericService.encrypt("[\"BANK-ID\"]")).thenReturn("encrypted-bank-json");
 
 		UpdateApartmentDetailsResponse response = apartmentService.updateApartmentDetails(request);
