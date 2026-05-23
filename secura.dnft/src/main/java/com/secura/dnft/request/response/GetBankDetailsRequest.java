@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class GetBankDetailsRequest {
 
 	private GenericHeader genericHeader;
-	@JsonProperty("BankDetailsID")
+//	@JsonProperty("BankDetailsID")
 	@JsonAlias("bankDetailsID")
 	private String bankDetailsID;
 
