@@ -63,7 +63,6 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
-import com.secura.dnft.request.response.AddDiscfinRequest;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -100,8 +99,8 @@ public class PaymentServices implements PaymentInterface {
 	private static final DateTimeFormatter TRANSACTION_ID_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	private static final int TRANSACTION_ID_RANDOM_LENGTH = 6;
-	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Name", "Due Amount",
-			"Penalty Amount", "Fine Eligible", "Fine %", "Fine Type" };
+	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount",
+			"GST%", "Total Due Amount" };
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
 	private static final DateTimeFormatter PAST_DUE_DATE_FORMATTER = new DateTimeFormatterBuilder().parseCaseInsensitive()
 			.appendPattern("d-MMM-yyyy").toFormatter(Locale.ENGLISH);
@@ -132,9 +131,6 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	WorklistService worklistService;
-
-	@Autowired
-	DiscFinServices discFinServices;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -1553,12 +1549,10 @@ public class PaymentServices implements PaymentInterface {
 		uploadRow.flatId = readPastDueStringCell(row, 0);
 		uploadRow.dueFromText = readPastDueStringCell(row, 1);
 		uploadRow.dueTillText = readPastDueStringCell(row, 2);
-		uploadRow.dueName = readPastDueStringCell(row, 3);
+		uploadRow.dueCause = readPastDueStringCell(row, 3);
 		uploadRow.dueAmount = readPastDueStringCell(row, 4);
-		uploadRow.penaltyAmount = readPastDueStringCell(row, 5);
-		uploadRow.fineEligible = readPastDueStringCell(row, 6);
-		uploadRow.finePercent = readPastDueStringCell(row, 7);
-		uploadRow.fineType = readPastDueStringCell(row, 8);
+		uploadRow.gst = readPastDueStringCell(row, 5);
+		uploadRow.totalDueAmount = readPastDueStringCell(row, 6);
 		uploadRow.dueFrom = parsePastDueDate(uploadRow.dueFromText, "Due From");
 		uploadRow.dueTill = parsePastDueDate(uploadRow.dueTillText, "Due Till");
 		return uploadRow;
@@ -1581,36 +1575,21 @@ public class PaymentServices implements PaymentInterface {
 		if (row.dueFrom != null && row.dueTill != null && row.dueTill.isBefore(row.dueFrom)) {
 			errors.add("Due Till cannot be before Due From");
 		}
-		if (!hasText(row.dueName)) {
-			errors.add("Due Name is required");
+		if (!hasText(row.dueCause)) {
+			errors.add("Due Cause is required");
 		}
 		if (!hasText(row.dueAmount)) {
 			errors.add("Due Amount is required");
 		} else if (!isNumeric(row.dueAmount)) {
 			errors.add("Due Amount must be numeric");
 		}
-		if (hasText(row.penaltyAmount) && !isNumeric(row.penaltyAmount)) {
-			errors.add("Penalty Amount must be numeric");
+		if (!hasText(row.gst)) {
+			errors.add("GST% is required");
+		} else if (!isNumeric(row.gst)) {
+			errors.add("GST% must be numeric");
 		}
-		if (hasText(row.fineEligible)) {
-			String normalizedFineEligible = row.fineEligible.trim().toUpperCase(Locale.ROOT);
-			if (!"YES".equals(normalizedFineEligible) && !"NO".equals(normalizedFineEligible)) {
-				errors.add("Fine Eligible must be Yes or No");
-			}
-			if ("YES".equals(normalizedFineEligible)) {
-				if (!hasText(row.finePercent) || !isNumeric(row.finePercent)) {
-					errors.add("Fine % must be numeric when Fine Eligible is Yes");
-				}
-				if (!isValidFineType(row.fineType)) {
-					errors.add("Fine Type must be Simple or Cumulative");
-				}
-			}
-		}
-		if (hasText(row.finePercent) && !isNumeric(row.finePercent)) {
-			errors.add("Fine % must be numeric");
-		}
-		if (hasText(row.fineType) && !isValidFineType(row.fineType)) {
-			errors.add("Fine Type must be Simple or Cumulative");
+		if (hasText(row.totalDueAmount) && !isNumeric(row.totalDueAmount)) {
+			errors.add("Total Due Amount must be numeric");
 		}
 		return errors;
 	}
@@ -1619,12 +1598,12 @@ public class PaymentServices implements PaymentInterface {
 			throws Exception {
 		CreatePaymentRequest createPaymentRequest = new CreatePaymentRequest();
 		createPaymentRequest.setGenericHeader(request.getGenericHeader());
-		createPaymentRequest.setPaymentName(row.dueName.trim());
-		createPaymentRequest.setShortDetails(row.dueName.trim());
+		createPaymentRequest.setPaymentName(row.dueCause.trim());
+		createPaymentRequest.setShortDetails(row.dueCause.trim());
 		createPaymentRequest.setCollectionStartDate(Date.valueOf(row.dueFrom));
 		createPaymentRequest.setCollectionEndDate(Date.valueOf(row.dueTill));
 		createPaymentRequest.setPaymentAmount(normalizeNumeric(row.dueAmount));
-		createPaymentRequest.setGst("0");
+		createPaymentRequest.setGst(normalizeNumeric(row.gst));
 		createPaymentRequest.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
 		createPaymentRequest.setPaymentCollectionCycleList(List.of(SecuraConstants.PAYMENT_CYCLE_ONCE));
 		createPaymentRequest.setPaymentCollectionMode("PRE");
@@ -1635,43 +1614,7 @@ public class PaymentServices implements PaymentInterface {
 		createPaymentRequest.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 		createPaymentRequest.setPaymentCapita("PER_FLAT");
 		createPaymentRequest.setCause(SecuraConstants.TRANSACTION_CAUSE_OTHERS);
-		if (isFineEnabled(row)) {
-			createPaymentRequest.setFineCode(createPastDueFineCode(request, row));
-		}
 		return createPaymentRequest;
-	}
-
-	private String createPastDueFineCode(UploadPastDueRequest request, PastDueUploadRow row) throws Exception {
-		AddDiscfinRequest addDiscfinRequest = new AddDiscfinRequest();
-		addDiscfinRequest.setGenericHeader(request.getGenericHeader());
-		addDiscfinRequest.setDiscFnType(SecuraConstants.DISC_FN_TYPE_FINE);
-		addDiscfinRequest.setDueDateAsStartDateFlag(Boolean.TRUE);
-		addDiscfinRequest.setDiscFnMode(SecuraConstants.DISC_FN_MODE_PERCENTAGE);
-		addDiscfinRequest.setDiscFnCumlatonCycle(SecuraConstants.DISC_FN_CYCLE_MONTHLY);
-		addDiscfinRequest.setDiscFnCycleType(normalizeFineType(row.fineType));
-		addDiscfinRequest.setDiscFnValue(normalizeNumeric(row.finePercent));
-		addDiscfinRequest.setMinimumPaymentAmount("0");
-		return discFinServices.addDiscfin(addDiscfinRequest).getDiscFnId();
-	}
-
-	private boolean isFineEnabled(PastDueUploadRow row) {
-		return row != null && hasText(row.fineEligible) && "YES".equalsIgnoreCase(row.fineEligible.trim());
-	}
-
-	private String normalizeFineType(String fineType) {
-		if (!isValidFineType(fineType)) {
-			return SecuraConstants.DISC_FN_CYCLE_TYPE_SIMPLE;
-		}
-		return "CUMULATIVE".equalsIgnoreCase(fineType.trim()) ? SecuraConstants.DISC_FN_CYCLE_TYPE_CUMULATIVE
-				: SecuraConstants.DISC_FN_CYCLE_TYPE_SIMPLE;
-	}
-
-	private boolean isValidFineType(String fineType) {
-		if (!hasText(fineType)) {
-			return false;
-		}
-		String normalized = fineType.trim().toUpperCase(Locale.ROOT);
-		return "SIMPLE".equals(normalized) || "CUMULATIVE".equals(normalized);
 	}
 
 	private LocalDate parsePastDueDate(String value, String fieldName) {
@@ -1708,12 +1651,10 @@ public class PaymentServices implements PaymentInterface {
 		values.add(safePastDueValue(row.flatId));
 		values.add(safePastDueValue(row.dueFromText));
 		values.add(safePastDueValue(row.dueTillText));
-		values.add(safePastDueValue(row.dueName));
+		values.add(safePastDueValue(row.dueCause));
 		values.add(safePastDueValue(row.dueAmount));
-		values.add(safePastDueValue(row.penaltyAmount));
-		values.add(safePastDueValue(row.fineEligible));
-		values.add(safePastDueValue(row.finePercent));
-		values.add(safePastDueValue(row.fineType));
+		values.add(safePastDueValue(row.gst));
+		values.add(safePastDueValue(row.totalDueAmount));
 		values.add(safePastDueValue(reason));
 		return values;
 	}
@@ -1853,12 +1794,10 @@ public class PaymentServices implements PaymentInterface {
 		private String flatId;
 		private String dueFromText;
 		private String dueTillText;
-		private String dueName;
+		private String dueCause;
 		private String dueAmount;
-		private String penaltyAmount;
-		private String fineEligible;
-		private String finePercent;
-		private String fineType;
+		private String gst;
+		private String totalDueAmount;
 		private LocalDate dueFrom;
 		private LocalDate dueTill;
 	}
