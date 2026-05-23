@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.secura.dnft.request.response.PaymentGayewayPaymentDetailsResponse;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
@@ -31,7 +31,6 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
-import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
@@ -51,7 +50,7 @@ public class PaymentController {
 	@Autowired
 	PaymentServices paymentServices;
 	
-	 @PostMapping("/razorPayCreateOrder")
+	 @PostMapping("/payGatewayCreateOrder")
 	    @CrossOrigin(origins = "*")
 	    public PaymentGayewayOrderResponse createOrder(@RequestBody PaymentGayewayOrderRequest request) {
 		 try {
