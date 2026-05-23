@@ -1306,22 +1306,30 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
-		boolean perSqftCapita = paidDue != null && isPerSqftCapita(paidDue.getPaymentCapita());
 		List<DueAmountDetailsEntity> updatedDues = new ArrayList<>();
 		for (DueAmountDetailsEntity due : coveredDues) {
 			if (due == null) {
 				continue;
 			}
-			if (perSqftCapita && !isSameDueIdentity(due, paidDue)) {
-				continue;
-			}
+			boolean modified = false;
 			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
-			if (containsFlatId(paidFlats, flatId)) {
-				continue;
+			if (!containsFlatId(paidFlats, flatId)) {
+				List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
+				if (!paidFlats.equals(updatedPaidFlats)) {
+					due.setPaidFlats(genericService.toJson(updatedPaidFlats));
+					modified = true;
+				}
 			}
-			List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
-			if (!paidFlats.equals(updatedPaidFlats)) {
-				due.setPaidFlats(genericService.toJson(updatedPaidFlats));
+			if (!isSameDueIdentity(due, paidDue)) {
+				List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+				boolean applicableRemoved = applicableFlats
+						.removeIf(applicableFlat -> hasText(applicableFlat) && flatId.trim().equalsIgnoreCase(applicableFlat.trim()));
+				if (applicableRemoved) {
+					due.setApplicableFlats(genericService.toJson(applicableFlats));
+					modified = true;
+				}
+			}
+			if (modified) {
 				updatedDues.add(due);
 			}
 		}

@@ -199,6 +199,7 @@ class WorklistServiceTest {
 		due.setDueDate(LocalDate.parse("2026-06-01"));
 		due.setTotalAmount("1500");
 		due.setPaymentId("PAY-1001");
+		due.setApplicableFlats("[\"A-101\",\"A-102\"]");
 		Flat flat = new Flat();
 		flat.setFlatNo("A-101");
 		flat.setFlatPndngPaymntLst("[\"DUE1001_MONTHLY_ALL_2026-06-01\",\"DUE1002_MONTHLY_ALL_2026-07-01\"]");
@@ -213,15 +214,18 @@ class WorklistServiceTest {
 				.thenReturn(new ArrayList<>(List.of("DUE1001_MONTHLY_ALL_2026-06-01", "DUE1002_MONTHLY_ALL_2026-07-01")));
 		when(genericService.toJson(any())).thenCallRealMethod();
 		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001")).thenReturn(List.of(due));
 
 		worklistService.actionTransactionReviewWorkList(request);
 
 		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
 		verify(flatRepository).save(flatCaptor.capture());
 		assertEquals("[\"DUE1002_MONTHLY_ALL_2026-07-01\"]", flatCaptor.getValue().getFlatPndngPaymntLst());
-		ArgumentCaptor<DueAmountDetailsEntity> dueCaptor = ArgumentCaptor.forClass(DueAmountDetailsEntity.class);
-		verify(dueAmountDetailsRepository).save(dueCaptor.capture());
-		assertEquals("[\"A-101\"]", dueCaptor.getValue().getPaidFlats());
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository).saveAll(dueCaptor.capture());
+		assertEquals(1, dueCaptor.getValue().size());
+		assertEquals("[\"A-101\"]", dueCaptor.getValue().get(0).getPaidFlats());
 		verify(paymentRepository, never()).saveAll(any());
 	}
 
@@ -280,5 +284,86 @@ class WorklistServiceTest {
 		verify(paymentRepository).saveAll(paymentCaptor.capture());
 		PaymentEntity savedPayment = (PaymentEntity) paymentCaptor.getValue().get(0);
 		assertEquals("[\"A-101\"]", savedPayment.getPaidFlats());
+	}
+
+	@Test
+	void actionTransactionReviewWorkList_shouldUpdateRelatedCoveredDuesForApprovedTransaction() {
+		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
+		request.setWorklistId("WL-7");
+		request.setAction(SecuraConstants.ACTION_APPROVE);
+		GenericHeader header = new GenericHeader();
+		header.setUserId("USR-2");
+		request.setGenericHeader(header);
+
+		Worklist worklist = new Worklist();
+		worklist.setWorklistId("WL-7");
+		worklist.setApartmentId("APR-1");
+		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
+		worklist.setReferenceId("TRN-7");
+		worklist.setFlatNo("A-101");
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("TRN-7");
+		transaction.setTrnsAmt("9000.00");
+		transaction.setDueDetails("DUE1001_QUATERLY_ALL_2026-01-01");
+
+		DueAmountDetailsEntity paidDue = new DueAmountDetailsEntity();
+		paidDue.setDueId("DUE1001");
+		paidDue.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_QUATERLY);
+		paidDue.setFlatArea("ALL");
+		paidDue.setDueDate(LocalDate.parse("2026-01-01"));
+		paidDue.setDueStartDate(LocalDate.parse("2026-01-01"));
+		paidDue.setDueEndDate(LocalDate.parse("2026-03-31"));
+		paidDue.setTotalAmount("9000");
+		paidDue.setPaymentId("PAY-1001");
+		paidDue.setApplicableFlats("[\"A-101\",\"A-102\"]");
+
+		DueAmountDetailsEntity relatedDue = new DueAmountDetailsEntity();
+		relatedDue.setDueId("DUE2001");
+		relatedDue.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		relatedDue.setFlatArea("ALL");
+		relatedDue.setDueDate(LocalDate.parse("2026-02-01"));
+		relatedDue.setDueStartDate(LocalDate.parse("2026-02-01"));
+		relatedDue.setDueEndDate(LocalDate.parse("2026-02-28"));
+		relatedDue.setPaymentId("PAY-1001");
+		relatedDue.setApplicableFlats("[\"A-101\",\"A-102\"]");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatPndngPaymntLst("[\"DUE1001_QUATERLY_ALL_2026-01-01\",\"DUE2001_MONTHLY_ALL_2026-02-01\",\"OTHER_DUE_MONTHLY_ALL_2026-04-01\"]");
+
+		when(worklistRepository.findById("WL-7")).thenReturn(Optional.of(worklist));
+		when(transactionRepository.findById("TRN-7")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(paidDue));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001")).thenReturn(List.of(paidDue, relatedDue));
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(
+				new ArrayList<>(List.of("DUE1001_QUATERLY_ALL_2026-01-01", "DUE2001_MONTHLY_ALL_2026-02-01",
+						"OTHER_DUE_MONTHLY_ALL_2026-04-01")));
+		when(genericService.fromJson(eq(paidDue.getApplicableFlats()), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
+		when(genericService.fromJson(eq(relatedDue.getApplicableFlats()), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
+		when(genericService.toJson(any())).thenCallRealMethod();
+		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		worklistService.actionTransactionReviewWorkList(request);
+
+		ArgumentCaptor<Flat> flatCaptor = ArgumentCaptor.forClass(Flat.class);
+		verify(flatRepository).save(flatCaptor.capture());
+		assertEquals("[\"OTHER_DUE_MONTHLY_ALL_2026-04-01\"]", flatCaptor.getValue().getFlatPndngPaymntLst());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository).saveAll(dueCaptor.capture());
+		assertEquals(2, dueCaptor.getValue().size());
+		DueAmountDetailsEntity savedPaidDue = dueCaptor.getValue().stream().filter(d -> "DUE1001".equals(d.getDueId())).findFirst()
+				.orElseThrow();
+		DueAmountDetailsEntity savedRelatedDue = dueCaptor.getValue().stream().filter(d -> "DUE2001".equals(d.getDueId())).findFirst()
+				.orElseThrow();
+		assertEquals("[\"A-101\"]", savedPaidDue.getPaidFlats());
+		assertEquals("[\"A-101\"]", savedRelatedDue.getPaidFlats());
+		assertEquals("[\"A-102\"]", savedRelatedDue.getApplicableFlats());
 	}
 }

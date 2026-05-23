@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -166,23 +167,23 @@ public class WorklistService {
 		}
 		String apartmentId = resolveApartmentId(worklist, transaction);
 		String paymentId = resolvePaymentId(dueEntity, transaction);
-		Flat flat = flatRepository.findById(flatNo).orElse(null);
-		if (flat == null || !hasText(flat.getFlatPndngPaymntLst())) {
+		LocalDate paidStartDate = dueEntity.getDueStartDate() != null ? dueEntity.getDueStartDate() : dueEntity.getDueDate();
+		LocalDate paidEndDate = dueEntity.getDueEndDate() != null ? dueEntity.getDueEndDate() : dueEntity.getDueDate();
+		if (paidStartDate == null || paidEndDate == null) {
 			return;
 		}
-		List<String> pendingDueList = parsePendingDueList(flat.getFlatPndngPaymntLst());
-		if (pendingDueList.isEmpty()) {
+		List<DueAmountDetailsEntity> duesForPayment = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		if (duesForPayment == null || duesForPayment.isEmpty()) {
 			return;
 		}
-		String dueDetails = transaction.getDueDetails().trim();
-		boolean removed = pendingDueList.removeIf(
-				pendingDue -> hasText(pendingDue) && dueDetails.equalsIgnoreCase(pendingDue.trim()));
-		if (removed) {
-			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueList));
-			flatRepository.save(flat);
-			addFlatToDuePaidFlats(dueEntity, flatNo);
-			addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatNo, paymentId, pendingDueList);
+		List<DueAmountDetailsEntity> coveredDues = duesForPayment.stream().filter(Objects::nonNull)
+				.filter(due -> isCoveredDue(due, paidStartDate, paidEndDate)).collect(Collectors.toList());
+		if (coveredDues.isEmpty()) {
+			return;
 		}
+		List<String> pendingDueList = removeCoveredDueKeysFromFlat(flatNo, coveredDues);
+		updateCoveredDuesForFlat(flatNo, coveredDues, dueEntity);
+		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatNo, paymentId, pendingDueList);
 	}
 
 	private String resolveFlatNo(Worklist worklist, Transaction transaction) {
@@ -249,17 +250,96 @@ public class WorklistService {
 		}
 	}
 
-	private void addFlatToDuePaidFlats(DueAmountDetailsEntity dueEntity, String flatNo) {
-		if (dueEntity == null || !hasText(flatNo)) {
+	private boolean isCoveredDue(DueAmountDetailsEntity due, LocalDate paidStartDate, LocalDate paidEndDate) {
+		if (due == null) {
+			return false;
+		}
+		LocalDate dueStartDate = due.getDueStartDate() != null ? due.getDueStartDate() : due.getDueDate();
+		LocalDate dueEndDate = due.getDueEndDate() != null ? due.getDueEndDate() : due.getDueDate();
+		if (dueStartDate == null || dueEndDate == null) {
+			return false;
+		}
+		boolean childDueCovered = dueStartDate.compareTo(paidStartDate) >= 0 && dueEndDate.compareTo(paidEndDate) <= 0;
+		boolean parentDueCovered = dueStartDate.compareTo(paidStartDate) <= 0 && dueEndDate.compareTo(paidEndDate) >= 0;
+		return childDueCovered || parentDueCovered;
+	}
+
+	private List<String> removeCoveredDueKeysFromFlat(String flatNo, List<DueAmountDetailsEntity> coveredDues) {
+		if (!hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Flat flat = flatRepository.findById(flatNo).orElse(null);
+		if (flat == null || !hasText(flat.getFlatPndngPaymntLst())) {
+			return new ArrayList<>();
+		}
+		List<String> pendingDueList = parsePendingDueList(flat.getFlatPndngPaymntLst());
+		if (pendingDueList.isEmpty()) {
+			return pendingDueList;
+		}
+		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText).map(String::trim)
+				.collect(Collectors.toSet());
+		Set<String> perHeadCoveredDueKeys = coveredDues.stream().filter(Objects::nonNull)
+				.filter(due -> isPerHeadCapita(due.getPaymentCapita())).map(this::buildFlatPendingDueKey).filter(this::hasText)
+				.map(String::trim).collect(Collectors.toSet());
+		boolean removed = pendingDueList.removeIf(pendingDue -> hasText(pendingDue) && coveredDueKeys.contains(pendingDue.trim())
+				&& !perHeadCoveredDueKeys.contains(pendingDue.trim()));
+		if (removed) {
+			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueList));
+			flatRepository.save(flat);
+		}
+		return pendingDueList;
+	}
+
+	private void updateCoveredDuesForFlat(String flatNo, List<DueAmountDetailsEntity> coveredDues, DueAmountDetailsEntity paidDue) {
+		if (!hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
-		List<String> paidFlats = parsePendingDueList(dueEntity.getPaidFlats());
-		if (containsFlatId(paidFlats, flatNo)) {
-			return;
+		List<DueAmountDetailsEntity> updatedDues = new ArrayList<>();
+		for (DueAmountDetailsEntity due : coveredDues) {
+			if (due == null) {
+				continue;
+			}
+			boolean modified = false;
+			List<String> paidFlats = parsePendingDueList(due.getPaidFlats());
+			if (!containsFlatId(paidFlats, flatNo)) {
+				paidFlats.add(flatNo.trim());
+				due.setPaidFlats(genericService.toJson(paidFlats));
+				modified = true;
+			}
+			if (!isSameDueIdentity(due, paidDue)) {
+				List<String> applicableFlats = parsePendingDueList(due.getApplicableFlats());
+				boolean applicableRemoved = applicableFlats.removeIf(
+						applicableFlat -> hasText(applicableFlat) && flatNo.trim().equalsIgnoreCase(applicableFlat.trim()));
+				if (applicableRemoved) {
+					due.setApplicableFlats(genericService.toJson(applicableFlats));
+					modified = true;
+				}
+			}
+			if (modified) {
+				updatedDues.add(due);
+			}
 		}
-		paidFlats.add(flatNo.trim());
-		dueEntity.setPaidFlats(genericService.toJson(paidFlats));
-		dueAmountDetailsRepository.save(dueEntity);
+		if (!updatedDues.isEmpty()) {
+			dueAmountDetailsRepository.saveAll(updatedDues);
+		}
+	}
+
+	private boolean isSameDueIdentity(DueAmountDetailsEntity due, DueAmountDetailsEntity otherDue) {
+		if (due == null || otherDue == null) {
+			return false;
+		}
+		return Objects.equals(due.getDueId(), otherDue.getDueId())
+				&& Objects.equals(due.getCollectionCycle(), otherDue.getCollectionCycle())
+				&& Objects.equals(due.getFlatArea(), otherDue.getFlatArea())
+				&& Objects.equals(due.getDueDate(), otherDue.getDueDate());
+	}
+
+	private boolean isPerHeadCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return false;
+		}
+		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		return "PERHEAD".equals(normalized);
 	}
 
 	private void addFlatToPaymentPaidFlatsWhenNoDuesRemain(String apartmentId, String flatNo, String paymentId,

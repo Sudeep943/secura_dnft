@@ -1147,10 +1147,15 @@ class PaymentServicesTest {
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
 		verify(dueAmountDetailsRepository).saveAll(dueSaveCaptor.capture());
-		assertEquals(1, dueSaveCaptor.getValue().size());
-		assertEquals("DUE-Q1", dueSaveCaptor.getValue().get(0).getDueId());
-		assertEquals("[A-101]", dueSaveCaptor.getValue().get(0).getPaidFlats());
-		assertEquals("APPL_Q1", dueSaveCaptor.getValue().get(0).getApplicableFlats());
+		assertEquals(5, dueSaveCaptor.getValue().size());
+		DueAmountDetailsEntity savedQuarterlyDue = dueSaveCaptor.getValue().stream().filter(d -> "DUE-Q1".equals(d.getDueId()))
+				.findFirst().orElseThrow();
+		DueAmountDetailsEntity savedMonthly1 = dueSaveCaptor.getValue().stream().filter(d -> "DUE-M1".equals(d.getDueId()))
+				.findFirst().orElseThrow();
+		assertEquals("[A-101]", savedQuarterlyDue.getPaidFlats());
+		assertEquals("APPL_Q1", savedQuarterlyDue.getApplicableFlats());
+		assertEquals("[A-101]", savedMonthly1.getPaidFlats());
+		assertEquals("[A-102]", savedMonthly1.getApplicableFlats());
 
 		verify(paymentRepository, never()).saveAll(any());
 	}
