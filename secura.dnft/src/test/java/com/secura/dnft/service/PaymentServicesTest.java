@@ -1705,7 +1705,7 @@ class PaymentServicesTest {
 		header.setUserId("USR-1");
 		request.setGenericHeader(header);
 		request.setFile(buildPastDueWorkbookBase64(
-				List.of(List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200", "18", "1416"),
+				List.of(List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200.00", "18.0", "1416"),
 						List.of("A-999", "1-Mar-2026", "31-Mar-2026", "Bad Flat", "1300", "18", "1534"))));
 
 		Flat flat = new Flat();
