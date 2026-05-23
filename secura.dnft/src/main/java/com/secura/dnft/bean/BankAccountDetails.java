@@ -18,6 +18,8 @@ public class BankAccountDetails {
 	@JsonProperty("PgSecret")
 	@JsonAlias({ "pgSecret", "razorPaySecret" })
 	private String pgSecret;
+	@JsonAlias({ "PgName", "razorPayName" })
+	private String pgName;
 	private String upiId;
 
 	public String getBankDetailsID() {
@@ -90,5 +92,13 @@ public class BankAccountDetails {
 
 	public void setUpiId(String upiId) {
 		this.upiId = upiId;
+	}
+
+	public String getPgName() {
+		return pgName;
+	}
+
+	public void setPgName(String pgName) {
+		this.pgName = pgName;
 	}
 }

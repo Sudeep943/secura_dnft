@@ -40,6 +40,9 @@ public class BankEntity {
 	@Column(name = "PgSecret", columnDefinition = "TEXT")
 	private String pgSecret;
 
+	@Column(name = "pgName", columnDefinition = "TEXT")
+	private String pgName;
+
 	@Column(name = "upiId", columnDefinition = "TEXT")
 	private String upiId;
 
@@ -121,5 +124,13 @@ public class BankEntity {
 
 	public void setUpiId(String upiId) {
 		this.upiId = upiId;
+	}
+
+	public String getPgName() {
+		return pgName;
+	}
+
+	public void setPgName(String pgName) {
+		this.pgName = pgName;
 	}
 }
