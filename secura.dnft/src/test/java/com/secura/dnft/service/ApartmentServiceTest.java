@@ -143,6 +143,32 @@ class ApartmentServiceTest {
 	}
 
 	@Test
+	void updateApartmentDetails_shouldGeneratePaddedBankDetailsIdForShortInputs() throws Exception {
+		UpdateApartmentDetailsRequest request = buildUpdateRequest();
+		request.getBankAccountDetails().get(0).setBankName("S!");
+		request.getBankAccountDetails().get(0).setAccountNumber("9#");
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+
+		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
+		when(repository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericService.toJson(request.getAddress())).thenReturn("{\"city\":\"Springfield\"}");
+		when(genericService.toJson(argThat(value -> value instanceof List<?> list
+				&& (list.isEmpty() || list.get(0) instanceof String)))).thenReturn("[\"BANK-ID\"]");
+		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
+		when(genericService.encrypt("S!")).thenReturn("encrypted-bank-name");
+		when(genericService.encrypt("9#")).thenReturn("encrypted-account-number");
+		when(genericService.encrypt("Razorpay")).thenReturn("encrypted-pg-name");
+		when(genericService.encrypt("[\"BANK-ID\"]")).thenReturn("encrypted-bank-json");
+
+		apartmentService.updateApartmentDetails(request);
+
+		ArgumentCaptor<BankEntity> bankCaptor = ArgumentCaptor.forClass(BankEntity.class);
+		verify(bankEntityRepository).save(bankCaptor.capture());
+		org.junit.jupiter.api.Assertions.assertTrue(bankCaptor.getValue().getBankDetailsID().matches("SXXX\\d{4}0009"));
+	}
+
+	@Test
 	void getApartmentDetails_shouldReturnNotFoundWhenApartmentMissing() throws Exception {
 		GetApartmentDetailsRequest request = new GetApartmentDetailsRequest();
 		request.setGenericHeader(buildHeader());

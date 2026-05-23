@@ -343,7 +343,7 @@ public class ApartmentService {
 	    	if (cleaned.length() >= 4) {
 	    		return cleaned.substring(0, 4);
 	    	}
-	    	return String.format("%-4s", cleaned).replace(' ', BANK_NAME_PADDING_CHAR);
+	    	return cleaned + String.valueOf(BANK_NAME_PADDING_CHAR).repeat(4 - cleaned.length());
 	    }
 
 	    private String lastFourAccountNumber(String accountNumber) {
@@ -351,7 +351,7 @@ public class ApartmentService {
 	    	if (cleaned.length() >= 4) {
 	    		return cleaned.substring(cleaned.length() - 4);
 	    	}
-	    	return String.format("%4s", cleaned).replace(' ', ACCOUNT_NUMBER_PADDING_CHAR);
+	    	return String.valueOf(ACCOUNT_NUMBER_PADDING_CHAR).repeat(4 - cleaned.length()) + cleaned;
 	    }
 
 	    private String alphanumeric(String value) {
