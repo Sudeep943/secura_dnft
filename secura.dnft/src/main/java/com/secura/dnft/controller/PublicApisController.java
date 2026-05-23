@@ -27,6 +27,7 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.service.AtomsPaymentServices;
+import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
@@ -47,6 +48,9 @@ public class PublicApisController {
 	
 	@Autowired
 	private AtomsPaymentServices atomsPaymentServices;
+
+	@Autowired
+	private DeepLinkServices deepLinkServices;
 
 	@PostMapping("/getFlatsPublic")
 	@CrossOrigin(origins = "*")
@@ -153,6 +157,9 @@ public class PublicApisController {
 		}
 		if ("ATOMS".equalsIgnoreCase(paymentGateway)) {
 			return atomsPaymentServices;
+		}
+		if ("DEEPLINK".equalsIgnoreCase(paymentGateway)) {
+			return deepLinkServices;
 		}
 		throw new IllegalArgumentException("Unsupported payment gateway");
 	}
