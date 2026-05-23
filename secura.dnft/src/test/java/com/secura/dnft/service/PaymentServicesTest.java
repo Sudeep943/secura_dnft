@@ -1422,6 +1422,110 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldHandlePerSqftRelatedDuesOnSuccessfulPayment() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-9010");
+		request.setPaymentName("Maintenance");
+		request.setAmount("9000");
+		request.setDueId("DUE-Q1");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_QUATERLY);
+		request.setDueDate(LocalDate.parse("2025-01-01"));
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "9000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-9010");
+		paymentEntity.setBankAccountId("BANK-9010");
+		paymentEntity.setPaymentCapita("PER_SQFT");
+		paymentEntity.setApplicableFor("PAYMENT_APPLICABLE");
+		when(paymentRepository.findFirstByPaymentId("PAY-9010")).thenReturn(Optional.of(paymentEntity));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("FLAT_PENDING_P10");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		// Paid quarterly due (PER_SQFT, flatArea=1200)
+		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-03-31"), "PAY-9010",
+				"APPL_Q1_P10");
+		paidQuarterlyDue.setPaymentCapita("PER_SQFT");
+
+		// Related monthly due with same flatArea (1200) — should have flat removed from applicableFlats, NOT added to paidFlats
+		DueAmountDetailsEntity relatedDueSameArea = createDueEntity("DUE-M1", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-31"), "PAY-9010",
+				"APPL_M1_P10");
+		relatedDueSameArea.setPaymentCapita("PER_SQFT");
+
+		// Related monthly due with different flatArea (1500) — should be left untouched
+		DueAmountDetailsEntity relatedDueDiffArea = createDueEntity("DUE-M2", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1500",
+				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-31"), "PAY-9010",
+				"APPL_M2_P10");
+		relatedDueDiffArea.setPaymentCapita("PER_SQFT");
+
+		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-9010"))
+				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue, relatedDueSameArea, relatedDueDiffArea)));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenAnswer(invocation -> {
+			String marker = invocation.getArgument(0);
+			if (marker != null && marker.startsWith("[") && marker.endsWith("]")) {
+				String content = marker.substring(1, marker.length() - 1).trim();
+				if (content.isEmpty()) {
+					return new ArrayList<>();
+				}
+				return new ArrayList<>(List.of(content.split(",\\s*")));
+			}
+			return switch (marker) {
+			case "FLAT_PENDING_P10" -> new ArrayList<>(List.of("DUE-Q1_QUATERLY_1200_2025-01-01",
+					"DUE-M1_MONTHLY_1200_2025-01-01", "DUE-M2_MONTHLY_1500_2025-01-01"));
+			case "APPL_Q1_P10", "APPL_M1_P10" -> new ArrayList<>(List.of("A-101", "A-102"));
+			case "APPL_M2_P10" -> new ArrayList<>(List.of("A-103", "A-104"));
+			case "PAYMENT_APPLICABLE" -> new ArrayList<>(List.of("A-101", "A-102"));
+			default -> new ArrayList<>();
+			};
+		});
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0, Object.class);
+			return value == null ? null : value.toString();
+		});
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT");
+		createReceiptResponse.setReceiptNumber("RCT-9010");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		paymentServices.payDues(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueSaveCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository).saveAll(dueSaveCaptor.capture());
+
+		DueAmountDetailsEntity savedPaidDue = dueSaveCaptor.getValue().stream()
+				.filter(d -> "DUE-Q1".equals(d.getDueId())).findFirst().orElseThrow();
+		// Paid due: flat added to paidFlats
+		assertEquals("[A-101]", savedPaidDue.getPaidFlats());
+
+		DueAmountDetailsEntity savedRelatedDueSameArea = dueSaveCaptor.getValue().stream()
+				.filter(d -> "DUE-M1".equals(d.getDueId())).findFirst().orElseThrow();
+		// PER_SQFT related due with matching flatArea: flat removed from applicableFlats, NOT added to paidFlats
+		assertNull(savedRelatedDueSameArea.getPaidFlats());
+		assertEquals("[A-102]", savedRelatedDueSameArea.getApplicableFlats());
+
+		// PER_SQFT related due with different flatArea: not modified at all
+		boolean diffAreaDueSaved = dueSaveCaptor.getValue().stream().anyMatch(d -> "DUE-M2".equals(d.getDueId()));
+		assertFalse(diffAreaDueSaved);
+	}
+
+	@Test
 	void ledgerEntry_shouldCreateSingleTransactionAndAttachReceipt() throws Exception {
 		LedgerEntryRequest request = new LedgerEntryRequest();
 		GenericHeader header = new GenericHeader();

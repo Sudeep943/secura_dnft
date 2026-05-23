@@ -368,4 +368,109 @@ class WorklistServiceTest {
 		assertEquals("[\"A-101\"]", savedRelatedDue.getPaidFlats());
 		assertEquals("[\"A-102\"]", savedRelatedDue.getApplicableFlats());
 	}
+
+	@Test
+	void actionTransactionReviewWorkList_shouldHandlePerSqftRelatedDuesFlatAreaMatch() {
+		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
+		request.setWorklistId("WL-8");
+		request.setAction(SecuraConstants.ACTION_APPROVE);
+		GenericHeader header = new GenericHeader();
+		header.setUserId("USR-2");
+		request.setGenericHeader(header);
+
+		Worklist worklist = new Worklist();
+		worklist.setWorklistId("WL-8");
+		worklist.setApartmentId("APR-1");
+		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
+		worklist.setReferenceId("TRN-8");
+		worklist.setFlatNo("A-101");
+
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("TRN-8");
+		transaction.setTrnsAmt("9000.00");
+		transaction.setDueDetails("DUE1001_" + SecuraConstants.PAYMENT_CYCLE_QUATERLY + "_1200_2026-01-01");
+
+		DueAmountDetailsEntity paidDue = new DueAmountDetailsEntity();
+		paidDue.setDueId("DUE1001");
+		paidDue.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_QUATERLY);
+		paidDue.setFlatArea("1200");
+		paidDue.setDueDate(LocalDate.parse("2026-01-01"));
+		paidDue.setDueStartDate(LocalDate.parse("2026-01-01"));
+		paidDue.setDueEndDate(LocalDate.parse("2026-03-31"));
+		paidDue.setTotalAmount("9000");
+		paidDue.setPaymentId("PAY-1001");
+		paidDue.setApplicableFlats("[\"A-101\",\"A-102\"]");
+		paidDue.setPaymentCapita("PER_SQFT");
+
+		// Related due with same flatArea as paying flat — should have flat removed from applicableFlats
+		DueAmountDetailsEntity relatedDueSameArea = new DueAmountDetailsEntity();
+		relatedDueSameArea.setDueId("DUE2001");
+		relatedDueSameArea.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		relatedDueSameArea.setFlatArea("1200");
+		relatedDueSameArea.setDueDate(LocalDate.parse("2026-02-01"));
+		relatedDueSameArea.setDueStartDate(LocalDate.parse("2026-02-01"));
+		relatedDueSameArea.setDueEndDate(LocalDate.parse("2026-02-28"));
+		relatedDueSameArea.setPaymentId("PAY-1001");
+		relatedDueSameArea.setApplicableFlats("[\"A-101\",\"A-102\"]");
+		relatedDueSameArea.setPaymentCapita("PER_SQFT");
+
+		// Related due with different flatArea — should be left untouched
+		DueAmountDetailsEntity relatedDueDiffArea = new DueAmountDetailsEntity();
+		relatedDueDiffArea.setDueId("DUE3001");
+		relatedDueDiffArea.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		relatedDueDiffArea.setFlatArea("1500");
+		relatedDueDiffArea.setDueDate(LocalDate.parse("2026-02-01"));
+		relatedDueDiffArea.setDueStartDate(LocalDate.parse("2026-02-01"));
+		relatedDueDiffArea.setDueEndDate(LocalDate.parse("2026-02-28"));
+		relatedDueDiffArea.setPaymentId("PAY-1001");
+		relatedDueDiffArea.setApplicableFlats("[\"A-103\",\"A-104\"]");
+		relatedDueDiffArea.setPaymentCapita("PER_SQFT");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("[\"DUE1001_" + SecuraConstants.PAYMENT_CYCLE_QUATERLY
+				+ "_1200_2026-01-01\",\"DUE2001_MONTHLY_1200_2026-02-01\"]");
+
+		when(worklistRepository.findById("WL-8")).thenReturn(Optional.of(worklist));
+		when(transactionRepository.findById("TRN-8")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(paidDue));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001"))
+				.thenReturn(List.of(paidDue, relatedDueSameArea, relatedDueDiffArea));
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(
+				new ArrayList<>(List.of("DUE1001_" + SecuraConstants.PAYMENT_CYCLE_QUATERLY + "_1200_2026-01-01",
+						"DUE2001_MONTHLY_1200_2026-02-01")));
+		when(genericService.fromJson(eq(paidDue.getApplicableFlats()), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
+		when(genericService.fromJson(eq(relatedDueSameArea.getApplicableFlats()), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
+		when(genericService.fromJson(eq(relatedDueDiffArea.getApplicableFlats()), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-103", "A-104")));
+		when(genericService.toJson(any())).thenCallRealMethod();
+		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		worklistService.actionTransactionReviewWorkList(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository).saveAll(dueCaptor.capture());
+
+		DueAmountDetailsEntity savedPaidDue = dueCaptor.getValue().stream().filter(d -> "DUE1001".equals(d.getDueId()))
+				.findFirst().orElseThrow();
+		// Paid due: flat added to paidFlats
+		assertEquals("[\"A-101\"]", savedPaidDue.getPaidFlats());
+
+		DueAmountDetailsEntity savedRelatedDueSameArea = dueCaptor.getValue().stream()
+				.filter(d -> "DUE2001".equals(d.getDueId())).findFirst().orElseThrow();
+		// PER_SQFT related due with matching flatArea: flat removed from applicableFlats, NOT added to paidFlats
+		assertNull(savedRelatedDueSameArea.getPaidFlats());
+		assertEquals("[\"A-102\"]", savedRelatedDueSameArea.getApplicableFlats());
+
+		// PER_SQFT related due with different flatArea: not modified
+		boolean diffAreaDueSaved = dueCaptor.getValue().stream().anyMatch(d -> "DUE3001".equals(d.getDueId()));
+		org.junit.jupiter.api.Assertions.assertFalse(diffAreaDueSaved);
+	}
 }
