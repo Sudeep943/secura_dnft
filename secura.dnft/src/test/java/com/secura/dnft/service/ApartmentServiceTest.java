@@ -3,6 +3,7 @@ package com.secura.dnft.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
@@ -23,7 +24,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.BankAccountDetails;
 import com.secura.dnft.bean.ExecutiveMember;
 import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.dao.BankEntityRepository;
 import com.secura.dnft.entity.ApartmentMaster;
+import com.secura.dnft.entity.BankEntity;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -46,6 +49,9 @@ class ApartmentServiceTest {
 	private GenericService genericService;
 
 	@Mock
+	private BankEntityRepository bankEntityRepository;
+
+	@Mock
 	private CommonValidations commonValidations;
 
 	@InjectMocks
@@ -60,14 +66,21 @@ class ApartmentServiceTest {
 		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
 		when(repository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericService.toJson(request.getAddress())).thenReturn("{\"city\":\"Springfield\"}");
-		when(genericService.toJson(request.getBankAccountDetails())).thenReturn("[{\"bankName\":\"ABC Bank\"}]");
-		when(genericService.encrypt("[{\"bankName\":\"ABC Bank\"}]")).thenReturn("encrypted-bank-json");
+		when(genericService.toJson(argThat(value -> value instanceof List<?> list
+				&& (list.isEmpty() || list.get(0) instanceof String)))).thenReturn("[\"BANK-ID\"]");
 		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
+		when(genericService.encrypt("ABC Bank")).thenReturn("encrypted-bank-name");
+		when(genericService.encrypt("12345")).thenReturn("encrypted-account-number");
+		when(genericService.encrypt("[\"BANK-ID\"]")).thenReturn("encrypted-bank-json");
 
 		UpdateApartmentDetailsResponse response = apartmentService.updateApartmentDetails(request);
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_35, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_35, response.getMessageCode());
+		ArgumentCaptor<BankEntity> bankCaptor = ArgumentCaptor.forClass(BankEntity.class);
+		verify(bankEntityRepository).save(bankCaptor.capture());
+		assertEquals("APR-1", bankCaptor.getValue().getAprmntId());
+		assertEquals("encrypted-bank-name", bankCaptor.getValue().getBankName());
 		ArgumentCaptor<ApartmentMaster> captor = ArgumentCaptor.forClass(ApartmentMaster.class);
 		verify(repository).save(captor.capture());
 		assertEquals("{\"city\":\"Springfield\"}", captor.getValue().getAprmntAddress());
@@ -90,11 +103,13 @@ class ApartmentServiceTest {
 		apartment.setAprmnt_bank_acccount_list("encrypted-bank-json");
 		apartment.setAprmnt_executive_role_list("[{\"memberId\":\"MEM-1\"}]");
 		apartment.setAprmntLetterHead("letter-head-data");
+		BankEntity bankEntity = new BankEntity();
+		bankEntity.setAprmntId("APR-1");
+		bankEntity.setBankDetailsID("BANK-1");
+		bankEntity.setBankName("encrypted-bank-name");
 		Address address = new Address();
 		address.setAddressLine1("12 Main Street");
 		address.setCity("Springfield");
-		BankAccountDetails bankAccountDetails = new BankAccountDetails();
-		bankAccountDetails.setBankName("ABC Bank");
 		ExecutiveMember executiveMember = new ExecutiveMember();
 		executiveMember.setMemberId("MEM-1");
 		executiveMember.setPositionName("Secretary");
@@ -102,9 +117,10 @@ class ApartmentServiceTest {
 		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
 		when(repository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericService.fromJson("{\"city\":\"Springfield\"}", Address.class)).thenReturn(address);
-		when(genericService.decrypt("encrypted-bank-json")).thenReturn("[{\"bankName\":\"ABC Bank\"}]");
-		when(genericService.fromJson(eq("[{\"bankName\":\"ABC Bank\"}]"), any(TypeReference.class)))
-				.thenReturn(List.of(bankAccountDetails));
+		when(genericService.decrypt("encrypted-bank-json")).thenReturn("[\"BANK-1\"]");
+		when(genericService.fromJson(eq("[\"BANK-1\"]"), any(TypeReference.class))).thenReturn(List.of("BANK-1"));
+		when(bankEntityRepository.findByAprmntIdAndBankDetailsID("APR-1", "BANK-1")).thenReturn(Optional.of(bankEntity));
+		when(genericService.decrypt("encrypted-bank-name")).thenReturn("ABC Bank");
 		when(genericService.fromJson(eq("[{\"memberId\":\"MEM-1\"}]"), any(TypeReference.class)))
 				.thenReturn(List.of(executiveMember));
 
