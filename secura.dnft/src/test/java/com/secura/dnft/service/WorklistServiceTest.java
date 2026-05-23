@@ -211,11 +211,8 @@ class WorklistServiceTest {
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class)))
 				.thenReturn(new ArrayList<>(List.of("DUE1001_MONTHLY_ALL_2026-06-01", "DUE1002_MONTHLY_ALL_2026-07-01")));
-		when(genericService.fromJson(eq("[\"A-101\",\"A-102\"]"), any(TypeReference.class)))
-				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
 		when(genericService.toJson(any())).thenCallRealMethod();
 		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001")).thenReturn(List.of(due));
 
 		worklistService.actionTransactionReviewWorkList(request);
 
