@@ -18,6 +18,7 @@ public class BankAccountDetails {
 	@JsonProperty("PgSecret")
 	@JsonAlias({ "pgSecret", "razorPaySecret" })
 	private String pgSecret;
+	@JsonProperty("pgName")
 	@JsonAlias({ "PgName", "razorPayName" })
 	private String pgName;
 	private String upiId;

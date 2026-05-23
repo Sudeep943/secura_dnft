@@ -37,6 +37,9 @@ import com.secura.dnft.validation.CommonValidations;
 @Service
 public class ApartmentService {
 
+	    private static final char BANK_NAME_PADDING_CHAR = 'X';
+	    private static final char ACCOUNT_NUMBER_PADDING_CHAR = '0';
+
 	
 	
 	 @Autowired
@@ -340,7 +343,7 @@ public class ApartmentService {
 	    	if (cleaned.length() >= 4) {
 	    		return cleaned.substring(0, 4);
 	    	}
-	    	return String.format("%-4s", cleaned).replace(' ', 'X');
+	    	return String.format("%-4s", cleaned).replace(' ', BANK_NAME_PADDING_CHAR);
 	    }
 
 	    private String lastFourAccountNumber(String accountNumber) {
@@ -348,7 +351,7 @@ public class ApartmentService {
 	    	if (cleaned.length() >= 4) {
 	    		return cleaned.substring(cleaned.length() - 4);
 	    	}
-	    	return String.format("%4s", cleaned).replace(' ', '0');
+	    	return String.format("%4s", cleaned).replace(' ', ACCOUNT_NUMBER_PADDING_CHAR);
 	    }
 
 	    private String alphanumeric(String value) {
