@@ -326,7 +326,7 @@ public class ApartmentService {
 	    	if (bankDetailsID != null && !bankDetailsID.isBlank()) {
 	    		return bankDetailsID;
 	    	}
-	    	return "BNK" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+	    	return "BNK" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
 	    }
 
 	    private List<ExecutiveMember> readExecutiveMembers(String value) {
