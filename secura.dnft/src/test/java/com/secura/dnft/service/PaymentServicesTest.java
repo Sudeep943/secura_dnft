@@ -59,8 +59,6 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
-import com.secura.dnft.request.response.AddDiscfinRequest;
-import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -110,9 +108,6 @@ class PaymentServicesTest {
 
 	@Mock
 	private WorklistService worklistService;
-
-	@Mock
-	private DiscFinServices discFinServices;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -1710,22 +1705,22 @@ class PaymentServicesTest {
 		header.setUserId("USR-1");
 		request.setGenericHeader(header);
 		request.setFile(buildPastDueWorkbookBase64(
-				List.of(List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200", "", "Yes", "5", "Simple"),
-						List.of("A-999", "1-Mar-2026", "31-Mar-2026", "Bad Flat", "1300", "", "No", "", ""))));
+				List.of(List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200.00", "18.0", "1416"),
+						List.of("A-999", "1-Mar-2026", "31-Mar-2026", "Bad Flat", "1300", "18", "1534"))));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("A-101");
 		when(flatRepository.findByAprmntId("APR-1")).thenReturn(List.of(flat));
-		AddDiscfinResponse addDiscfinResponse = new AddDiscfinResponse();
-		addDiscfinResponse.setDiscFnId("DFNFINE1234");
-		when(discFinServices.addDiscfin(any(AddDiscfinRequest.class))).thenReturn(addDiscfinResponse);
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		UploadPastDueResponse response = paymentServices.uploadPastDue(request);
 
-		verify(paymentRepository, atLeastOnce()).save(any(PaymentEntity.class));
+		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
+		verify(paymentRepository, atLeastOnce()).save(paymentCaptor.capture());
 		verify(dueDetailsService, times(1)).calculateDuesForPayment(any(), eq(header));
-		verify(discFinServices, times(1)).addDiscfin(any(AddDiscfinRequest.class));
+		assertEquals("March Due", paymentCaptor.getValue().getPaymentName());
+		assertEquals("1200", paymentCaptor.getValue().getPaymentAmount());
+		assertEquals("18", paymentCaptor.getValue().getGst());
 		assertEquals(ErrorMessage.ERR_MESSAGE_42, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_42, response.getMessageCode());
 		assertEquals(1, response.getSuccessRows());
@@ -1750,8 +1745,7 @@ class PaymentServicesTest {
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("past_due");
 			Row headerRow = sheet.createRow(0);
-			String[] headers = { "Flat Id", "Due From", "Due Till", "Due Name", "Due Amount", "Penalty Amount", "Fine Eligible",
-					"Fine %", "Fine Type" };
+			String[] headers = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount", "GST%", "Total Due Amount" };
 			for (int i = 0; i < headers.length; i++) {
 				headerRow.createCell(i).setCellValue(headers[i]);
 			}
