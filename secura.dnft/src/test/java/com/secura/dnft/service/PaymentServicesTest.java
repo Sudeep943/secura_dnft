@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
@@ -489,19 +490,12 @@ class PaymentServicesTest {
 		amountCharge.setValue("100");
 		request.setAddedCharges(List.of(amountCharge));
 
-		when(genericService.toJson(any())).thenAnswer(invocation -> {
-			Object payload = invocation.getArgument(0);
-			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof String) {
-				return "[\"HALFYEARLY\"]";
-			}
-			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof AddedCharges) {
-				return "ADDED_CHARGES_JSON";
-			}
-			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map) {
-				return "DISC_FIN_JSON";
-			}
-			return "JSON";
-		});
+		when(genericService.toJson(argThat(payload -> payload instanceof List<?> list
+				&& !list.isEmpty() && list.get(0) instanceof String))).thenReturn("[\"HALFYEARLY\"]");
+		when(genericService.toJson(argThat(payload -> payload instanceof List<?> list
+				&& !list.isEmpty() && list.get(0) instanceof AddedCharges))).thenReturn("ADDED_CHARGES_JSON");
+		when(genericService.toJson(argThat(payload -> payload instanceof List<?> list
+				&& !list.isEmpty() && list.get(0) instanceof Map))).thenReturn("DISC_FIN_JSON");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);

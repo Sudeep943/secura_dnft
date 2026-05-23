@@ -37,6 +37,8 @@ import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -91,6 +93,7 @@ import jakarta.persistence.EntityNotFoundException;
 @Service
 public class PaymentServices implements PaymentInterface {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(PaymentServices.class);
 	// Synthetic id used only for non-persisting due preview calculation.
 	private static final String DUE_PREVIEW_PAYMENT_ID = "DUE_PREVIEW";
 	private static final String TRANSACTION_ID_PREFIX = "TRN-";
@@ -492,7 +495,8 @@ public class PaymentServices implements PaymentInterface {
 			paymentModel.setCollectionStartDate(primaryPaymentEntity.getCollectionStartDate());
 			paymentModel.setCollectionEndDate(primaryPaymentEntity.getCollectionEndDate());
 			List<String> paymentCollectionCycleList = parsePaymentCollectionCycleList(primaryPaymentEntity.getPaymentCollectionCycle());
-			if (paymentCollectionCycleList.isEmpty() || (paymentCollectionCycleList.size() <= 1 && paymentEntityList.size() > 1)) {
+			boolean hasLegacyMultiRowCycles = paymentEntityList.size() > 1 && paymentCollectionCycleList.size() <= 1;
+			if (paymentCollectionCycleList.isEmpty() || hasLegacyMultiRowCycles) {
 				paymentCollectionCycleList = paymentEntityList.stream().map(PaymentEntity::getPaymentCollectionCycle)
 						.filter(this::hasText).map(this::trimValue).distinct().collect(Collectors.toList());
 			}
@@ -578,7 +582,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		entity.setCauseId(request.getCause());
-		entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
+		entity.setPartialPaymentAllowed(request.isPartialPaymentAllowed());
 		paymentRepository.save(entity);
 		dueDetailsService.calculateDuesForPayment(paymentId, request.getGenericHeader());
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
@@ -845,6 +849,7 @@ public class PaymentServices implements PaymentInterface {
 			}
 			return cycleList.stream().filter(this::hasText).map(this::trimValue).distinct().collect(Collectors.toList());
 		} catch (Exception exception) {
+			LOGGER.warn("Failed to parse payment collection cycles JSON '{}'; falling back to raw value", trimmedCycles, exception);
 			return List.of(trimmedCycles);
 		}
 	}

@@ -777,6 +777,8 @@ public class DueDetailsService {
 			return paymentCollectionCycleList.stream().filter(Objects::nonNull).map(String::trim).filter(value -> !value.isBlank())
 					.distinct().toList();
 		} catch (Exception exception) {
+			LOGGER.warn("Failed to parse payment collection cycles JSON '{}'; falling back to raw cycle",
+					trimmedPaymentCollectionCycleValue, exception);
 			return List.of(trimmedPaymentCollectionCycleValue);
 		}
 	}
