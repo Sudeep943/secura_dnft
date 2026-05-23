@@ -165,10 +165,7 @@ public class WorklistService {
 			return;
 		}
 		String apartmentId = resolveApartmentId(worklist, transaction);
-		String paymentId = trimValue(dueEntity.getPaymentId());
-		if (!hasText(paymentId)) {
-			paymentId = trimValue(transaction.getPymntId());
-		}
+		String paymentId = resolvePaymentId(dueEntity, transaction);
 		Flat flat = flatRepository.findById(flatNo).orElse(null);
 		if (flat == null || !hasText(flat.getFlatPndngPaymntLst())) {
 			return;
@@ -200,6 +197,14 @@ public class WorklistService {
 			return worklist.getApartmentId().trim();
 		}
 		return trimValue(transaction != null ? transaction.getAprmntId() : null);
+	}
+
+	private String resolvePaymentId(DueAmountDetailsEntity dueEntity, Transaction transaction) {
+		String paymentId = trimValue(dueEntity != null ? dueEntity.getPaymentId() : null);
+		if (hasText(paymentId)) {
+			return paymentId;
+		}
+		return trimValue(transaction != null ? transaction.getPymntId() : null);
 	}
 
 	private DueAmountDetailsEntityId parsePendingDueKeyToEntityId(String pendingDueKey) {

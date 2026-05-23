@@ -276,9 +276,9 @@ class WorklistServiceTest {
 
 		worklistService.actionTransactionReviewWorkList(request);
 
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<List<PaymentEntity>> paymentCaptor = ArgumentCaptor.forClass((Class) List.class);
+		ArgumentCaptor<List> paymentCaptor = ArgumentCaptor.forClass(List.class);
 		verify(paymentRepository).saveAll(paymentCaptor.capture());
-		assertEquals("[\"A-101\"]", paymentCaptor.getValue().get(0).getPaidFlats());
+		PaymentEntity savedPayment = (PaymentEntity) paymentCaptor.getValue().get(0);
+		assertEquals("[\"A-101\"]", savedPayment.getPaidFlats());
 	}
 }
