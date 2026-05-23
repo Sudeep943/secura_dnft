@@ -1306,21 +1306,47 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
+		String flatAreaForPerSqft = null;
+		boolean flatAreaResolved = false;
 		List<DueAmountDetailsEntity> updatedDues = new ArrayList<>();
 		for (DueAmountDetailsEntity due : coveredDues) {
 			if (due == null) {
 				continue;
 			}
 			boolean modified = false;
-			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
-			if (!containsFlatId(paidFlats, flatId)) {
-				List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
-				if (!paidFlats.equals(updatedPaidFlats)) {
-					due.setPaidFlats(genericService.toJson(updatedPaidFlats));
-					modified = true;
+			if (isSameDueIdentity(due, paidDue)) {
+				List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+				if (!containsFlatId(paidFlats, flatId)) {
+					List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
+					if (!paidFlats.equals(updatedPaidFlats)) {
+						due.setPaidFlats(genericService.toJson(updatedPaidFlats));
+						modified = true;
+					}
 				}
-			}
-			if (!isSameDueIdentity(due, paidDue)) {
+			} else if (isPerSqftCapita(due.getPaymentCapita())) {
+				if (!flatAreaResolved) {
+					Flat flat = flatRepository.findById(flatId).orElse(null);
+					flatAreaForPerSqft = flat != null ? flat.getFlatArea() : null;
+					flatAreaResolved = true;
+				}
+				if (hasText(flatAreaForPerSqft) && flatAreaForPerSqft.trim().equalsIgnoreCase(trimValue(due.getFlatArea()))) {
+					List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+					boolean applicableRemoved = applicableFlats
+							.removeIf(applicableFlat -> hasText(applicableFlat) && flatId.trim().equalsIgnoreCase(applicableFlat.trim()));
+					if (applicableRemoved) {
+						due.setApplicableFlats(genericService.toJson(applicableFlats));
+						modified = true;
+					}
+				}
+			} else {
+				List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+				if (!containsFlatId(paidFlats, flatId)) {
+					List<String> updatedPaidFlats = addFlatIdToList(paidFlats, flatId);
+					if (!paidFlats.equals(updatedPaidFlats)) {
+						due.setPaidFlats(genericService.toJson(updatedPaidFlats));
+						modified = true;
+					}
+				}
 				List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
 				boolean applicableRemoved = applicableFlats
 						.removeIf(applicableFlat -> hasText(applicableFlat) && flatId.trim().equalsIgnoreCase(applicableFlat.trim()));

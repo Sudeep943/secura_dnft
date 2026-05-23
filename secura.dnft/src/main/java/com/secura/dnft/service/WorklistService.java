@@ -294,19 +294,43 @@ public class WorklistService {
 		if (!hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
+		String flatAreaForPerSqft = null;
+		boolean flatAreaResolved = false;
 		List<DueAmountDetailsEntity> updatedDues = new ArrayList<>();
 		for (DueAmountDetailsEntity due : coveredDues) {
 			if (due == null) {
 				continue;
 			}
 			boolean modified = false;
-			List<String> paidFlats = parsePendingDueList(due.getPaidFlats());
-			if (!containsFlatId(paidFlats, flatNo)) {
-				paidFlats.add(flatNo.trim());
-				due.setPaidFlats(genericService.toJson(paidFlats));
-				modified = true;
-			}
-			if (!isSameDueIdentity(due, paidDue)) {
+			if (isSameDueIdentity(due, paidDue)) {
+				List<String> paidFlats = parsePendingDueList(due.getPaidFlats());
+				if (!containsFlatId(paidFlats, flatNo)) {
+					paidFlats.add(flatNo.trim());
+					due.setPaidFlats(genericService.toJson(paidFlats));
+					modified = true;
+				}
+			} else if (isPerSqftCapita(due.getPaymentCapita())) {
+				if (!flatAreaResolved) {
+					Flat flat = flatRepository.findById(flatNo).orElse(null);
+					flatAreaForPerSqft = flat != null ? flat.getFlatArea() : null;
+					flatAreaResolved = true;
+				}
+				if (hasText(flatAreaForPerSqft) && flatAreaForPerSqft.trim().equalsIgnoreCase(trimValue(due.getFlatArea()))) {
+					List<String> applicableFlats = parsePendingDueList(due.getApplicableFlats());
+					boolean applicableRemoved = applicableFlats.removeIf(
+							applicableFlat -> hasText(applicableFlat) && flatNo.trim().equalsIgnoreCase(applicableFlat.trim()));
+					if (applicableRemoved) {
+						due.setApplicableFlats(genericService.toJson(applicableFlats));
+						modified = true;
+					}
+				}
+			} else {
+				List<String> paidFlats = parsePendingDueList(due.getPaidFlats());
+				if (!containsFlatId(paidFlats, flatNo)) {
+					paidFlats.add(flatNo.trim());
+					due.setPaidFlats(genericService.toJson(paidFlats));
+					modified = true;
+				}
 				List<String> applicableFlats = parsePendingDueList(due.getApplicableFlats());
 				boolean applicableRemoved = applicableFlats.removeIf(
 						applicableFlat -> hasText(applicableFlat) && flatNo.trim().equalsIgnoreCase(applicableFlat.trim()));
@@ -340,6 +364,14 @@ public class WorklistService {
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		return "PERHEAD".equals(normalized);
+	}
+
+	private boolean isPerSqftCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return false;
+		}
+		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+		return "PERSQFT".equals(normalized);
 	}
 
 	private void addFlatToPaymentPaidFlatsWhenNoDuesRemain(String apartmentId, String flatNo, String paymentId,
