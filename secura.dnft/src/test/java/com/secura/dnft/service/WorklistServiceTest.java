@@ -304,7 +304,7 @@ class WorklistServiceTest {
 		Transaction transaction = new Transaction();
 		transaction.setTrnscId("TRN-7");
 		transaction.setTrnsAmt("9000.00");
-		transaction.setDueDetails("DUE1001_QUATERLY_ALL_2026-01-01");
+		transaction.setDueDetails("DUE1001_" + SecuraConstants.PAYMENT_CYCLE_QUATERLY + "_ALL_2026-01-01");
 
 		DueAmountDetailsEntity paidDue = new DueAmountDetailsEntity();
 		paidDue.setDueId("DUE1001");
@@ -329,7 +329,8 @@ class WorklistServiceTest {
 
 		Flat flat = new Flat();
 		flat.setFlatNo("A-101");
-		flat.setFlatPndngPaymntLst("[\"DUE1001_QUATERLY_ALL_2026-01-01\",\"DUE2001_MONTHLY_ALL_2026-02-01\",\"OTHER_DUE_MONTHLY_ALL_2026-04-01\"]");
+		flat.setFlatPndngPaymntLst("[\"DUE1001_" + SecuraConstants.PAYMENT_CYCLE_QUATERLY
+				+ "_ALL_2026-01-01\",\"DUE2001_MONTHLY_ALL_2026-02-01\",\"OTHER_DUE_MONTHLY_ALL_2026-04-01\"]");
 
 		when(worklistRepository.findById("WL-7")).thenReturn(Optional.of(worklist));
 		when(transactionRepository.findById("TRN-7")).thenReturn(Optional.of(transaction));
@@ -339,7 +340,8 @@ class WorklistServiceTest {
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001")).thenReturn(List.of(paidDue, relatedDue));
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(
-				new ArrayList<>(List.of("DUE1001_QUATERLY_ALL_2026-01-01", "DUE2001_MONTHLY_ALL_2026-02-01",
+				new ArrayList<>(List.of("DUE1001_" + SecuraConstants.PAYMENT_CYCLE_QUATERLY + "_ALL_2026-01-01",
+						"DUE2001_MONTHLY_ALL_2026-02-01",
 						"OTHER_DUE_MONTHLY_ALL_2026-04-01")));
 		when(genericService.fromJson(eq(paidDue.getApplicableFlats()), any(TypeReference.class)))
 				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
