@@ -131,14 +131,16 @@ class PaymentServicesTest {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId("PAY-1");
 		payment.setAprmtId("APR-1");
-		payment.setPaymentCollectionCycle("MONTHLY");
+		payment.setPaymentCollectionCycle("[\"MONTHLY\",\"QUARTERLY\"]");
 		when(paymentRepository.findByAprmtId("APR-1")).thenReturn(List.of(payment));
+		when(genericService.fromJson(eq("[\"MONTHLY\",\"QUARTERLY\"]"), any(TypeReference.class)))
+				.thenReturn(List.of("MONTHLY", "QUARTERLY"));
 
 		GetPaymentResponse response = paymentServices.getPayments(request);
 
 		assertEquals(1, response.getPaymentList().size());
 		assertEquals("PAY-1", response.getPaymentList().get(0).getPaymentId());
-		assertEquals(List.of("MONTHLY"), response.getPaymentList().get(0).getPaymentCollectionCycleList());
+		assertEquals(List.of("MONTHLY", "QUARTERLY"), response.getPaymentList().get(0).getPaymentCollectionCycleList());
 		assertEquals(SuccessMessage.SUCC_MESSAGE_37, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_37, response.getMessageCode());
 	}
@@ -487,7 +489,19 @@ class PaymentServicesTest {
 		amountCharge.setValue("100");
 		request.setAddedCharges(List.of(amountCharge));
 
-		when(genericService.toJson(any())).thenReturn("ADDED_CHARGES_JSON", "DISC_FIN_JSON");
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof String) {
+				return "[\"HALFYEARLY\"]";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof AddedCharges) {
+				return "ADDED_CHARGES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map) {
+				return "DISC_FIN_JSON";
+			}
+			return "JSON";
+		});
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
@@ -498,7 +512,7 @@ class PaymentServicesTest {
 		assertEquals("custom_cause", paymentCaptor.getValue().getCauseId());
 		assertTrue(paymentCaptor.getValue().isPartialPaymentAllowed());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
-		assertEquals(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, paymentCaptor.getValue().getPaymentCollectionCycle());
+		assertEquals("[\"HALFYEARLY\"]", paymentCaptor.getValue().getPaymentCollectionCycle());
 		assertEquals(SecuraConstants.PAYMENT_STATUS_ACTIVE, paymentCaptor.getValue().getStatus());
 		assertEquals("USR-001", paymentCaptor.getValue().getCreatUsrId());
 		assertEquals("ADDED_CHARGES_JSON", paymentCaptor.getValue().getAddedCharges());
@@ -533,7 +547,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void createPayment_shouldCreateOneEntityPerPaymentCollectionCycle() throws Exception {
+	void createPayment_shouldCreateSingleEntityWithPaymentCollectionCycleJson() throws Exception {
 		CreatePaymentRequest request = new CreatePaymentRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -550,18 +564,18 @@ class PaymentServicesTest {
 		request.setPaymentCollectionMode("pre");
 		request.setPartialPaymentAllowed(true);
 
+		when(genericService.toJson(eq(List.of(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY,
+				SecuraConstants.PAYMENT_CYCLE_YEARLY, SecuraConstants.PAYMENT_CYCLE_QUATERLY))))
+						.thenReturn("[\"HALFYEARLY\",\"YEARLY\",\"QUARTERLY\"]");
 		when(paymentRepository.save(any(PaymentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 		paymentServices.createPayment(request);
 
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
-		verify(paymentRepository, times(3)).save(paymentCaptor.capture());
-		List<PaymentEntity> savedPayments = paymentCaptor.getAllValues();
-		assertEquals(List.of(SecuraConstants.PAYMENT_CYCLE_HALF_YEARLY, SecuraConstants.PAYMENT_CYCLE_YEARLY,
-				SecuraConstants.PAYMENT_CYCLE_QUATERLY),
-				savedPayments.stream().map(PaymentEntity::getPaymentCollectionCycle).toList());
-		assertTrue(savedPayments.stream().allMatch(PaymentEntity::isPartialPaymentAllowed));
-		assertEquals(1L, savedPayments.stream().map(PaymentEntity::getPaymentId).distinct().count());
+		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
+		PaymentEntity savedPayment = paymentCaptor.getValue();
+		assertEquals("[\"HALFYEARLY\",\"YEARLY\",\"QUARTERLY\"]", savedPayment.getPaymentCollectionCycle());
+		assertTrue(savedPayment.isPartialPaymentAllowed());
 	}
 
 	@Test

@@ -491,8 +491,12 @@ public class PaymentServices implements PaymentInterface {
 			paymentModel.setDueDate(primaryPaymentEntity.getDueDate());
 			paymentModel.setCollectionStartDate(primaryPaymentEntity.getCollectionStartDate());
 			paymentModel.setCollectionEndDate(primaryPaymentEntity.getCollectionEndDate());
-			paymentModel.setPaymentCollectionCycleList(paymentEntityList.stream().map(PaymentEntity::getPaymentCollectionCycle)
-					.filter(this::hasText).map(this::trimValue).distinct().collect(Collectors.toList()));
+			List<String> paymentCollectionCycleList = parsePaymentCollectionCycleList(primaryPaymentEntity.getPaymentCollectionCycle());
+			if (paymentCollectionCycleList.isEmpty() || (paymentCollectionCycleList.size() <= 1 && paymentEntityList.size() > 1)) {
+				paymentCollectionCycleList = paymentEntityList.stream().map(PaymentEntity::getPaymentCollectionCycle)
+						.filter(this::hasText).map(this::trimValue).distinct().collect(Collectors.toList());
+			}
+			paymentModel.setPaymentCollectionCycleList(paymentCollectionCycleList);
 			paymentModel.setPaymentCollectionMode(primaryPaymentEntity.getPaymentCollectionMode());
 			paymentModel.setPartialPaymentAllowed(primaryPaymentEntity.isPartialPaymentAllowed());
 			paymentModel.setApplicableFor(primaryPaymentEntity.getApplicableFor());
@@ -551,32 +555,31 @@ public class PaymentServices implements PaymentInterface {
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
 		String discFin = serializeDiscFin(request);
-		for (String paymentCollectionCycle : paymentCollectionCycles) {
-			PaymentEntity entity = new PaymentEntity();
-			entity.setPaymentId(paymentId);
-			entity.setPaymentName(request.getPaymentName());
-			entity.setShortDetails(request.getShortDetails());
-			entity.setPaymentCapita(request.getPaymentCapita());
-			entity.setPaymentAmount(request.getPaymentAmount());
-			entity.setGst(request.getGst());
-			entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
-			entity.setCollectionStartDate(collectionStartDate);
-			entity.setCollectionEndDate(collectionEndDate);
-			entity.setPaymentCollectionCycle(paymentCollectionCycle);
-			entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
-			entity.setApplicableFor(applicableFor);
-			entity.setAllowedPaymentModes(allowedPaymentModes);
-			entity.setAddedCharges(addedCharges);
-			entity.setDiscFin(discFin);
-			entity.setPaymentType(request.getPaymentType());
-			entity.setBankAccountId(request.getBankAccountId());
-			entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
-			entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
-			entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-			entity.setCauseId(request.getCause());
-			entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
-			paymentRepository.save(entity);
-		}
+		String paymentCollectionCyclesJson = serializePaymentCollectionCycles(paymentCollectionCycles);
+		PaymentEntity entity = new PaymentEntity();
+		entity.setPaymentId(paymentId);
+		entity.setPaymentName(request.getPaymentName());
+		entity.setShortDetails(request.getShortDetails());
+		entity.setPaymentCapita(request.getPaymentCapita());
+		entity.setPaymentAmount(request.getPaymentAmount());
+		entity.setGst(request.getGst());
+		entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
+		entity.setCollectionStartDate(collectionStartDate);
+		entity.setCollectionEndDate(collectionEndDate);
+		entity.setPaymentCollectionCycle(paymentCollectionCyclesJson);
+		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
+		entity.setApplicableFor(applicableFor);
+		entity.setAllowedPaymentModes(allowedPaymentModes);
+		entity.setAddedCharges(addedCharges);
+		entity.setDiscFin(discFin);
+		entity.setPaymentType(request.getPaymentType());
+		entity.setBankAccountId(request.getBankAccountId());
+		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+		entity.setCauseId(request.getCause());
+		entity.setPartialPaymentAllowed(request != null && request.isPartialPaymentAllowed());
+		paymentRepository.save(entity);
 		dueDetailsService.calculateDuesForPayment(paymentId, request.getGenericHeader());
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
@@ -809,6 +812,41 @@ public class PaymentServices implements PaymentInterface {
 			return paymentCollectionCycle == null ? List.of() : List.of(paymentCollectionCycle);
 		}
 		return paymentCollectionCycleList.stream().map(this::normalizePaymentCollectionCycle).filter(Objects::nonNull).toList();
+	}
+
+	private String serializePaymentCollectionCycles(List<String> paymentCollectionCycles) {
+		if (paymentCollectionCycles == null || paymentCollectionCycles.isEmpty()) {
+			return null;
+		}
+		List<String> normalizedCycles = paymentCollectionCycles.stream().filter(this::hasText).map(this::trimValue).distinct()
+				.collect(Collectors.toList());
+		if (normalizedCycles.isEmpty()) {
+			return null;
+		}
+		return genericService.toJson(normalizedCycles);
+	}
+
+	private List<String> parsePaymentCollectionCycleList(String paymentCollectionCycles) {
+		if (!hasText(paymentCollectionCycles)) {
+			return List.of();
+		}
+		String trimmedCycles = trimValue(paymentCollectionCycles);
+		if (!hasText(trimmedCycles)) {
+			return List.of();
+		}
+		if (!trimmedCycles.startsWith("[") || !trimmedCycles.endsWith("]")) {
+			return List.of(trimmedCycles);
+		}
+		try {
+			List<String> cycleList = genericService.fromJson(trimmedCycles, new TypeReference<List<String>>() {
+			});
+			if (cycleList == null || cycleList.isEmpty()) {
+				return List.of();
+			}
+			return cycleList.stream().filter(this::hasText).map(this::trimValue).distinct().collect(Collectors.toList());
+		} catch (Exception exception) {
+			return List.of(trimmedCycles);
+		}
 	}
 
 	private Transaction buildTransaction(PayDueRequest request, String flatArea, PaymentEntity paymentEntity,
