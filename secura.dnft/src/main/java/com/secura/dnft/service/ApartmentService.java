@@ -90,21 +90,8 @@ public class ApartmentService {
 	    		commonValidations.genericHeaderValidation(request.getGenericHeader());
 	    		ApartmentMaster apartment = getOrCreateApartment(request.getGenericHeader().getApartmentId(),
 	    				request.getGenericHeader().getUserId());
-	    		BankAccountDetails bankAccountDetails = request.getBankAccountDetails() == null
-	    				? new BankAccountDetails()
-	    				: request.getBankAccountDetails();
-	    		String bankDetailsID = ensureBankDetailsId(bankAccountDetails.getBankDetailsID(), apartment.getAprmntId());
-	    		bankAccountDetails.setBankDetailsID(bankDetailsID);
-	    		saveBankEntity(apartment.getAprmntId(), bankAccountDetails);
-	    		List<String> existingBankIds = readBankDetailIds(apartment.getAprmnt_bank_acccount_list(),
-	    				apartment.getAprmntId());
-	    		if (!existingBankIds.contains(bankDetailsID)) {
-	    			existingBankIds.add(bankDetailsID);
-	    		}
-	    		apartment.setAprmnt_bank_acccount_list(genericService.encrypt(genericService.toJson(existingBankIds)));
-	    		apartment.setLst_updt_ts(LocalDateTime.now());
-	    		apartment.setLst_updt_usrid(request.getGenericHeader().getUserId());
-	    		repository.save(apartment);
+	    		String bankDetailsID = upsertBankDetailsForApartment(apartment, request.getGenericHeader().getUserId(),
+	    				request.getBankAccountDetails());
 	    		response.setBankDetailsID(bankDetailsID);
 	    		response.setMessage(SuccessMessage.SUCC_MESSAGE_35);
 	    		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_35);
@@ -127,21 +114,8 @@ public class ApartmentService {
 	    			return response;
 	    		}
 	    		ApartmentMaster apartment = apartmentOptional.get();
-	    		BankAccountDetails bankAccountDetails = request.getBankAccountDetails() == null
-	    				? new BankAccountDetails()
-	    				: request.getBankAccountDetails();
-	    		String bankDetailsID = ensureBankDetailsId(bankAccountDetails.getBankDetailsID(), apartment.getAprmntId());
-	    		bankAccountDetails.setBankDetailsID(bankDetailsID);
-	    		saveBankEntity(apartment.getAprmntId(), bankAccountDetails);
-	    		List<String> existingBankIds = readBankDetailIds(apartment.getAprmnt_bank_acccount_list(),
-	    				apartment.getAprmntId());
-	    		if (!existingBankIds.contains(bankDetailsID)) {
-	    			existingBankIds.add(bankDetailsID);
-	    		}
-	    		apartment.setAprmnt_bank_acccount_list(genericService.encrypt(genericService.toJson(existingBankIds)));
-	    		apartment.setLst_updt_ts(LocalDateTime.now());
-	    		apartment.setLst_updt_usrid(request.getGenericHeader().getUserId());
-	    		repository.save(apartment);
+	    		String bankDetailsID = upsertBankDetailsForApartment(apartment, request.getGenericHeader().getUserId(),
+	    				request.getBankAccountDetails());
 	    		response.setBankDetailsID(bankDetailsID);
 	    		response.setMessage(SuccessMessage.SUCC_MESSAGE_35);
 	    		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_35);
@@ -234,7 +208,8 @@ public class ApartmentService {
 	    }
 
 	    private void saveBankEntity(String apartmentId, BankAccountDetails bankAccountDetails) {
-	    	BankEntity bankEntity = new BankEntity();
+	    	BankEntity bankEntity = bankEntityRepository.findByAprmntIdAndBankDetailsID(apartmentId,
+	    			bankAccountDetails.getBankDetailsID()).orElseGet(BankEntity::new);
 	    	bankEntity.setAprmntId(apartmentId);
 	    	bankEntity.setBankDetailsID(bankAccountDetails.getBankDetailsID());
 	    	bankEntity.setBankName(encryptNullable(bankAccountDetails.getBankName()));
@@ -246,6 +221,22 @@ public class ApartmentService {
 	    	bankEntity.setPgSecret(encryptNullable(bankAccountDetails.getPgSecret()));
 	    	bankEntity.setUpiId(encryptNullable(bankAccountDetails.getUpiId()));
 	    	bankEntityRepository.save(bankEntity);
+	    }
+
+	    private String upsertBankDetailsForApartment(ApartmentMaster apartment, String userId, BankAccountDetails bankAccountDetails) {
+	    	BankAccountDetails details = bankAccountDetails == null ? new BankAccountDetails() : bankAccountDetails;
+	    	String bankDetailsID = ensureBankDetailsId(details.getBankDetailsID(), apartment.getAprmntId());
+	    	details.setBankDetailsID(bankDetailsID);
+	    	saveBankEntity(apartment.getAprmntId(), details);
+	    	List<String> existingBankIds = readBankDetailIds(apartment.getAprmnt_bank_acccount_list(), apartment.getAprmntId());
+	    	if (!existingBankIds.contains(bankDetailsID)) {
+	    		existingBankIds.add(bankDetailsID);
+	    	}
+	    	apartment.setAprmnt_bank_acccount_list(genericService.encrypt(genericService.toJson(existingBankIds)));
+	    	apartment.setLst_updt_ts(LocalDateTime.now());
+	    	apartment.setLst_updt_usrid(userId);
+	    	repository.save(apartment);
+	    	return bankDetailsID;
 	    }
 
 	    private List<BankAccountDetails> readBankAccounts(String apartmentId, String value) {
@@ -335,7 +326,7 @@ public class ApartmentService {
 	    	if (bankDetailsID != null && !bankDetailsID.isBlank()) {
 	    		return bankDetailsID;
 	    	}
-	    	return "BNK" + apartmentId + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+	    	return "BNK" + apartmentId + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
 	    }
 
 	    private List<ExecutiveMember> readExecutiveMembers(String value) {
