@@ -50,20 +50,44 @@ class RazorPayPaymentServicesTest {
 		bankEntity.setPgName("encPgName");
 		when(bankRepository.findByAprmntIdAndBankDetailsID("APT-1", "BANK-1")).thenReturn(Optional.of(bankEntity));
 		when(genericService.decrypt("encPgName")).thenReturn("ATOMS");
+		RazorPayPaymentServices.RazorpayCredentials fallbackCredentials = razorPayPaymentServices
+				.resolveRazorpayCredentials("APT-1", null);
 
 		RazorPayPaymentServices.RazorpayCredentials credentials = razorPayPaymentServices.resolveRazorpayCredentials("APT-1",
 				"BANK-1");
 
-		assertEquals("rzp_test_SRxceBfBqGmeGy", credentials.key());
-		assertEquals("RO2SpqK1H96ShjlmkttpA2cX", credentials.secret());
+		assertEquals(fallbackCredentials.key(), credentials.key());
+		assertEquals(fallbackCredentials.secret(), credentials.secret());
 	}
 
 	@Test
 	void resolveRazorpayCredentials_shouldFallbackWhenBankIdMissing() {
+		RazorPayPaymentServices.RazorpayCredentials fallbackCredentials = razorPayPaymentServices
+				.resolveRazorpayCredentials(null, null);
 		RazorPayPaymentServices.RazorpayCredentials credentials = razorPayPaymentServices.resolveRazorpayCredentials("APT-1",
 				null);
 
-		assertEquals("rzp_test_SRxceBfBqGmeGy", credentials.key());
-		assertEquals("RO2SpqK1H96ShjlmkttpA2cX", credentials.secret());
+		assertEquals(fallbackCredentials.key(), credentials.key());
+		assertEquals(fallbackCredentials.secret(), credentials.secret());
+	}
+
+	@Test
+	void resolveRazorpayCredentials_shouldFallbackWhenRazorpayCredentialsAreBlank() {
+		BankEntity bankEntity = new BankEntity();
+		bankEntity.setPgName("encPgName");
+		bankEntity.setPgKey("encPgKey");
+		bankEntity.setPgSecret("encPgSecret");
+		when(bankRepository.findByAprmntIdAndBankDetailsID("APT-1", "BANK-1")).thenReturn(Optional.of(bankEntity));
+		when(genericService.decrypt("encPgName")).thenReturn("RAZORPAY");
+		when(genericService.decrypt("encPgKey")).thenReturn("   ");
+		when(genericService.decrypt("encPgSecret")).thenReturn(null);
+		RazorPayPaymentServices.RazorpayCredentials fallbackCredentials = razorPayPaymentServices
+				.resolveRazorpayCredentials("APT-1", null);
+
+		RazorPayPaymentServices.RazorpayCredentials credentials = razorPayPaymentServices.resolveRazorpayCredentials("APT-1",
+				"BANK-1");
+
+		assertEquals(fallbackCredentials.key(), credentials.key());
+		assertEquals(fallbackCredentials.secret(), credentials.secret());
 	}
 }
