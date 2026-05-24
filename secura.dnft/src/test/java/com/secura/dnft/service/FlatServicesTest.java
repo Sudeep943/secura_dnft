@@ -43,12 +43,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.BankEntityRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.entity.BankEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
@@ -85,6 +87,9 @@ class FlatServicesTest {
 
 	@Mock
 	private PaymentRepository paymentRepository;
+
+	@Mock
+	private BankEntityRepository bankEntityRepository;
 
 	@Mock
 	private GenericService genericService;
@@ -469,8 +474,16 @@ class FlatServicesTest {
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
-		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
-		when(paymentRepository.findFirstByPaymentId("PAY2")).thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund")));
+		when(paymentRepository.findFirstByPaymentId("PAY1"))
+				.thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance", "BANK1")));
+		when(paymentRepository.findFirstByPaymentId("PAY2"))
+				.thenReturn(Optional.of(buildPaymentEntity("PAY2", "Club Fund", "BANK2")));
+		when(bankEntityRepository.findByAprmntIdAndBankDetailsID("APRT001", "BANK1"))
+				.thenReturn(Optional.of(buildBankEntity("APRT001", "BANK1", "ENC_RAZORPAY")));
+		when(bankEntityRepository.findByAprmntIdAndBankDetailsID("APRT001", "BANK2"))
+				.thenReturn(Optional.of(buildBankEntity("APRT001", "BANK2", "ENC_ATOMS")));
+		when(genericService.decrypt("ENC_RAZORPAY")).thenReturn("RAZORPAY");
+		when(genericService.decrypt("ENC_ATOMS")).thenReturn("ATOMS");
 		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY1", "A-101", SUCCESS_TRANSACTION_STATUS))
 				.thenReturn(List.of());
 		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY2", "A-101", SUCCESS_TRANSACTION_STATUS))
@@ -482,12 +495,18 @@ class FlatServicesTest {
 		JsonNode dueDetailsNode = objectMapper.readTree(objectMapper.writeValueAsString(response)).get("dueDetails");
 
 		assertNotNull(dueDetailsNode);
-		assertTrue(dueDetailsNode.has("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}"));
-		assertTrue(dueDetailsNode.has("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}"));
+		assertTrue(
+				dueDetailsNode.has("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\",\"bankId\":\"BANK1\",\"paymentGateway\":\"RAZORPAY\"}"));
+		assertTrue(
+				dueDetailsNode.has("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\",\"bankId\":\"BANK2\",\"paymentGateway\":\"ATOMS\"}"));
 		assertEquals("D1",
-				dueDetailsNode.get("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\"}").get(0).get("dueId").asText());
+				dueDetailsNode
+						.get("{\"paymentId\":\"PAY1\",\"paymentName\":\"Maintenance\",\"bankId\":\"BANK1\",\"paymentGateway\":\"RAZORPAY\"}")
+						.get(0).get("dueId").asText());
 		assertEquals("D2",
-				dueDetailsNode.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\"}").get(0).get("dueId").asText());
+				dueDetailsNode
+						.get("{\"paymentId\":\"PAY2\",\"paymentName\":\"Club Fund\",\"bankId\":\"BANK2\",\"paymentGateway\":\"ATOMS\"}")
+						.get(0).get("dueId").asText());
 		assertEquals("120", response.getTotalMandatoryPayment());
 		assertEquals("500", response.getTotalOptionalPayment());
 	}
@@ -568,10 +587,23 @@ class FlatServicesTest {
 	}
 
 	private PaymentEntity buildPaymentEntity(String paymentId, String paymentName) {
+		return buildPaymentEntity(paymentId, paymentName, null);
+	}
+
+	private PaymentEntity buildPaymentEntity(String paymentId, String paymentName, String bankId) {
 		PaymentEntity paymentEntity = new PaymentEntity();
 		paymentEntity.setPaymentId(paymentId);
 		paymentEntity.setPaymentName(paymentName);
+		paymentEntity.setBankAccountId(bankId);
 		return paymentEntity;
+	}
+
+	private BankEntity buildBankEntity(String apartmentId, String bankId, String encryptedGatewayName) {
+		BankEntity bankEntity = new BankEntity();
+		bankEntity.setAprmntId(apartmentId);
+		bankEntity.setBankDetailsID(bankId);
+		bankEntity.setPgName(encryptedGatewayName);
+		return bankEntity;
 	}
 
 	private Transaction buildTransactionEntity(String paymentId, String flatId, String amount) {
