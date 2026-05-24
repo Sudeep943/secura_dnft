@@ -10,6 +10,7 @@ import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razorpay.Order;
 import com.razorpay.Payment;
@@ -199,13 +200,12 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 		        }
 		    }
 
-	@SuppressWarnings("unchecked")
 	public Map<String, Object> convertJsonToMap(String json) {
 		ObjectMapper objectMapper = new ObjectMapper();
 		try {
-			return objectMapper.readValue(json, Map.class);
+			return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to parse JSON to map", e);
+			throw new RuntimeException("Failed to parse JSON to map: " + json, e);
 		}
 	}
 
