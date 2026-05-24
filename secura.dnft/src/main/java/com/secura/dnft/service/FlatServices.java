@@ -41,12 +41,14 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
+import com.secura.dnft.dao.BankEntityRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.entity.BankEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
@@ -98,6 +100,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private PaymentRepository paymentRepository;
+
+	@Autowired
+	private BankEntityRepository bankEntityRepository;
 
 	@Autowired
 	private GenericService genericService;
@@ -282,6 +287,9 @@ public class FlatServices implements FlatInterface {
 		initializeDefaultDueResponse(response);
 		try {
 			String flatId = request != null ? request.getFlatId() : null;
+			String apartmentId = request != null && request.getGenericHeader() != null
+					? request.getGenericHeader().getApartmentId()
+					: null;
 			Optional<Flat> optionalFlat = flatRepository.findById(flatId);
 			if (optionalFlat.isPresent()) {
 				Flat flat = optionalFlat.get();
@@ -295,7 +303,7 @@ public class FlatServices implements FlatInterface {
 					Map<String, List<String>> paymentIdToDueIdsMap = groupDueIdsByPayment(filteredDues);
 					Map<String, List<DueAmountDetailsEntity>> finalPaymentMap = buildFinalPaymentMap(paymentIdToDueIdsMap,
 							filteredDues);
-					Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = buildDueDetails(finalPaymentMap);
+					Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = buildDueDetails(finalPaymentMap, apartmentId);
 					response.setDueDetails(dueDetails);
 					DueTotals dueTotals = calculateDueTotalsFromDueDetails(dueDetails, flatId, flat.getFlatArea());
 					response.setTotalDue(formatAmount(dueTotals.totalDue()));
@@ -479,22 +487,25 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private Map<PaymentDetail, List<DueAmountDetailsEntity>> buildDueDetails(
-			Map<String, List<DueAmountDetailsEntity>> finalPaymentMap) {
+			Map<String, List<DueAmountDetailsEntity>> finalPaymentMap, String apartmentId) {
 		Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = new LinkedHashMap<>();
 		if (finalPaymentMap == null || finalPaymentMap.isEmpty()) {
 			return dueDetails;
 		}
 		for (Map.Entry<String, List<DueAmountDetailsEntity>> entry : finalPaymentMap.entrySet()) {
+			Optional<PaymentEntity> paymentEntity = paymentRepository.findFirstByPaymentId(entry.getKey());
+			String bankId = paymentEntity.map(PaymentEntity::getBankAccountId).orElse(null);
 			PaymentDetail paymentDetail = new PaymentDetail();
 			paymentDetail.setPaymentId(entry.getKey());
-			paymentDetail.setPaymentName(resolvePaymentName(entry.getKey(), entry.getValue()));
+			paymentDetail.setPaymentName(resolvePaymentName(paymentEntity, entry.getValue()));
+			paymentDetail.setBankId(bankId);
+			paymentDetail.setPaymentGateway(resolvePaymentGateway(apartmentId, bankId));
 			dueDetails.put(paymentDetail, entry.getValue());
 		}
 		return dueDetails;
 	}
 
-	private String resolvePaymentName(String paymentId, List<DueAmountDetailsEntity> dueEntities) {
-		Optional<PaymentEntity> paymentEntity = paymentRepository.findFirstByPaymentId(paymentId);
+	private String resolvePaymentName(Optional<PaymentEntity> paymentEntity, List<DueAmountDetailsEntity> dueEntities) {
 		if (paymentEntity.isPresent() && hasText(paymentEntity.get().getPaymentName())) {
 			return paymentEntity.get().getPaymentName();
 		}
@@ -502,6 +513,24 @@ public class FlatServices implements FlatInterface {
 			return null;
 		}
 		return dueEntities.stream().map(DueAmountDetailsEntity::getPaymentName).filter(this::hasText).findFirst().orElse(null);
+	}
+
+	private String resolvePaymentGateway(String apartmentId, String bankId) {
+		if (!hasText(apartmentId) || !hasText(bankId)) {
+			return null;
+		}
+		Optional<BankEntity> bankEntity = bankEntityRepository.findByAprmntIdAndBankDetailsID(apartmentId, bankId);
+		if (bankEntity == null || bankEntity.isEmpty()) {
+			return null;
+		}
+		return decryptNullable(bankEntity.get().getPgName());
+	}
+
+	private String decryptNullable(String value) {
+		if (!hasText(value)) {
+			return null;
+		}
+		return genericService.decrypt(value);
 	}
 
 	private DueTotals calculateDueTotalsFromDueDetails(Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails, String flatId,
