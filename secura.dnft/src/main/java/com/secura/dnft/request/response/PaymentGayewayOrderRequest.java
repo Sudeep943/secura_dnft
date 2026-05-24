@@ -1,6 +1,7 @@
 package com.secura.dnft.request.response;
 
 import java.sql.Date;
+import java.util.Map;
 
 public class PaymentGayewayOrderRequest {
 
@@ -10,6 +11,7 @@ public class PaymentGayewayOrderRequest {
 	private String currency;
 	private Date eventDate;
 	private String transactionType;
+	private Map<String, Object> data;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -46,6 +48,12 @@ public class PaymentGayewayOrderRequest {
 	}
 	public void setTransactionType(String transactionType) {
 		this.transactionType = transactionType;
+	}
+	public Map<String, Object> getData() {
+		return data;
+	}
+	public void setData(Map<String, Object> data) {
+		this.data = data;
 	}
 	
 	
