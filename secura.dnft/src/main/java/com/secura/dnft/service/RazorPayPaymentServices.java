@@ -2,6 +2,7 @@ package com.secura.dnft.service;
 
 import java.sql.Date;
 import java.text.SimpleDateFormat;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
 
@@ -9,6 +10,7 @@ import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.razorpay.Order;
 import com.razorpay.Payment;
@@ -71,6 +73,7 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 				paymentResponse.setMessage(SuccessMessage.SUCC_MESSAGE_06);
 				paymentResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_06);
 				paymentResponse.setOrder(convertJsonToObject(order.toString()));
+				paymentResponse.setData(convertJsonToMap(order.toString()));
 			}
 		   
 		} catch (RazorpayException e) {
@@ -96,11 +99,16 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 		if (data == null || data.isEmpty()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_23);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_23);
+			response.setData(new LinkedHashMap<>());
 			return response;
 		}
 		String orderId = data.get("razorpay_order_id");
 		    String paymentId = data.get("razorpay_payment_id");
 		    String signature = data.get("razorpay_signature");
+		    Map<String, Object> responseData = new LinkedHashMap<>();
+		    responseData.put("razorpay_order_id", orderId);
+		    responseData.put("razorpay_payment_id", paymentId);
+		    responseData.put("razorpay_signature", signature);
 
 			try {
 				boolean isValid = Utils.verifySignature(
@@ -108,6 +116,8 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 				    signature,
 				    secret   
 				);
+				  responseData.put("signature_valid", isValid);
+				  response.setData(responseData);
 				  if (isValid) {
 				    	response.setMessage(SuccessMessage.SUCC_MESSAGE_07);
 				    	response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_07);
@@ -118,6 +128,8 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 			} catch (RazorpayException e) {
 				// TODO Auto-generated catch block
 				//e.printStackTrace();
+				responseData.put("signature_valid", false);
+				response.setData(responseData);
 				response.setMessage(ErrorMessage.ERR_MESSAGE_23);
 		    	response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_23);
 			}
@@ -189,5 +201,15 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 		            throw new RuntimeException("Failed to parse JSON", e);
 		        }
 		    }
+   
+   public Map<String, Object> convertJsonToMap(String json) {
+	   	ObjectMapper objectMapper = new ObjectMapper();
+	       try {
+	           return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {
+	           });
+	       } catch (Exception e) {
+	           throw new RuntimeException("Failed to parse JSON", e);
+	       }
+	   }
 
 }
