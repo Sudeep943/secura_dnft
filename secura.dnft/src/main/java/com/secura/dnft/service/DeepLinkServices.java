@@ -1,5 +1,8 @@
 package com.secura.dnft.service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
@@ -21,7 +24,15 @@ public class DeepLinkServices implements ThirdPartyPaymentGayeway {
 	public PaymentGayewayOrderResponse createOrder(PaymentGayewayOrderRequest request) {
 		PaymentGayewayOrderResponse response = new PaymentGayewayOrderResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setData(createOrderMethod(request != null ? request.getData() : null));
 		return response;
+	}
+
+	Map<String, Object> createOrderMethod(Map<String, Object> requestMap) {
+		if (requestMap == null || requestMap.isEmpty()) {
+			return null;
+		}
+		return new HashMap<>(requestMap);
 	}
 
 	@Override
