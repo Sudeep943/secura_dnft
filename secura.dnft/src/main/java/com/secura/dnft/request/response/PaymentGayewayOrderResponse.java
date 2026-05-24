@@ -1,5 +1,7 @@
 package com.secura.dnft.request.response;
 
+import java.util.Map;
+
 public class PaymentGayewayOrderResponse {
 
 	
@@ -7,6 +9,7 @@ public class PaymentGayewayOrderResponse {
 	private String message;
 	private String messageCode;
 	private RazorPayOrderResponse order;
+	private Map<String, Object> data;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -31,6 +34,12 @@ public class PaymentGayewayOrderResponse {
 	}
 	public void setOrder(RazorPayOrderResponse order) {
 		this.order = order;
+	}
+	public Map<String, Object> getData() {
+		return data;
+	}
+	public void setData(Map<String, Object> data) {
+		this.data = data;
 	}
 	
 	

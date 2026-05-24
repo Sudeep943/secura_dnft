@@ -2,6 +2,7 @@ package com.secura.dnft.service;
 
 import java.sql.Date;
 import java.text.SimpleDateFormat;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
@@ -71,6 +72,7 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 				paymentResponse.setMessage(SuccessMessage.SUCC_MESSAGE_06);
 				paymentResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_06);
 				paymentResponse.setOrder(convertJsonToObject(order.toString()));
+				paymentResponse.setData(convertJsonToMap(order.toString()));
 			}
 		   
 		} catch (RazorpayException e) {
@@ -96,6 +98,7 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 		if (data == null || data.isEmpty()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_23);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_23);
+			response.setData(new HashMap<>());
 			return response;
 		}
 		String orderId = data.get("razorpay_order_id");
@@ -115,6 +118,12 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 				    	response.setMessage(ErrorMessage.ERR_MESSAGE_23);
 				    	response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_23);
 				    }
+				Map<String, Object> responseData = new HashMap<>();
+				responseData.put("razorpay_order_id", orderId);
+				responseData.put("razorpay_payment_id", paymentId);
+				responseData.put("razorpay_signature", signature);
+				responseData.put("signature_valid", isValid);
+				response.setData(responseData);
 			} catch (RazorpayException e) {
 				// TODO Auto-generated catch block
 				//e.printStackTrace();
@@ -189,5 +198,15 @@ public class RazorPayPaymentServices implements ThirdPartyPaymentGayeway {
 		            throw new RuntimeException("Failed to parse JSON", e);
 		        }
 		    }
+
+	@SuppressWarnings("unchecked")
+	public Map<String, Object> convertJsonToMap(String json) {
+		ObjectMapper objectMapper = new ObjectMapper();
+		try {
+			return objectMapper.readValue(json, Map.class);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to parse JSON to map", e);
+		}
+	}
 
 }
