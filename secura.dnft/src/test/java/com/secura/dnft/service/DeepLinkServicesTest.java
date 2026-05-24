@@ -1,6 +1,7 @@
 package com.secura.dnft.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -43,5 +44,15 @@ class DeepLinkServicesTest {
 		PaymentGayewayOrderResponse response = deepLinkServices.createOrder(request);
 
 		assertNull(response.getData());
+	}
+
+	@Test
+	void createOrder_shouldReturnEmptyDataMapWhenRequestMapIsEmpty() {
+		PaymentGayewayOrderRequest request = new PaymentGayewayOrderRequest();
+		request.setData(new HashMap<>());
+
+		PaymentGayewayOrderResponse response = deepLinkServices.createOrder(request);
+
+		assertTrue(response.getData().isEmpty());
 	}
 }

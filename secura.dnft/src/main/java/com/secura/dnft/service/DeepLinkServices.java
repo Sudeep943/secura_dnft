@@ -29,7 +29,7 @@ public class DeepLinkServices implements ThirdPartyPaymentGayeway {
 	}
 
 	Map<String, Object> createOrderMethod(Map<String, Object> requestMap) {
-		if (requestMap == null || requestMap.isEmpty()) {
+		if (requestMap == null) {
 			return null;
 		}
 		return new HashMap<>(requestMap);
