@@ -34,6 +34,9 @@ public class ApartmentMaster {
 
     @Column(name = "aprmnt_letter_head", columnDefinition = "TEXT")
     private String aprmntLetterHead;
+
+    @Column(name = "aprmnt_contact_details", columnDefinition = "TEXT")
+    private String aprmntContactDetails;
     
     @Column(name = "creat_ts")
     private LocalDateTime  creat_ts;
@@ -134,8 +137,16 @@ public class ApartmentMaster {
 	public void setAprmntLetterHead(String aprmntLetterHead) {
 		this.aprmntLetterHead = aprmntLetterHead;
 	}
-     
-     
-     
-     
+
+	public String getAprmntContactDetails() {
+		return aprmntContactDetails;
+	}
+
+	public void setAprmntContactDetails(String aprmntContactDetails) {
+		this.aprmntContactDetails = aprmntContactDetails;
+	}
+      
+      
+      
+      
 }

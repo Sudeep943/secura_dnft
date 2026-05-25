@@ -14,6 +14,8 @@ import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetApartmentDetailsRequest;
 import com.secura.dnft.request.response.GetApartmentDetailsResponse;
+import com.secura.dnft.request.response.GetContactDetailsRequest;
+import com.secura.dnft.request.response.GetContactDetailsResponse;
 import com.secura.dnft.request.response.UpdateApartmentDetailsRequest;
 import com.secura.dnft.request.response.UpdateApartmentDetailsResponse;
 import com.secura.dnft.service.ApartmentService;
@@ -55,6 +57,23 @@ class ApartmentControllerTest {
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void getContactDetails_shouldReturnServiceResponse() {
+		GetContactDetailsRequest request = new GetContactDetailsRequest();
+		GenericHeader header = buildHeader();
+		request.setGenericHeader(header);
+		request.setApartmentID("APR-1");
+		GetContactDetailsResponse expected = new GetContactDetailsResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(apartmentService.getContactDetails(request)).thenReturn(expected);
+
+		GetContactDetailsResponse actual = apartmentController.getContactDetails(request);
+
+		assertEquals(expected, actual);
 	}
 
 	private GenericHeader buildHeader() {
