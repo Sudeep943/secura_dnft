@@ -274,24 +274,6 @@ public class ApartmentService {
 	    	if (value == null || value.isBlank()) {
 	    		return readAllBankAccounts(apartmentId);
 	    	}
-
-	    	private ContactDetails readContactDetails(String value) {
-	    		if (value == null || value.isBlank()) {
-	    			return null;
-	    		}
-	    		return genericService.fromJson(value, ContactDetails.class);
-	    	}
-
-	    	private String resolveApartmentId(GetContactDetailsRequest request) {
-	    		if (request.getApartmentID() != null && !request.getApartmentID().isBlank()) {
-	    			return request.getApartmentID();
-	    		}
-	    		return request.getGenericHeader().getApartmentId();
-	    	}
-
-	    	private String toJsonOrNull(Object value) {
-	    		return value == null ? null : genericService.toJson(value);
-	    	}
 	    	String decryptedValue = genericService.decrypt(value);
 	    	try {
 	    		List<String> bankDetailIds = genericService.fromJson(decryptedValue, new TypeReference<List<String>>() {
@@ -301,6 +283,24 @@ public class ApartmentService {
 	    		return genericService.fromJson(decryptedValue, new TypeReference<List<BankAccountDetails>>() {
 	    		});
 	    	}
+	    }
+
+	    private ContactDetails readContactDetails(String value) {
+	    	if (value == null || value.isBlank()) {
+	    		return null;
+	    	}
+	    	return genericService.fromJson(value, ContactDetails.class);
+	    }
+
+	    private String resolveApartmentId(GetContactDetailsRequest request) {
+	    	if (request.getApartmentID() != null && !request.getApartmentID().isBlank()) {
+	    		return request.getApartmentID();
+	    	}
+	    	return request.getGenericHeader().getApartmentId();
+	    }
+
+	    private String toJsonOrNull(Object value) {
+	    	return value == null ? null : genericService.toJson(value);
 	    }
 
 	    private List<String> readBankDetailIds(String value, String apartmentId) {
