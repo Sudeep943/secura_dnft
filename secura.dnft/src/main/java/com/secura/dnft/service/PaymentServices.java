@@ -1610,7 +1610,7 @@ public class PaymentServices implements PaymentInterface {
 		createPaymentRequest.setPaymentCollectionCycleList(List.of(SecuraConstants.PAYMENT_CYCLE_ONCE));
 		createPaymentRequest.setPaymentCollectionMode("PRE");
 		createPaymentRequest.setApplicableFor(List.of(row.flatId.trim()));
-		createPaymentRequest.setAllowedPaymentModes(List.of("ONLINE", "CASH", "CHEQUE"));
+		createPaymentRequest.setAllowedPaymentModes(List.of("ONLINE", "CASH", "CHEQUE","SOCIETY_QR"));
 		createPaymentRequest.setPaymentType("MANDATORY");
 		createPaymentRequest.setPartialPaymentAllowed(false);
 		createPaymentRequest.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
