@@ -145,8 +145,4 @@ public class ApartmentMaster {
 	public void setAprmntContactDetails(String aprmntContactDetails) {
 		this.aprmntContactDetails = aprmntContactDetails;
 	}
-      
-      
-      
-      
 }

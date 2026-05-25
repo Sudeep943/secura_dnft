@@ -51,7 +51,7 @@ INSERT INTO secura_aprmnt (
     '',
     '',
     '',
-    '',
+    NULL,
     CURRENT_TIMESTAMP,
     'admin_user',
     CURRENT_TIMESTAMP,
