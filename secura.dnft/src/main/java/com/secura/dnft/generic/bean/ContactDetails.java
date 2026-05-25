@@ -6,6 +6,9 @@ public class ContactDetails {
 	private String emailId;
 	private String landlinenumber;
 	
+	public ContactDetails() {
+	}
+	
 	
 	public String getMobileNumber() {
 		return mobileNumber;

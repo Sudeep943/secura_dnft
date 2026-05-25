@@ -17,6 +17,7 @@ import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.BankEntityRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.BankEntity;
+import com.secura.dnft.generic.bean.ContactDetails;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
@@ -27,6 +28,8 @@ import com.secura.dnft.request.response.GetBankDetailsRequest;
 import com.secura.dnft.request.response.GetBankDetailsResponse;
 import com.secura.dnft.request.response.GetApartmentDetailsRequest;
 import com.secura.dnft.request.response.GetApartmentDetailsResponse;
+import com.secura.dnft.request.response.GetContactDetailsRequest;
+import com.secura.dnft.request.response.GetContactDetailsResponse;
 import com.secura.dnft.request.response.UpdateApartmentDetailsRequest;
 import com.secura.dnft.request.response.UpdateApartmentDetailsResponse;
 import com.secura.dnft.request.response.UpdateBankDetailsRequest;
@@ -75,6 +78,7 @@ public class ApartmentService {
 	    		apartment.setAprmnt_bank_acccount_list(genericService.encrypt(genericService.toJson(bankDetailsIds)));
 	    		apartment.setAprmnt_executive_role_list(genericService.toJson(defaultIfNull(request.getExecutiveMemberList())));
 	    		apartment.setAprmntLetterHead(request.getApartmentLetterHead());
+	    		apartment.setAprmntContactDetails(toJsonOrNull(request.getContactDetails()));
 	    		apartment.setLst_updt_ts(LocalDateTime.now());
 	    		apartment.setLst_updt_usrid(request.getGenericHeader().getUserId());
 	    		repository.save(apartment);
@@ -178,6 +182,28 @@ public class ApartmentService {
 	    		response.setExecutiveMemberList(readExecutiveMembers(apartment.getAprmnt_executive_role_list()));
 	    		response.setBankAccountDetails(readBankAccounts(apartment.getAprmntId(), apartment.getAprmnt_bank_acccount_list()));
 	    		response.setApartmentLetterHead(apartment.getAprmntLetterHead());
+	    		response.setContactDetails(readContactDetails(apartment.getAprmntContactDetails()));
+	    		response.setMessage(SuccessMessage.SUCC_MESSAGE_36);
+	    		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_36);
+	    	} catch (BusinessException e) {
+	    		response.setMessage(e.getErrorMessage());
+	    		response.setMessageCode(e.getErrorMessageCode());
+	    	}
+	    	return response;
+	    }
+
+	    public GetContactDetailsResponse getContactDetails(GetContactDetailsRequest request) {
+	    	GetContactDetailsResponse response = new GetContactDetailsResponse();
+	    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+	    	try {
+	    		commonValidations.genericHeaderValidation(request.getGenericHeader());
+	    		Optional<ApartmentMaster> apartmentOptional = repository.findById(resolveApartmentId(request));
+	    		if (apartmentOptional.isEmpty()) {
+	    			response.setMessage(ErrorMessage.ERR_MESSAGE_47);
+	    			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_47);
+	    			return response;
+	    		}
+	    		response.setContactDetails(readContactDetails(apartmentOptional.get().getAprmntContactDetails()));
 	    		response.setMessage(SuccessMessage.SUCC_MESSAGE_36);
 	    		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_36);
 	    	} catch (BusinessException e) {
@@ -257,6 +283,24 @@ public class ApartmentService {
 	    		return genericService.fromJson(decryptedValue, new TypeReference<List<BankAccountDetails>>() {
 	    		});
 	    	}
+	    }
+
+	    private ContactDetails readContactDetails(String value) {
+	    	if (value == null || value.isBlank()) {
+	    		return null;
+	    	}
+	    	return genericService.fromJson(value, ContactDetails.class);
+	    }
+
+	    private String resolveApartmentId(GetContactDetailsRequest request) {
+	    	if (request.getApartmentID() != null && !request.getApartmentID().isBlank()) {
+	    		return request.getApartmentID();
+	    	}
+	    	return request.getGenericHeader().getApartmentId();
+	    }
+
+	    private String toJsonOrNull(Object value) {
+	    	return value == null ? null : genericService.toJson(value);
 	    }
 
 	    private List<String> readBankDetailIds(String value, String apartmentId) {

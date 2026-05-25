@@ -28,6 +28,7 @@ import com.secura.dnft.dao.BankEntityRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.BankEntity;
 import com.secura.dnft.generic.bean.Address;
+import com.secura.dnft.generic.bean.ContactDetails;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SuccessMessage;
@@ -35,6 +36,8 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetApartmentDetailsRequest;
 import com.secura.dnft.request.response.GetApartmentDetailsResponse;
+import com.secura.dnft.request.response.GetContactDetailsRequest;
+import com.secura.dnft.request.response.GetContactDetailsResponse;
 import com.secura.dnft.request.response.UpdateApartmentDetailsRequest;
 import com.secura.dnft.request.response.UpdateApartmentDetailsResponse;
 import com.secura.dnft.validation.CommonValidations;
@@ -69,6 +72,8 @@ class ApartmentServiceTest {
 		when(genericService.toJson(argThat(value -> value instanceof List<?> list
 				&& (list.isEmpty() || list.get(0) instanceof String)))).thenReturn("[\"BANK-ID\"]");
 		when(genericService.toJson(request.getExecutiveMemberList())).thenReturn("[{\"memberId\":\"MEM-1\"}]");
+		when(genericService.toJson(request.getContactDetails()))
+				.thenReturn("{\"mobileNumber\":\"9999999999\",\"emailId\":\"admin@secura.com\"}");
 		when(genericService.encrypt("ABC Bank")).thenReturn("encrypted-bank-name");
 		when(genericService.encrypt("12345")).thenReturn("encrypted-account-number");
 		when(genericService.encrypt("Razorpay")).thenReturn("encrypted-pg-name");
@@ -91,6 +96,8 @@ class ApartmentServiceTest {
 		assertEquals("[{\"memberId\":\"MEM-1\"}]", captor.getValue().getAprmnt_executive_role_list());
 		assertEquals("logo-data", captor.getValue().getAprmnt_logo());
 		assertEquals("letter-head-data", captor.getValue().getAprmntLetterHead());
+		assertEquals("{\"mobileNumber\":\"9999999999\",\"emailId\":\"admin@secura.com\"}",
+				captor.getValue().getAprmntContactDetails());
 		assertEquals("ADMIN-1", captor.getValue().getLst_updt_usrid());
 	}
 
@@ -106,6 +113,7 @@ class ApartmentServiceTest {
 		apartment.setAprmnt_bank_acccount_list("encrypted-bank-json");
 		apartment.setAprmnt_executive_role_list("[{\"memberId\":\"MEM-1\"}]");
 		apartment.setAprmntLetterHead("letter-head-data");
+		apartment.setAprmntContactDetails("{\"mobileNumber\":\"9999999999\",\"emailId\":\"admin@secura.com\"}");
 		BankEntity bankEntity = new BankEntity();
 		bankEntity.setAprmntId("APR-1");
 		bankEntity.setBankDetailsID("BANK-1");
@@ -117,10 +125,15 @@ class ApartmentServiceTest {
 		ExecutiveMember executiveMember = new ExecutiveMember();
 		executiveMember.setMemberId("MEM-1");
 		executiveMember.setPositionName("Secretary");
+		ContactDetails contactDetails = new ContactDetails();
+		contactDetails.setMobileNumber("9999999999");
+		contactDetails.setEmailId("admin@secura.com");
 
 		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
 		when(repository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericService.fromJson("{\"city\":\"Springfield\"}", Address.class)).thenReturn(address);
+		when(genericService.fromJson("{\"mobileNumber\":\"9999999999\",\"emailId\":\"admin@secura.com\"}", ContactDetails.class))
+				.thenReturn(contactDetails);
 		when(genericService.decrypt("encrypted-bank-json")).thenReturn("[\"BANK-1\"]");
 		when(genericService.fromJson(eq("[\"BANK-1\"]"), any(TypeReference.class))).thenReturn(List.of("BANK-1"));
 		when(bankEntityRepository.findByAprmntIdAndBankDetailsID("APR-1", "BANK-1")).thenReturn(Optional.of(bankEntity));
@@ -140,6 +153,7 @@ class ApartmentServiceTest {
 		assertEquals("Razorpay", response.getBankAccountDetails().get(0).getPgName());
 		assertEquals("MEM-1", response.getExecutiveMemberList().get(0).getMemberId());
 		assertEquals("letter-head-data", response.getApartmentLetterHead());
+		assertSame(contactDetails, response.getContactDetails());
 	}
 
 	@Test
@@ -182,6 +196,30 @@ class ApartmentServiceTest {
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_47, response.getMessageCode());
 	}
 
+	@Test
+	void getContactDetails_shouldReturnStoredContactDetails() throws Exception {
+		GetContactDetailsRequest request = new GetContactDetailsRequest();
+		request.setGenericHeader(buildHeader());
+		request.setApartmentID("APR-1");
+		ApartmentMaster apartment = new ApartmentMaster();
+		apartment.setAprmntId("APR-1");
+		apartment.setAprmntContactDetails("{\"mobileNumber\":\"9999999999\",\"emailId\":\"admin@secura.com\"}");
+		ContactDetails contactDetails = new ContactDetails();
+		contactDetails.setMobileNumber("9999999999");
+		contactDetails.setEmailId("admin@secura.com");
+
+		doNothing().when(commonValidations).genericHeaderValidation(request.getGenericHeader());
+		when(repository.findById("APR-1")).thenReturn(Optional.of(apartment));
+		when(genericService.fromJson("{\"mobileNumber\":\"9999999999\",\"emailId\":\"admin@secura.com\"}", ContactDetails.class))
+				.thenReturn(contactDetails);
+
+		GetContactDetailsResponse response = apartmentService.getContactDetails(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_36, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_36, response.getMessageCode());
+		assertSame(contactDetails, response.getContactDetails());
+	}
+
 	private UpdateApartmentDetailsRequest buildUpdateRequest() {
 		UpdateApartmentDetailsRequest request = new UpdateApartmentDetailsRequest();
 		request.setGenericHeader(buildHeader());
@@ -203,6 +241,10 @@ class ApartmentServiceTest {
 		executiveMember.setStatus("ACTIVE");
 		executiveMember.setStartDate(LocalDate.of(2025, 1, 1));
 		request.setExecutiveMemberList(List.of(executiveMember));
+		ContactDetails contactDetails = new ContactDetails();
+		contactDetails.setMobileNumber("9999999999");
+		contactDetails.setEmailId("admin@secura.com");
+		request.setContactDetails(contactDetails);
 		return request;
 	}
 

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.secura.dnft.bean.BankAccountDetails;
 import com.secura.dnft.bean.ExecutiveMember;
 import com.secura.dnft.generic.bean.Address;
+import com.secura.dnft.generic.bean.ContactDetails;
 
 public class UpdateApartmentDetailsRequest {
 
@@ -18,6 +19,7 @@ public class UpdateApartmentDetailsRequest {
 	@JsonAlias("executiveMemberList")
 	private List<ExecutiveMember> executiveMemberList;
 	private String apartmentLetterHead;
+	private ContactDetails contactDetails;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -65,5 +67,13 @@ public class UpdateApartmentDetailsRequest {
 
 	public void setApartmentLetterHead(String apartmentLetterHead) {
 		this.apartmentLetterHead = apartmentLetterHead;
+	}
+
+	public ContactDetails getContactDetails() {
+		return contactDetails;
+	}
+
+	public void setContactDetails(ContactDetails contactDetails) {
+		this.contactDetails = contactDetails;
 	}
 }

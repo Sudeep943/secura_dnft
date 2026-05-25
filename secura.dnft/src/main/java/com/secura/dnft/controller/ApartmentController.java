@@ -19,6 +19,8 @@ import com.secura.dnft.request.response.GetApartmentDetailsRequest;
 import com.secura.dnft.request.response.GetApartmentDetailsResponse;
 import com.secura.dnft.request.response.GetBankDetailsRequest;
 import com.secura.dnft.request.response.GetBankDetailsResponse;
+import com.secura.dnft.request.response.GetContactDetailsRequest;
+import com.secura.dnft.request.response.GetContactDetailsResponse;
 import com.secura.dnft.request.response.UpdateApartmentDetailsRequest;
 import com.secura.dnft.request.response.UpdateApartmentDetailsResponse;
 import com.secura.dnft.request.response.UpdateBankDetailsRequest;
@@ -63,6 +65,20 @@ public class ApartmentController {
     	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
     	try {
     		return service.getApartmentDetails(request);
+    	} catch (Exception e) {
+    		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+    		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+    	}
+    	return response;
+    }
+
+    @PostMapping("/getContactDetails")
+    @CrossOrigin(origins = "*")
+    public GetContactDetailsResponse getContactDetails(@RequestBody GetContactDetailsRequest request) {
+    	GetContactDetailsResponse response = new GetContactDetailsResponse();
+    	response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+    	try {
+    		return service.getContactDetails(request);
     	} catch (Exception e) {
     		response.setMessage(ErrorMessage.ERR_MESSAGE_33);
     		response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
