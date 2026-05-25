@@ -17,6 +17,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.sql.Date;
 import java.util.ArrayList;
@@ -1705,8 +1706,11 @@ class PaymentServicesTest {
 		header.setUserId("USR-1");
 		request.setGenericHeader(header);
 		request.setFile(buildPastDueWorkbookBase64(
-				List.of(List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200.00", "18.0", "1416"),
-						List.of("A-999", "1-Mar-2026", "31-Mar-2026", "Bad Flat", "1300", "18", "1534"))));
+				List.of(
+						List.of("A-101", "1-Mar-2026", "31-Mar-2026", "March Due", "1200.00", "18.0", "1416", "MAINTENANCE",
+								"BANK-123"),
+						List.of("A-999", "1-Mar-2026", "31-Mar-2026", "Bad Flat", "1300", "18", "1534", "EVENT",
+								"BANK-999"))));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("A-101");
@@ -1721,11 +1725,24 @@ class PaymentServicesTest {
 		assertEquals("March Due", paymentCaptor.getValue().getPaymentName());
 		assertEquals("1200", paymentCaptor.getValue().getPaymentAmount());
 		assertEquals("18", paymentCaptor.getValue().getGst());
+		assertEquals("MAINTENANCE", paymentCaptor.getValue().getCauseId());
+		assertEquals("BANK-123", paymentCaptor.getValue().getBankAccountId());
 		assertEquals(ErrorMessage.ERR_MESSAGE_42, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_42, response.getMessageCode());
 		assertEquals(1, response.getSuccessRows());
 		assertEquals(1, response.getFailedRows());
 		assertTrue(response.getFile() != null && !response.getFile().isBlank());
+
+		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(Base64.getDecoder().decode(response.getFile())))) {
+			Sheet failedSheet = workbook.getSheetAt(0);
+			Row headerRow = failedSheet.getRow(0);
+			Row failedRow = failedSheet.getRow(1);
+			assertEquals("Cause", headerRow.getCell(7).getStringCellValue());
+			assertEquals("BankAccountID", headerRow.getCell(8).getStringCellValue());
+			assertEquals("EVENT", failedRow.getCell(7).getStringCellValue());
+			assertEquals("BANK-999", failedRow.getCell(8).getStringCellValue());
+			assertEquals("Flat Id not found for apartment", failedRow.getCell(9).getStringCellValue());
+		}
 	}
 
 	@Test
@@ -1745,7 +1762,8 @@ class PaymentServicesTest {
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("past_due");
 			Row headerRow = sheet.createRow(0);
-			String[] headers = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount", "GST%", "Total Due Amount" };
+			String[] headers = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount", "GST%", "Total Due Amount",
+					"Cause", "BankAccountID" };
 			for (int i = 0; i < headers.length; i++) {
 				headerRow.createCell(i).setCellValue(headers[i]);
 			}

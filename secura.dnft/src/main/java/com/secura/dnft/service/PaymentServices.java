@@ -100,7 +100,7 @@ public class PaymentServices implements PaymentInterface {
 	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	private static final int TRANSACTION_ID_RANDOM_LENGTH = 6;
 	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount",
-			"GST%", "Total Due Amount" };
+			"GST%", "Total Due Amount", "Cause", "BankAccountID" };
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
 	private static final DateTimeFormatter PAST_DUE_DATE_FORMATTER = new DateTimeFormatterBuilder().parseCaseInsensitive()
 			.appendPattern("d-MMM-yyyy").toFormatter(Locale.ENGLISH);
@@ -1553,6 +1553,8 @@ public class PaymentServices implements PaymentInterface {
 		uploadRow.dueAmount = readPastDueStringCell(row, 4);
 		uploadRow.gst = readPastDueStringCell(row, 5);
 		uploadRow.totalDueAmount = readPastDueStringCell(row, 6);
+		uploadRow.cause = readPastDueStringCell(row, 7);
+		uploadRow.bankAccountId = readPastDueStringCell(row, 8);
 		uploadRow.dueFrom = parsePastDueDate(uploadRow.dueFromText, "Due From");
 		uploadRow.dueTill = parsePastDueDate(uploadRow.dueTillText, "Due Till");
 		return uploadRow;
@@ -1613,7 +1615,8 @@ public class PaymentServices implements PaymentInterface {
 		createPaymentRequest.setPartialPaymentAllowed(false);
 		createPaymentRequest.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 		createPaymentRequest.setPaymentCapita("PER_FLAT");
-		createPaymentRequest.setCause(SecuraConstants.TRANSACTION_CAUSE_OTHERS);
+		createPaymentRequest.setCause(trimValue(row.cause));
+		createPaymentRequest.setBankAccountId(trimValue(row.bankAccountId));
 		return createPaymentRequest;
 	}
 
@@ -1655,6 +1658,8 @@ public class PaymentServices implements PaymentInterface {
 		values.add(safePastDueValue(row.dueAmount));
 		values.add(safePastDueValue(row.gst));
 		values.add(safePastDueValue(row.totalDueAmount));
+		values.add(safePastDueValue(row.cause));
+		values.add(safePastDueValue(row.bankAccountId));
 		values.add(safePastDueValue(reason));
 		return values;
 	}
@@ -1798,6 +1803,8 @@ public class PaymentServices implements PaymentInterface {
 		private String dueAmount;
 		private String gst;
 		private String totalDueAmount;
+		private String cause;
+		private String bankAccountId;
 		private LocalDate dueFrom;
 		private LocalDate dueTill;
 	}
