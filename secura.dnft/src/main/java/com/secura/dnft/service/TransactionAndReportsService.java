@@ -6,9 +6,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -16,15 +20,31 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.Flat;
+import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.generic.bean.Name;
+import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
+import com.secura.dnft.request.response.DefaultPayment;
+import com.secura.dnft.request.response.Defaulter;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
+import com.secura.dnft.request.response.GetDefaulterRequest;
+import com.secura.dnft.request.response.GetDefaulterResponse;
 import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -38,6 +58,7 @@ public class TransactionAndReportsService {
 	private static final String TRNS_TYPE_CREDIT = "CREDIT";
 	private static final String TRNS_STATUS_SUCCESS = "SUCCESS";
 	private static final String OTHERS_KEY = "Others";
+	private static final String PAYMENT_TYPE_MANDATORY = "MANDATORY";
 
 	@Autowired
 	TransactionRepository transactionRepository;
@@ -47,6 +68,18 @@ public class TransactionAndReportsService {
 
 	@Autowired
 	GenericService genericService;
+
+	@Autowired
+	DueAmountDetailsRepository dueAmountDetailsRepository;
+
+	@Autowired
+	FlatRepository flatRepository;
+
+	@Autowired
+	OwnerRepository ownerRepository;
+
+	@Autowired
+	ProfileRepository profileRepository;
 
 	public GetTransactionResponse getTransaction(GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
@@ -104,6 +137,98 @@ public class TransactionAndReportsService {
 
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_41);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_41);
+		return response;
+	}
+
+	public GetDefaulterResponse getDeaulterList(GetDefaulterRequest request) {
+		GetDefaulterResponse response = initializeDefaulterResponse(request);
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+		if (!hasText(apartmentId)) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+
+		List<String> requestedPaymentIds = normalizeRequestPaymentIds(request != null ? request.getPaymentId() : null);
+		if (requestedPaymentIds.isEmpty()) {
+			markDefaulterResponseSuccess(response);
+			return response;
+		}
+
+		Map<String, DefaulterAccumulator> defaulterMap = new LinkedHashMap<>();
+		Map<String, BigDecimal> amountPaidCache = new HashMap<>();
+		Map<String, Optional<Flat>> flatCache = new HashMap<>();
+		Map<String, List<Owner>> ownerCache = new HashMap<>();
+		Map<String, Optional<Profile>> profileCache = new HashMap<>();
+
+		for (String paymentId : requestedPaymentIds) {
+			List<PaymentEntity> paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId);
+			if (paymentEntities == null || paymentEntities.isEmpty() || !isActiveMandatoryPayment(paymentEntities)) {
+				continue;
+			}
+
+			List<DueAmountDetailsEntity> overdueDues = dueAmountDetailsRepository.findByPaymentId(paymentId).stream()
+					.filter(Objects::nonNull)
+					.filter(this::isOverdueDue)
+					.collect(Collectors.toList());
+
+			for (DueAmountDetailsEntity due : overdueDues) {
+				List<String> pendingFlatIds = findPendingFlatIds(due);
+				for (String flatId : pendingFlatIds) {
+					DefaulterAccumulator defaulter = defaulterMap.computeIfAbsent(flatId, DefaulterAccumulator::new);
+					DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap()
+							.computeIfAbsent(paymentId,
+									ignored -> new DefaultPaymentAccumulator(paymentId, resolvePaymentName(paymentEntities, due)));
+					defaultPayment.addDue(parseBigDecimal(due.getTotalAmount()));
+					defaultPayment.addPenalty(parseBigDecimal(due.getFineAmount()));
+					defaultPayment.trackLastDueDate(due.getDueDate());
+				}
+			}
+		}
+
+		BigDecimal totalMoneyCollected = BigDecimal.ZERO;
+		BigDecimal totalExpectedToCollect = BigDecimal.ZERO;
+		List<Defaulter> defaulterList = new ArrayList<>();
+		for (DefaulterAccumulator accumulator : defaulterMap.values()) {
+			List<DefaultPayment> defaultPayments = new ArrayList<>();
+			for (DefaultPaymentAccumulator paymentAccumulator : accumulator.defaultPaymentMap().values()) {
+				BigDecimal amountPaid = resolveAmountPaid(paymentAccumulator.paymentId(), accumulator.flatId(), amountPaidCache);
+				BigDecimal amountToBePaid = paymentAccumulator.totalDue().subtract(amountPaid);
+				if (amountToBePaid.compareTo(BigDecimal.ZERO) <= 0) {
+					continue;
+				}
+				DefaultPayment defaultPayment = new DefaultPayment();
+				defaultPayment.setPaymentId(paymentAccumulator.paymentId());
+				defaultPayment.setPaymentName(paymentAccumulator.paymentName());
+				defaultPayment.setTotalDue(formatAmount(paymentAccumulator.totalDue()));
+				defaultPayment.setAmountPaid(formatAmount(amountPaid));
+				defaultPayment.setAmountTobePaid(formatAmount(amountToBePaid));
+				defaultPayment.setPenalty(formatAmount(paymentAccumulator.penalty()));
+				defaultPayment.setLastDueDate(paymentAccumulator.lastDueDate());
+				defaultPayments.add(defaultPayment);
+				totalMoneyCollected = totalMoneyCollected.add(amountPaid);
+				totalExpectedToCollect = totalExpectedToCollect.add(amountToBePaid);
+			}
+			if (defaultPayments.isEmpty()) {
+				continue;
+			}
+
+			List<Profile> ownerProfiles = resolveOwnerProfiles(accumulator.flatId(), flatCache, ownerCache, profileCache);
+			Defaulter defaulter = new Defaulter();
+			defaulter.setFlatId(accumulator.flatId());
+			defaulter.setOwnerNames(resolveOwnerNames(ownerProfiles));
+			defaulter.setPhoneNumber(resolvePhoneNumber(ownerProfiles));
+			defaulter.setDefaultPaymentList(defaultPayments);
+			defaulterList.add(defaulter);
+		}
+
+		response.setDefaulterList(defaulterList);
+		response.setTotalDefaulters(defaulterList.size());
+		response.setTotalMoneyCollected(formatAmount(totalMoneyCollected));
+		response.setTotalExpectedToBeCollect(formatAmount(totalExpectedToCollect));
+		markDefaulterResponseSuccess(response);
 		return response;
 	}
 
@@ -203,6 +328,188 @@ public class TransactionAndReportsService {
 		return result;
 	}
 
+	private GetDefaulterResponse initializeDefaulterResponse(GetDefaulterRequest request) {
+		GetDefaulterResponse response = new GetDefaulterResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setDefaulterList(new ArrayList<>());
+		response.setTotalDefaulters(0);
+		response.setTotalMoneyCollected(BigDecimal.ZERO.toPlainString());
+		response.setTotalExpectedToBeCollect(BigDecimal.ZERO.toPlainString());
+		return response;
+	}
+
+	private void markDefaulterResponseSuccess(GetDefaulterResponse response) {
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_45);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_45);
+	}
+
+	private List<String> normalizeRequestPaymentIds(List<String> paymentIds) {
+		if (paymentIds == null || paymentIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+		LinkedHashSet<String> normalized = new LinkedHashSet<>();
+		for (String paymentId : paymentIds) {
+			if (hasText(paymentId)) {
+				normalized.add(paymentId.trim());
+			}
+		}
+		return new ArrayList<>(normalized);
+	}
+
+	private boolean isActiveMandatoryPayment(List<PaymentEntity> paymentEntities) {
+		boolean active = paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getStatus).filter(this::hasText)
+				.anyMatch(status -> SecuraConstants.PAYMENT_STATUS_ACTIVE.equalsIgnoreCase(status.trim()));
+		if (!active) {
+			return false;
+		}
+		return paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentType).filter(this::hasText)
+				.anyMatch(type -> PAYMENT_TYPE_MANDATORY.equalsIgnoreCase(type.trim()));
+	}
+
+	private boolean isOverdueDue(DueAmountDetailsEntity due) {
+		return due != null && due.getDueDate() != null && due.getDueDate().isBefore(LocalDate.now());
+	}
+
+	private List<String> findPendingFlatIds(DueAmountDetailsEntity due) {
+		List<String> applicableFlats = parseStringList(due != null ? due.getApplicableFlats() : null);
+		if (applicableFlats.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<String> paidFlats = parseStringList(due != null ? due.getPaidFlats() : null);
+		return applicableFlats.stream().filter(this::hasText).map(String::trim)
+				.filter(flatId -> paidFlats.stream().filter(this::hasText).map(String::trim)
+						.noneMatch(paidFlat -> paidFlat.equalsIgnoreCase(flatId)))
+				.distinct().collect(Collectors.toList());
+	}
+
+	private String resolvePaymentName(List<PaymentEntity> paymentEntities, DueAmountDetailsEntity due) {
+		String paymentName = paymentEntities == null ? null
+				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentName).filter(this::hasText)
+						.findFirst().orElse(null);
+		if (hasText(paymentName)) {
+			return paymentName;
+		}
+		return due != null ? due.getPaymentName() : null;
+	}
+
+	private BigDecimal resolveAmountPaid(String paymentId, String flatId, Map<String, BigDecimal> amountPaidCache) {
+		String cacheKey = paymentId + "::" + flatId;
+		return amountPaidCache.computeIfAbsent(cacheKey, ignored -> {
+			List<Transaction> transactions = transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus(paymentId, flatId,
+					TRNS_STATUS_SUCCESS);
+			if (transactions == null || transactions.isEmpty()) {
+				return BigDecimal.ZERO;
+			}
+			return transactions.stream().filter(Objects::nonNull).map(Transaction::getTrnsAmt).map(this::parseBigDecimal)
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+		});
+	}
+
+	private List<Profile> resolveOwnerProfiles(String flatId, Map<String, Optional<Flat>> flatCache,
+			Map<String, List<Owner>> ownerCache, Map<String, Optional<Profile>> profileCache) {
+		LinkedHashSet<String> profileIds = new LinkedHashSet<>();
+		List<Owner> owners = ownerCache.computeIfAbsent(flatId, ignored -> {
+			List<Owner> records = ownerRepository.findByFlatNo(flatId);
+			return records == null ? Collections.emptyList() : records;
+		});
+		for (Owner owner : owners) {
+			if (owner == null || !SecuraConstants.PROFILE_STATUS_ACTIVE.equalsIgnoreCase(owner.getStatus())) {
+				continue;
+			}
+			profileIds.addAll(parseStringList(owner.getPrflId()));
+		}
+		if (profileIds.isEmpty()) {
+			Optional<Flat> flat = flatCache.computeIfAbsent(flatId, ignored -> flatRepository.findById(flatId));
+			flat.map(Flat::getFlatOwnerList).ifPresent(ownerList -> profileIds.addAll(parseStringList(ownerList)));
+		}
+		List<Profile> profiles = new ArrayList<>();
+		for (String profileId : profileIds) {
+			Optional<Profile> profile = profileCache.computeIfAbsent(profileId, profileRepository::findById);
+			profile.ifPresent(profiles::add);
+		}
+		return profiles;
+	}
+
+	private List<String> resolveOwnerNames(List<Profile> profiles) {
+		if (profiles == null || profiles.isEmpty()) {
+			return new ArrayList<>();
+		}
+		return profiles.stream().map(this::resolveOwnerName).filter(this::hasText).distinct().collect(Collectors.toList());
+	}
+
+	private String resolveOwnerName(Profile profile) {
+		if (profile == null) {
+			return null;
+		}
+		if (hasText(profile.getPrflName())) {
+			try {
+				Name name = genericService.fromJson(profile.getPrflName(), Name.class);
+				if (name != null) {
+					String resolvedName = buildDisplayName(name);
+					if (hasText(resolvedName)) {
+						return resolvedName;
+					}
+				}
+			} catch (RuntimeException exception) {
+				// ignore and fallback to profile id
+			}
+		}
+		return profile.getPrflId();
+	}
+
+	private String buildDisplayName(Name name) {
+		List<String> parts = new ArrayList<>();
+		if (name == null) {
+			return null;
+		}
+		if (hasText(name.getFirstName())) {
+			parts.add(name.getFirstName().trim());
+		}
+		if (hasText(name.getMiddleName())) {
+			parts.add(name.getMiddleName().trim());
+		}
+		if (hasText(name.getLastName())) {
+			parts.add(name.getLastName().trim());
+		}
+		return parts.isEmpty() ? null : String.join(" ", parts);
+	}
+
+	private String resolvePhoneNumber(List<Profile> profiles) {
+		if (profiles == null || profiles.isEmpty()) {
+			return null;
+		}
+		List<String> phoneNumbers = profiles.stream().filter(Objects::nonNull).map(Profile::getPrflPhoneNo).filter(this::hasText)
+				.map(String::trim).distinct().collect(Collectors.toList());
+		return phoneNumbers.isEmpty() ? null : String.join(", ", phoneNumbers);
+	}
+
+	private List<String> parseStringList(String json) {
+		if (!hasText(json)) {
+			return new ArrayList<>();
+		}
+		try {
+			List<String> values = genericService.fromJson(json, new TypeReference<List<String>>() {
+			});
+			if (values == null) {
+				return new ArrayList<>();
+			}
+			return values.stream().filter(this::hasText).map(String::trim).collect(Collectors.toCollection(ArrayList::new));
+		} catch (RuntimeException exception) {
+			return new ArrayList<>();
+		}
+	}
+
+	private String formatAmount(BigDecimal amount) {
+		if (amount == null || amount.compareTo(BigDecimal.ZERO) == 0) {
+			return BigDecimal.ZERO.toPlainString();
+		}
+		return amount.stripTrailingZeros().toPlainString();
+	}
+
+	private boolean hasText(String value) {
+		return value != null && !value.trim().isEmpty();
+	}
+
 	private BigDecimal parseBigDecimal(String value) {
 		if (value == null || value.isBlank()) {
 			return BigDecimal.ZERO;
@@ -260,6 +567,62 @@ public class TransactionAndReportsService {
 			return genericService.fromJson(json, typeReference);
 		} catch (Exception e) {
 			return new ArrayList<>();
+		}
+	}
+
+	private record DefaulterAccumulator(String flatId, Map<String, DefaultPaymentAccumulator> defaultPaymentMap) {
+		private DefaulterAccumulator(String flatId) {
+			this(flatId, new LinkedHashMap<>());
+		}
+	}
+
+	private static final class DefaultPaymentAccumulator {
+		private final String paymentId;
+		private final String paymentName;
+		private BigDecimal totalDue = BigDecimal.ZERO;
+		private BigDecimal penalty = BigDecimal.ZERO;
+		private LocalDate lastDueDate;
+
+		private DefaultPaymentAccumulator(String paymentId, String paymentName) {
+			this.paymentId = paymentId;
+			this.paymentName = paymentName;
+		}
+
+		private String paymentId() {
+			return paymentId;
+		}
+
+		private String paymentName() {
+			return paymentName;
+		}
+
+		private BigDecimal totalDue() {
+			return totalDue;
+		}
+
+		private BigDecimal penalty() {
+			return penalty;
+		}
+
+		private LocalDate lastDueDate() {
+			return lastDueDate;
+		}
+
+		private void addDue(BigDecimal value) {
+			totalDue = totalDue.add(value == null ? BigDecimal.ZERO : value);
+		}
+
+		private void addPenalty(BigDecimal value) {
+			penalty = penalty.add(value == null ? BigDecimal.ZERO : value);
+		}
+
+		private void trackLastDueDate(LocalDate dueDate) {
+			if (dueDate == null) {
+				return;
+			}
+			if (lastDueDate == null || dueDate.isAfter(lastDueDate)) {
+				lastDueDate = dueDate;
+			}
 		}
 	}
 }
