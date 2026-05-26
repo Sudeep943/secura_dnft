@@ -57,11 +57,11 @@ public class TransactionAndReportsController {
 
 	@PostMapping("/getDeaulterList")
 	@CrossOrigin(origins = "*")
-	public GetDefaulterResponse getDeaulterList(@RequestBody GetDefaulterRequest request) {
+	public GetDefaulterResponse getDefaulterList(@RequestBody GetDefaulterRequest request) {
 		GetDefaulterResponse response = new GetDefaulterResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
-			return transactionAndReportsService.getDeaulterList(request);
+			return transactionAndReportsService.getDefaulterList(request);
 		} catch (Exception e) {
 			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);

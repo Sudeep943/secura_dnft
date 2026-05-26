@@ -26,7 +26,7 @@ class TransactionAndReportsControllerTest {
 	private TransactionAndReportsController transactionAndReportsController;
 
 	@Test
-	void getDeaulterList_shouldReturnServiceResponse() {
+	void getDefaulterList_shouldReturnServiceResponse() {
 		GetDefaulterRequest request = new GetDefaulterRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
@@ -36,22 +36,22 @@ class TransactionAndReportsControllerTest {
 		expected.setGenericHeader(header);
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
-		when(transactionAndReportsService.getDeaulterList(request)).thenReturn(expected);
+		when(transactionAndReportsService.getDefaulterList(request)).thenReturn(expected);
 
-		GetDefaulterResponse actual = transactionAndReportsController.getDeaulterList(request);
+		GetDefaulterResponse actual = transactionAndReportsController.getDefaulterList(request);
 
 		assertEquals(expected, actual);
 	}
 
 	@Test
-	void getDeaulterList_shouldReturnGenericErrorWhenServiceThrows() {
+	void getDefaulterList_shouldReturnGenericErrorWhenServiceThrows() {
 		GetDefaulterRequest request = new GetDefaulterRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
 		request.setGenericHeader(header);
-		when(transactionAndReportsService.getDeaulterList(request)).thenThrow(new RuntimeException("boom"));
+		when(transactionAndReportsService.getDefaulterList(request)).thenThrow(new RuntimeException("boom"));
 
-		GetDefaulterResponse actual = transactionAndReportsController.getDeaulterList(request);
+		GetDefaulterResponse actual = transactionAndReportsController.getDefaulterList(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());

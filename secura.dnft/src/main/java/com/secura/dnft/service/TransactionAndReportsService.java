@@ -140,7 +140,7 @@ public class TransactionAndReportsService {
 		return response;
 	}
 
-	public GetDefaulterResponse getDeaulterList(GetDefaulterRequest request) {
+	public GetDefaulterResponse getDefaulterList(GetDefaulterRequest request) {
 		GetDefaulterResponse response = initializeDefaulterResponse(request);
 		String apartmentId = request != null && request.getGenericHeader() != null
 				? request.getGenericHeader().getApartmentId()

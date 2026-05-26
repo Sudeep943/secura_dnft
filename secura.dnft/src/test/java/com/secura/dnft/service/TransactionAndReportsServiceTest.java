@@ -71,7 +71,7 @@ class TransactionAndReportsServiceTest {
 	private TransactionAndReportsService transactionAndReportsService;
 
 	@Test
-	void getDeaulterList_shouldReturnGroupedDefaultersForActiveMandatoryPayments() {
+	void getDefaulterList_shouldReturnGroupedDefaultersForActiveMandatoryPayments() {
 		GetDefaulterRequest request = new GetDefaulterRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
@@ -135,7 +135,7 @@ class TransactionAndReportsServiceTest {
 		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "F-101", "SUCCESS"))
 				.thenReturn(List.of(paidTransaction));
 
-		GetDefaulterResponse response = transactionAndReportsService.getDeaulterList(request);
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_45, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_45, response.getMessageCode());
@@ -164,11 +164,11 @@ class TransactionAndReportsServiceTest {
 	}
 
 	@Test
-	void getDeaulterList_shouldRequireApartmentId() {
+	void getDefaulterList_shouldRequireApartmentId() {
 		GetDefaulterRequest request = new GetDefaulterRequest();
 		request.setPaymentId(List.of("PAY-1"));
 
-		GetDefaulterResponse response = transactionAndReportsService.getDeaulterList(request);
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
 
 		assertTrue(response.getDefaulterList().isEmpty());
 		assertEquals(0, response.getTotalDefaulters());
