@@ -5,6 +5,7 @@ import java.util.List;
 public class Defaulter {
 
 	private String flatId;
+	private String flatNo;
 	private String builtUpArea;
 	private List<String> ownerNames;
 	private String phoneNumber;
@@ -20,11 +21,11 @@ public class Defaulter {
 	}
 
 	public String getFlatNo() {
-		return flatId;
+		return flatNo;
 	}
 
 	public void setFlatNo(String flatNo) {
-		this.flatId = flatNo;
+		this.flatNo = flatNo;
 	}
 
 	public String getBuiltUpArea() {

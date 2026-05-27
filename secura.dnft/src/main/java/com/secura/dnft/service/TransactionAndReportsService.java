@@ -214,6 +214,7 @@ public class TransactionAndReportsService {
 			List<Profile> ownerProfiles = resolveOwnerProfiles(accumulator.flatId(), flatCache, ownerCache, profileCache);
 			Defaulter defaulter = new Defaulter();
 			defaulter.setFlatId(accumulator.flatId());
+			defaulter.setFlatNo(accumulator.flatId());
 			defaulter.setBuiltUpArea(resolveFlatAreaTypeDisplay(accumulator.flatId(), flatCache));
 			defaulter.setOwnerNames(resolveOwnerNames(ownerProfiles));
 			defaulter.setPhoneNumber(resolvePhoneNumber(ownerProfiles));
