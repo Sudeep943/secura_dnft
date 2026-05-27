@@ -187,8 +187,6 @@ public class TransactionAndReportsService {
 			}
 		}
 
-		BigDecimal totalMoneyCollected = BigDecimal.ZERO;
-		BigDecimal totalExpectedToCollect = BigDecimal.ZERO;
 		List<Defaulter> defaulterList = new ArrayList<>();
 		for (DefaulterAccumulator accumulator : defaulterMap.values()) {
 			List<DefaultPayment> defaultPayments = new ArrayList<>();
@@ -208,8 +206,6 @@ public class TransactionAndReportsService {
 				defaultPayment.setPenalty(formatAmount(paymentAccumulator.penalty()));
 				defaultPayment.setLastDueDate(paymentAccumulator.lastDueDate());
 				defaultPayments.add(defaultPayment);
-				totalMoneyCollected = totalMoneyCollected.add(amountPaid);
-				totalExpectedToCollect = totalExpectedToCollect.add(amountToBePaid);
 			}
 			if (defaultPayments.isEmpty()) {
 				continue;
@@ -224,11 +220,9 @@ public class TransactionAndReportsService {
 			defaulter.setDefaultPaymentList(defaultPayments);
 			defaulterList.add(defaulter);
 		}
-
 		response.setDefaulterList(defaulterList);
 		response.setTotalDefaulters(defaulterList.size());
-		response.setTotalMoneyCollected(formatAmount(totalMoneyCollected));
-		response.setTotalExpectedToBeCollect(formatAmount(totalExpectedToCollect));
+		updateDefaulterTotals(response);
 		markDefaulterResponseSuccess(response);
 		return response;
 	}
@@ -342,6 +336,31 @@ public class TransactionAndReportsService {
 	private void markDefaulterResponseSuccess(GetDefaulterResponse response) {
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_45);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_45);
+	}
+
+	private void updateDefaulterTotals(GetDefaulterResponse response) {
+		if (response == null) {
+			return;
+		}
+		BigDecimal totalMoneyCollected = BigDecimal.ZERO;
+		BigDecimal totalExpectedToCollect = BigDecimal.ZERO;
+		if (response.getDefaulterList() != null) {
+			for (Defaulter defaulter : response.getDefaulterList()) {
+				if (defaulter == null || defaulter.getDefaultPaymentList() == null) {
+					continue;
+				}
+				for (DefaultPayment defaultPayment : defaulter.getDefaultPaymentList()) {
+					if (defaultPayment == null) {
+						continue;
+					}
+					totalMoneyCollected = totalMoneyCollected.add(parseBigDecimal(defaultPayment.getAmountPaid()));
+					totalExpectedToCollect = totalExpectedToCollect
+							.add(parseBigDecimal(defaultPayment.getAmountTobePaid()));
+				}
+			}
+		}
+		response.setTotalMoneyCollected(formatAmount(totalMoneyCollected));
+		response.setTotalExpectedToBeCollect(formatAmount(totalExpectedToCollect));
 	}
 
 	private List<String> normalizeRequestPaymentIds(List<String> paymentIds) {

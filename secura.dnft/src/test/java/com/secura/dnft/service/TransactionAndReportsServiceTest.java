@@ -170,6 +170,98 @@ class TransactionAndReportsServiceTest {
 	}
 
 	@Test
+	void getDefaulterList_shouldCalculateTotalsFromAllDefaultPaymentEntries() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1", "PAY-2"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-2", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-2", "Sinking Fund", "PER_HEAD",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+
+		LocalDate dueDate = LocalDate.now().minusDays(10);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", dueDate, "100", "10", "[\"F-101\",\"F-102\"]", "[]")));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-2")).thenReturn(List.of(
+				buildDue("PAY-2", "DUE-2", dueDate.minusDays(2), "75", "5", "[\"F-102\"]", "[]")));
+
+		Owner ownerOne = new Owner();
+		ownerOne.setFlatNo("F-101");
+		ownerOne.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		ownerOne.setPrflId("[\"PR-1\"]");
+		Owner ownerTwo = new Owner();
+		ownerTwo.setFlatNo("F-102");
+		ownerTwo.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		ownerTwo.setPrflId("[\"PR-2\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(ownerOne));
+		when(ownerRepository.findByFlatNo("F-102")).thenReturn(List.of(ownerTwo));
+
+		Profile profileOne = new Profile();
+		profileOne.setPrflId("PR-1");
+		profileOne.setPrflPhoneNo("9999999999");
+		profileOne.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		Profile profileTwo = new Profile();
+		profileTwo.setPrflId("PR-2");
+		profileTwo.setPrflPhoneNo("8888888888");
+		profileTwo.setPrflName("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profileOne));
+		when(profileRepository.findById("PR-2")).thenReturn(Optional.of(profileTwo));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+		when(flatRepository.findById("F-102")).thenReturn(Optional.of(buildFlat("F-102", "CARPET_AREA")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\",\"F-102\"]".equals(json)) {
+				return List.of("F-101", "F-102");
+			}
+			if ("[\"F-102\"]".equals(json)) {
+				return List.of("F-102");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			if ("[\"PR-2\"]".equals(json)) {
+				return List.of("PR-2");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+		when(genericService.fromJson(eq("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("Jane", "Doe"));
+
+		Transaction payOneFlatOne = new Transaction();
+		payOneFlatOne.setTrnsAmt("30");
+		Transaction payOneFlatTwo = new Transaction();
+		payOneFlatTwo.setTrnsAmt("20");
+		Transaction payTwoFlatTwo = new Transaction();
+		payTwoFlatTwo.setTrnsAmt("25");
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "F-101", "SUCCESS"))
+				.thenReturn(List.of(payOneFlatOne));
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "F-102", "SUCCESS"))
+				.thenReturn(List.of(payOneFlatTwo));
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-2", "F-102", "SUCCESS"))
+				.thenReturn(List.of(payTwoFlatTwo));
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(2, response.getTotalDefaulters());
+		assertEquals("75", response.getTotalMoneyCollected());
+		assertEquals("200", response.getTotalExpectedToBeCollect());
+		assertEquals(2, response.getDefaulterList().size());
+		assertEquals(1, response.getDefaulterList().get(0).getDefaultPaymentList().size());
+		assertEquals(2, response.getDefaulterList().get(1).getDefaultPaymentList().size());
+	}
+
+	@Test
 	void getDefaulterList_shouldRequireApartmentId() {
 		GetDefaulterRequest request = new GetDefaulterRequest();
 		request.setPaymentId(List.of("PAY-1"));
