@@ -138,6 +138,8 @@ class TransactionAndReportsServiceTest {
 		paidTransaction.setTrnsAmt("50");
 		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "F-101", "SUCCESS"))
 				.thenReturn(List.of(paidTransaction));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1", "PAY-2", "PAY-3"), "SUCCESS"))
+				.thenReturn(List.of(paidTransaction));
 
 		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
 
