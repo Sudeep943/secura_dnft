@@ -19,10 +19,12 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.ApartmentRepository;
+import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TenantRepository;
 import com.secura.dnft.entity.ApartmentMaster;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Tenant;
@@ -74,6 +76,9 @@ public class ProfileServices {
 
 	@Autowired
 	OwnerRepository ownerRepository;
+
+	@Autowired
+	FlatRepository flatRepository;
 
 	@Autowired
 	TenantRepository tenantRepository;
@@ -372,26 +377,38 @@ public class ProfileServices {
 		getOwnerResponse.setGenericHeader(request.getGenericHeader());
 		Owner currentOwnerData = profileValidation.getCurrentFlatOwner(request.getFlatId());
 		getOwnerResponse.setOwner(currentOwnerData);
-		if (currentOwnerData != null) {
-			List<String> ownerProfiles = genericService.fromJson(currentOwnerData.getPrflId(),
-					new TypeReference<List<String>>() {
-					});
-
-			getOwnerResponse.setProfile(ownerProfiles.stream().map(profileRepository::findById).flatMap(Optional::stream)
-					.collect(Collectors.toList()));
-
-			if (getOwnerResponse.getProfile().size() > 0) {
-				getOwnerResponse.setMessage(SuccessMessage.SUCC_MESSAGE_15);
-				getOwnerResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_15);
-			} else {
-				getOwnerResponse.setMessage(ErrorMessage.ERR_MESSAGE_35);
-				getOwnerResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
-			}
+		List<String> ownerProfiles = resolveOwnerProfiles(request.getFlatId(), currentOwnerData);
+		getOwnerResponse.setProfile(ownerProfiles.stream().map(profileRepository::findById).flatMap(Optional::stream)
+				.collect(Collectors.toList()));
+		if (getOwnerResponse.getProfile().size() > 0) {
+			getOwnerResponse.setMessage(SuccessMessage.SUCC_MESSAGE_15);
+			getOwnerResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_15);
 		} else {
 			getOwnerResponse.setMessage(ErrorMessage.ERR_MESSAGE_35);
 			getOwnerResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_35);
 		}
 		return getOwnerResponse;
+	}
+
+	private List<String> resolveOwnerProfiles(String flatId, Owner currentOwnerData) {
+		if (currentOwnerData != null && currentOwnerData.getPrflId() != null) {
+			List<String> ownerProfiles = genericService.fromJson(currentOwnerData.getPrflId(), new TypeReference<List<String>>() {
+			});
+			if (ownerProfiles != null && !ownerProfiles.isEmpty()) {
+				return ownerProfiles;
+			}
+		}
+		if (flatId == null) {
+			return new ArrayList<>();
+		}
+		Optional<Flat> flat = flatRepository.findById(flatId);
+		if (flat.isEmpty() || flat.get().getFlatOwnerList() == null) {
+			return new ArrayList<>();
+		}
+		List<String> ownerProfiles = genericService.fromJson(flat.get().getFlatOwnerList(),
+				new TypeReference<List<String>>() {
+				});
+		return ownerProfiles != null ? ownerProfiles : new ArrayList<>();
 	}
 
 
