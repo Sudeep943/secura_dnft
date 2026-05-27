@@ -180,8 +180,8 @@ public class TransactionAndReportsService {
 				for (String flatId : pendingFlatIds) {
 					DefaulterAccumulator defaulter = defaulterMap.computeIfAbsent(flatId, DefaulterAccumulator::new);
 					DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap()
-							.computeIfAbsent(paymentId,
-									ignored -> new DefaultPaymentAccumulator(paymentId, resolvePaymentName(paymentEntities, due)));
+							.computeIfAbsent(paymentId, ignored -> new DefaultPaymentAccumulator(paymentId,
+									resolvePaymentName(paymentEntities, due), resolvePaymentCapita(paymentEntities)));
 					defaultPayment.addDue(due);
 				}
 			}
@@ -201,6 +201,7 @@ public class TransactionAndReportsService {
 				DefaultPayment defaultPayment = new DefaultPayment();
 				defaultPayment.setPaymentId(paymentAccumulator.paymentId());
 				defaultPayment.setPaymentName(paymentAccumulator.paymentName());
+				defaultPayment.setPaymentCapita(formatDisplayValue(paymentAccumulator.paymentCapita()));
 				defaultPayment.setTotalDue(formatAmount(paymentAccumulator.totalDue()));
 				defaultPayment.setAmountPaid(formatAmount(amountPaid));
 				defaultPayment.setAmountTobePaid(formatAmount(amountToBePaid));
@@ -217,6 +218,7 @@ public class TransactionAndReportsService {
 			List<Profile> ownerProfiles = resolveOwnerProfiles(accumulator.flatId(), flatCache, ownerCache, profileCache);
 			Defaulter defaulter = new Defaulter();
 			defaulter.setFlatId(accumulator.flatId());
+			defaulter.setBuildUpArea(resolveBuildUpArea(accumulator.flatId(), flatCache));
 			defaulter.setOwnerNames(resolveOwnerNames(ownerProfiles));
 			defaulter.setPhoneNumber(resolvePhoneNumber(ownerProfiles));
 			defaulter.setDefaultPaymentList(defaultPayments);
@@ -391,6 +393,12 @@ public class TransactionAndReportsService {
 		return due != null ? due.getPaymentName() : null;
 	}
 
+	private String resolvePaymentCapita(List<PaymentEntity> paymentEntities) {
+		return paymentEntities == null ? null
+				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentCapita).filter(this::hasText)
+						.findFirst().orElse(null);
+	}
+
 	private BigDecimal resolveAmountPaid(String paymentId, String flatId, Map<String, BigDecimal> amountPaidCache) {
 		String cacheKey = paymentId + "::" + flatId;
 		return amountPaidCache.computeIfAbsent(cacheKey, ignored -> {
@@ -427,6 +435,11 @@ public class TransactionAndReportsService {
 			profile.ifPresent(profiles::add);
 		}
 		return profiles;
+	}
+
+	private String resolveBuildUpArea(String flatId, Map<String, Optional<Flat>> flatCache) {
+		Optional<Flat> flat = flatCache.computeIfAbsent(flatId, ignored -> flatRepository.findById(flatId));
+		return formatDisplayValue(flat.map(Flat::getFlatArea).orElse(null));
 	}
 
 	private List<String> resolveOwnerNames(List<Profile> profiles) {
@@ -509,6 +522,13 @@ public class TransactionAndReportsService {
 		return value != null && !value.trim().isEmpty();
 	}
 
+	private String formatDisplayValue(String value) {
+		if (!hasText(value)) {
+			return null;
+		}
+		return value.trim().replace('_', ' ');
+	}
+
 	private BigDecimal parseBigDecimal(String value) {
 		if (value == null || value.isBlank()) {
 			return BigDecimal.ZERO;
@@ -578,14 +598,16 @@ public class TransactionAndReportsService {
 	private static final class DefaultPaymentAccumulator {
 		private final String paymentId;
 		private final String paymentName;
+		private final String paymentCapita;
 		private BigDecimal totalDue = BigDecimal.ZERO;
 		private BigDecimal penalty = BigDecimal.ZERO;
 		private LocalDate lastDueDate;
 		private int selectedCyclePriority;
 
-		private DefaultPaymentAccumulator(String paymentId, String paymentName) {
+		private DefaultPaymentAccumulator(String paymentId, String paymentName, String paymentCapita) {
 			this.paymentId = paymentId;
 			this.paymentName = paymentName;
+			this.paymentCapita = paymentCapita;
 		}
 
 		private String paymentId() {
@@ -594,6 +616,10 @@ public class TransactionAndReportsService {
 
 		private String paymentName() {
 			return paymentName;
+		}
+
+		private String paymentCapita() {
+			return paymentCapita;
 		}
 
 		private BigDecimal totalDue() {
