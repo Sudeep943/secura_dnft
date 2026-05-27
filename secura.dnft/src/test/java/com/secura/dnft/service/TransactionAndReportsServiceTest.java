@@ -27,6 +27,7 @@ import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
@@ -79,11 +80,13 @@ class TransactionAndReportsServiceTest {
 		request.setPaymentId(List.of("PAY-1", "PAY-2", "PAY-3"));
 
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
-				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "PER_SQFT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-2", "APR-1"))
-				.thenReturn(List.of(buildPayment("PAY-2", "Club Fund", SecuraConstants.PAYMENT_STATUS_ACTIVE, "OPTIONAL")));
+				.thenReturn(List.of(buildPayment("PAY-2", "Club Fund", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "OPTIONAL")));
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-3", "APR-1"))
-				.thenReturn(List.of(buildPayment("PAY-3", "Parking", "INACTIVE", "MANDATORY")));
+				.thenReturn(List.of(buildPayment("PAY-3", "Parking", "PER_HEAD", "INACTIVE", "MANDATORY")));
 
 		LocalDate firstDueDate = LocalDate.now().minusDays(15);
 		LocalDate secondDueDate = LocalDate.now().minusDays(2);
@@ -108,6 +111,7 @@ class TransactionAndReportsServiceTest {
 		profileTwo.setPrflName("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profileOne));
 		when(profileRepository.findById("PR-2")).thenReturn(Optional.of(profileTwo));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -146,6 +150,7 @@ class TransactionAndReportsServiceTest {
 
 		Defaulter defaulter = response.getDefaulterList().get(0);
 		assertEquals("F-101", defaulter.getFlatId());
+		assertEquals("SUPER BUILT UP", defaulter.getBuiltUpArea());
 		assertEquals(List.of("John Doe", "Jane Doe"), defaulter.getOwnerNames());
 		assertEquals("9999999999, 8888888888", defaulter.getPhoneNumber());
 		assertEquals(1, defaulter.getDefaultPaymentList().size());
@@ -153,6 +158,7 @@ class TransactionAndReportsServiceTest {
 		DefaultPayment defaultPayment = defaulter.getDefaultPaymentList().get(0);
 		assertEquals("PAY-1", defaultPayment.getPaymentId());
 		assertEquals("Maintenance", defaultPayment.getPaymentName());
+		assertEquals("PER SQFT", defaultPayment.getPaymentCapita());
 		assertEquals("170", defaultPayment.getTotalDue());
 		assertEquals("50", defaultPayment.getAmountPaid());
 		assertEquals("120", defaultPayment.getAmountTobePaid());
@@ -185,11 +191,14 @@ class TransactionAndReportsServiceTest {
 		request.setPaymentId(List.of("PAY-1", "PAY-2", "PAY-3"));
 
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
-				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-2", "APR-1"))
-				.thenReturn(List.of(buildPayment("PAY-2", "Sinking Fund", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+				.thenReturn(List.of(buildPayment("PAY-2", "Sinking Fund", "PER_HEAD",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
 		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-3", "APR-1"))
-				.thenReturn(List.of(buildPayment("PAY-3", "Parking", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+				.thenReturn(List.of(buildPayment("PAY-3", "Parking", "PER_SQFT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
 
 		LocalDate yearlyDueOne = LocalDate.now().minusDays(30);
 		LocalDate yearlyDueTwo = LocalDate.now().minusDays(20);
@@ -220,6 +229,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "LARGE_2_BHK")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -248,10 +258,12 @@ class TransactionAndReportsServiceTest {
 
 		Defaulter defaulter = response.getDefaulterList().get(0);
 		assertEquals("F-101", defaulter.getFlatId());
+		assertEquals("LARGE 2 BHK", defaulter.getBuiltUpArea());
 		assertEquals(3, defaulter.getDefaultPaymentList().size());
 
 		DefaultPayment yearlyPayment = defaulter.getDefaultPaymentList().get(0);
 		assertEquals("PAY-1", yearlyPayment.getPaymentId());
+		assertEquals("FIXED AMOUNT", yearlyPayment.getPaymentCapita());
 		assertEquals("120", yearlyPayment.getTotalDue());
 		assertEquals("0", yearlyPayment.getAmountPaid());
 		assertEquals("120", yearlyPayment.getAmountTobePaid());
@@ -260,6 +272,7 @@ class TransactionAndReportsServiceTest {
 
 		DefaultPayment quarterlyPayment = defaulter.getDefaultPaymentList().get(1);
 		assertEquals("PAY-2", quarterlyPayment.getPaymentId());
+		assertEquals("PER HEAD", quarterlyPayment.getPaymentCapita());
 		assertEquals("60", quarterlyPayment.getTotalDue());
 		assertEquals("0", quarterlyPayment.getAmountPaid());
 		assertEquals("60", quarterlyPayment.getAmountTobePaid());
@@ -268,6 +281,7 @@ class TransactionAndReportsServiceTest {
 
 		DefaultPayment monthlyPayment = defaulter.getDefaultPaymentList().get(2);
 		assertEquals("PAY-3", monthlyPayment.getPaymentId());
+		assertEquals("PER SQFT", monthlyPayment.getPaymentCapita());
 		assertEquals("25", monthlyPayment.getTotalDue());
 		assertEquals("0", monthlyPayment.getAmountPaid());
 		assertEquals("25", monthlyPayment.getAmountTobePaid());
@@ -275,13 +289,22 @@ class TransactionAndReportsServiceTest {
 		assertEquals(onlyMonthlyDue, monthlyPayment.getLastDueDate());
 	}
 
-	private PaymentEntity buildPayment(String paymentId, String paymentName, String status, String paymentType) {
+	private PaymentEntity buildPayment(String paymentId, String paymentName, String paymentCapita, String status,
+			String paymentType) {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId(paymentId);
 		payment.setPaymentName(paymentName);
+		payment.setPaymentCapita(paymentCapita);
 		payment.setStatus(status);
 		payment.setPaymentType(paymentType);
 		return payment;
+	}
+
+	private Flat buildFlat(String flatId, String flatArea) {
+		Flat flat = new Flat();
+		flat.setFlatNo(flatId);
+		flat.setFlatArea(flatArea);
+		return flat;
 	}
 
 	private DueAmountDetailsEntity buildDue(String paymentId, String dueId, LocalDate dueDate, String totalAmount,

@@ -5,6 +5,7 @@ import java.util.List;
 public class Defaulter {
 
 	private String flatId;
+	private String builtUpArea;
 	private List<String> ownerNames;
 	private String phoneNumber;
 	private List<DefaultPayment> defaultPaymentList;
@@ -15,6 +16,14 @@ public class Defaulter {
 
 	public void setFlatId(String flatId) {
 		this.flatId = flatId;
+	}
+
+	public String getBuiltUpArea() {
+		return builtUpArea;
+	}
+
+	public void setBuiltUpArea(String builtUpArea) {
+		this.builtUpArea = builtUpArea;
 	}
 
 	public List<String> getOwnerNames() {

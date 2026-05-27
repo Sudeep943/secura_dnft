@@ -8,6 +8,7 @@ public class DefaultPayment {
 
 	private String paymentId;
 	private String paymentName;
+	private String paymentCapita;
 	private String totalDue;
 	private String amountPaid;
 	private String amountTobePaid;
@@ -29,6 +30,14 @@ public class DefaultPayment {
 
 	public void setPaymentName(String paymentName) {
 		this.paymentName = paymentName;
+	}
+
+	public String getPaymentCapita() {
+		return paymentCapita;
+	}
+
+	public void setPaymentCapita(String paymentCapita) {
+		this.paymentCapita = paymentCapita;
 	}
 
 	public String getTotalDue() {
