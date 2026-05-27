@@ -104,10 +104,12 @@ class TransactionAndReportsServiceTest {
 		Profile profileOne = new Profile();
 		profileOne.setPrflId("PR-1");
 		profileOne.setPrflPhoneNo("9999999999");
+		profileOne.setPrflEmailAdrss("john@example.com");
 		profileOne.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		Profile profileTwo = new Profile();
 		profileTwo.setPrflId("PR-2");
 		profileTwo.setPrflPhoneNo("8888888888");
+		profileTwo.setPrflEmailAdrss("jane@example.com");
 		profileTwo.setPrflName("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profileOne));
 		when(profileRepository.findById("PR-2")).thenReturn(Optional.of(profileTwo));
@@ -155,6 +157,7 @@ class TransactionAndReportsServiceTest {
 		assertEquals("SUPER BUILT UP", defaulter.getBuiltUpArea());
 		assertEquals(List.of("John Doe", "Jane Doe"), defaulter.getOwnerNames());
 		assertEquals("9999999999, 8888888888", defaulter.getPhoneNumber());
+		assertEquals("john@example.com, jane@example.com", defaulter.getEmailId());
 		assertEquals(1, defaulter.getDefaultPaymentList().size());
 
 		DefaultPayment defaultPayment = defaulter.getDefaultPaymentList().get(0);
