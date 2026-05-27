@@ -405,10 +405,10 @@ public class ProfileServices {
 		if (flat.isEmpty() || flat.get().getFlatOwnerList() == null) {
 			return new ArrayList<>();
 		}
-		List<String> ownerProfiles = genericService.fromJson(flat.get().getFlatOwnerList(),
+		List<String> fallbackOwnerProfiles = genericService.fromJson(flat.get().getFlatOwnerList(),
 				new TypeReference<List<String>>() {
 				});
-		return ownerProfiles != null ? ownerProfiles : new ArrayList<>();
+		return fallbackOwnerProfiles != null ? fallbackOwnerProfiles : new ArrayList<>();
 	}
 
 
