@@ -218,7 +218,7 @@ public class TransactionAndReportsService {
 			List<Profile> ownerProfiles = resolveOwnerProfiles(accumulator.flatId(), flatCache, ownerCache, profileCache);
 			Defaulter defaulter = new Defaulter();
 			defaulter.setFlatId(accumulator.flatId());
-			defaulter.setBuildUpArea(resolveBuildUpArea(accumulator.flatId(), flatCache));
+			defaulter.setBuildUpArea(resolveFlatAreaDisplay(accumulator.flatId(), flatCache));
 			defaulter.setOwnerNames(resolveOwnerNames(ownerProfiles));
 			defaulter.setPhoneNumber(resolvePhoneNumber(ownerProfiles));
 			defaulter.setDefaultPaymentList(defaultPayments);
@@ -437,7 +437,7 @@ public class TransactionAndReportsService {
 		return profiles;
 	}
 
-	private String resolveBuildUpArea(String flatId, Map<String, Optional<Flat>> flatCache) {
+	private String resolveFlatAreaDisplay(String flatId, Map<String, Optional<Flat>> flatCache) {
 		Optional<Flat> flat = flatCache.computeIfAbsent(flatId, ignored -> flatRepository.findById(flatId));
 		return formatDisplayValue(flat.map(Flat::getFlatArea).orElse(null));
 	}
