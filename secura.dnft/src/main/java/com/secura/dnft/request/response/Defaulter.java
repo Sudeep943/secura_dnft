@@ -19,6 +19,14 @@ public class Defaulter {
 		this.flatId = flatId;
 	}
 
+	public String getFlatNo() {
+		return flatId;
+	}
+
+	public void setFlatNo(String flatNo) {
+		this.flatId = flatNo;
+	}
+
 	public String getBuiltUpArea() {
 		return builtUpArea;
 	}

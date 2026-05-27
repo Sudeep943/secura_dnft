@@ -541,11 +541,13 @@ class TransactionAndReportsServiceTest {
 
 		Defaulter firstDefaulter = response.getDefaulterList().get(0);
 		assertEquals("1540", firstDefaulter.getFlatId());
+		assertEquals("1540", firstDefaulter.getFlatNo());
 		assertEquals(List.of("John Doe", "Jane Doe"), firstDefaulter.getOwnerNames());
 		assertEquals("150", firstDefaulter.getDefaultPaymentList().get(0).getAmountTobePaid());
 
 		Defaulter secondDefaulter = response.getDefaulterList().get(1);
 		assertEquals("1234", secondDefaulter.getFlatId());
+		assertEquals("1234", secondDefaulter.getFlatNo());
 		assertEquals(List.of("John Doe"), secondDefaulter.getOwnerNames());
 		assertEquals("60", secondDefaulter.getDefaultPaymentList().get(0).getAmountTobePaid());
 	}
