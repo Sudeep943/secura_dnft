@@ -222,7 +222,6 @@ public class TransactionAndReportsService {
 		}
 		response.setDefaulterList(defaulterList);
 		response.setTotalDefaulters(defaulterList.size());
-		response.setTotalDefaulters(defaulterList.size());
 		updateDefaulterTotals(response);
 		markDefaulterResponseSuccess(response);
 		return response;
