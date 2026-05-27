@@ -8,6 +8,7 @@ public class Defaulter {
 	private String builtUpArea;
 	private List<String> ownerNames;
 	private String phoneNumber;
+	private String emailId;
 	private List<DefaultPayment> defaultPaymentList;
 
 	public String getFlatId() {
@@ -40,6 +41,14 @@ public class Defaulter {
 
 	public void setPhoneNumber(String phoneNumber) {
 		this.phoneNumber = phoneNumber;
+	}
+
+	public String getEmailId() {
+		return emailId;
+	}
+
+	public void setEmailId(String emailId) {
+		this.emailId = emailId;
 	}
 
 	public List<DefaultPayment> getDefaultPaymentList() {

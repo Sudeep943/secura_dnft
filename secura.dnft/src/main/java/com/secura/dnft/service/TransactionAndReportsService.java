@@ -217,6 +217,7 @@ public class TransactionAndReportsService {
 			defaulter.setBuiltUpArea(resolveFlatAreaTypeDisplay(accumulator.flatId(), flatCache));
 			defaulter.setOwnerNames(resolveOwnerNames(ownerProfiles));
 			defaulter.setPhoneNumber(resolvePhoneNumber(ownerProfiles));
+			defaulter.setEmailId(resolveEmailId(ownerProfiles));
 			defaulter.setDefaultPaymentList(defaultPayments);
 			defaulterList.add(defaulter);
 		}
@@ -524,6 +525,15 @@ public class TransactionAndReportsService {
 		List<String> phoneNumbers = profiles.stream().filter(Objects::nonNull).map(Profile::getPrflPhoneNo).filter(this::hasText)
 				.map(String::trim).distinct().collect(Collectors.toList());
 		return phoneNumbers.isEmpty() ? null : String.join(", ", phoneNumbers);
+	}
+
+	private String resolveEmailId(List<Profile> profiles) {
+		if (profiles == null || profiles.isEmpty()) {
+			return null;
+		}
+		List<String> emailIds = profiles.stream().filter(Objects::nonNull).map(Profile::getPrflEmailAdrss)
+				.filter(this::hasText).map(String::trim).distinct().collect(Collectors.toList());
+		return emailIds.isEmpty() ? null : String.join(", ", emailIds);
 	}
 
 	private List<String> parseStringList(String json) {
