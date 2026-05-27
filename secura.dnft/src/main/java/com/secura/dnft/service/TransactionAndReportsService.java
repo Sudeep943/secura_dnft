@@ -222,7 +222,7 @@ public class TransactionAndReportsService {
 		}
 		response.setDefaulterList(defaulterList);
 		response.setTotalDefaulters(defaulterList.size());
-		updateDefaulterTotals(response);
+		updateDefaulterTotals(response, apartmentId, requestedPaymentIds);
 		markDefaulterResponseSuccess(response);
 		return response;
 	}
@@ -338,11 +338,11 @@ public class TransactionAndReportsService {
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_45);
 	}
 
-	private void updateDefaulterTotals(GetDefaulterResponse response) {
+	private void updateDefaulterTotals(GetDefaulterResponse response, String apartmentId, List<String> requestedPaymentIds) {
 		if (response == null) {
 			return;
 		}
-		BigDecimal totalMoneyCollected = BigDecimal.ZERO;
+		BigDecimal totalMoneyCollected = resolveTotalMoneyCollected(apartmentId, requestedPaymentIds);
 		BigDecimal totalExpectedToCollect = BigDecimal.ZERO;
 		if (response.getDefaulterList() != null) {
 			for (Defaulter defaulter : response.getDefaulterList()) {
@@ -353,7 +353,6 @@ public class TransactionAndReportsService {
 					if (defaultPayment == null) {
 						continue;
 					}
-					totalMoneyCollected = totalMoneyCollected.add(parseBigDecimal(defaultPayment.getAmountPaid()));
 					totalExpectedToCollect = totalExpectedToCollect
 							.add(parseBigDecimal(defaultPayment.getAmountTobePaid()));
 				}
@@ -361,6 +360,19 @@ public class TransactionAndReportsService {
 		}
 		response.setTotalMoneyCollected(formatAmount(totalMoneyCollected));
 		response.setTotalExpectedToBeCollect(formatAmount(totalExpectedToCollect));
+	}
+
+	private BigDecimal resolveTotalMoneyCollected(String apartmentId, List<String> requestedPaymentIds) {
+		if (!hasText(apartmentId) || requestedPaymentIds == null || requestedPaymentIds.isEmpty()) {
+			return BigDecimal.ZERO;
+		}
+		List<Transaction> transactions = transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus(
+				apartmentId, requestedPaymentIds, TRNS_STATUS_SUCCESS);
+		if (transactions == null || transactions.isEmpty()) {
+			return BigDecimal.ZERO;
+		}
+		return transactions.stream().filter(Objects::nonNull).map(Transaction::getTrnsAmt).map(this::parseBigDecimal)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private List<String> normalizeRequestPaymentIds(List<String> paymentIds) {

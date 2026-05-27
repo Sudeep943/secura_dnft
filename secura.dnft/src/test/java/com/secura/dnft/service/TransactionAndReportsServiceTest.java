@@ -250,6 +250,8 @@ class TransactionAndReportsServiceTest {
 				.thenReturn(List.of(payOneFlatTwo));
 		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-2", "F-102", "SUCCESS"))
 				.thenReturn(List.of(payTwoFlatTwo));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1", "PAY-2"), "SUCCESS"))
+				.thenReturn(List.of(payOneFlatOne, payOneFlatTwo, payTwoFlatTwo));
 
 		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
 
@@ -259,6 +261,73 @@ class TransactionAndReportsServiceTest {
 		assertEquals(2, response.getDefaulterList().size());
 		assertEquals(1, response.getDefaulterList().get(0).getDefaultPaymentList().size());
 		assertEquals(2, response.getDefaulterList().get(1).getDefaultPaymentList().size());
+	}
+
+	@Test
+	void getDefaulterList_shouldCalculateTotalMoneyCollectedFromAllSuccessfulTransactionsForRequestedPayments() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1", "PAY-2"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-2", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-2", "Sinking Fund", "PER_HEAD",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+
+		LocalDate dueDate = LocalDate.now().minusDays(10);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", dueDate, "100", "10", "[\"F-101\"]", "[]")));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-2")).thenReturn(List.of());
+
+		Owner owner = new Owner();
+		owner.setFlatNo("F-101");
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(owner));
+
+		Profile profile = new Profile();
+		profile.setPrflId("PR-1");
+		profile.setPrflPhoneNo("9999999999");
+		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\"]".equals(json)) {
+				return List.of("F-101");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+
+		Transaction defaultedPaymentTransaction = new Transaction();
+		defaultedPaymentTransaction.setTrnsAmt("30");
+		Transaction nonDefaultedPaymentTransaction = new Transaction();
+		nonDefaultedPaymentTransaction.setTrnsAmt("70");
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "F-101", "SUCCESS"))
+				.thenReturn(List.of(defaultedPaymentTransaction));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1", "PAY-2"), "SUCCESS"))
+				.thenReturn(List.of(defaultedPaymentTransaction, nonDefaultedPaymentTransaction));
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(1, response.getTotalDefaulters());
+		assertEquals("100", response.getTotalMoneyCollected());
+		assertEquals("70", response.getTotalExpectedToBeCollect());
+		assertEquals(1, response.getDefaulterList().size());
+		assertEquals("30", response.getDefaulterList().get(0).getDefaultPaymentList().get(0).getAmountPaid());
 	}
 
 	@Test
@@ -338,6 +407,9 @@ class TransactionAndReportsServiceTest {
 		});
 		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
 				.thenReturn(buildName("John", "Doe"));
+
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1", "PAY-2", "PAY-3"), "SUCCESS"))
+				.thenReturn(List.of());
 
 		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
 
