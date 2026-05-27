@@ -339,9 +339,12 @@ public class TransactionAndReportsService {
 	}
 
 	private void updateDefaulterTotals(GetDefaulterResponse response) {
+		if (response == null) {
+			return;
+		}
 		BigDecimal totalMoneyCollected = BigDecimal.ZERO;
 		BigDecimal totalExpectedToCollect = BigDecimal.ZERO;
-		if (response != null && response.getDefaulterList() != null) {
+		if (response.getDefaulterList() != null) {
 			for (Defaulter defaulter : response.getDefaulterList()) {
 				if (defaulter == null || defaulter.getDefaultPaymentList() == null) {
 					continue;
