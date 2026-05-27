@@ -15,6 +15,8 @@ import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsRequest;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PayDueRequest;
@@ -34,6 +36,7 @@ import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.PaymentServices;
+import com.secura.dnft.service.PaymentUtilService;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
 @CrossOrigin(origins = "*")
@@ -53,6 +56,9 @@ public class PaymentController {
 
 	@Autowired
 	PaymentServices paymentServices;
+
+	@Autowired
+	PaymentUtilService paymentUtilService;
 	
 	 @PostMapping("/payGatewayCreateOrder")
 	    @CrossOrigin(origins = "*")
@@ -153,9 +159,9 @@ public class PaymentController {
 		
   	            }
 
-	 @PostMapping("/getPayment")
-	    @CrossOrigin(origins = "*")
-	    public GetPaymentResponse getPayment(@RequestBody GetPaymentRequest request) {
+ 	 @PostMapping("/getPayment")
+ 	    @CrossOrigin(origins = "*")
+ 	    public GetPaymentResponse getPayment(@RequestBody GetPaymentRequest request) {
 		 GetPaymentResponse response = new GetPaymentResponse();
 		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		 try {
@@ -166,11 +172,25 @@ public class PaymentController {
 				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			}
-		 return response;
-	            }
+ 		 return response;
+ 	            }
 
-	 @PostMapping("/payDues")
-	    @CrossOrigin(origins = "*")
+	 @PostMapping("/getPaymentUtilDetails")
+	 @CrossOrigin(origins = "*")
+	 public GetPaymentUtilDetailsResponse getPaymentUtilDetails(@RequestBody GetPaymentUtilDetailsRequest request) {
+		 GetPaymentUtilDetailsResponse response = new GetPaymentUtilDetailsResponse();
+		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		 try {
+			 return paymentUtilService.getPaymentDetails(request);
+		 } catch (Exception e) {
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		 }
+		 return response;
+	 }
+
+ 	 @PostMapping("/payDues")
+ 	    @CrossOrigin(origins = "*")
 	    public PayDueResponse payDues(@RequestBody PayDueRequest request) {
 		 PayDueResponse response = new PayDueResponse();
 		 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
