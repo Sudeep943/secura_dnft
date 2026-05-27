@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -181,9 +182,7 @@ public class TransactionAndReportsService {
 					DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap()
 							.computeIfAbsent(paymentId,
 									ignored -> new DefaultPaymentAccumulator(paymentId, resolvePaymentName(paymentEntities, due)));
-					defaultPayment.addDue(parseBigDecimal(due.getTotalAmount()));
-					defaultPayment.addPenalty(parseBigDecimal(due.getFineAmount()));
-					defaultPayment.trackLastDueDate(due.getDueDate());
+					defaultPayment.addDue(due);
 				}
 			}
 		}
@@ -582,6 +581,7 @@ public class TransactionAndReportsService {
 		private BigDecimal totalDue = BigDecimal.ZERO;
 		private BigDecimal penalty = BigDecimal.ZERO;
 		private LocalDate lastDueDate;
+		private int selectedCyclePriority;
 
 		private DefaultPaymentAccumulator(String paymentId, String paymentName) {
 			this.paymentId = paymentId;
@@ -608,12 +608,67 @@ public class TransactionAndReportsService {
 			return lastDueDate;
 		}
 
-		private void addDue(BigDecimal value) {
-			totalDue = totalDue.add(value == null ? BigDecimal.ZERO : value);
+		private void addDue(DueAmountDetailsEntity due) {
+			if (due == null) {
+				return;
+			}
+			int cyclePriority = resolveCyclePriority(due.getCollectionCycle());
+			if (cyclePriority < selectedCyclePriority) {
+				return;
+			}
+			if (cyclePriority > selectedCyclePriority) {
+				totalDue = BigDecimal.ZERO;
+				penalty = BigDecimal.ZERO;
+				lastDueDate = null;
+				selectedCyclePriority = cyclePriority;
+			}
+			totalDue = totalDue.add(parseAmount(due.getTotalAmount()));
+			penalty = penalty.add(parseAmount(due.getFineAmount()));
+			trackLastDueDate(due.getDueDate());
 		}
 
-		private void addPenalty(BigDecimal value) {
-			penalty = penalty.add(value == null ? BigDecimal.ZERO : value);
+		private BigDecimal parseAmount(String value) {
+			if (value == null || value.isBlank()) {
+				return BigDecimal.ZERO;
+			}
+			try {
+				return new BigDecimal(value.trim());
+			} catch (NumberFormatException exception) {
+				return BigDecimal.ZERO;
+			}
+		}
+
+		private int resolveCyclePriority(String cycle) {
+			String normalizedCycle = normalizeCycle(cycle);
+			switch (normalizedCycle) {
+			case "YEARLY":
+				return 4;
+			case "HALF_YEARLY":
+				return 3;
+			case "QUARTERLY":
+				return 2;
+			case "MONTHLY":
+				return 1;
+			default:
+				return 0;
+			}
+		}
+
+		private String normalizeCycle(String cycle) {
+			if (cycle == null) {
+				return "";
+			}
+			String normalized = cycle.trim().toUpperCase(Locale.ENGLISH).replace('-', '_').replace(' ', '_');
+			if ("HALFYEARLY".equals(normalized)) {
+				return "HALF_YEARLY";
+			}
+			if ("QUATERLY".equals(normalized)) {
+				return "QUARTERLY";
+			}
+			if ("MONTLY".equals(normalized)) {
+				return "MONTHLY";
+			}
+			return normalized;
 		}
 
 		private void trackLastDueDate(LocalDate dueDate) {

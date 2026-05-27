@@ -176,6 +176,105 @@ class TransactionAndReportsServiceTest {
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_05, response.getMessageCode());
 	}
 
+	@Test
+	void getDefaulterList_shouldUseHighestCycleDuesPerPayment() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1", "PAY-2", "PAY-3"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-2", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-2", "Sinking Fund", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-3", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-3", "Parking", SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+
+		LocalDate yearlyDueOne = LocalDate.now().minusDays(30);
+		LocalDate yearlyDueTwo = LocalDate.now().minusDays(20);
+		LocalDate monthlyDue = LocalDate.now().minusDays(5);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", "YEARLY", yearlyDueOne, "100", "8", "[\"F-101\"]", "[]"),
+				buildDue("PAY-1", "DUE-2", "YEARLY", yearlyDueTwo, "20", "2", "[\"F-101\"]", "[]"),
+				buildDue("PAY-1", "DUE-3", "MONTHLY", monthlyDue, "10", "1", "[\"F-101\"]", "[]")));
+
+		LocalDate quarterlyDue = LocalDate.now().minusDays(18);
+		LocalDate monthlyDueForQuarterlyPayment = LocalDate.now().minusDays(2);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-2")).thenReturn(List.of(
+				buildDue("PAY-2", "DUE-4", "QUARTERLY", quarterlyDue, "60", "4", "[\"F-101\"]", "[]"),
+				buildDue("PAY-2", "DUE-5", "MONTHLY", monthlyDueForQuarterlyPayment, "15", "1", "[\"F-101\"]", "[]")));
+
+		LocalDate onlyMonthlyDue = LocalDate.now().minusDays(7);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-3")).thenReturn(List.of(
+				buildDue("PAY-3", "DUE-6", "MONTHLY", onlyMonthlyDue, "25", "3", "[\"F-101\"]", "[]")));
+
+		Owner owner = new Owner();
+		owner.setFlatNo("F-101");
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(owner));
+
+		Profile profile = new Profile();
+		profile.setPrflId("PR-1");
+		profile.setPrflPhoneNo("9999999999");
+		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\"]".equals(json)) {
+				return List.of("F-101");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_45, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_45, response.getMessageCode());
+		assertEquals(1, response.getTotalDefaulters());
+		assertEquals("0", response.getTotalMoneyCollected());
+		assertEquals("205", response.getTotalExpectedToBeCollect());
+		assertEquals(1, response.getDefaulterList().size());
+
+		Defaulter defaulter = response.getDefaulterList().get(0);
+		assertEquals("F-101", defaulter.getFlatId());
+		assertEquals(3, defaulter.getDefaultPaymentList().size());
+
+		DefaultPayment yearlyPayment = defaulter.getDefaultPaymentList().get(0);
+		assertEquals("PAY-1", yearlyPayment.getPaymentId());
+		assertEquals("120", yearlyPayment.getTotalDue());
+		assertEquals("0", yearlyPayment.getAmountPaid());
+		assertEquals("120", yearlyPayment.getAmountTobePaid());
+		assertEquals("10", yearlyPayment.getPenalty());
+		assertEquals(yearlyDueTwo, yearlyPayment.getLastDueDate());
+
+		DefaultPayment quarterlyPayment = defaulter.getDefaultPaymentList().get(1);
+		assertEquals("PAY-2", quarterlyPayment.getPaymentId());
+		assertEquals("60", quarterlyPayment.getTotalDue());
+		assertEquals("0", quarterlyPayment.getAmountPaid());
+		assertEquals("60", quarterlyPayment.getAmountTobePaid());
+		assertEquals("4", quarterlyPayment.getPenalty());
+		assertEquals(quarterlyDue, quarterlyPayment.getLastDueDate());
+
+		DefaultPayment monthlyPayment = defaulter.getDefaultPaymentList().get(2);
+		assertEquals("PAY-3", monthlyPayment.getPaymentId());
+		assertEquals("25", monthlyPayment.getTotalDue());
+		assertEquals("0", monthlyPayment.getAmountPaid());
+		assertEquals("25", monthlyPayment.getAmountTobePaid());
+		assertEquals("3", monthlyPayment.getPenalty());
+		assertEquals(onlyMonthlyDue, monthlyPayment.getLastDueDate());
+	}
+
 	private PaymentEntity buildPayment(String paymentId, String paymentName, String status, String paymentType) {
 		PaymentEntity payment = new PaymentEntity();
 		payment.setPaymentId(paymentId);
@@ -187,10 +286,15 @@ class TransactionAndReportsServiceTest {
 
 	private DueAmountDetailsEntity buildDue(String paymentId, String dueId, LocalDate dueDate, String totalAmount,
 			String fineAmount, String applicableFlats, String paidFlats) {
+		return buildDue(paymentId, dueId, "MONTHLY", dueDate, totalAmount, fineAmount, applicableFlats, paidFlats);
+	}
+
+	private DueAmountDetailsEntity buildDue(String paymentId, String dueId, String cycle, LocalDate dueDate, String totalAmount,
+			String fineAmount, String applicableFlats, String paidFlats) {
 		DueAmountDetailsEntity due = new DueAmountDetailsEntity();
 		due.setPaymentId(paymentId);
 		due.setDueId(dueId);
-		due.setCollectionCycle("MONTHLY");
+		due.setCollectionCycle(cycle);
 		due.setFlatArea("ALL");
 		due.setDueDate(dueDate);
 		due.setTotalAmount(totalAmount);
