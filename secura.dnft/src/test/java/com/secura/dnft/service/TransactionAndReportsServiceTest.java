@@ -150,7 +150,7 @@ class TransactionAndReportsServiceTest {
 
 		Defaulter defaulter = response.getDefaulterList().get(0);
 		assertEquals("F-101", defaulter.getFlatId());
-		assertEquals("SUPER BUILT UP", defaulter.getBuildUpArea());
+		assertEquals("SUPER BUILT UP", defaulter.getBuiltUpArea());
 		assertEquals(List.of("John Doe", "Jane Doe"), defaulter.getOwnerNames());
 		assertEquals("9999999999, 8888888888", defaulter.getPhoneNumber());
 		assertEquals(1, defaulter.getDefaultPaymentList().size());
@@ -258,7 +258,7 @@ class TransactionAndReportsServiceTest {
 
 		Defaulter defaulter = response.getDefaulterList().get(0);
 		assertEquals("F-101", defaulter.getFlatId());
-		assertEquals("LARGE 2 BHK", defaulter.getBuildUpArea());
+		assertEquals("LARGE 2 BHK", defaulter.getBuiltUpArea());
 		assertEquals(3, defaulter.getDefaultPaymentList().size());
 
 		DefaultPayment yearlyPayment = defaulter.getDefaultPaymentList().get(0);
