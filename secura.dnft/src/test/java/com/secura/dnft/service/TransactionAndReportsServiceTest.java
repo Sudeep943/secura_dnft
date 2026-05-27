@@ -458,6 +458,98 @@ class TransactionAndReportsServiceTest {
 		assertEquals(onlyMonthlyDue, monthlyPayment.getLastDueDate());
 	}
 
+	@Test
+	void getDefaulterList_shouldKeepSharedOwnerDuesGroupedByFlat() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+
+		LocalDate dueDate = LocalDate.now().minusDays(10);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", dueDate, "150", "15", "[\"1540\"]", "[]"),
+				buildDue("PAY-1", "DUE-2", dueDate.minusDays(2), "100", "10", "[\"1234\"]", "[]")));
+
+		Owner sharedOwnerFlat = new Owner();
+		sharedOwnerFlat.setFlatNo("1540");
+		sharedOwnerFlat.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		sharedOwnerFlat.setPrflId("[\"PR-1\",\"PR-2\"]");
+		Owner secondFlatOwner = new Owner();
+		secondFlatOwner.setFlatNo("1234");
+		secondFlatOwner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		secondFlatOwner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("1540")).thenReturn(List.of(sharedOwnerFlat));
+		when(ownerRepository.findByFlatNo("1234")).thenReturn(List.of(secondFlatOwner));
+
+		Profile sharedProfile = new Profile();
+		sharedProfile.setPrflId("PR-1");
+		sharedProfile.setPrflPhoneNo("9999999999");
+		sharedProfile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		Profile coOwnerProfile = new Profile();
+		coOwnerProfile.setPrflId("PR-2");
+		coOwnerProfile.setPrflPhoneNo("8888888888");
+		coOwnerProfile.setPrflName("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(sharedProfile));
+		when(profileRepository.findById("PR-2")).thenReturn(Optional.of(coOwnerProfile));
+		when(flatRepository.findById("1540")).thenReturn(Optional.of(buildFlat("1540", "SUPER_BUILT_UP")));
+		when(flatRepository.findById("1234")).thenReturn(Optional.of(buildFlat("1234", "CARPET_AREA")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"1540\"]".equals(json)) {
+				return List.of("1540");
+			}
+			if ("[\"1234\"]".equals(json)) {
+				return List.of("1234");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\",\"PR-2\"]".equals(json)) {
+				return List.of("PR-1", "PR-2");
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+		when(genericService.fromJson(eq("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("Jane", "Doe"));
+
+		Transaction partialPayment = new Transaction();
+		partialPayment.setTrnsAmt("40");
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "1540", "SUCCESS"))
+				.thenReturn(List.of());
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "1234", "SUCCESS"))
+				.thenReturn(List.of(partialPayment));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1"), "SUCCESS"))
+				.thenReturn(List.of(partialPayment));
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(2, response.getTotalDefaulters());
+		assertEquals("40", response.getTotalMoneyCollected());
+		assertEquals("210", response.getTotalExpectedToBeCollect());
+		assertEquals(2, response.getDefaulterList().size());
+
+		Defaulter firstDefaulter = response.getDefaulterList().get(0);
+		assertEquals("1540", firstDefaulter.getFlatId());
+		assertEquals(List.of("John Doe", "Jane Doe"), firstDefaulter.getOwnerNames());
+		assertEquals("150", firstDefaulter.getDefaultPaymentList().get(0).getAmountTobePaid());
+
+		Defaulter secondDefaulter = response.getDefaulterList().get(1);
+		assertEquals("1234", secondDefaulter.getFlatId());
+		assertEquals(List.of("John Doe"), secondDefaulter.getOwnerNames());
+		assertEquals("60", secondDefaulter.getDefaultPaymentList().get(0).getAmountTobePaid());
+	}
+
 	private PaymentEntity buildPayment(String paymentId, String paymentName, String paymentCapita, String status,
 			String paymentType) {
 		PaymentEntity payment = new PaymentEntity();
