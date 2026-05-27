@@ -16,6 +16,8 @@ import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsRequest;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
@@ -32,6 +34,7 @@ import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.PaymentServices;
+import com.secura.dnft.service.PaymentUtilService;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +48,9 @@ class PaymentControllerTest {
 
 	@Mock
 	private PaymentServices paymentServices;
+
+	@Mock
+	private PaymentUtilService paymentUtilService;
 
 	@InjectMocks
 	private PaymentController paymentController;
@@ -145,6 +151,40 @@ class PaymentControllerTest {
 		when(paymentServices.getPayments(request)).thenThrow(new RuntimeException("boom"));
 
 		GetPaymentResponse actual = paymentController.getPayment(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void getPaymentUtilDetails_shouldReturnServiceResponse() {
+		GetPaymentUtilDetailsRequest request = new GetPaymentUtilDetailsRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+
+		GetPaymentUtilDetailsResponse expected = new GetPaymentUtilDetailsResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		when(paymentUtilService.getPaymentDetails(request)).thenReturn(expected);
+
+		GetPaymentUtilDetailsResponse actual = paymentController.getPaymentUtilDetails(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void getPaymentUtilDetails_shouldReturnGenericErrorWhenServiceThrows() {
+		GetPaymentUtilDetailsRequest request = new GetPaymentUtilDetailsRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		when(paymentUtilService.getPaymentDetails(request)).thenThrow(new RuntimeException("boom"));
+
+		GetPaymentUtilDetailsResponse actual = paymentController.getPaymentUtilDetails(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
