@@ -162,7 +162,6 @@ public class TransactionAndReportsService {
 		Map<String, BigDecimal> amountPaidCache = new HashMap<>();
 		Map<String, Optional<Flat>> flatCache = new HashMap<>();
 		Map<String, String> flatAreaCache = new HashMap<>();
-		Map<String, List<DueAmountDetailsEntity>> paymentDueCache = new HashMap<>();
 		Map<String, List<Owner>> ownerCache = new HashMap<>();
 		Map<String, Optional<Profile>> profileCache = new HashMap<>();
 
@@ -173,14 +172,10 @@ public class TransactionAndReportsService {
 			}
 
 			String paymentCapita = resolvePaymentCapita(paymentEntities);
-			List<DueAmountDetailsEntity> paymentDues = paymentDueCache.computeIfAbsent(paymentId, ignored -> {
-				List<DueAmountDetailsEntity> dues = dueAmountDetailsRepository.findByPaymentId(paymentId);
-				if (dues == null || dues.isEmpty()) {
-					return Collections.emptyList();
-				}
-				return dues.stream().filter(Objects::nonNull).collect(Collectors.toList());
-			});
-			List<DueAmountDetailsEntity> overdueDues = paymentDues.stream().filter(this::isOverdueDue).collect(Collectors.toList());
+			List<DueAmountDetailsEntity> overdueDues = dueAmountDetailsRepository.findByPaymentId(paymentId).stream()
+					.filter(Objects::nonNull)
+					.filter(this::isOverdueDue)
+					.collect(Collectors.toList());
 			if (isPerSqftCapita(paymentCapita)) {
 				processPerSqftDues(paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap, flatCache,
 						flatAreaCache);
@@ -196,8 +191,6 @@ public class TransactionAndReportsService {
 			for (DefaultPaymentAccumulator paymentAccumulator : accumulator.defaultPaymentMap().values()) {
 				BigDecimal amountPaid = resolveAmountPaid(paymentAccumulator.paymentId(), accumulator.flatId(), amountPaidCache);
 				BigDecimal amountToBePaid = paymentAccumulator.totalDue().subtract(amountPaid);
-				BigDecimal totalDue = resolveDefaultPaymentTotalDue(paymentAccumulator, accumulator.flatId(), paymentDueCache,
-						flatCache, flatAreaCache);
 				if (amountToBePaid.compareTo(BigDecimal.ZERO) <= 0) {
 					continue;
 				}
@@ -205,7 +198,7 @@ public class TransactionAndReportsService {
 				defaultPayment.setPaymentId(paymentAccumulator.paymentId());
 				defaultPayment.setPaymentName(paymentAccumulator.paymentName());
 				defaultPayment.setPaymentCapita(formatDisplayValue(paymentAccumulator.paymentCapita()));
-				defaultPayment.setTotalDue(formatAmount(totalDue));
+				defaultPayment.setTotalDue(formatAmount(paymentAccumulator.totalDue()));
 				defaultPayment.setAmountPaid(formatAmount(amountPaid));
 				defaultPayment.setAmountTobePaid(formatAmount(amountToBePaid));
 				defaultPayment.setPenalty(formatAmount(paymentAccumulator.penalty()));
@@ -472,28 +465,6 @@ public class TransactionAndReportsService {
 				.computeIfAbsent(paymentId, ignored -> new DefaultPaymentAccumulator(paymentId,
 						resolvePaymentName(paymentEntities, dues.get(0)), paymentCapita));
 		dues.forEach(defaultPayment::addDue);
-	}
-
-	private BigDecimal resolveDefaultPaymentTotalDue(DefaultPaymentAccumulator paymentAccumulator, String flatId,
-			Map<String, List<DueAmountDetailsEntity>> paymentDueCache, Map<String, Optional<Flat>> flatCache,
-			Map<String, String> flatAreaCache) {
-		if (paymentAccumulator == null) {
-			return BigDecimal.ZERO;
-		}
-		if (!isPerSqftCapita(paymentAccumulator.paymentCapita())) {
-			return paymentAccumulator.totalDue();
-		}
-		List<DueAmountDetailsEntity> paymentDues = paymentDueCache.get(paymentAccumulator.paymentId());
-		if (paymentDues == null || paymentDues.isEmpty()) {
-			return BigDecimal.ZERO;
-		}
-		String flatArea = resolveFlatArea(flatId, flatCache, flatAreaCache);
-		List<DueAmountDetailsEntity> selectedDues = selectHighestPriorityDues(paymentDues.stream()
-				.filter(this::isOverdueDue)
-				.filter(due -> matchesFlatArea(due, flatArea))
-				.collect(Collectors.toList()));
-		return selectedDues.stream().filter(Objects::nonNull).map(DueAmountDetailsEntity::getTotalAmount)
-				.map(this::parseBigDecimal).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private List<DueAmountDetailsEntity> selectHighestPriorityDues(List<DueAmountDetailsEntity> dues) {
