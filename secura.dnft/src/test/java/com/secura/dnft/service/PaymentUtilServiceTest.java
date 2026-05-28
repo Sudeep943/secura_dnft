@@ -17,9 +17,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.ErrorMessage;
@@ -41,6 +43,9 @@ class PaymentUtilServiceTest {
 
 	@Mock
 	private DueAmountDetailsRepository dueAmountDetailsRepository;
+
+	@Mock
+	private FlatRepository flatRepository;
 
 	@Mock
 	private GenericService genericService;
@@ -159,5 +164,54 @@ class PaymentUtilServiceTest {
 		assertEquals("0", response.getCollectionPercentage());
 		assertEquals(ErrorMessage.ERR_MESSAGE_05, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_05, response.getMessageCode());
+	}
+
+	@Test
+	void getPaymentDetails_shouldMatchFlatAreaBeforeSelectingHighestCycleForPerSqftPayments() {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		GetPaymentUtilDetailsRequest request = new GetPaymentUtilDetailsRequest();
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		request.setFlatId("FLAT-1");
+
+		PaymentEntity payment = new PaymentEntity();
+		payment.setPaymentId("PAY-1");
+		payment.setAprmtId("APR-1");
+		payment.setPaymentCollectionCycle("YEARLY");
+		payment.setPaymentCapita("PER_SQFT");
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of(payment));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("FLAT-1");
+		flat.setFlatArea("SMALL_2_BHK");
+		when(flatRepository.findById("FLAT-1")).thenReturn(java.util.Optional.of(flat));
+
+		DueAmountDetailsEntity yearlyDueForOtherArea = new DueAmountDetailsEntity();
+		yearlyDueForOtherArea.setCollectionCycle("YEARLY");
+		yearlyDueForOtherArea.setFlatArea("LARGE_3_BHK");
+		yearlyDueForOtherArea.setTotalAmount("500");
+		yearlyDueForOtherArea.setApplicableFlats("[\"FLAT-1\"]");
+
+		DueAmountDetailsEntity monthlyDueForFlatArea = new DueAmountDetailsEntity();
+		monthlyDueForFlatArea.setCollectionCycle("MONTHLY");
+		monthlyDueForFlatArea.setFlatArea("SMALL_2_BHK");
+		monthlyDueForFlatArea.setTotalAmount("75");
+		monthlyDueForFlatArea.setApplicableFlats("[\"FLAT-1\"]");
+
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1"))
+				.thenReturn(List.of(yearlyDueForOtherArea, monthlyDueForFlatArea));
+		when(genericService.fromJson(eq("[\"FLAT-1\"]"), any(TypeReference.class))).thenReturn(List.of("FLAT-1"));
+		when(transactionRepository.findByAprmntIdAndPymntIdAndFlatIdAndTrnsStatus("APR-1", "PAY-1", "FLAT-1", "SUCCESS"))
+				.thenReturn(List.of());
+		when(transactionRepository.findByAprmntIdAndPymntIdAndFlatIdAndTrnsStatus("APR-1", "PAY-1", "FLAT-1", "PENDING"))
+				.thenReturn(List.of());
+
+		GetPaymentUtilDetailsResponse response = paymentUtilService.getPaymentDetails(request);
+
+		assertEquals("75", response.getExpectedCollection());
+		assertEquals("0", response.getTotalCollection());
+		assertEquals("0", response.getTotalPendingTransactionAmount());
+		assertEquals("0", response.getCollectionPercentage());
 	}
 }

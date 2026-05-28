@@ -161,6 +161,7 @@ public class TransactionAndReportsService {
 		Map<String, DefaulterAccumulator> defaulterMap = new LinkedHashMap<>();
 		Map<String, BigDecimal> amountPaidCache = new HashMap<>();
 		Map<String, Optional<Flat>> flatCache = new HashMap<>();
+		Map<String, String> flatAreaCache = new HashMap<>();
 		Map<String, List<Owner>> ownerCache = new HashMap<>();
 		Map<String, Optional<Profile>> profileCache = new HashMap<>();
 
@@ -170,20 +171,17 @@ public class TransactionAndReportsService {
 				continue;
 			}
 
+			String paymentCapita = resolvePaymentCapita(paymentEntities);
 			List<DueAmountDetailsEntity> overdueDues = dueAmountDetailsRepository.findByPaymentId(paymentId).stream()
 					.filter(Objects::nonNull)
 					.filter(this::isOverdueDue)
 					.collect(Collectors.toList());
-
-			for (DueAmountDetailsEntity due : overdueDues) {
-				List<String> pendingFlatIds = findPendingFlatIds(due);
-				for (String flatId : pendingFlatIds) {
-					DefaulterAccumulator defaulter = defaulterMap.computeIfAbsent(flatId, DefaulterAccumulator::new);
-					DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap()
-							.computeIfAbsent(paymentId, ignored -> new DefaultPaymentAccumulator(paymentId,
-									resolvePaymentName(paymentEntities, due), resolvePaymentCapita(paymentEntities)));
-					defaultPayment.addDue(due);
-				}
+			if (isPerSqftCapita(paymentCapita)) {
+				processPerSqftDues(paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap, flatCache,
+						flatAreaCache);
+			} else {
+				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, selectHighestPriorityDues(overdueDues),
+						defaulterMap);
 			}
 		}
 
@@ -429,6 +427,88 @@ public class TransactionAndReportsService {
 		return paymentEntities == null ? null
 				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentCapita).filter(this::hasText)
 						.findFirst().orElse(null);
+	}
+
+	private void processPerSqftDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
+			List<DueAmountDetailsEntity> overdueDues, Map<String, DefaulterAccumulator> defaulterMap,
+			Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
+		List<String> pendingFlatIds = overdueDues.stream().flatMap(due -> findPendingFlatIds(due).stream()).distinct()
+				.collect(Collectors.toList());
+		for (String flatId : pendingFlatIds) {
+			String flatArea = resolveFlatArea(flatId, flatCache, flatAreaCache);
+			List<DueAmountDetailsEntity> areaMatchedDues = overdueDues.stream()
+					.filter(due -> matchesFlatArea(due, flatArea)).collect(Collectors.toList());
+			List<DueAmountDetailsEntity> selectedDues = selectHighestPriorityDues(areaMatchedDues);
+			List<DueAmountDetailsEntity> selectedDuesForFlat = selectedDues.stream()
+					.filter(due -> findPendingFlatIds(due).stream().anyMatch(pendingFlat -> pendingFlat.equalsIgnoreCase(flatId)))
+					.collect(Collectors.toList());
+			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat, defaulterMap);
+		}
+	}
+
+	private void processSelectedCycleDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
+			List<DueAmountDetailsEntity> selectedDues, Map<String, DefaulterAccumulator> defaulterMap) {
+		for (DueAmountDetailsEntity due : selectedDues) {
+			for (String flatId : findPendingFlatIds(due)) {
+				addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, List.of(due), defaulterMap);
+			}
+		}
+	}
+
+	private void addSelectedDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita, String flatId,
+			List<DueAmountDetailsEntity> dues, Map<String, DefaulterAccumulator> defaulterMap) {
+		if (dues == null || dues.isEmpty()) {
+			return;
+		}
+		DefaulterAccumulator defaulter = defaulterMap.computeIfAbsent(flatId, DefaulterAccumulator::new);
+		DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap()
+				.computeIfAbsent(paymentId, ignored -> new DefaultPaymentAccumulator(paymentId,
+						resolvePaymentName(paymentEntities, dues.get(0)), paymentCapita));
+		dues.forEach(defaultPayment::addDue);
+	}
+
+	private List<DueAmountDetailsEntity> selectHighestPriorityDues(List<DueAmountDetailsEntity> dues) {
+		if (dues == null || dues.isEmpty()) {
+			return Collections.emptyList();
+		}
+		int highestPriority = dues.stream().filter(Objects::nonNull).map(DueAmountDetailsEntity::getCollectionCycle)
+				.mapToInt(DefaultPaymentAccumulator::resolveCyclePriority).max().orElse(0);
+		if (highestPriority <= 0) {
+			return Collections.emptyList();
+		}
+		return dues.stream().filter(Objects::nonNull)
+				.filter(due -> DefaultPaymentAccumulator.resolveCyclePriority(due.getCollectionCycle()) == highestPriority)
+				.collect(Collectors.toList());
+	}
+
+	private String resolveFlatArea(String flatId, Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
+		if (!hasText(flatId)) {
+			return null;
+		}
+		return flatAreaCache.computeIfAbsent(flatId, ignored -> flatCache.computeIfAbsent(flatId,
+				key -> flatRepository.findById(key)).map(Flat::getFlatArea).orElse(null));
+	}
+
+	private boolean isPerSqftCapita(String paymentCapita) {
+		return normalizeCapita(paymentCapita).equals("PERSQFT");
+	}
+
+	private String normalizeCapita(String paymentCapita) {
+		if (!hasText(paymentCapita)) {
+			return "";
+		}
+		return paymentCapita.trim().toUpperCase(Locale.ENGLISH).replaceAll("[\\s_-]", "");
+	}
+
+	private boolean matchesFlatArea(DueAmountDetailsEntity due, String flatArea) {
+		if (due == null) {
+			return false;
+		}
+		String dueFlatArea = due.getFlatArea();
+		if (!hasText(dueFlatArea) || "ALL".equalsIgnoreCase(dueFlatArea.trim())) {
+			return true;
+		}
+		return hasText(flatArea) && dueFlatArea.trim().equalsIgnoreCase(flatArea.trim());
 	}
 
 	private BigDecimal resolveAmountPaid(String paymentId, String flatId, Map<String, BigDecimal> amountPaidCache) {
@@ -705,7 +785,7 @@ public class TransactionAndReportsService {
 			}
 		}
 
-		private int resolveCyclePriority(String cycle) {
+		private static int resolveCyclePriority(String cycle) {
 			String normalizedCycle = normalizeCycle(cycle);
 			switch (normalizedCycle) {
 			case "YEARLY":
@@ -721,7 +801,7 @@ public class TransactionAndReportsService {
 			}
 		}
 
-		private String normalizeCycle(String cycle) {
+		private static String normalizeCycle(String cycle) {
 			if (cycle == null) {
 				return "";
 			}
