@@ -665,7 +665,7 @@ public class PaymentServices implements PaymentInterface {
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
 		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
-		DueAmountDetailsEntity dueEntity = request != null ? request.getPaidDueDetails() : null;
+		DueAmountDetailsEntity dueEntity = request.getPaidDueDetails();
 		if (dueEntity == null) {
 			dueEntity = resolveDueAmountDetailsEntity(request, flatArea, paymentEntity);
 		}

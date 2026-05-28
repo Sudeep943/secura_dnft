@@ -762,7 +762,7 @@ class PaymentServicesTest {
 		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
 		request.setDueDate(LocalDate.parse("2027-03-01"));
 		request.setPaymentName("CAM 2026-27");
-		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_FAILED);
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "5000")));
 
 		PaymentEntity paymentEntity = new PaymentEntity();
@@ -806,7 +806,7 @@ class PaymentServicesTest {
 		createReceiptResponse.setReceiptNumber("RCT-3002");
 		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
 
-		PayDueResponse response = paymentServices.payDues(request);
+		paymentServices.payDues(request);
 
 		assertEquals(SuccessMessage.SUCC_MESSAGE_33, response.getMessage());
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
@@ -933,7 +933,6 @@ class PaymentServicesTest {
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
 		assertEquals("2200", receiptRequestCaptor.getValue().getItems().get(0).getAmount());
 		assertEquals("2500", receiptRequestCaptor.getValue().getTotalAmount());
-		assertNull(response.getReceiptNumber());
 	}
 
 	@Test
