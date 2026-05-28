@@ -192,7 +192,7 @@ public class TransactionAndReportsService {
 						flatAreaCache);
 			} else {
 				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, overdueDues,
-						selectHighestPriorityDues(overdueDues), defaulterMap);
+						overdueDues, defaulterMap);
 			}
 		}
 
@@ -504,9 +504,12 @@ public class TransactionAndReportsService {
 	private void processSelectedCycleDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
 			List<DueAmountDetailsEntity> overdueDues, List<DueAmountDetailsEntity> selectedDues,
 			Map<String, DefaulterAccumulator> defaulterMap) {
+		
 		List<String> pendingFlatIds = selectedDues.stream().flatMap(due -> findPendingFlatIds(due).stream()).distinct()
 				.collect(Collectors.toList());
 		for (String flatId : pendingFlatIds) {
+			selectedDues=filterPaidFlats(selectedDues,flatId);
+			selectedDues=selectHighestPriorityDues(selectedDues);
 			List<DueAmountDetailsEntity> selectedDuesForFlat = findPendingDuesForFlat(selectedDues, flatId);
 			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat,
 					resolveLatestDueDate(findPendingDuesForFlat(overdueDues, flatId)), defaulterMap);
