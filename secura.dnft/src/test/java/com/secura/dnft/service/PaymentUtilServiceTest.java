@@ -201,7 +201,6 @@ class PaymentUtilServiceTest {
 
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-1"))
 				.thenReturn(List.of(yearlyDueForOtherArea, monthlyDueForFlatArea));
-		when(genericService.fromJson(eq("[\"FLAT-1\"]"), any(TypeReference.class))).thenReturn(List.of("FLAT-1"));
 		when(transactionRepository.findByAprmntIdAndPymntIdAndFlatIdAndTrnsStatus("APR-1", "PAY-1", "FLAT-1", "SUCCESS"))
 				.thenReturn(List.of());
 		when(transactionRepository.findByAprmntIdAndPymntIdAndFlatIdAndTrnsStatus("APR-1", "PAY-1", "FLAT-1", "PENDING"))
@@ -210,6 +209,60 @@ class PaymentUtilServiceTest {
 		GetPaymentUtilDetailsResponse response = paymentUtilService.getPaymentDetails(request);
 
 		assertEquals("75", response.getExpectedCollection());
+		assertEquals("0", response.getTotalCollection());
+		assertEquals("0", response.getTotalPendingTransactionAmount());
+		assertEquals("0", response.getCollectionPercentage());
+	}
+
+	@Test
+	void getPaymentDetails_shouldCalculatePerSqftExpectedCollectionWithoutApplicableFlatCheck() {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		GetPaymentUtilDetailsRequest request = new GetPaymentUtilDetailsRequest();
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		request.setFlatId("FLAT-1");
+
+		PaymentEntity payment = new PaymentEntity();
+		payment.setPaymentId("PAY-1");
+		payment.setAprmtId("APR-1");
+		payment.setPaymentCollectionCycle("MONTHLY");
+		payment.setPaymentCapita("PER_SQFT");
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of(payment));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("FLAT-1");
+		flat.setFlatArea("SMALL_2_BHK");
+		when(flatRepository.findById("FLAT-1")).thenReturn(java.util.Optional.of(flat));
+
+		DueAmountDetailsEntity sameAreaDueOne = new DueAmountDetailsEntity();
+		sameAreaDueOne.setCollectionCycle("MONTHLY");
+		sameAreaDueOne.setFlatArea("SMALL_2_BHK");
+		sameAreaDueOne.setTotalAmount("75");
+		sameAreaDueOne.setApplicableFlats("[\"OTHER-1\"]");
+
+		DueAmountDetailsEntity sameAreaDueTwo = new DueAmountDetailsEntity();
+		sameAreaDueTwo.setCollectionCycle("MONTHLY");
+		sameAreaDueTwo.setFlatArea("SMALL_2_BHK");
+		sameAreaDueTwo.setTotalAmount("25");
+		sameAreaDueTwo.setApplicableFlats("[\"OTHER-2\"]");
+
+		DueAmountDetailsEntity otherAreaDue = new DueAmountDetailsEntity();
+		otherAreaDue.setCollectionCycle("YEARLY");
+		otherAreaDue.setFlatArea("LARGE_3_BHK");
+		otherAreaDue.setTotalAmount("500");
+		otherAreaDue.setApplicableFlats("[\"FLAT-1\"]");
+
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1"))
+				.thenReturn(List.of(sameAreaDueOne, sameAreaDueTwo, otherAreaDue));
+		when(transactionRepository.findByAprmntIdAndPymntIdAndFlatIdAndTrnsStatus("APR-1", "PAY-1", "FLAT-1", "SUCCESS"))
+				.thenReturn(List.of());
+		when(transactionRepository.findByAprmntIdAndPymntIdAndFlatIdAndTrnsStatus("APR-1", "PAY-1", "FLAT-1", "PENDING"))
+				.thenReturn(List.of());
+
+		GetPaymentUtilDetailsResponse response = paymentUtilService.getPaymentDetails(request);
+
+		assertEquals("100", response.getExpectedCollection());
 		assertEquals("0", response.getTotalCollection());
 		assertEquals("0", response.getTotalPendingTransactionAmount());
 		assertEquals("0", response.getCollectionPercentage());
