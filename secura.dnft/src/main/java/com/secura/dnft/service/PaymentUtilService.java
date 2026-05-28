@@ -128,12 +128,8 @@ public class PaymentUtilService {
 		if (selectedCycleDues.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
-		List<DueAmountDetailsEntity> applicableDues = selectedCycleDues.stream().filter(Objects::nonNull)
-				.filter(due -> appliesToFlat(due, flatId)).toList();
-		if (applicableDues.isEmpty()) {
-			return BigDecimal.ZERO;
-		}
-		return applicableDues.stream().map(this::resolveDueAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+		
+		return selectedCycleDues.stream().map(this::resolveDueAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private PaymentEntity selectPaymentEntity(List<PaymentEntity> paymentEntities) {
