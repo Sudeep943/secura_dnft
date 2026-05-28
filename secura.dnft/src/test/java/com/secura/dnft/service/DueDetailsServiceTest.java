@@ -139,6 +139,76 @@ class DueDetailsServiceTest {
 	}
 
 	@Test
+	void calculateDuesForPayment_shouldRestrictApplicableFlatsAndPendingPaymentsToApplicableForList() {
+		PaymentEntity payment = new PaymentEntity();
+		payment.setPaymentId("PAY1002");
+		payment.setAprmtId("APR001");
+		payment.setPaymentCollectionCycle("QUATERLY");
+		payment.setPaymentCollectionMode("PRE");
+		payment.setCollectionStartDate(LocalDate.of(2026, 1, 1));
+		payment.setCollectionEndDate(LocalDate.of(2026, 3, 31));
+		payment.setPaymentAmount("2");
+		payment.setPaymentCapita("PER_SQFT");
+		payment.setPaymentName("Maintenance");
+		payment.setPaymentType("MAINTENANCE");
+		payment.setGst("10");
+		payment.setCauseId("COMMON_AREA");
+		payment.setApplicableFor("[\"A-101\",\"A-301\"]");
+		payment.setAllowedPaymentModes("[\"UPI\",\"CARD\"]");
+
+		Flat flat1000Included = new Flat();
+		flat1000Included.setFlatNo("A-101");
+		flat1000Included.setFlatArea("1000");
+		Flat flat1000Excluded = new Flat();
+		flat1000Excluded.setFlatNo("A-201");
+		flat1000Excluded.setFlatArea("1000");
+		Flat flat1200Included = new Flat();
+		flat1200Included.setFlatNo("A-301");
+		flat1200Included.setFlatArea("1200");
+
+		when(paymentRepository.findByPaymentId("PAY1002")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR001"))
+				.thenReturn(List.of(flat1000Included, flat1000Excluded, flat1200Included));
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(genericService.fromJson(eq("[\"A-101\",\"A-301\"]"), any(TypeReference.class)))
+				.thenReturn(List.of("A-101", "A-301"));
+		when(genericService.fromJson(eq("[\"UPI\",\"CARD\"]"), any(TypeReference.class))).thenReturn(List.of("UPI", "CARD"));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object value = invocation.getArgument(0);
+			if (value instanceof List<?> list) {
+				return "[\"" + String.join("\",\"", list.stream().map(Object::toString).toList()) + "\"]";
+			}
+			return "[]";
+		});
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService.calculateDuesForPayment("PAY1002");
+
+		Map<String, DueAmountDetails> duesByFlatType = response.get("QUATERLY").get(0);
+		assertEquals(List.of("A-101"), duesByFlatType.get("1000").getApplicableFlats());
+		assertEquals(List.of("A-301"), duesByFlatType.get("1200").getApplicableFlats());
+		assertEquals("4840", duesByFlatType.get("1000").getEstimatedCollectionAmount());
+		assertEquals("4840", duesByFlatType.get("1200").getEstimatedCollectionAmount());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository).saveAll(dueEntityCaptor.capture());
+		List<DueAmountDetailsEntity> savedDueEntities = dueEntityCaptor.getValue();
+		assertEquals("[\"A-101\"]", savedDueEntities.stream().filter(entity -> "1000".equals(entity.getFlatArea()))
+				.findFirst().orElseThrow().getApplicableFlats());
+		assertEquals("[\"A-301\"]", savedDueEntities.stream().filter(entity -> "1200".equals(entity.getFlatArea()))
+				.findFirst().orElseThrow().getApplicableFlats());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<Flat>> flatCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(flatRepository).saveAll(flatCaptor.capture());
+		List<Flat> savedFlats = flatCaptor.getValue();
+		assertEquals(2, savedFlats.size());
+		assertTrue(savedFlats.stream().map(Flat::getFlatNo).toList().containsAll(List.of("A-101", "A-301")));
+		assertFalse(savedFlats.stream().map(Flat::getFlatNo).toList().contains("A-201"));
+	}
+
+	@Test
 	void calculateDuesForPayment_shouldCalculateEstimatedCollectionAmountForFlatCapita() {
 		PaymentEntity payment = createPayment("PAY12001", "APR120", "MONTHLY", "10000", null, null);
 		payment.setCollectionStartDate(LocalDate.of(2026, 1, 1));

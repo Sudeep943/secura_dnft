@@ -440,6 +440,30 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void getDuePaymentAmountDetailsForCreatePayment_shouldPassApplicableForToPreviewDues() {
+		CreatePaymentRequest request = new CreatePaymentRequest();
+		request.setPaymentAmount("1200");
+		request.setGst("10");
+		request.setCollectionStartDate(Date.valueOf(LocalDate.parse("2026-05-11")));
+		request.setCollectionEndDate(Date.valueOf(LocalDate.parse("2026-05-25")));
+		request.setPaymentCollectionCycle("monthly");
+		request.setPaymentCollectionMode("pre");
+		request.setPaymentCapita("PER_FLAT");
+		request.setApplicableFor(List.of("A-101, A-102", "A-201"));
+		when(genericService.toJson(eq(List.of("A-101", "A-102", "A-201"))))
+				.thenReturn("[\"A-101\",\"A-102\",\"A-201\"]");
+		when(dueDetailsService.previewDuesForPayment(any(), any())).thenReturn(new LinkedHashMap<>());
+
+		paymentServices.getDuePaymentAmountDetails(request);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<PaymentEntity>> paymentEntitiesCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueDetailsService).previewDuesForPayment(paymentEntitiesCaptor.capture(), any());
+		assertEquals("[\"A-101\",\"A-102\",\"A-201\"]",
+				paymentEntitiesCaptor.getValue().get(0).getApplicableFor());
+	}
+
+	@Test
 	void getPaymentId_shouldUseCauseCodeForKnownCause() {
 		String paymentId = paymentServices.getPaymentId("FESTIVAL_FUND");
 

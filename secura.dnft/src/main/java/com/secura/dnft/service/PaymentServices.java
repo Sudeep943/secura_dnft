@@ -223,6 +223,7 @@ public class PaymentServices implements PaymentInterface {
 		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate()
 				: null;
 		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
+		String applicableFor = serializeApplicableFor(request.getApplicableFor());
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
 		String discFin = serializeDiscFin(request);
@@ -239,6 +240,7 @@ public class PaymentServices implements PaymentInterface {
 			entity.setCollectionEndDate(collectionEndDate);
 			entity.setPaymentCollectionCycle(paymentCollectionCycle);
 			entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
+			entity.setApplicableFor(applicableFor);
 			entity.setAllowedPaymentModes(allowedPaymentModes);
 			entity.setAddedCharges(addedCharges);
 			entity.setDiscFin(discFin);

@@ -83,12 +83,13 @@ public class DueDetailsService {
 
 		PaymentEntity baseEntity = paymentEntityList.get(0);
 		List<Flat> apartmentFlats = flatRepository.findByAprmntId(baseEntity.getAprmtId());
-		Map<String, Long> flatTypeCounts = buildFlatTypeCounts(apartmentFlats);
 
 		Set<String> visitedCycles = new LinkedHashSet<>();
 		List<DueRow> generatedRows = new ArrayList<>();
 
 		for (PaymentEntity paymentEntity : paymentEntityList) {
+			List<Flat> applicableApartmentFlats = filterApplicableFlats(apartmentFlats, paymentEntity.getApplicableFor());
+			Map<String, Long> flatTypeCounts = buildFlatTypeCounts(applicableApartmentFlats);
 			for (String paymentCycle : resolvePaymentCycles(paymentEntity)) {
 				if (!visitedCycles.add(normalizeCycle(paymentCycle))) {
 					continue;
@@ -103,13 +104,13 @@ public class DueDetailsService {
 				String dueId = createDueId();
 				for (LocalDate[] interval : intervals) {
 					Map<String, DueAmountDetails> duesByFlatType = createDuesForInterval(
-							paymentEntity, dueId, flatTypeCounts, apartmentFlats, interval[0], interval[1], paymentCycle);
+							paymentEntity, dueId, flatTypeCounts, applicableApartmentFlats, interval[0], interval[1], paymentCycle);
 					duesForCycle.add(duesByFlatType);
 					duesByFlatType.forEach((flatType, details) -> generatedRows
 							.add(new DueRow(paymentCycle, flatType, details, paymentEntity.getPaymentAmount(), interval[0])));
 				}
 				String estimatedCollectionAmount = calculateEstimatedCollectionAmount(duesForCycle, flatTypeCounts,
-						apartmentFlats.size(), paymentEntity.getPaymentCapita(),
+						applicableApartmentFlats.size(), paymentEntity.getPaymentCapita(),
 						calculateCycleMultiplier(intervals, cycleMonths, paymentCycle));
 				if (estimatedCollectionAmount != null) {
 					for (Map<String, DueAmountDetails> duesByFlatType : duesForCycle) {
@@ -314,6 +315,18 @@ public class DueDetailsService {
 		return flatTypeCounts;
 	}
 
+	private List<Flat> filterApplicableFlats(List<Flat> apartmentFlats, String applicableFor) {
+		if (apartmentFlats == null || apartmentFlats.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Set<String> applicableFlatNos = parseApplicableFlatNos(applicableFor);
+		if (applicableFlatNos.isEmpty()) {
+			return new ArrayList<>(apartmentFlats);
+		}
+		return apartmentFlats.stream().filter(Objects::nonNull)
+				.filter(flat -> applicableFlatNos.contains(normalizeFlatNo(flat.getFlatNo()))).toList();
+	}
+
 	private void appendDuesToFlatPendingPayments(List<Flat> apartmentFlats, Collection<DueAmountDetailsEntity> dueEntities) {
 		if (apartmentFlats == null || apartmentFlats.isEmpty() || dueEntities == null || dueEntities.isEmpty()) {
 			return;
@@ -322,9 +335,10 @@ public class DueDetailsService {
 		for (Flat flat : apartmentFlats) {
 			List<String> existingDueIds = parseStringList(flat.getFlatPndngPaymntLst());
 			String normalizedFlatArea = normalizeFlatArea(flat.getFlatArea());
+			String normalizedFlatNo = normalizeFlatNo(flat.getFlatNo());
 			boolean modified = false;
 			for (DueAmountDetailsEntity dueEntity : dueEntities) {
-				if (!isDueApplicableToFlat(dueEntity, normalizedFlatArea)) {
+				if (!isDueApplicableToFlat(dueEntity, normalizedFlatArea, normalizedFlatNo)) {
 					continue;
 				}
 				String dueEntityKey = buildFlatPendingDueKey(dueEntity);
@@ -346,8 +360,8 @@ public class DueDetailsService {
 		}
 	}
 
-	private boolean isDueApplicableToFlat(DueAmountDetailsEntity dueEntity, String normalizedFlatArea) {
-		if (dueEntity == null) {
+	private boolean isDueApplicableToFlat(DueAmountDetailsEntity dueEntity, String normalizedFlatArea, String normalizedFlatNo) {
+		if (dueEntity == null || normalizedFlatNo == null) {
 			return false;
 		}
 		String dueFlatArea = dueEntity.getFlatArea();
@@ -355,7 +369,16 @@ public class DueDetailsService {
 			return false;
 		}
 		String normalizedDueFlatArea = dueFlatArea.trim();
-		return "ALL".equalsIgnoreCase(normalizedDueFlatArea) || normalizedDueFlatArea.equals(normalizedFlatArea);
+		boolean flatAreaMatches = "ALL".equalsIgnoreCase(normalizedDueFlatArea) || normalizedDueFlatArea.equals(normalizedFlatArea);
+		if (!flatAreaMatches) {
+			return false;
+		}
+		List<String> applicableFlats = parseStringList(dueEntity.getApplicableFlats());
+		if (applicableFlats.isEmpty()) {
+			return true;
+		}
+		return applicableFlats.stream().map(this::normalizeFlatNo).filter(Objects::nonNull)
+				.anyMatch(normalizedFlatNo::equals);
 	}
 
 	private String buildFlatPendingDueKey(DueAmountDetailsEntity dueEntity) {
@@ -378,6 +401,34 @@ public class DueDetailsService {
 			return values == null ? new ArrayList<>() : new ArrayList<>(values);
 		} catch (Exception ex) {
 			return new ArrayList<>();
+		}
+	}
+
+	private Set<String> parseApplicableFlatNos(String applicableFor) {
+		if (applicableFor == null || applicableFor.isBlank()) {
+			return new LinkedHashSet<>();
+		}
+		String trimmedApplicableFor = applicableFor.trim();
+		if ("ALL".equalsIgnoreCase(trimmedApplicableFor)) {
+			return new LinkedHashSet<>();
+		}
+		try {
+			List<String> values = genericService.fromJson(trimmedApplicableFor, new TypeReference<List<String>>() {
+			});
+			if (values == null || values.isEmpty()) {
+				return new LinkedHashSet<>();
+			}
+			return values.stream().map(this::normalizeFlatNo).filter(Objects::nonNull)
+					.collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+		} catch (Exception exception) {
+			Set<String> flatNos = new LinkedHashSet<>();
+			for (String value : trimmedApplicableFor.split(",")) {
+				String normalizedFlatNo = normalizeFlatNo(value);
+				if (normalizedFlatNo != null) {
+					flatNos.add(normalizedFlatNo);
+				}
+			}
+			return flatNos;
 		}
 	}
 
@@ -801,6 +852,13 @@ public class DueDetailsService {
 
 	private String normalizeFlatArea(String flatArea) {
 		return flatArea == null || flatArea.isBlank() ? "UNKNOWN" : flatArea.trim();
+	}
+
+	private String normalizeFlatNo(String flatNo) {
+		if (flatNo == null || flatNo.isBlank()) {
+			return null;
+		}
+		return flatNo.trim().toUpperCase(Locale.ROOT);
 	}
 
 	private BigDecimal calculatePercentageAmount(BigDecimal base, BigDecimal percentage) {
