@@ -187,8 +187,8 @@ class DueDetailsServiceTest {
 		Map<String, DueAmountDetails> duesByFlatType = response.get("QUATERLY").get(0);
 		assertEquals(List.of("A-101"), duesByFlatType.get("1000").getApplicableFlats());
 		assertEquals(List.of("A-301"), duesByFlatType.get("1200").getApplicableFlats());
-		assertEquals("4840", duesByFlatType.get("1000").getEstimatedCollectionAmount());
-		assertEquals("4840", duesByFlatType.get("1200").getEstimatedCollectionAmount());
+		assertEquals("14520", duesByFlatType.get("1000").getEstimatedCollectionAmount());
+		assertEquals("14520", duesByFlatType.get("1200").getEstimatedCollectionAmount());
 
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
