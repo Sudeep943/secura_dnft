@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 
 public class PayDueRequest {
 
@@ -32,6 +33,7 @@ public class PayDueRequest {
 	private String noOfPersons;
 	@JsonAlias({ "listOfFiles" })
 	private List<String> files;
+	private DueAmountDetailsEntity paidDueDetails;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -159,5 +161,13 @@ public class PayDueRequest {
 
 	public void setFiles(List<String> files) {
 		this.files = files;
+	}
+
+	public DueAmountDetailsEntity getPaidDueDetails() {
+		return paidDueDetails;
+	}
+
+	public void setPaidDueDetails(DueAmountDetailsEntity paidDueDetails) {
+		this.paidDueDetails = paidDueDetails;
 	}
 }

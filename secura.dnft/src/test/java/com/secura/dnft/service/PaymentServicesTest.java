@@ -875,6 +875,68 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldUsePaidDueDetailsFromRequestWhenProvided() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1005");
+		request.setAmount("2500");
+		request.setDueId("DUE1005");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		request.setDueDate(LocalDate.parse("2026-07-01"));
+		request.setPaymentName("Water");
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "2500")));
+
+		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
+		dueEntity.setDueId("DUE1005");
+		dueEntity.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		dueEntity.setFlatArea("1200");
+		dueEntity.setDueDate(LocalDate.parse("2026-07-01"));
+		dueEntity.setAmount("2200");
+		dueEntity.setGstAmount("300");
+		dueEntity.setTotalAmount("2500");
+		request.setPaidDueDetails(dueEntity);
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-1005");
+		paymentEntity.setBankAccountId("BANK-005");
+		paymentEntity.setPaymentCapita("PER_SQFT");
+		when(paymentRepository.findFirstByPaymentId("PAY-1005")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && list.isEmpty()) {
+				return "FILES_JSON";
+			}
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "TRNS_TENDER_JSON";
+			}
+			return "JSON";
+		});
+
+		Flat flat = new Flat();
+		flat.setFlatArea("1200");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
+		createReceiptResponse.setReceipt("RECEIPT_BASE64");
+		createReceiptResponse.setReceiptNumber("RCT-3005");
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(createReceiptResponse);
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		verify(dueAmountDetailsRepository, never()).findById(any(DueAmountDetailsEntityId.class));
+		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
+		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
+		assertEquals("2200", receiptRequestCaptor.getValue().getItems().get(0).getAmount());
+		assertEquals("2500", receiptRequestCaptor.getValue().getTotalAmount());
+		assertEquals("RCT-3005", response.getReceiptNumber());
+	}
+
+	@Test
 	void payDues_shouldCreateWorklistWhenAnyTenderIsCash() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
