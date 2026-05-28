@@ -128,9 +128,6 @@ public class PaymentUtilService {
 		if (selectedCycleDues.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
-		if (isPerSqftCapita(paymentCapita)) {
-			return selectedCycleDues.stream().map(this::resolveDueAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-		}
 		List<DueAmountDetailsEntity> applicableDues = selectedCycleDues.stream().filter(Objects::nonNull)
 				.filter(due -> appliesToFlat(due, flatId)).toList();
 		if (applicableDues.isEmpty()) {
