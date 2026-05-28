@@ -458,6 +458,125 @@ class TransactionAndReportsServiceTest {
 		assertEquals(onlyMonthlyDue, monthlyPayment.getLastDueDate());
 	}
 
+	@Test
+	void getDefaulterList_shouldIgnoreLowerCycleDuesForOtherFlatsWhenHigherCycleExists() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", "YEARLY", LocalDate.now().minusDays(15), "120", "10", "[\"F-101\"]", "[]"),
+				buildDue("PAY-1", "DUE-2", "MONTHLY", LocalDate.now().minusDays(5), "40", "2", "[\"F-102\"]", "[]")));
+
+		Owner owner = new Owner();
+		owner.setFlatNo("F-101");
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(owner));
+
+		Profile profile = new Profile();
+		profile.setPrflId("PR-1");
+		profile.setPrflPhoneNo("9999999999");
+		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\"]".equals(json)) {
+				return List.of("F-101");
+			}
+			if ("[\"F-102\"]".equals(json)) {
+				return List.of("F-102");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1"), "SUCCESS"))
+				.thenReturn(List.of());
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(1, response.getTotalDefaulters());
+		assertEquals("120", response.getTotalExpectedToBeCollect());
+		assertEquals(1, response.getDefaulterList().size());
+		assertEquals("F-101", response.getDefaulterList().get(0).getFlatId());
+		assertEquals("120", response.getDefaulterList().get(0).getDefaultPaymentList().get(0).getTotalDue());
+	}
+
+	@Test
+	void getDefaulterList_shouldMatchFlatAreaBeforeSelectingHighestCycleForPerSqftPayments() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "PER_SQFT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+
+		DueAmountDetailsEntity yearlyDue = buildDue("PAY-1", "DUE-1", "YEARLY", LocalDate.now().minusDays(12), "100", "8",
+				"[\"F-101\"]", "[]");
+		yearlyDue.setFlatArea("LARGE_3_BHK");
+		DueAmountDetailsEntity monthlyDue = buildDue("PAY-1", "DUE-2", "MONTHLY", LocalDate.now().minusDays(3), "30", "2",
+				"[\"F-101\"]", "[]");
+		monthlyDue.setFlatArea("SMALL_2_BHK");
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(yearlyDue, monthlyDue));
+
+		Owner owner = new Owner();
+		owner.setFlatNo("F-101");
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(owner));
+
+		Profile profile = new Profile();
+		profile.setPrflId("PR-1");
+		profile.setPrflPhoneNo("9999999999");
+		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SMALL_2_BHK")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\"]".equals(json)) {
+				return List.of("F-101");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1"), "SUCCESS"))
+				.thenReturn(List.of());
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(1, response.getTotalDefaulters());
+		assertEquals("30", response.getTotalExpectedToBeCollect());
+		DefaultPayment defaultPayment = response.getDefaulterList().get(0).getDefaultPaymentList().get(0);
+		assertEquals("30", defaultPayment.getTotalDue());
+		assertEquals("2", defaultPayment.getPenalty());
+		assertEquals(monthlyDue.getDueDate(), defaultPayment.getLastDueDate());
+	}
+
 	private PaymentEntity buildPayment(String paymentId, String paymentName, String paymentCapita, String status,
 			String paymentType) {
 		PaymentEntity payment = new PaymentEntity();
