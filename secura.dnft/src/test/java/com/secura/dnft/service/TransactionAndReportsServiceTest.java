@@ -511,7 +511,7 @@ class TransactionAndReportsServiceTest {
 		assertEquals("0", yearlyPayment.getAmountPaid());
 		assertEquals("120", yearlyPayment.getAmountTobePaid());
 		assertEquals("10", yearlyPayment.getPenalty());
-		assertEquals(yearlyDueTwo, yearlyPayment.getLastDueDate());
+		assertEquals(monthlyDue, yearlyPayment.getLastDueDate());
 
 		DefaultPayment quarterlyPayment = defaulter.getDefaultPaymentList().get(1);
 		assertEquals("PAY-2", quarterlyPayment.getPaymentId());
@@ -520,7 +520,7 @@ class TransactionAndReportsServiceTest {
 		assertEquals("0", quarterlyPayment.getAmountPaid());
 		assertEquals("60", quarterlyPayment.getAmountTobePaid());
 		assertEquals("4", quarterlyPayment.getPenalty());
-		assertEquals(quarterlyDue, quarterlyPayment.getLastDueDate());
+		assertEquals(monthlyDueForQuarterlyPayment, quarterlyPayment.getLastDueDate());
 
 		DefaultPayment monthlyPayment = defaulter.getDefaultPaymentList().get(2);
 		assertEquals("PAY-3", monthlyPayment.getPaymentId());
@@ -530,6 +530,72 @@ class TransactionAndReportsServiceTest {
 		assertEquals("25", monthlyPayment.getAmountTobePaid());
 		assertEquals("3", monthlyPayment.getPenalty());
 		assertEquals(onlyMonthlyDue, monthlyPayment.getLastDueDate());
+	}
+
+	@Test
+	void getDefaulterList_shouldUseLatestPendingDueDateAcrossCycles() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+
+		LocalDate yearlyDue = LocalDate.of(2026, 1, 1);
+		LocalDate quarterlyDue = LocalDate.of(2026, 4, 1);
+		LocalDate monthlyDue = LocalDate.of(2026, 5, 1);
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", "YEARLY", yearlyDue, "120", "10", "[\"F-101\"]", "[]"),
+				buildDue("PAY-1", "DUE-2", "QUATERLY", quarterlyDue, "40", "3", "[\"F-101\"]", "[\"F-102\"]"),
+				buildDue("PAY-1", "DUE-3", "MONTHLY", monthlyDue, "15", "1", "[\"F-101\",\"F-102\"]", "[\"F-102\"]")));
+
+		Owner owner = new Owner();
+		owner.setFlatNo("F-101");
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(owner));
+
+		Profile profile = new Profile();
+		profile.setPrflId("PR-1");
+		profile.setPrflPhoneNo("9999999999");
+		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "LARGE_2_BHK")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\"]".equals(json)) {
+				return List.of("F-101");
+			}
+			if ("[\"F-101\",\"F-102\"]".equals(json)) {
+				return List.of("F-101", "F-102");
+			}
+			if ("[\"F-102\"]".equals(json)) {
+				return List.of("F-102");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1"), "SUCCESS"))
+				.thenReturn(List.of());
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		assertEquals(1, response.getTotalDefaulters());
+		assertEquals("120", response.getTotalExpectedToBeCollect());
+		DefaultPayment defaultPayment = response.getDefaulterList().get(0).getDefaultPaymentList().get(0);
+		assertEquals("120", defaultPayment.getTotalDue());
+		assertEquals(monthlyDue, defaultPayment.getLastDueDate());
 	}
 
 	@Test
