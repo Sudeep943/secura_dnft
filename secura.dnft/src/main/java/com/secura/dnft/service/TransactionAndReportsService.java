@@ -191,8 +191,8 @@ public class TransactionAndReportsService {
 				processPerSqftDues(paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap, flatCache,
 						flatAreaCache);
 			} else {
-				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, selectHighestPriorityDues(overdueDues),
-						defaulterMap);
+				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, overdueDues,
+						selectHighestPriorityDues(overdueDues), defaulterMap);
 			}
 		}
 
@@ -458,8 +458,28 @@ public class TransactionAndReportsService {
 			List<DueAmountDetailsEntity> selectedDuesForFlat = selectedDues.stream()
 					.filter(due -> findPendingFlatIds(due).stream().anyMatch(pendingFlat -> pendingFlat.equalsIgnoreCase(flatId)))
 					.collect(Collectors.toList());
-			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat, defaulterMap);
+			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat,
+					resolveLatestDueDate(findPendingDuesForFlat(areaMatchedDues, flatId)), defaulterMap);
 		}
+	}
+
+	private List<DueAmountDetailsEntity> findPendingDuesForFlat(List<DueAmountDetailsEntity> dues, String flatId) {
+		if (!hasText(flatId) || dues == null || dues.isEmpty()) {
+			return Collections.emptyList();
+		}
+		return dues.stream().filter(due -> hasPendingFlatId(due, flatId)).collect(Collectors.toList());
+	}
+
+	private boolean hasPendingFlatId(DueAmountDetailsEntity due, String flatId) {
+		return findPendingFlatIds(due).stream().anyMatch(pendingFlat -> pendingFlat.equalsIgnoreCase(flatId));
+	}
+
+	private LocalDate resolveLatestDueDate(List<DueAmountDetailsEntity> dues) {
+		if (dues == null || dues.isEmpty()) {
+			return null;
+		}
+		return dues.stream().map(DueAmountDetailsEntity::getDueDate).filter(Objects::nonNull).max(LocalDate::compareTo)
+				.orElse(null);
 	}
 
 	private List<DueAmountDetailsEntity>  filterPaidFlats(List<DueAmountDetailsEntity> areaMatchedDues, String flatId) {
@@ -482,16 +502,19 @@ public class TransactionAndReportsService {
 		return newList;
 	}
 	private void processSelectedCycleDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
-			List<DueAmountDetailsEntity> selectedDues, Map<String, DefaulterAccumulator> defaulterMap) {
-		for (DueAmountDetailsEntity due : selectedDues) {
-			for (String flatId : findPendingFlatIds(due)) {
-				addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, List.of(due), defaulterMap);
-			}
+			List<DueAmountDetailsEntity> overdueDues, List<DueAmountDetailsEntity> selectedDues,
+			Map<String, DefaulterAccumulator> defaulterMap) {
+		List<String> pendingFlatIds = selectedDues.stream().flatMap(due -> findPendingFlatIds(due).stream()).distinct()
+				.collect(Collectors.toList());
+		for (String flatId : pendingFlatIds) {
+			List<DueAmountDetailsEntity> selectedDuesForFlat = findPendingDuesForFlat(selectedDues, flatId);
+			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat,
+					resolveLatestDueDate(findPendingDuesForFlat(overdueDues, flatId)), defaulterMap);
 		}
 	}
 
 	private void addSelectedDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita, String flatId,
-			List<DueAmountDetailsEntity> dues, Map<String, DefaulterAccumulator> defaulterMap) {
+			List<DueAmountDetailsEntity> dues, LocalDate latestDueDate, Map<String, DefaulterAccumulator> defaulterMap) {
 		if (dues == null || dues.isEmpty()) {
 			return;
 		}
@@ -500,6 +523,7 @@ public class TransactionAndReportsService {
 				.computeIfAbsent(paymentId, ignored -> new DefaultPaymentAccumulator(paymentId,
 						resolvePaymentName(paymentEntities, dues.get(0)), paymentCapita));
 		dues.forEach(defaultPayment::addDue);
+		defaultPayment.trackLastDueDate(latestDueDate);
 	}
 
 	private List<DueAmountDetailsEntity> selectHighestPriorityDues(List<DueAmountDetailsEntity> dues) {
