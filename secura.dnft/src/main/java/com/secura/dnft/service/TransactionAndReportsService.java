@@ -451,6 +451,9 @@ public class TransactionAndReportsService {
 			String flatArea = resolveFlatArea(flatId, flatCache, flatAreaCache);
 			List<DueAmountDetailsEntity> areaMatchedDues = overdueDues.stream()
 					.filter(due -> matchesFlatArea(due, flatArea)).collect(Collectors.toList());
+			//areaMatchedDues=areaMatchedDues.stream().filter(amd-> amd.getApplicableFlats().contains(flatId)).collect(Collectors.toList());
+			//areaMatchedDues=areaMatchedDues.stream().filter(amd->{if(amd.getPaidFlats()!=null && !amd.getPaidFlats().isEmpty() &&  !amd.getPaidFlats().contains(flatId)) { return true;} else return false;}).collect(Collectors.toList());
+			areaMatchedDues=filterPaidFlats(areaMatchedDues,flatId);
 			List<DueAmountDetailsEntity> selectedDues = selectHighestPriorityDues(areaMatchedDues);
 			List<DueAmountDetailsEntity> selectedDuesForFlat = selectedDues.stream()
 					.filter(due -> findPendingFlatIds(due).stream().anyMatch(pendingFlat -> pendingFlat.equalsIgnoreCase(flatId)))
@@ -459,6 +462,25 @@ public class TransactionAndReportsService {
 		}
 	}
 
+	private List<DueAmountDetailsEntity>  filterPaidFlats(List<DueAmountDetailsEntity> areaMatchedDues, String flatId) {
+		List<DueAmountDetailsEntity> newList = new ArrayList<>();
+		for(DueAmountDetailsEntity due: areaMatchedDues) {
+			if(null!=due.getApplicableFlats() && !due.getApplicableFlats().isEmpty()) {
+				if(due.getApplicableFlats().contains(flatId)) {
+					if(null!=due.getPaidFlats() && !due.getPaidFlats().isEmpty()) {
+						if(!due.getPaidFlats().contains(flatId)) {
+							newList.add(due);
+						}
+					}
+					else {
+						newList.add(due);
+					}
+				}
+			}
+			
+		}
+		return newList;
+	}
 	private void processSelectedCycleDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
 			List<DueAmountDetailsEntity> selectedDues, Map<String, DefaulterAccumulator> defaulterMap) {
 		for (DueAmountDetailsEntity due : selectedDues) {
