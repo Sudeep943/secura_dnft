@@ -171,9 +171,20 @@ class DueDetailsServiceTest {
 				.thenReturn(List.of(flat1000Included, flat1000Excluded, flat1200Included));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-		when(genericService.fromJson(eq("[\"A-101\",\"A-301\"]"), any(TypeReference.class)))
-				.thenReturn(List.of("A-101", "A-301"));
-		when(genericService.fromJson(eq("[\"UPI\",\"CARD\"]"), any(TypeReference.class))).thenReturn(List.of("UPI", "CARD"));
+		when(genericService.fromJson(any(String.class), any(TypeReference.class))).thenAnswer(invocation -> {
+			String value = invocation.getArgument(0);
+			if ("[\"UPI\",\"CARD\"]".equals(value)) {
+				return List.of("UPI", "CARD");
+			}
+			if (value != null && value.startsWith("[") && value.endsWith("]")) {
+				String content = value.substring(1, value.length() - 1).trim();
+				if (content.isEmpty()) {
+					return List.of();
+				}
+				return List.of(content.replace("\"", "").split("\\s*,\\s*"));
+			}
+			return List.of();
+		});
 		when(genericService.toJson(any())).thenAnswer(invocation -> {
 			Object value = invocation.getArgument(0);
 			if (value instanceof List<?> list) {
