@@ -875,7 +875,7 @@ class PaymentServicesTest {
 	}
 
 	@Test
-	void payDues_shouldUsePaidDueDetailsFromRequestWhenProvided() throws Exception {
+	void payDues_shouldUsePaidDueDetailsFromRequestWithoutRepositoryLookup() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-001");
@@ -888,6 +888,7 @@ class PaymentServicesTest {
 		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
 		request.setDueDate(LocalDate.parse("2026-07-01"));
 		request.setPaymentName("Water");
+		// Keep the transaction unsuccessful so the test only covers the request-provided due lookup path.
 		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_FAILED);
 		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "2500")));
 
