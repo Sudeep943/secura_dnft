@@ -828,7 +828,7 @@ class PaymentServicesTest {
 		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
 		request.setDueDate(LocalDate.parse("2026-06-01"));
 		request.setPaymentName("Water");
-		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_FAILED);
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		request.setPaymentTenderDataList(List.of(createTender(SecuraConstants.TRANSACTION_TENDER_ONLINE, "2500")));
 
 		PaymentEntity paymentEntity = new PaymentEntity();
