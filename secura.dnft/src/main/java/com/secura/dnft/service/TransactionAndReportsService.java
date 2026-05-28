@@ -17,6 +17,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -57,6 +59,8 @@ import com.secura.dnft.request.response.TransactionResponseItem;
 
 @Service
 public class TransactionAndReportsService {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(TransactionAndReportsService.class);
 
 	private static final String TRNS_TYPE_DEBIT = "DEBIT";
 	private static final String TRNS_TYPE_CREDIT = "CREDIT";
@@ -555,6 +559,8 @@ public class TransactionAndReportsService {
 					return parseBigDecimal(response.getExpectedCollection());
 				}
 			} catch (RuntimeException exception) {
+				LOGGER.warn("Failed to resolve defaulter total due from PaymentUtilService for apartmentId={}, paymentId={}, flatId={}",
+						apartmentId, paymentId, flatId, exception);
 				return defaultTotalDue(fallbackTotalDue);
 			}
 			return defaultTotalDue(fallbackTotalDue);
