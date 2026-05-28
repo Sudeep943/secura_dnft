@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -43,6 +44,7 @@ import com.secura.dnft.request.response.Defaulter;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionAndReportsServiceTest {
@@ -67,6 +69,9 @@ class TransactionAndReportsServiceTest {
 
 	@Mock
 	private ProfileRepository profileRepository;
+
+	@Mock
+	private PaymentUtilService paymentUtilService;
 
 	@InjectMocks
 	private TransactionAndReportsService transactionAndReportsService;
@@ -266,6 +271,75 @@ class TransactionAndReportsServiceTest {
 		assertEquals(2, response.getDefaulterList().size());
 		assertEquals(1, response.getDefaulterList().get(0).getDefaultPaymentList().size());
 		assertEquals(2, response.getDefaulterList().get(1).getDefaultPaymentList().size());
+	}
+
+	@Test
+	void getDefaulterList_shouldUsePaymentUtilExpectedCollectionForTotalDue() {
+		GetDefaulterRequest request = new GetDefaulterRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId(List.of("PAY-1"));
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1"))
+				.thenReturn(List.of(buildPayment("PAY-1", "Maintenance", "FIXED_AMOUNT",
+						SecuraConstants.PAYMENT_STATUS_ACTIVE, "MANDATORY")));
+		when(dueAmountDetailsRepository.findByPaymentId("PAY-1")).thenReturn(List.of(
+				buildDue("PAY-1", "DUE-1", LocalDate.now().minusDays(10), "170", "15", "[\"F-101\"]", "[]")));
+
+		Owner owner = new Owner();
+		owner.setFlatNo("F-101");
+		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+		owner.setPrflId("[\"PR-1\"]");
+		when(ownerRepository.findByFlatNo("F-101")).thenReturn(List.of(owner));
+
+		Profile profile = new Profile();
+		profile.setPrflId("PR-1");
+		profile.setPrflPhoneNo("9999999999");
+		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
+		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
+		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+
+		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
+			String json = invocation.getArgument(0);
+			if ("[\"F-101\"]".equals(json)) {
+				return List.of("F-101");
+			}
+			if ("[]".equals(json)) {
+				return List.of();
+			}
+			if ("[\"PR-1\"]".equals(json)) {
+				return List.of("PR-1");
+			}
+			return List.of();
+		});
+		when(genericService.fromJson(eq("{\"firstName\":\"John\",\"lastName\":\"Doe\"}"), eq(Name.class)))
+				.thenReturn(buildName("John", "Doe"));
+
+		Transaction paidTransaction = new Transaction();
+		paidTransaction.setTrnsAmt("50");
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY-1", "F-101", "SUCCESS"))
+				.thenReturn(List.of(paidTransaction));
+		when(transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus("APR-1", List.of("PAY-1"), "SUCCESS"))
+				.thenReturn(List.of(paidTransaction));
+		when(paymentUtilService.getPaymentDetails(argThat(req -> req != null
+				&& req.getGenericHeader() != null
+				&& "APR-1".equals(req.getGenericHeader().getApartmentId())
+				&& "PAY-1".equals(req.getPaymentId())
+				&& "F-101".equals(req.getFlatId()))))
+				.thenReturn(buildPaymentUtilResponse("120"));
+
+		GetDefaulterResponse response = transactionAndReportsService.getDefaulterList(request);
+
+		DefaultPayment defaultPayment = response.getDefaulterList().get(0).getDefaultPaymentList().get(0);
+		assertEquals("120", defaultPayment.getTotalDue());
+		assertEquals("70", defaultPayment.getAmountTobePaid());
+		assertEquals("70", response.getTotalExpectedToBeCollect());
+		verify(paymentUtilService).getPaymentDetails(argThat(req -> req != null
+				&& req.getGenericHeader() != null
+				&& "APR-1".equals(req.getGenericHeader().getApartmentId())
+				&& "PAY-1".equals(req.getPaymentId())
+				&& "F-101".equals(req.getFlatId())));
 	}
 
 	@Test
@@ -621,5 +695,11 @@ class TransactionAndReportsServiceTest {
 		name.setFirstName(firstName);
 		name.setLastName(lastName);
 		return name;
+	}
+
+	private GetPaymentUtilDetailsResponse buildPaymentUtilResponse(String expectedCollection) {
+		GetPaymentUtilDetailsResponse response = new GetPaymentUtilDetailsResponse();
+		response.setExpectedCollection(expectedCollection);
+		return response;
 	}
 }

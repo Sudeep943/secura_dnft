@@ -42,10 +42,13 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.DefaultPayment;
 import com.secura.dnft.request.response.Defaulter;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
 import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsRequest;
+import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
 import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -81,6 +84,9 @@ public class TransactionAndReportsService {
 
 	@Autowired
 	ProfileRepository profileRepository;
+
+	@Autowired
+	PaymentUtilService paymentUtilService;
 
 	public GetTransactionResponse getTransaction(GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
@@ -164,6 +170,7 @@ public class TransactionAndReportsService {
 		Map<String, String> flatAreaCache = new HashMap<>();
 		Map<String, List<Owner>> ownerCache = new HashMap<>();
 		Map<String, Optional<Profile>> profileCache = new HashMap<>();
+		Map<String, BigDecimal> totalDueCache = new HashMap<>();
 
 		for (String paymentId : requestedPaymentIds) {
 			List<PaymentEntity> paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId);
@@ -189,8 +196,10 @@ public class TransactionAndReportsService {
 		for (DefaulterAccumulator accumulator : defaulterMap.values()) {
 			List<DefaultPayment> defaultPayments = new ArrayList<>();
 			for (DefaultPaymentAccumulator paymentAccumulator : accumulator.defaultPaymentMap().values()) {
+				BigDecimal totalDue = resolveTotalDue(apartmentId, paymentAccumulator.paymentId(), accumulator.flatId(),
+						paymentAccumulator.totalDue(), totalDueCache);
 				BigDecimal amountPaid = resolveAmountPaid(paymentAccumulator.paymentId(), accumulator.flatId(), amountPaidCache);
-				BigDecimal amountToBePaid = paymentAccumulator.totalDue().subtract(amountPaid);
+				BigDecimal amountToBePaid = totalDue.subtract(amountPaid);
 				if (amountToBePaid.compareTo(BigDecimal.ZERO) <= 0) {
 					continue;
 				}
@@ -198,7 +207,7 @@ public class TransactionAndReportsService {
 				defaultPayment.setPaymentId(paymentAccumulator.paymentId());
 				defaultPayment.setPaymentName(paymentAccumulator.paymentName());
 				defaultPayment.setPaymentCapita(formatDisplayValue(paymentAccumulator.paymentCapita()));
-				defaultPayment.setTotalDue(formatAmount(paymentAccumulator.totalDue()));
+				defaultPayment.setTotalDue(formatAmount(totalDue));
 				defaultPayment.setAmountPaid(formatAmount(amountPaid));
 				defaultPayment.setAmountTobePaid(formatAmount(amountToBePaid));
 				defaultPayment.setPenalty(formatAmount(paymentAccumulator.penalty()));
@@ -522,6 +531,38 @@ public class TransactionAndReportsService {
 			return transactions.stream().filter(Objects::nonNull).map(Transaction::getTrnsAmt).map(this::parseBigDecimal)
 					.reduce(BigDecimal.ZERO, BigDecimal::add);
 		});
+	}
+
+	private BigDecimal resolveTotalDue(String apartmentId, String paymentId, String flatId, BigDecimal fallbackTotalDue,
+			Map<String, BigDecimal> totalDueCache) {
+		if (!hasText(apartmentId) || !hasText(paymentId) || !hasText(flatId)) {
+			return defaultTotalDue(fallbackTotalDue);
+		}
+		String cacheKey = apartmentId + "::" + paymentId + "::" + flatId;
+		return totalDueCache.computeIfAbsent(cacheKey, ignored -> {
+			if (paymentUtilService == null) {
+				return defaultTotalDue(fallbackTotalDue);
+			}
+			GetPaymentUtilDetailsRequest request = new GetPaymentUtilDetailsRequest();
+			GenericHeader header = new GenericHeader();
+			header.setApartmentId(apartmentId);
+			request.setGenericHeader(header);
+			request.setPaymentId(paymentId);
+			request.setFlatId(flatId);
+			try {
+				GetPaymentUtilDetailsResponse response = paymentUtilService.getPaymentDetails(request);
+				if (response != null && hasText(response.getExpectedCollection())) {
+					return parseBigDecimal(response.getExpectedCollection());
+				}
+			} catch (RuntimeException exception) {
+				return defaultTotalDue(fallbackTotalDue);
+			}
+			return defaultTotalDue(fallbackTotalDue);
+		});
+	}
+
+	private BigDecimal defaultTotalDue(BigDecimal fallbackTotalDue) {
+		return fallbackTotalDue != null ? fallbackTotalDue : BigDecimal.ZERO;
 	}
 
 	private List<Profile> resolveOwnerProfiles(String flatId, Map<String, Optional<Flat>> flatCache,
