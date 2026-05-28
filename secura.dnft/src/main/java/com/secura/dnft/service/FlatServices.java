@@ -63,6 +63,7 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -109,6 +110,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private TransactionRepository transactionRepository;
+
+	@Autowired
+	private DueDetailsService dueDetailsService;
 
 	private final DataFormatter dataFormatter = new DataFormatter();
 
@@ -495,14 +499,114 @@ public class FlatServices implements FlatInterface {
 		for (Map.Entry<String, List<DueAmountDetailsEntity>> entry : finalPaymentMap.entrySet()) {
 			Optional<PaymentEntity> paymentEntity = paymentRepository.findFirstByPaymentId(entry.getKey());
 			String bankId = paymentEntity.map(PaymentEntity::getBankAccountId).orElse(null);
+			List<DueAmountDetailsEntity> finalDueAmount = calculateFinaDueAmount(entry.getKey(), entry.getValue());
 			PaymentDetail paymentDetail = new PaymentDetail();
 			paymentDetail.setPaymentId(entry.getKey());
-			paymentDetail.setPaymentName(resolvePaymentName(paymentEntity, entry.getValue()));
+			paymentDetail.setPaymentName(resolvePaymentName(paymentEntity, finalDueAmount));
 			paymentDetail.setBankId(bankId);
 			paymentDetail.setPaymentGateway(resolvePaymentGateway(apartmentId, bankId));
-			dueDetails.put(paymentDetail, entry.getValue());
+			dueDetails.put(paymentDetail, finalDueAmount);
 		}
 		return dueDetails;
+	}
+
+	private List<DueAmountDetailsEntity> calculateFinaDueAmount(String paymentId, List<DueAmountDetailsEntity> dueEntities) {
+		if (!hasText(paymentId) || dueEntities == null || dueEntities.isEmpty()) {
+			return dueEntities;
+		}
+		List<PaymentEntity> paymentEntities = paymentRepository.findByPaymentId(paymentId);
+		if (paymentEntities == null || paymentEntities.isEmpty()) {
+			return dueEntities;
+		}
+		Map<String, List<Map<String, DueAmountDetails>>> recalculatedDueMap = dueDetailsService
+				.previewDuesForPayment(paymentEntities, null);
+		if (recalculatedDueMap == null || recalculatedDueMap.isEmpty()) {
+			return dueEntities;
+		}
+		Map<String, DueAmountDetails> recalculatedDuesByKey = new LinkedHashMap<>();
+		for (List<Map<String, DueAmountDetails>> duesByCycle : recalculatedDueMap.values()) {
+			if (duesByCycle == null) {
+				continue;
+			}
+			for (Map<String, DueAmountDetails> duesByFlatType : duesByCycle) {
+				if (duesByFlatType == null) {
+					continue;
+				}
+				for (Map.Entry<String, DueAmountDetails> recalculatedEntry : duesByFlatType.entrySet()) {
+					DueAmountDetails dueAmountDetails = recalculatedEntry.getValue();
+					if (dueAmountDetails == null) {
+						continue;
+					}
+					recalculatedDuesByKey.putIfAbsent(buildCalculatedDueKey(recalculatedEntry.getKey(), dueAmountDetails),
+							dueAmountDetails);
+				}
+			}
+		}
+		for (DueAmountDetailsEntity dueEntity : dueEntities) {
+			if (dueEntity == null) {
+				continue;
+			}
+			DueAmountDetails recalculatedDue = recalculatedDuesByKey.get(buildCalculatedDueKey(dueEntity));
+			if (recalculatedDue != null) {
+				applyCalculatedDueAmount(dueEntity, recalculatedDue);
+			}
+		}
+		return dueEntities;
+	}
+
+	private String buildCalculatedDueKey(DueAmountDetailsEntity dueEntity) {
+		if (dueEntity == null) {
+			return "";
+		}
+		return normalizeHierarchyKey(dueEntity.getCollectionCycle()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(dueEntity.getFlatArea()).toUpperCase(Locale.ENGLISH) + "|"
+				+ Objects.toString(dueEntity.getDueDate(), "");
+	}
+
+	private String buildCalculatedDueKey(String flatArea, DueAmountDetails dueAmountDetails) {
+		if (dueAmountDetails == null) {
+			return "";
+		}
+		return normalizeHierarchyKey(dueAmountDetails.getCollectionCycle()).toUpperCase(Locale.ENGLISH) + "|"
+				+ normalizeHierarchyKey(flatArea).toUpperCase(Locale.ENGLISH) + "|"
+				+ Objects.toString(dueAmountDetails.getDueDate(), "");
+	}
+
+	private void applyCalculatedDueAmount(DueAmountDetailsEntity dueEntity, DueAmountDetails recalculatedDue) {
+		dueEntity.setDueDate(recalculatedDue.getDueDate());
+		dueEntity.setDueEndDate(recalculatedDue.getDueEndDate());
+		dueEntity.setPaymentId(recalculatedDue.getPaymentId());
+		dueEntity.setAmount(recalculatedDue.getAmount());
+		dueEntity.setGstAmount(recalculatedDue.getGstAmount());
+		dueEntity.setTotalAmount(recalculatedDue.getTotalAmount());
+		dueEntity.setPaymentName(recalculatedDue.getPaymentName());
+		dueEntity.setPaymentType(recalculatedDue.getPaymentType());
+		dueEntity.setCause(recalculatedDue.getCause());
+		dueEntity.setPaymentCapita(recalculatedDue.getPaymentCapita());
+		dueEntity.setAddedCharges(genericService
+				.toJson(recalculatedDue.getAddedCharges() != null ? recalculatedDue.getAddedCharges() : List.of()));
+		dueEntity.setTotalAddedCharges(recalculatedDue.getTotalAddedCharges());
+		dueEntity.setEstimatedCollectionAmount(recalculatedDue.getEstimatedCollectionAmount());
+		dueEntity.setGstPercentage(recalculatedDue.getGstPercentage());
+		dueEntity.setDiscountCode(recalculatedDue.getDiscountCode());
+		dueEntity.setDiscountMode(recalculatedDue.getDiscountMode());
+		dueEntity.setCummilationCycle(recalculatedDue.getCummilationCycle());
+		dueEntity.setFineCode(recalculatedDue.getFineCode());
+		dueEntity.setDiscValue(recalculatedDue.getDiscValue());
+		dueEntity.setFnValue(recalculatedDue.getFnValue());
+		dueEntity.setDiscountedAmount(recalculatedDue.getDiscountedAmount());
+		dueEntity.setFineAmount(recalculatedDue.getFineAmount());
+		dueEntity.setFineMode(recalculatedDue.getFineMode());
+		dueEntity.setFineType(recalculatedDue.getFineType());
+		dueEntity.setRoundUpAmount(recalculatedDue.getRoundUpAmount());
+		dueEntity.setAlreadyPaidAmount(recalculatedDue.getAlreadyPaidAmount());
+		dueEntity.setAdminDiscount(recalculatedDue.getAdminDiscount());
+		dueEntity.setApplicableFlats(genericService
+				.toJson(recalculatedDue.getApplicableFlats() != null ? recalculatedDue.getApplicableFlats() : List.of()));
+		dueEntity.setAllowedTenders(genericService.toJson(
+				recalculatedDue.getAllowedPaymentModes() != null ? recalculatedDue.getAllowedPaymentModes() : List.of()));
+		dueEntity.setPaymentStatus(recalculatedDue.getPaymentStatus());
+		dueEntity.setPaymentDate(recalculatedDue.getPaymentDate());
 	}
 
 	private String resolvePaymentName(Optional<PaymentEntity> paymentEntity, List<DueAmountDetailsEntity> dueEntities) {

@@ -58,6 +58,7 @@ import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.GetSampleExcellToUploadDataResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -96,6 +97,9 @@ class FlatServicesTest {
 
 	@Mock
 	private TransactionRepository transactionRepository;
+
+	@Mock
+	private DueDetailsService dueDetailsService;
 
 	@InjectMocks
 	private FlatServices flatServices;
@@ -509,6 +513,75 @@ class FlatServicesTest {
 						.get(0).get("dueId").asText());
 		assertEquals("120", response.getTotalMandatoryPayment());
 		assertEquals("500", response.getTotalOptionalPayment());
+	}
+
+	@Test
+	void getDueAmountForFlat_shouldRecalculateFinalDueValuesBeforeBuildingResponse() {
+		GetDueAmountForFlatRequest request = new GetDueAmountForFlatRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APRT001");
+		request.setGenericHeader(header);
+		request.setFlatId("A-101");
+
+		Flat flat = new Flat();
+		flat.setFlatNo("A-101");
+		flat.setFlatArea("1200");
+		flat.setFlatPndngPaymntLst("[\"D1_MONTHLY_1200_" + LocalDate.now() + "\"]");
+
+		List<String> pendingDueKeys = List.of("D1_MONTHLY_1200_" + LocalDate.now());
+		DueAmountDetailsEntity dueEntity = buildDueEntity("D1", "PAY1", "MONTHLY", "1200", LocalDate.now(), "120", "10",
+				"Maintenance", "MANDATORY");
+		dueEntity.setAmount("100");
+		dueEntity.setGstAmount("20");
+		dueEntity.setDiscountedAmount("0");
+		dueEntity.setTotalAddedCharges("0");
+		List<DueAmountDetailsEntity> dueEntities = List.of(dueEntity);
+
+		DueAmountDetails recalculatedDue = new DueAmountDetails();
+		recalculatedDue.setPaymentId("PAY1");
+		recalculatedDue.setCollectionCycle("MONTHLY");
+		recalculatedDue.setDueDate(LocalDate.now());
+		recalculatedDue.setDueEndDate(LocalDate.now().plusDays(29));
+		recalculatedDue.setAmount("150");
+		recalculatedDue.setGstAmount("27");
+		recalculatedDue.setTotalAmount("190");
+		recalculatedDue.setPaymentName("Maintenance Updated");
+		recalculatedDue.setPaymentType("MANDATORY");
+		recalculatedDue.setPaymentCapita("per_flat");
+		recalculatedDue.setTotalAddedCharges("8");
+		recalculatedDue.setEstimatedCollectionAmount("190");
+		recalculatedDue.setGstPercentage("18");
+		recalculatedDue.setDiscountedAmount("5");
+		recalculatedDue.setFineAmount("10");
+		recalculatedDue.setRoundUpAmount("0");
+		recalculatedDue.setAlreadyPaidAmount("0");
+		recalculatedDue.setAdminDiscount("0");
+		recalculatedDue.setApplicableFlats(List.of("A-101"));
+		recalculatedDue.setAllowedPaymentModes(List.of("UPI"));
+
+		Map<String, List<Map<String, DueAmountDetails>>> recalculatedDueMap = Map.of("MONTHLY",
+				List.of(Map.of("1200", recalculatedDue)));
+
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
+		when(genericService.toJson(any())).thenReturn("[]");
+		when(dueAmountDetailsRepository.findByDueIdIn(List.of("D1"))).thenReturn(dueEntities);
+		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
+		when(paymentRepository.findFirstByPaymentId("PAY1")).thenReturn(Optional.of(buildPaymentEntity("PAY1", "Maintenance")));
+		when(paymentRepository.findByPaymentId("PAY1")).thenReturn(List.of(buildPaymentEntity("PAY1", "Maintenance")));
+		when(dueDetailsService.previewDuesForPayment(anyList(), eq(null))).thenReturn(recalculatedDueMap);
+		when(transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus("PAY1", "A-101", SUCCESS_TRANSACTION_STATUS))
+				.thenReturn(List.of());
+
+		GetDueAmountForFlatResponse response = flatServices.getDueAmountForFlat(request);
+
+		List<DueAmountDetailsEntity> responseDues = response.getDueDetails().values().iterator().next();
+		assertEquals("150", responseDues.get(0).getAmount());
+		assertEquals("27", responseDues.get(0).getGstAmount());
+		assertEquals("190", responseDues.get(0).getTotalAmount());
+		assertEquals("Maintenance Updated", responseDues.get(0).getPaymentName());
+		assertEquals("8", responseDues.get(0).getTotalAddedCharges());
+		verify(dueDetailsService, times(1)).previewDuesForPayment(anyList(), eq(null));
 	}
 
 	@Test
