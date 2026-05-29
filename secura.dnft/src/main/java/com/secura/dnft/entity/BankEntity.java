@@ -8,7 +8,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @IdClass(BankEntityId.class)
-@Table(name = "bankentity")
+@Table(name = "secura_bankentity")
 public class BankEntity {
 
 	@Id

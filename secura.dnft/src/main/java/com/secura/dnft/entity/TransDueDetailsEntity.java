@@ -15,9 +15,13 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 @Entity
-@IdClass(DueAmountDetailsEntityId.class)
-@Table(name = "secura_due_amount_details")
-public class DueAmountDetailsEntity {
+@IdClass(TransDueDetailsEntityId.class)
+@Table(name = "secura_trans_due_details")
+public class TransDueDetailsEntity {
+
+	@Id
+	@Column(name = "transaction_id")
+	private String transactionId;
 
 	@Id
 	@Column(name = "aprmnt_id")
@@ -152,6 +156,14 @@ public class DueAmountDetailsEntity {
 
 	@Column(name = "lst_updt_usr_id")
 	private String lstUpdtUsrId;
+
+	public String getTransactionId() {
+		return transactionId;
+	}
+
+	public void setTransactionId(String transactionId) {
+		this.transactionId = transactionId;
+	}
 
 	public String getAprmntId() {
 		return aprmntId;

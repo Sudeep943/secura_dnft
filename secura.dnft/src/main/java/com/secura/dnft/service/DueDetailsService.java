@@ -91,6 +91,8 @@ public class DueDetailsService {
 		}
 
 		PaymentEntity baseEntity = paymentEntityList.get(0);
+		String apartmentId = genericHeader != null && hasText(genericHeader.getApartmentId()) ? genericHeader.getApartmentId()
+				: baseEntity.getAprmtId();
 		List<Flat> apartmentFlats = flatRepository.findByAprmntId(baseEntity.getAprmtId());
 
 		Set<String> visitedCycles = new LinkedHashSet<>();
@@ -135,7 +137,7 @@ public class DueDetailsService {
 
 		if (persistResults) {
 			List<DueAmountDetailsEntity> entityList = generatedRows.stream()
-					.map(row -> toEntity(row, genericHeader != null ? genericHeader.getUserId() : null)).toList();
+					.map(row -> toEntity(row, genericHeader != null ? genericHeader.getUserId() : null, apartmentId)).toList();
 			dueAmountDetailsRepository.saveAll(entityList);
 			appendDuesToFlatPendingPayments(apartmentFlats, entityList);
 		}
@@ -272,9 +274,10 @@ public class DueDetailsService {
 		return due;
 	}
 
-	private DueAmountDetailsEntity toEntity(DueRow dueRow, String userId) {
+	private DueAmountDetailsEntity toEntity(DueRow dueRow, String userId, String apartmentId) {
 		DueAmountDetails due = dueRow.dueAmountDetails();
 		DueAmountDetailsEntity entity = new DueAmountDetailsEntity();
+		entity.setAprmntId(apartmentId);
 		entity.setDueId(due.getDueId());
 		entity.setCollectionCycle(due.getCollectionCycle());
 		entity.setFlatArea(dueRow.flatType());

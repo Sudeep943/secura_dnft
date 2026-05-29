@@ -46,10 +46,10 @@ import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
-import com.secura.dnft.entity.DueAmountDetailsEntityId;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
@@ -109,6 +109,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private WorklistService worklistService;
+
+	@Mock
+	private TransDueDetailsRepository transDueDetailsRepository;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -704,8 +707,8 @@ class PaymentServicesTest {
 		dueEntity.setGstAmount("270");
 		dueEntity.setTotalAmount("4770");
 		dueEntity.setAddedCharges("[]");
-		when(dueAmountDetailsRepository.findById(
-				new DueAmountDetailsEntityId("DUE1001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01"))))
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(
+				"APR-001", "DUE1001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01")))
 				.thenReturn(Optional.of(dueEntity));
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
 
@@ -798,8 +801,8 @@ class PaymentServicesTest {
 		dueEntity.setGstAmount("270");
 		dueEntity.setTotalAmount("4770");
 		dueEntity.setAddedCharges("[]");
-		when(dueAmountDetailsRepository.findById(
-				new DueAmountDetailsEntityId("DUE1002", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01"))))
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(
+				"APR-001", "DUE1002", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01")))
 				.thenReturn(Optional.of(dueEntity));
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
 
