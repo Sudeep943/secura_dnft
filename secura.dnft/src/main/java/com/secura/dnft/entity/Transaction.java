@@ -5,12 +5,15 @@ import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 @Entity
+@IdClass(TransactionId.class)
 @Table(name = "secura_trnsac")
 public class Transaction {
 
+	@Id
 	@Column(name = "aprmnt_id")
 	private String aprmntId;
 

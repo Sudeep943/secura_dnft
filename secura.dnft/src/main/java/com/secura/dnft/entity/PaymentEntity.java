@@ -53,7 +53,6 @@ public class PaymentEntity {
     @JsonFormat(pattern = "d-MMM-yyyy")
     private LocalDate collectionEndDate;
 
-    @Id
     @Column(name = "payment_collection_cycle")
     private String paymentCollectionCycle;
 
@@ -81,6 +80,7 @@ public class PaymentEntity {
     @Column(name = "status")
     private String status;
     
+    @Id
     @Column(name = "aprmt_id")
     private String aprmtId;
     

@@ -117,7 +117,10 @@ public class WorklistService {
 			response.setMessageCode(SecuraConstants.ERROR_INVALID_WORKLIST_TYPE_CODE);
 			return response;
 		}
-		Transaction transaction = transactionRepository.findById(worklist.getReferenceId())
+		Transaction transaction = transactionRepository
+				.findByAprmntIdAndTrnscId(worklist.getApartmentId(), worklist.getReferenceId())
+				.stream()
+				.findFirst()
 				.orElseThrow(() -> new EntityNotFoundException("Transaction not found"));
 		String action = request.getAction();
 		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)) {

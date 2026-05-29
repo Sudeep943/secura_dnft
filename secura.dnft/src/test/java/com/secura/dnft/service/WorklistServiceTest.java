@@ -150,11 +150,12 @@ class WorklistServiceTest {
 		worklist.setWorklistId("WL-4");
 		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
 		worklist.setReferenceId("TRN-4");
+		worklist.setApartmentId("APR-1");
 		Transaction transaction = new Transaction();
 		transaction.setTrnscId("TRN-4");
 
 		when(worklistRepository.findById("WL-4")).thenReturn(Optional.of(worklist));
-		when(transactionRepository.findById("TRN-4")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-4")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -187,6 +188,7 @@ class WorklistServiceTest {
 		worklist.setWorklistId("WL-5");
 		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
 		worklist.setReferenceId("TRN-5");
+		worklist.setApartmentId("APR-1");
 		worklist.setFlatNo("A-101");
 		Transaction transaction = new Transaction();
 		transaction.setTrnscId("TRN-5");
@@ -205,7 +207,7 @@ class WorklistServiceTest {
 		flat.setFlatPndngPaymntLst("[\"DUE1001_MONTHLY_ALL_2026-06-01\",\"DUE1002_MONTHLY_ALL_2026-07-01\"]");
 
 		when(worklistRepository.findById("WL-5")).thenReturn(Optional.of(worklist));
-		when(transactionRepository.findById("TRN-5")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-5")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(due));
@@ -263,7 +265,7 @@ class WorklistServiceTest {
 		paymentEntity.setPaymentId("PAY-1001");
 
 		when(worklistRepository.findById("WL-6")).thenReturn(Optional.of(worklist));
-		when(transactionRepository.findById("TRN-6")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-6")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(due));
@@ -333,7 +335,7 @@ class WorklistServiceTest {
 				+ "_ALL_2026-01-01\",\"DUE2001_MONTHLY_ALL_2026-02-01\",\"OTHER_DUE_MONTHLY_ALL_2026-04-01\"]");
 
 		when(worklistRepository.findById("WL-7")).thenReturn(Optional.of(worklist));
-		when(transactionRepository.findById("TRN-7")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-7")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(paidDue));
@@ -433,7 +435,7 @@ class WorklistServiceTest {
 				+ "_1200_2026-01-01\",\"DUE2001_MONTHLY_1200_2026-02-01\"]");
 
 		when(worklistRepository.findById("WL-8")).thenReturn(Optional.of(worklist));
-		when(transactionRepository.findById("TRN-8")).thenReturn(Optional.of(transaction));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-8")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(paidDue));

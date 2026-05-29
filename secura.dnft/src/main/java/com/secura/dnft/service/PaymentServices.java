@@ -95,10 +95,10 @@ public class PaymentServices implements PaymentInterface {
 	private static final Logger LOGGER = LoggerFactory.getLogger(PaymentServices.class);
 	// Synthetic id used only for non-persisting due preview calculation.
 	private static final String DUE_PREVIEW_PAYMENT_ID = "DUE_PREVIEW";
-	private static final String TRANSACTION_ID_PREFIX = "TRN-";
-	private static final DateTimeFormatter TRANSACTION_ID_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+	private static final String TRANSACTION_ID_FIXED_SEGMENT = "TRN";
+	private static final int TRANSACTION_ID_TOTAL_LENGTH = 10;
+	private static final int PAYMENT_ID_TOTAL_LENGTH = 6;
 	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	private static final int TRANSACTION_ID_RANDOM_LENGTH = 6;
 	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount",
 			"GST%", "Total Due Amount", "Cause", "BankAccountID" };
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
@@ -552,7 +552,8 @@ public class PaymentServices implements PaymentInterface {
 		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
 		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate() : null;
 		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
-		String paymentId = getPaymentId(request != null ? request.getCause() : null);
+		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		String paymentId = getPaymentId(request != null ? request.getCause() : null, apartmentId);
 		String applicableFor = serializeApplicableFor(request.getApplicableFor());
 		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
 		String addedCharges = serializeAddedCharges(request.getAddedCharges());
@@ -576,7 +577,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setDiscFin(discFin);
 		entity.setPaymentType(request.getPaymentType());
 		entity.setBankAccountId(request.getBankAccountId());
-		entity.setAprmtId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
+		entity.setAprmtId(apartmentId);
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
 		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		entity.setCauseId(request.getCause());
@@ -655,7 +656,8 @@ public class PaymentServices implements PaymentInterface {
 	@Override
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
-		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
+		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		PaymentEntity paymentEntity = resolvePaymentEntity(request != null ? request.getPaymentId() : null, apartmentId)
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
@@ -725,15 +727,21 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
-	public String getPaymentId(String cause) {
-		String causeCode = PaymentCauseCode.getCode(cause);
-		for (int attempt = 0; attempt < 10000; attempt++) {
-			String candidatePaymentId = SecuraConstants.PAYMENT_ID_PREFIX + causeCode + generatePaymentIdRandomSuffix(3);
-			if (paymentRepository.findFirstByPaymentId(candidatePaymentId).isEmpty()) {
+	public String getPaymentId(String cause, String apartmentId) {
+		String causePrefix = getCausePrefix(cause);
+		long baseSequence = paymentRepository.countByAprmtIdAndCauseIdIgnoreCase(apartmentId, trimValue(cause)) + 1;
+		for (long sequence = baseSequence; sequence <= 999; sequence++) {
+			String candidatePaymentId = causePrefix
+					+ String.format(Locale.ENGLISH, "%0" + (PAYMENT_ID_TOTAL_LENGTH - causePrefix.length()) + "d", sequence);
+			if (paymentRepository.findFirstByPaymentIdAndAprmtId(candidatePaymentId, apartmentId).isEmpty()) {
 				return candidatePaymentId;
 			}
 		}
 		throw new IllegalStateException("Unable to generate unique payment id");
+	}
+
+	public String getPaymentId(String cause) {
+		return getPaymentId(cause, null);
 	}
 
 	private String serializeAddedCharges(List<AddedCharges> addedCharges) {
@@ -870,7 +878,7 @@ public class PaymentServices implements PaymentInterface {
 		Transaction transaction = new Transaction();
 		transaction.setAprmntId(request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 		transaction.setTrnscId(createTransactionId(
-				request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null, currentTimestamp));
+				request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null, paymentEntity.getCauseId()));
 		transaction.setTrnsDate(currentTimestamp);
 		transaction.setTrnsBy(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setTrnsTender(
@@ -962,7 +970,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setAprmntId(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null);
 		transaction.setTrnscId(createTransactionId(
 				request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
-				currentTimestamp));
+				request != null ? request.getCause() : null));
 		transaction.setTrnsDate(transactionDate);
 		transaction.setTrnsBy(request != null && request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transaction.setTrnsTender(genericService.toJson(paymentTenderDataList));
@@ -1467,26 +1475,38 @@ public class PaymentServices implements PaymentInterface {
 		return paymentTenderDataList.get(0) != null ? paymentTenderDataList.get(0).getTenderName() : null;
 	}
 
-	private String createTransactionId(String apartmentId, LocalDateTime currentTimestamp) {
-		LocalDateTime effectiveTimestamp = currentTimestamp != null ? currentTimestamp : LocalDateTime.now();
-		StringBuilder transactionId = new StringBuilder();
-		transactionId.append(TRANSACTION_ID_PREFIX);
-		transactionId.append(normalizeTransactionIdPart(apartmentId));
-		transactionId.append(effectiveTimestamp.format(TRANSACTION_ID_TIMESTAMP_FORMATTER));
-		transactionId.append(generateTransactionRandomSuffix());
-		return transactionId.toString().toUpperCase();
+	private String createTransactionId(String apartmentId, String cause) {
+		String causePrefix = getCausePrefix(cause);
+		int randomLength = TRANSACTION_ID_TOTAL_LENGTH - causePrefix.length() - TRANSACTION_ID_FIXED_SEGMENT.length();
+		if (randomLength <= 0) {
+			throw new IllegalStateException("Invalid transaction id format configuration");
+		}
+		for (int attempt = 0; attempt < 1000; attempt++) {
+			String candidateId = causePrefix + TRANSACTION_ID_FIXED_SEGMENT + generateRandomSuffix(randomLength);
+			if (transactionRepository.findByAprmntIdAndTrnscId(apartmentId, candidateId).isEmpty()) {
+				return candidateId;
+			}
+		}
+		throw new IllegalStateException("Unable to generate unique transaction id");
 	}
 
-	private String normalizeTransactionIdPart(String value) {
-		return value == null ? "" : value.replaceAll("\\s+", "");
+	private String getCausePrefix(String cause) {
+		String code = trimValue(PaymentCauseCode.getCode(cause));
+		StringBuilder prefix = new StringBuilder(code != null ? code : "");
+		while (prefix.length() < 3) {
+			prefix.append('X');
+		}
+		return prefix.substring(0, 3).toUpperCase(Locale.ENGLISH);
 	}
 
-	private String generateTransactionRandomSuffix() {
-		return generateRandomSuffix(TRANSACTION_ID_RANDOM_LENGTH);
-	}
-
-	private String generatePaymentIdRandomSuffix(int length) {
-		return generateRandomSuffix(length);
+	private Optional<PaymentEntity> resolvePaymentEntity(String paymentId, String apartmentId) {
+		if (hasText(apartmentId)) {
+			Optional<PaymentEntity> apartmentScopedPayment = paymentRepository.findFirstByPaymentIdAndAprmtId(paymentId, apartmentId);
+			if (apartmentScopedPayment.isPresent()) {
+				return apartmentScopedPayment;
+			}
+		}
+		return paymentRepository.findFirstByPaymentId(paymentId);
 	}
 
 	private String generateRandomSuffix(int length) {

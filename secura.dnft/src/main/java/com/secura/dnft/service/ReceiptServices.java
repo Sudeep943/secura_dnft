@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.imageio.ImageIO;
 
@@ -36,14 +35,15 @@ import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.ReceiptRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.Name;
 import com.secura.dnft.generic.bean.ErrorMessage;
@@ -98,9 +98,8 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final String ELECTRONIC_RECEIPT_NOTE = "* This is an Electronic Generated Receipt and Required No Signature";
 	private static final DateTimeFormatter RECEIPT_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH);
 	private static final String RECEIPT_NUMBER_PREFIX = "INV-";
-	private static final int RECEIPT_NUMBER_DIGITS = 6;
-	private static final long MAX_RECEIPT_SEQUENCE = 999_999L;
-	private static final AtomicLong LAST_RECEIPT_NUMBER = new AtomicLong(-1L);
+	private static final String RECEIPT_NUMBER_GENERIC_PREFIX = "INV-GEN-";
+	private static final int RECEIPT_NUMBER_DIGITS = 4;
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
 			"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf" };
@@ -117,6 +116,9 @@ public class ReceiptServices implements ReceiptInterface {
 	@Autowired
 	private ProfileRepository profileRepository;
 
+	@Autowired
+	private TransactionRepository transactionRepository;
+
 
 	@Autowired
 	private GenericService genericServices;
@@ -124,7 +126,8 @@ public class ReceiptServices implements ReceiptInterface {
 	@Override
 	public CreateReceiptResponse createReceipt(CreateReceiptRequest request) throws Exception {
 		LocalDateTime currentTimestamp = LocalDateTime.now();
-		String receiptNumber = generateReceiptNumber();
+		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		String receiptNumber = generateReceiptNumber(request, apartmentId);
 		// Resolve createdBy before serialization so the value is persisted in receipt data
 		// and available when the receipt is regenerated later.
 		if (request != null && !hasText(request.getCreatedBy())) {
@@ -160,7 +163,8 @@ public class ReceiptServices implements ReceiptInterface {
 		CreateReceiptResponse response = new CreateReceiptResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		String receiptNumber = request != null ? request.getReceiptNumber() : null;
-		Optional<Receipt> receiptOptional = receiptNumber != null ? receiptRepository.findById(receiptNumber) : Optional.empty();
+		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
+		Optional<Receipt> receiptOptional = resolveReceiptByNumber(apartmentId, receiptNumber);
 		if (receiptOptional.isEmpty()) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_49);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_49);
@@ -484,45 +488,43 @@ public class ReceiptServices implements ReceiptInterface {
 		return fallback;
 	}
 
-	private String generateReceiptNumber() {
-		initializeReceiptCounterIfRequired();
-		long next = LAST_RECEIPT_NUMBER.incrementAndGet();
-		if (next > MAX_RECEIPT_SEQUENCE) {
-			throw new IllegalStateException("Receipt number sequence exceeded supported range");
+	private Optional<Receipt> resolveReceiptByNumber(String apartmentId, String receiptNumber) {
+		if (!hasText(receiptNumber)) {
+			return Optional.empty();
 		}
-		return RECEIPT_NUMBER_PREFIX + String.format(Locale.ENGLISH, "%0" + RECEIPT_NUMBER_DIGITS + "d", next);
-	}
-
-	private void initializeReceiptCounterIfRequired() {
-		if (LAST_RECEIPT_NUMBER.get() < 0) {
-			synchronized (LAST_RECEIPT_NUMBER) {
-				if (LAST_RECEIPT_NUMBER.get() < 0) {
-					int expectedLength = RECEIPT_NUMBER_PREFIX.length() + RECEIPT_NUMBER_DIGITS;
-					List<String> latestReceiptIds = receiptRepository.findLatestReceiptIdsByPrefix(RECEIPT_NUMBER_PREFIX,
-							expectedLength, PageRequest.of(0, 1));
-					long currentMax = latestReceiptIds.stream()
-							.mapToLong(this::extractSequentialPart)
-							.max()
-							.orElse(0L);
-					LAST_RECEIPT_NUMBER.set(currentMax);
-				}
+		if (hasText(apartmentId)) {
+			List<Receipt> scopedReceipt = receiptRepository.findByAprmtIdAndReceiptId(apartmentId, receiptNumber);
+			if (!scopedReceipt.isEmpty()) {
+				return Optional.of(scopedReceipt.get(0));
 			}
 		}
+		return receiptRepository.findByReceiptId(receiptNumber).stream().findFirst();
 	}
 
-	private long extractSequentialPart(String receiptId) {
-		if (!hasText(receiptId) || !receiptId.startsWith(RECEIPT_NUMBER_PREFIX)) {
-			return -1L;
+	private String generateReceiptNumber(CreateReceiptRequest request, String apartmentId) {
+		String paymentId = resolvePaymentId(request, apartmentId);
+		if (hasText(paymentId)) {
+			long nextSequence = transactionRepository.countByAprmntIdAndPymntId(apartmentId, paymentId) + 1;
+			return RECEIPT_NUMBER_PREFIX + paymentId + "-" + formatSequence(nextSequence);
 		}
-		String suffix = receiptId.substring(RECEIPT_NUMBER_PREFIX.length());
-		if (suffix.length() != RECEIPT_NUMBER_DIGITS || !suffix.chars().allMatch(Character::isDigit)) {
-			return -1L;
+		long nextSequence = receiptRepository.countByAprmtIdAndReceiptIdStartingWith(apartmentId, RECEIPT_NUMBER_GENERIC_PREFIX) + 1;
+		return RECEIPT_NUMBER_GENERIC_PREFIX + formatSequence(nextSequence);
+	}
+
+	private String resolvePaymentId(CreateReceiptRequest request, String apartmentId) {
+		String transactionId = request != null ? request.getTransactionId() : null;
+		if (!hasText(transactionId) || !hasText(apartmentId)) {
+			return null;
 		}
-		try {
-			return Long.parseLong(suffix);
-		} catch (NumberFormatException ex) {
-			return -1L;
+		List<Transaction> transactions = transactionRepository.findByAprmntIdAndTrnscId(apartmentId, transactionId);
+		if (transactions.isEmpty()) {
+			return null;
 		}
+		return transactions.get(0).getPymntId();
+	}
+
+	private String formatSequence(long sequence) {
+		return String.format(Locale.ENGLISH, "%0" + RECEIPT_NUMBER_DIGITS + "d", sequence);
 	}
 
 	private static final class PdfCanvas {

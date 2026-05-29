@@ -8,14 +8,14 @@ public class PaymentEntityId implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private String paymentId;
-	private String paymentCollectionCycle;
+	private String aprmtId;
 
 	public PaymentEntityId() {
 	}
 
-	public PaymentEntityId(String paymentId, String paymentCollectionCycle) {
+	public PaymentEntityId(String paymentId, String aprmtId) {
 		this.paymentId = paymentId;
-		this.paymentCollectionCycle = paymentCollectionCycle;
+		this.aprmtId = aprmtId;
 	}
 
 	public String getPaymentId() {
@@ -26,12 +26,12 @@ public class PaymentEntityId implements Serializable {
 		this.paymentId = paymentId;
 	}
 
-	public String getPaymentCollectionCycle() {
-		return paymentCollectionCycle;
+	public String getAprmtId() {
+		return aprmtId;
 	}
 
-	public void setPaymentCollectionCycle(String paymentCollectionCycle) {
-		this.paymentCollectionCycle = paymentCollectionCycle;
+	public void setAprmtId(String aprmtId) {
+		this.aprmtId = aprmtId;
 	}
 
 	@Override
@@ -43,11 +43,11 @@ public class PaymentEntityId implements Serializable {
 			return false;
 		}
 		return Objects.equals(paymentId, other.paymentId)
-				&& Objects.equals(paymentCollectionCycle, other.paymentCollectionCycle);
+				&& Objects.equals(aprmtId, other.aprmtId);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(paymentId, paymentCollectionCycle);
+		return Objects.hash(paymentId, aprmtId);
 	}
 }

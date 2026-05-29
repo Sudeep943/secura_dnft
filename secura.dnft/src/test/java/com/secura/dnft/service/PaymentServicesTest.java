@@ -116,6 +116,9 @@ class PaymentServicesTest {
 	@BeforeEach
 	void setUp() {
 		lenient().when(paymentRepository.findFirstByPaymentId(any())).thenReturn(Optional.empty());
+		lenient().when(paymentRepository.findFirstByPaymentIdAndAprmtId(any(), any())).thenReturn(Optional.empty());
+		lenient().when(paymentRepository.countByAprmtIdAndCauseIdIgnoreCase(any(), any())).thenReturn(0L);
+		lenient().when(transactionRepository.findByAprmntIdAndTrnscId(any(), any())).thenReturn(List.of());
 	}
 
 	@Test
@@ -465,23 +468,23 @@ class PaymentServicesTest {
 
 	@Test
 	void getPaymentId_shouldUseCauseCodeForKnownCause() {
-		String paymentId = paymentServices.getPaymentId("FESTIVAL_FUND");
+		String paymentId = paymentServices.getPaymentId("FESTIVAL_FUND", "APT-1");
 
-		assertTrue(paymentId.matches("^PMNTEVNT[A-Z0-9]{3}$"));
+		assertEquals("EVN001", paymentId);
 	}
 
 	@Test
 	void getPaymentId_shouldUseOtherCodeForUnknownCause() {
-		String paymentId = paymentServices.getPaymentId("unknown-cause");
+		String paymentId = paymentServices.getPaymentId("unknown-cause", "APT-1");
 
-		assertTrue(paymentId.matches("^PMNTOTHR[A-Z0-9]{3}$"));
+		assertEquals("OTH001", paymentId);
 	}
 
 	@Test
 	void getPaymentId_shouldUseOtherCodeForNullCause() {
-		String paymentId = paymentServices.getPaymentId(null);
+		String paymentId = paymentServices.getPaymentId(null, "APT-1");
 
-		assertTrue(paymentId.matches("^PMNTOTHR[A-Z0-9]{3}$"));
+		assertEquals("OTH001", paymentId);
 	}
 
 	@Test
@@ -1903,7 +1906,7 @@ class PaymentServicesTest {
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {
 		assertNotNull(transactionId);
-		assertTrue(transactionId.matches("^TRN-" + apartmentId + "\\d{14}[A-Z0-9]{6}$"),
+		assertTrue(transactionId.matches("^[A-Z0-9]{3}TRN[A-Z0-9]{4}$"),
 				() -> "Unexpected transaction id format: " + transactionId);
 	}
 

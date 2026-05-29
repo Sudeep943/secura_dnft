@@ -41,8 +41,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.ReceiptRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Receipt;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
@@ -80,6 +82,9 @@ class ReceiptServicesTest {
 	private ProfileRepository profileRepository;
 
 	@Mock
+	private TransactionRepository transactionRepository;
+
+	@Mock
 	private GenericService genericServices;
 
 	@InjectMocks
@@ -87,7 +92,11 @@ class ReceiptServicesTest {
 
 	@BeforeEach
 	void setUp() {
-		lenient().when(receiptRepository.findLatestReceiptIdsByPrefix(anyString(), anyInt(), any())).thenReturn(List.of());
+		lenient().when(receiptRepository.findByAprmtIdAndReceiptId(anyString(), anyString())).thenReturn(List.of());
+		lenient().when(receiptRepository.findByReceiptId(anyString())).thenReturn(List.of());
+		lenient().when(receiptRepository.countByAprmtIdAndReceiptIdStartingWith(anyString(), anyString())).thenReturn(0L);
+		lenient().when(transactionRepository.findByAprmntIdAndTrnscId(anyString(), anyString())).thenReturn(List.of());
+		lenient().when(transactionRepository.countByAprmntIdAndPymntId(anyString(), anyString())).thenReturn(0L);
 	}
 
 	@Test
@@ -119,6 +128,9 @@ class ReceiptServicesTest {
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.of(apartment));
 		when(genericServices.toJson(any())).thenReturn("{\"receiptType\":\"Maintenance\"}");
 		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		Transaction transaction = new Transaction();
+		transaction.setPymntId("CAM001");
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TXN-1001")).thenReturn(List.of(transaction));
 
 		CreateReceiptResponse response = receiptServices.createReceipt(request);
 
@@ -127,8 +139,7 @@ class ReceiptServicesTest {
 		assertNotNull(response.getReceipt());
 		assertNotNull(response.getReceiptNumber());
 		assertFalse(response.getReceipt().isBlank());
-		assertTrue(response.getReceiptNumber().startsWith("INV-"));
-		assertTrue(response.getReceiptNumber().matches("INV-\\d{6}"));
+		assertEquals("INV-CAM001-0001", response.getReceiptNumber());
 
 		String text = extractText(response.getReceipt());
 		assertTrue(text.contains("Secura Heights"));
@@ -423,7 +434,7 @@ class ReceiptServicesTest {
 		receiptEntity.setReceiptDate(java.time.LocalDateTime.of(2026, 1, 15, 10, 0));
 		receiptEntity.setAprmtId("APR-1");
 
-		when(receiptRepository.findById("RCP-001")).thenReturn(Optional.of(receiptEntity));
+		when(receiptRepository.findByAprmtIdAndReceiptId("APR-1", "RCP-001")).thenReturn(List.of(receiptEntity));
 		when(genericServices.fromJson(receiptJson, CreateReceiptRequest.class)).thenReturn(createRequest);
 		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
 
@@ -444,7 +455,8 @@ class ReceiptServicesTest {
 
 	@Test
 	void generateReceipt_shouldReturnErrorWhenReceiptNotFound() throws Exception {
-		when(receiptRepository.findById("UNKNOWN")).thenReturn(Optional.empty());
+		when(receiptRepository.findByAprmtIdAndReceiptId("APR-1", "UNKNOWN")).thenReturn(List.of());
+		when(receiptRepository.findByReceiptId("UNKNOWN")).thenReturn(List.of());
 
 		GenerateReceiptRequest request = new GenerateReceiptRequest();
 		GenericHeader header = new GenericHeader();
