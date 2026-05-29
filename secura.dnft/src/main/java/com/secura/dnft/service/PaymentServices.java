@@ -1284,6 +1284,10 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(transDueDetails.getAprmntId())) {
 			transDueDetails.setAprmntId(apartmentId);
 		}
+		String compositeKey = buildFlatPendingDueKey(dueEntity);
+		if (hasText(compositeKey)) {
+			transDueDetails.setDueId(compositeKey);
+		}
 		if (!hasText(transDueDetails.getAprmntId()) || !hasText(transDueDetails.getDueId())) {
 			return;
 		}
