@@ -6,8 +6,9 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.TransactionId;
 
-public interface TransactionRepository extends JpaRepository<Transaction, String> {
+public interface TransactionRepository extends JpaRepository<Transaction, TransactionId> {
 
 	List<Transaction> findByPymntIdAndFlatIdAndTrnsStatus(String pymntId, String flatId, String trnsStatus);
 
@@ -25,4 +26,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, String
 
 	List<Transaction> findByAprmntIdAndTrnsTypeAndTrnsStatusAndTrnsDateBetween(
 			String aprmntId, String trnsType, String trnsStatus, LocalDateTime from, LocalDateTime to);
+
+	List<Transaction> findByAprmntIdAndTrnscId(String aprmntId, String trnscId);
+
+	long countByAprmntIdAndPymntId(String aprmntId, String pymntId);
 }

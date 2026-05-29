@@ -103,8 +103,7 @@ public class TransactionAndReportsService {
 				: null;
 
 		if (transactionId != null && !transactionId.isBlank()) {
-			Optional<Transaction> transaction = transactionRepository.findById(transactionId);
-			transaction.ifPresent(transactions::add);
+			transactions = transactionRepository.findByAprmntIdAndTrnscId(aprmntId, transactionId);
 		} else if (aprmntId != null && !aprmntId.isBlank()) {
 			transactions = transactionRepository.findByAprmntId(aprmntId);
 		}
