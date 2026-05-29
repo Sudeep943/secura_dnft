@@ -45,6 +45,8 @@ public class WorklistService {
 	private static final String NO_WORKLISTS_FOUND_MESSAGE_CODE = "NO_WORKLISTS_FOUND";
 	private static final String ACTION_SUCCESS_MESSAGE = "Transaction review updated successfully";
 	private static final String ACTION_SUCCESS_MESSAGE_CODE = "TRANSACTION_REVIEW_UPDATED";
+	private static final String APPROVAL_BLOCKED_MESSAGE = "Worklist can not be approved as payment for other cycle is made for this payment id. Please reject it.";
+	private static final String APPROVAL_BLOCKED_MESSAGE_CODE = "WORKLIST_APPROVAL_BLOCKED_FOR_PAYMENT_CYCLE";
 
 	@Autowired
 	private WorklistRepository worklistRepository;
@@ -127,6 +129,12 @@ public class WorklistService {
 				.findFirst()
 				.orElseThrow(() -> new EntityNotFoundException("Transaction not found"));
 		String action = request.getAction();
+		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)
+				&& !isTransactionFlatApplicableForDue(worklist, transaction)) {
+			response.setMessage(APPROVAL_BLOCKED_MESSAGE);
+			response.setMessageCode(APPROVAL_BLOCKED_MESSAGE_CODE);
+			return response;
+		}
 		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)) {
 			transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		} else if (SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action)) {
@@ -151,6 +159,30 @@ public class WorklistService {
 		response.setMessage(ACTION_SUCCESS_MESSAGE);
 		response.setMessageCode(ACTION_SUCCESS_MESSAGE_CODE);
 		return response;
+	}
+
+	private boolean isTransactionFlatApplicableForDue(Worklist worklist, Transaction transaction) {
+		if (transaction == null || !hasText(transaction.getDueDetails())) {
+			return true;
+		}
+		String apartmentId = resolveApartmentId(worklist, transaction);
+		PendingDueKey dueEntityId = parsePendingDueKeyToEntityId(transaction.getDueDetails());
+		if (!hasText(apartmentId) || dueEntityId == null) {
+			return true;
+		}
+		DueAmountDetailsEntity dueEntity = dueAmountDetailsRepository
+				.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(apartmentId, dueEntityId.dueId(),
+						dueEntityId.collectionCycle(), dueEntityId.flatArea(), dueEntityId.dueDate())
+				.orElse(null);
+		if (dueEntity == null) {
+			return true;
+		}
+		String flatNo = resolveFlatNo(worklist, transaction);
+		if (!hasText(flatNo)) {
+			return false;
+		}
+		List<String> applicableFlats = parsePendingDueList(dueEntity.getApplicableFlats());
+		return containsFlatId(applicableFlats, flatNo);
 	}
 
 	private void deleteTransactionDueDetails(Worklist worklist, Transaction transaction) {
