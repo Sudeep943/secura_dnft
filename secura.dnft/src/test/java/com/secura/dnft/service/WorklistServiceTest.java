@@ -34,7 +34,11 @@ import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.TransDueDetailsEntityId;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Worklist;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
@@ -137,8 +141,8 @@ class WorklistServiceTest {
 
 		GenericResponse response = worklistService.actionTransactionReviewWorkList(request);
 
-		assertEquals(SecuraConstants.ERROR_INVALID_WORKLIST_TYPE, response.getMessage());
-		assertEquals(SecuraConstants.ERROR_INVALID_WORKLIST_TYPE_CODE, response.getMessageCode());
+		assertEquals(ErrorMessage.ERR_MESSAGE_52, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_52, response.getMessageCode());
 		verify(transactionRepository, never()).save(any(Transaction.class));
 	}
 
@@ -176,8 +180,8 @@ class WorklistServiceTest {
 		assertEquals(SecuraConstants.WORKLIST_STATUS_COMPLETE, worklistCaptor.getValue().getStatus());
 		assertEquals("USR-2", worklistCaptor.getValue().getLstUpdtUsrId());
 		verify(flatRepository, never()).save(any(Flat.class));
-		assertEquals("Transaction review updated successfully", response.getMessage());
-		assertEquals("TRANSACTION_REVIEW_UPDATED", response.getMessageCode());
+		assertEquals(SuccessMessage.SUCC_MESSAGE_47, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_47, response.getMessageCode());
 	}
 
 	@Test
@@ -216,7 +220,47 @@ class WorklistServiceTest {
 
 		assertEquals("Worklist cannot be approved as this flat is not applicable for the selected due. Please reject it.",
 				response.getMessage());
-		assertEquals("WORKLIST_APPROVAL_BLOCKED_FOR_FLAT_NOT_APPLICABLE", response.getMessageCode());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_53, response.getMessageCode());
+		verify(transactionRepository, never()).save(any(Transaction.class));
+		verify(worklistRepository, never()).save(any(Worklist.class));
+	}
+
+	@Test
+	void actionTransactionReviewWorkList_shouldBlockApprovalWhenFlatAlreadyPaidForDue() {
+		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
+		request.setWorklistId("WL-4B");
+		request.setAction(SecuraConstants.ACTION_APPROVE);
+
+		Worklist worklist = new Worklist();
+		worklist.setWorklistId("WL-4B");
+		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
+		worklist.setReferenceId("TRN-4B");
+		worklist.setApartmentId("APR-1");
+		worklist.setFlatNo("A-101");
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("TRN-4B");
+		transaction.setDueDetails("DUE1002_MONTHLY_ALL_2026-07-01");
+		DueAmountDetailsEntity due = new DueAmountDetailsEntity();
+		due.setDueId("DUE1002");
+		due.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		due.setFlatArea("ALL");
+		due.setDueDate(LocalDate.parse("2026-07-01"));
+		due.setApplicableFlats("[\"A-101\",\"A-102\"]");
+		due.setPaidFlats("[\"A-101\"]");
+
+		when(worklistRepository.findById("WL-4B")).thenReturn(Optional.of(worklist));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-4B")).thenReturn(List.of(transaction));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate("APR-1", "DUE1002",
+				SecuraConstants.PAYMENT_CYCLE_MONTHLY, "ALL", LocalDate.parse("2026-07-01"))).thenReturn(Optional.of(due));
+		when(genericService.fromJson(eq("[\"A-101\",\"A-102\"]"), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
+		when(genericService.fromJson(eq("[\"A-101\"]"), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101")));
+
+		GenericResponse response = worklistService.actionTransactionReviewWorkList(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_53, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_53, response.getMessageCode());
 		verify(transactionRepository, never()).save(any(Transaction.class));
 		verify(worklistRepository, never()).save(any(Worklist.class));
 	}
@@ -562,6 +606,6 @@ class WorklistServiceTest {
 		assertEquals("DUE1001_MONTHLY_ALL_2026-06-01", idCaptor.getValue().getDueId());
 
 		assertEquals("Transaction review updated successfully", response.getMessage());
-		assertEquals("TRANSACTION_REVIEW_UPDATED", response.getMessageCode());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_47, response.getMessageCode());
 	}
 }

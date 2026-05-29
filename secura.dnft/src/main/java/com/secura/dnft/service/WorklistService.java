@@ -27,7 +27,11 @@ import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.TransDueDetailsEntityId;
 import com.secura.dnft.entity.Worklist;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
@@ -43,10 +47,10 @@ public class WorklistService {
 	private static final String WORKLISTS_FOUND_MESSAGE_CODE = "WORKLISTS_FETCHED";
 	private static final String NO_WORKLISTS_FOUND_MESSAGE = "No worklists found";
 	private static final String NO_WORKLISTS_FOUND_MESSAGE_CODE = "NO_WORKLISTS_FOUND";
-	private static final String ACTION_SUCCESS_MESSAGE = "Transaction review updated successfully";
-	private static final String ACTION_SUCCESS_MESSAGE_CODE = "TRANSACTION_REVIEW_UPDATED";
-	private static final String APPROVAL_BLOCKED_MESSAGE = "Worklist cannot be approved as this flat is not applicable for the selected due. Please reject it.";
-	private static final String APPROVAL_BLOCKED_MESSAGE_CODE = "WORKLIST_APPROVAL_BLOCKED_FOR_FLAT_NOT_APPLICABLE";
+	private static final String ACTION_SUCCESS_MESSAGE = SuccessMessage.SUCC_MESSAGE_47;
+	private static final String ACTION_SUCCESS_MESSAGE_CODE = SuccessMessageCode.SUCC_MESSAGE_47;
+	private static final String APPROVAL_BLOCKED_MESSAGE = ErrorMessage.ERR_MESSAGE_53;
+	private static final String APPROVAL_BLOCKED_MESSAGE_CODE = ErrorMessageCode.ERR_MESSAGE_53;
 
 	@Autowired
 	private WorklistRepository worklistRepository;
@@ -119,8 +123,8 @@ public class WorklistService {
 		Worklist worklist = worklistRepository.findById(request.getWorklistId())
 				.orElseThrow(() -> new EntityNotFoundException("Worklist not found"));
 		if (!SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW.equalsIgnoreCase(worklist.getWorklistType())) {
-			response.setMessage(SecuraConstants.ERROR_INVALID_WORKLIST_TYPE);
-			response.setMessageCode(SecuraConstants.ERROR_INVALID_WORKLIST_TYPE_CODE);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_52);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_52);
 			return response;
 		}
 		Transaction transaction = transactionRepository
@@ -182,7 +186,14 @@ public class WorklistService {
 			return false;
 		}
 		List<String> applicableFlats = parsePendingDueList(dueEntity.getApplicableFlats());
-		return containsFlatId(applicableFlats, flatNo);
+		if (!containsFlatId(applicableFlats, flatNo)) {
+			return false;
+		}
+		List<String> paidFlats = parsePendingDueList(dueEntity.getPaidFlats());
+		if (paidFlats.isEmpty()) {
+			return true;
+		}
+		return !containsFlatId(paidFlats, flatNo);
 	}
 
 	private void deleteTransactionDueDetails(Worklist worklist, Transaction transaction) {
