@@ -54,5 +54,7 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_49="Receipt Not Found" ;
 	public final String ERR_MESSAGE_50="Due Already Paid." ;
 	public final String ERR_MESSAGE_51="Already A Pending Transaction Available. Contact Society Admin To Approve/Reject for further process." ;
+	public final String ERR_MESSAGE_52="Select correct Worklist for Transaction review." ;
+	public final String ERR_MESSAGE_53="Worklist cannot be approved as this flat is not applicable for the selected due. Please reject it." ;
 	
 }

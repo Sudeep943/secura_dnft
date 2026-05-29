@@ -48,5 +48,6 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_44="DeepLink Url Creaetd" ;
 	public final String SUCC_MESSAGE_45="Defaulter List Fetched Successfully" ;
 	public final String SUCC_MESSAGE_46="Prior Due Payment Validation Successful" ;
+	public final String SUCC_MESSAGE_47="Transaction review updated successfully" ;
 
 }
