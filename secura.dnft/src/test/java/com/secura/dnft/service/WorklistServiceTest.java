@@ -214,9 +214,9 @@ class WorklistServiceTest {
 
 		GenericResponse response = worklistService.actionTransactionReviewWorkList(request);
 
-		assertEquals("Worklist can not be approved as payment for other cycle is made for this payment id. Please reject it.",
+		assertEquals("Worklist cannot be approved as this flat is not applicable for the selected due. Please reject it.",
 				response.getMessage());
-		assertEquals("WORKLIST_APPROVAL_BLOCKED_FOR_PAYMENT_CYCLE", response.getMessageCode());
+		assertEquals("WORKLIST_APPROVAL_BLOCKED_FOR_FLAT_NOT_APPLICABLE", response.getMessageCode());
 		verify(transactionRepository, never()).save(any(Transaction.class));
 		verify(worklistRepository, never()).save(any(Worklist.class));
 	}
@@ -260,6 +260,8 @@ class WorklistServiceTest {
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class)))
 				.thenReturn(new ArrayList<>(List.of("DUE1001_MONTHLY_ALL_2026-06-01", "DUE1002_MONTHLY_ALL_2026-07-01")));
+		when(genericService.fromJson(eq("[\"A-101\",\"A-102\"]"), any(TypeReference.class)))
+				.thenReturn(new ArrayList<>(List.of("A-101", "A-102")));
 		when(genericService.toJson(any())).thenCallRealMethod();
 		when(flatRepository.save(any(Flat.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001")).thenReturn(List.of(due));

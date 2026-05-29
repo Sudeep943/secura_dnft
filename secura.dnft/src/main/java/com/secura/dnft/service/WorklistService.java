@@ -45,8 +45,8 @@ public class WorklistService {
 	private static final String NO_WORKLISTS_FOUND_MESSAGE_CODE = "NO_WORKLISTS_FOUND";
 	private static final String ACTION_SUCCESS_MESSAGE = "Transaction review updated successfully";
 	private static final String ACTION_SUCCESS_MESSAGE_CODE = "TRANSACTION_REVIEW_UPDATED";
-	private static final String APPROVAL_BLOCKED_MESSAGE = "Worklist can not be approved as payment for other cycle is made for this payment id. Please reject it.";
-	private static final String APPROVAL_BLOCKED_MESSAGE_CODE = "WORKLIST_APPROVAL_BLOCKED_FOR_PAYMENT_CYCLE";
+	private static final String APPROVAL_BLOCKED_MESSAGE = "Worklist cannot be approved as this flat is not applicable for the selected due. Please reject it.";
+	private static final String APPROVAL_BLOCKED_MESSAGE_CODE = "WORKLIST_APPROVAL_BLOCKED_FOR_FLAT_NOT_APPLICABLE";
 
 	@Autowired
 	private WorklistRepository worklistRepository;
