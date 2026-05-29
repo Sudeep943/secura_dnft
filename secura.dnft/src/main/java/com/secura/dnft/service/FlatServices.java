@@ -2,7 +2,6 @@ package com.secura.dnft.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
@@ -171,9 +170,8 @@ public class FlatServices implements FlatInterface {
 		int totalRows = 0;
 		int successRows = 0;
 
-		try (InputStream workbookInputStream = new ByteArrayInputStream(
-				Base64.getDecoder().decode(stripDataUrlPrefix(request.getDocumentData())));
-				Workbook workbook = new XSSFWorkbook(workbookInputStream)) {
+		try (Workbook workbook = new XSSFWorkbook(
+				new ByteArrayInputStream(Base64.getDecoder().decode(stripDataUrlPrefix(request.getDocumentData()))))) {
 			Sheet sheet = resolveSheet(workbook, request.getSheetName());
 			for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
 				Row row = sheet.getRow(rowIndex);
