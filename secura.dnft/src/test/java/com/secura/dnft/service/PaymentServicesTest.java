@@ -525,7 +525,7 @@ class PaymentServicesTest {
 
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, times(1)).save(paymentCaptor.capture());
-		verify(dueDetailsService, times(1)).calculateDuesForPayment(any(), eq(header));
+		verify(dueDetailsService, times(1)).calculateDuesForPaymentWithoutDiscFine(any(), eq(header));
 		assertEquals("custom_cause", paymentCaptor.getValue().getCauseId());
 		assertTrue(paymentCaptor.getValue().isPartialPaymentAllowed());
 		assertEquals("APR-001", paymentCaptor.getValue().getAprmtId());
@@ -1810,7 +1810,7 @@ class PaymentServicesTest {
 
 		ArgumentCaptor<PaymentEntity> paymentCaptor = ArgumentCaptor.forClass(PaymentEntity.class);
 		verify(paymentRepository, atLeastOnce()).save(paymentCaptor.capture());
-		verify(dueDetailsService, times(1)).calculateDuesForPayment(any(), eq(header));
+		verify(dueDetailsService, times(1)).calculateDuesForPaymentWithoutDiscFine(any(), eq(header));
 		assertEquals("March Due", paymentCaptor.getValue().getPaymentName());
 		assertEquals("1200", paymentCaptor.getValue().getPaymentAmount());
 		assertEquals("18", paymentCaptor.getValue().getGst());
