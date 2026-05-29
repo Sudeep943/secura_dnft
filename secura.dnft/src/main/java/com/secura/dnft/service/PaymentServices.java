@@ -98,7 +98,7 @@ public class PaymentServices implements PaymentInterface {
 	private static final String TRANSACTION_ID_FIXED_SEGMENT = "TRN";
 	private static final int TRANSACTION_ID_TOTAL_LENGTH = 10;
 	private static final int PAYMENT_ID_TOTAL_LENGTH = 6;
-	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGH0123IJKLMNOP45678QRSTUVWXYZ0123456789";
 	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount",
 			"GST%", "Total Due Amount", "Cause", "BankAccountID" };
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
@@ -671,6 +671,7 @@ public class PaymentServices implements PaymentInterface {
 		if (dueEntity == null) {
 			dueEntity = resolveDueAmountDetailsEntity(request, flatArea, paymentEntity);
 		}
+		transactionRepository.save(transaction);
 		CreateReceiptResponse receiptResponse = receiptServices
 				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
 		transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);

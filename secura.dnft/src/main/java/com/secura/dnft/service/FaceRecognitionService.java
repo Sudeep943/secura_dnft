@@ -164,21 +164,21 @@ public class FaceRecognitionService {
             return l2Normalize(embedding);
 
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            // Parse the error body returned by the Python service (e.g. {"error": "No face detected..."})
-            // and surface it as an IllegalArgumentException so callers can return a user-friendly message.
-            String body = e.getResponseBodyAsString();
-            if (body != null && !body.isBlank()) {
-                try {
-                    JsonNode node = OBJECT_MAPPER.readTree(body);
-                    if (node.has("error")) {
-                        throw new IllegalArgumentException("Face recognition failed: " + node.get("error").asText());
-                    }
-                } catch (IllegalArgumentException iae) {
-                    throw iae;
-                } catch (Exception ignored) {
-                    // Fall through to generic error below
-                }
-            }
+//            // Parse the error body returned by the Python service (e.g. {"error": "No face detected..."})
+//            // and surface it as an IllegalArgumentException so callers can return a user-friendly message.
+//            String body = e.getResponseBodyAsString();
+//            if (body != null && !body.isBlank()) {
+//                try {
+//                    //JsonNode node = OBJECT_MAPPER.readTree(body);
+//                    if (node.has("error")) {
+//                        throw new IllegalArgumentException("Face recognition failed: " + node.get("error").asText());
+//                    }
+//                } catch (IllegalArgumentException iae) {
+//                    throw iae;
+//                } catch (Exception ignored) {
+//                    // Fall through to generic error below
+//                }
+//            }
             throw new IllegalArgumentException(
                     "Face recognition service returned error " + e.getStatusCode().value());
         } catch (IllegalArgumentException e) {
@@ -195,7 +195,7 @@ public class FaceRecognitionService {
      */
     private float[] parseServiceResponse(String responseBody) {
         try {
-            JsonNode node = OBJECT_MAPPER.readTree(responseBody);
+            JsonNode node = null;//OBJECT_MAPPER.readTree(responseBody);
             if (node.isArray()) {
                 float[] result = OBJECT_MAPPER.treeToValue(node, float[].class);
                 if (result == null || result.length == 0) {
@@ -341,7 +341,7 @@ public class FaceRecognitionService {
             throw new IllegalArgumentException("Embedding JSON must not be empty");
         }
         try {
-            float[] result = OBJECT_MAPPER.readValue(json, float[].class);
+            float[] result = null;//OBJECT_MAPPER.readValue(json, float[].class);
             if (result == null || result.length == 0) {
                 throw new IllegalArgumentException("Embedding array is empty");
             }
