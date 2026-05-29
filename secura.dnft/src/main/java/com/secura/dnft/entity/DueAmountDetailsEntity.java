@@ -27,12 +27,15 @@ public class DueAmountDetailsEntity {
 	@Column(name = "due_id")
 	private String dueId;
 
+	@Id
 	@Column(name = "collection_cycle")
 	private String collectionCycle;
 
+	@Id
 	@Column(name = "flat_area")
 	private String flatArea;
 
+	@Id
 	@Column(name = "due_date")
 	@JsonFormat(pattern = "d-MMM-yyyy")
 	private LocalDate dueDate;
