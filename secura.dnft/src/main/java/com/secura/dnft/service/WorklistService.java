@@ -18,12 +18,14 @@ import com.secura.dnft.bean.WorklistAssignmentFlow;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.TransDueDetailsEntityId;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
@@ -61,6 +63,9 @@ public class WorklistService {
 
 	@Autowired
 	private PaymentRepository paymentRepository;
+
+	@Autowired
+	private TransDueDetailsRepository transDueDetailsRepository;
 
 	public Worklist createTransactionReviewWorklist(String transactionId, GenericHeader genericHeader) {
 		LocalDateTime now = LocalDateTime.now();
@@ -134,6 +139,8 @@ public class WorklistService {
 		transactionRepository.save(transaction);
 		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)) {
 			processApprovedTransactionDue(worklist, transaction);
+		} else if (SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action)) {
+			deleteTransactionDueDetails(worklist, transaction);
 		}
 
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_COMPLETE);
@@ -144,6 +151,18 @@ public class WorklistService {
 		response.setMessage(ACTION_SUCCESS_MESSAGE);
 		response.setMessageCode(ACTION_SUCCESS_MESSAGE_CODE);
 		return response;
+	}
+
+	private void deleteTransactionDueDetails(Worklist worklist, Transaction transaction) {
+		if (transaction == null || !hasText(transaction.getDueDetails()) || !hasText(transaction.getTrnscId())) {
+			return;
+		}
+		String apartmentId = resolveApartmentId(worklist, transaction);
+		if (!hasText(apartmentId)) {
+			return;
+		}
+		transDueDetailsRepository.deleteById(
+				new TransDueDetailsEntityId(transaction.getTrnscId(), apartmentId, transaction.getDueDetails()));
 	}
 
 	private void processApprovedTransactionDue(Worklist worklist, Transaction transaction) {

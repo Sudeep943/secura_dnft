@@ -25,11 +25,13 @@ import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.bean.WorklistAssignmentFlow;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.TransDueDetailsEntityId;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.SecuraConstants;
@@ -59,6 +61,9 @@ class WorklistServiceTest {
 
 	@Mock
 	private PaymentRepository paymentRepository;
+
+	@Mock
+	private TransDueDetailsRepository transDueDetailsRepository;
 
 	@InjectMocks
 	private WorklistService worklistService;
@@ -474,5 +479,46 @@ class WorklistServiceTest {
 		// PER_SQFT related due with different flatArea: not modified
 		boolean diffAreaDueSaved = dueCaptor.getValue().stream().anyMatch(d -> "DUE3001".equals(d.getDueId()));
 		org.junit.jupiter.api.Assertions.assertFalse(diffAreaDueSaved);
+	}
+
+	@Test
+	void actionTransactionReviewWorkList_shouldDeleteTransDueDetailsOnReject() {
+		ActionTransactionReviewWorkListRequest request = new ActionTransactionReviewWorkListRequest();
+		request.setWorklistId("WL-9");
+		request.setAction(SecuraConstants.ACTION_REJECT);
+		GenericHeader header = new GenericHeader();
+		header.setUserId("USR-3");
+		request.setGenericHeader(header);
+
+		Worklist worklist = new Worklist();
+		worklist.setWorklistId("WL-9");
+		worklist.setWorklistType(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW);
+		worklist.setReferenceId("TRN-9");
+		worklist.setApartmentId("APR-1");
+
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("TRN-9");
+		transaction.setAprmntId("APR-1");
+		transaction.setDueDetails("DUE1001_MONTHLY_ALL_2026-06-01");
+
+		when(worklistRepository.findById("WL-9")).thenReturn(Optional.of(worklist));
+		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-9")).thenReturn(List.of(transaction));
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		GenericResponse response = worklistService.actionTransactionReviewWorkList(request);
+
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository).save(transactionCaptor.capture());
+		assertEquals(SecuraConstants.TRANSACTION_STATUS_FAILED, transactionCaptor.getValue().getTrnsStatus());
+
+		ArgumentCaptor<TransDueDetailsEntityId> idCaptor = ArgumentCaptor.forClass(TransDueDetailsEntityId.class);
+		verify(transDueDetailsRepository).deleteById(idCaptor.capture());
+		assertEquals("TRN-9", idCaptor.getValue().getTransactionId());
+		assertEquals("APR-1", idCaptor.getValue().getAprmntId());
+		assertEquals("DUE1001_MONTHLY_ALL_2026-06-01", idCaptor.getValue().getDueId());
+
+		assertEquals("Transaction review updated successfully", response.getMessage());
+		assertEquals("TRANSACTION_REVIEW_UPDATED", response.getMessageCode());
 	}
 }
