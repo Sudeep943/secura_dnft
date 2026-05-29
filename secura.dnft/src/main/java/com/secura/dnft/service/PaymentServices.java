@@ -583,7 +583,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setCauseId(request.getCause());
 		entity.setPartialPaymentAllowed(request.isPartialPaymentAllowed());
 		paymentRepository.save(entity);
-		dueDetailsService.calculateDuesForPayment(paymentId, request.getGenericHeader());
+		dueDetailsService.calculateDuesForPaymentWithoutDiscFine(paymentId, request.getGenericHeader());
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
 		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 		return response;

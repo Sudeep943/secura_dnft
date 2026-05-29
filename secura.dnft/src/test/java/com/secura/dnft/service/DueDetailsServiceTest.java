@@ -694,6 +694,54 @@ class DueDetailsServiceTest {
 	}
 
 	@Test
+	void calculateDuesForPaymentWithoutDiscFine_shouldKeepDiscountAndFineAtZero() {
+		PaymentEntity payment = createPayment("PAY8002", "APR008", "MONTHLY", "100", "FINE_JSON", null);
+		payment.setCollectionStartDate(LocalDate.now().minusDays(1));
+		payment.setCollectionEndDate(LocalDate.now().plusDays(29));
+		payment.setGst("0");
+
+		DiscFin fine = new DiscFin();
+		fine.setDiscFnId("FINE50");
+		fine.setDiscFnType("FINE");
+		fine.setDiscFnCycleType("FIXED");
+		fine.setDiscFnMode("AMOUNT");
+		fine.setDiscFnCumlatonCycle("SIMPLE");
+		fine.setDiscFinValue("50");
+		fine.setDueDateAsStartDateFlag(Boolean.FALSE);
+		fine.setDiscFnStrtDt(LocalDate.now().minusDays(3));
+		fine.setDiscFnEndDt(LocalDate.now().plusDays(3));
+
+		Flat flat = new Flat();
+		flat.setFlatNo("H-101");
+		flat.setFlatArea("500");
+		flat.setFlatPndngPaymntLst(null);
+
+		when(paymentRepository.findByPaymentId("PAY8002")).thenReturn(List.of(payment));
+		when(flatRepository.findByAprmntId("APR008")).thenReturn(List.of(flat));
+		when(discFinRepository.findByDiscFnId("FINE50")).thenReturn(List.of(fine));
+		when(genericService.fromJson(eq("FINE_JSON"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "FINE", "code", "FINE50")));
+		when(genericService.toJson(any())).thenReturn("[]");
+		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+		when(flatRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		Map<String, List<Map<String, DueAmountDetails>>> response = dueDetailsService
+				.calculateDuesForPaymentWithoutDiscFine("PAY8002", null);
+
+		DueAmountDetails due = response.get("MONTHLY").get(0).get("ALL");
+		assertEquals("0", due.getDiscountedAmount());
+		assertEquals("0", due.getFineAmount());
+		assertEquals("100", due.getTotalAmount());
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<DueAmountDetailsEntity>> dueEntityCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(dueAmountDetailsRepository, times(1)).saveAll(dueEntityCaptor.capture());
+		DueAmountDetailsEntity saved = dueEntityCaptor.getValue().get(0);
+		assertEquals("0", saved.getDiscountedAmount());
+		assertEquals("0", saved.getFineAmount());
+	}
+
+	@Test
 	void calculateDuesForPayment_shouldApplyCumulativePercentageFineUsingDueDateAsStartDate() {
 		LocalDate dueDate = LocalDate.now().minusDays(30);
 		PaymentEntity payment = createPayment("PAY9001", "APR009", "MONTHLY", "100", "FINE_JSON", null);

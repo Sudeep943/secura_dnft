@@ -62,7 +62,15 @@ public class DueDetailsService {
 		LOGGER.info("calculateDuesForPayment called with paymentId={}, userId={}", paymentId,
 				genericHeader != null ? genericHeader.getUserId() : null);
 		List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
-		return calculateDuesForPayment(paymentEntityList, genericHeader, true);
+		return calculateDuesForPayment(paymentEntityList, genericHeader, true, true);
+	}
+
+	public Map<String, List<Map<String, DueAmountDetails>>> calculateDuesForPaymentWithoutDiscFine(String paymentId,
+			GenericHeader genericHeader) {
+		LOGGER.info("calculateDuesForPaymentWithoutDiscFine called with paymentId={}, userId={}", paymentId,
+				genericHeader != null ? genericHeader.getUserId() : null);
+		List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
+		return calculateDuesForPayment(paymentEntityList, genericHeader, true, false);
 	}
 
 	/**
@@ -71,11 +79,12 @@ public class DueDetailsService {
 	 */
 	public Map<String, List<Map<String, DueAmountDetails>>> previewDuesForPayment(
 			List<PaymentEntity> paymentEntityList, GenericHeader genericHeader) {
-		return calculateDuesForPayment(paymentEntityList, genericHeader, false);
+		return calculateDuesForPayment(paymentEntityList, genericHeader, false, true);
 	}
 
 	private Map<String, List<Map<String, DueAmountDetails>>> calculateDuesForPayment(
-			List<PaymentEntity> paymentEntityList, GenericHeader genericHeader, boolean persistResults) {
+			List<PaymentEntity> paymentEntityList, GenericHeader genericHeader, boolean persistResults,
+			boolean applyDiscFin) {
 		Map<String, List<Map<String, DueAmountDetails>>> dueByCycle = new LinkedHashMap<>();
 		if (paymentEntityList == null || paymentEntityList.isEmpty()) {
 			return dueByCycle;
@@ -104,7 +113,8 @@ public class DueDetailsService {
 				String dueId = createDueId();
 				for (LocalDate[] interval : intervals) {
 					Map<String, DueAmountDetails> duesByFlatType = createDuesForInterval(
-							paymentEntity, dueId, flatTypeCounts, applicableApartmentFlats, interval[0], interval[1], paymentCycle);
+							paymentEntity, dueId, flatTypeCounts, applicableApartmentFlats, interval[0], interval[1],
+							paymentCycle, applyDiscFin);
 					duesForCycle.add(duesByFlatType);
 					duesByFlatType.forEach((flatType, details) -> generatedRows
 							.add(new DueRow(paymentCycle, flatType, details, paymentEntity.getPaymentAmount(), interval[0])));
@@ -160,20 +170,20 @@ public class DueDetailsService {
 
 	private Map<String, DueAmountDetails> createDuesForInterval(PaymentEntity paymentEntity, String dueId,
 			Map<String, Long> flatTypeCounts, List<Flat> apartmentFlats, LocalDate intervalStart, LocalDate intervalEnd,
-			String paymentCycle) {
+			String paymentCycle, boolean applyDiscFin) {
 		Map<String, DueAmountDetails> duesByFlatType = new LinkedHashMap<>();
 		boolean perSqft = isPerSqft(paymentEntity.getPaymentCapita());
 		if (perSqft) {
 			for (String flatType : flatTypeCounts.keySet()) {
 				DueAmountDetails due = buildDueDetails(paymentEntity, dueId, flatType, parseNumeric(flatType),
-						intervalStart, intervalEnd, paymentCycle);
+						intervalStart, intervalEnd, paymentCycle, applyDiscFin);
 				due.setApplicableFlats(getApplicableFlatNos(apartmentFlats, flatType));
 				duesByFlatType.put(flatType, due);
 			}
 			return duesByFlatType;
 		}
 		DueAmountDetails due = buildDueDetails(paymentEntity, dueId, "ALL", BigDecimal.ONE, intervalStart, intervalEnd,
-				paymentCycle);
+				paymentCycle, applyDiscFin);
 		due.setApplicableFlats(getApplicableFlatNos(apartmentFlats, null));
 		duesByFlatType.put("ALL", due);
 		return duesByFlatType;
@@ -197,7 +207,8 @@ public class DueDetailsService {
 	}
 
 	private DueAmountDetails buildDueDetails(PaymentEntity paymentEntity, String dueId, String flatTypeKey,
-			BigDecimal areaMultiplier, LocalDate intervalStart, LocalDate intervalEnd, String paymentCycle) {
+			BigDecimal areaMultiplier, LocalDate intervalStart, LocalDate intervalEnd, String paymentCycle,
+			boolean applyDiscFin) {
 		LOGGER.debug("buildDueDetails: paymentId={}, dueId={}, flatTypeKey={}, areaMultiplier={}, intervalStart={}, intervalEnd={}",
 				paymentEntity.getPaymentId(), dueId, flatTypeKey, areaMultiplier, intervalStart, intervalEnd);
 		DueAmountDetails due = new DueAmountDetails();
@@ -209,10 +220,11 @@ public class DueDetailsService {
 		due.setDueEndDate(intervalEnd);
 
 		BigDecimal amount = calculateAmount(paymentEntity, intervalStart, intervalEnd, areaMultiplier, paymentCycle);
-		DiscFinReference discFinReference = extractDiscFinReference(paymentEntity.getDiscFin());
-		DiscFin discountDiscFin = resolveDiscFin(discFinReference.discountCode(), paymentCycle);
-		DiscFin fineDiscFin = resolveDiscFin(discFinReference.fineCode(), paymentCycle);
-		BigDecimal discountedAmount = calculateDiscountAmount(discountDiscFin, amount);
+		DiscFinReference discFinReference = applyDiscFin ? extractDiscFinReference(paymentEntity.getDiscFin())
+				: new DiscFinReference(null, null);
+		DiscFin discountDiscFin = applyDiscFin ? resolveDiscFin(discFinReference.discountCode(), paymentCycle) : null;
+		DiscFin fineDiscFin = applyDiscFin ? resolveDiscFin(discFinReference.fineCode(), paymentCycle) : null;
+		BigDecimal discountedAmount = applyDiscFin ? calculateDiscountAmount(discountDiscFin, amount) : BigDecimal.ZERO;
 		BigDecimal baseAmount = amount.subtract(discountedAmount);
 		if (baseAmount.compareTo(BigDecimal.ZERO) < 0) {
 			baseAmount = BigDecimal.ZERO;
@@ -225,7 +237,8 @@ public class DueDetailsService {
 		String discountValue = discountDiscFin != null ? format(discountDiscFin.getDiscFinValue()) : null;
 		String fineValue = fineDiscFin != null ? format(fineDiscFin.getDiscFinValue()) : null;
 
-		BigDecimal fineAmount = calculateFineAmount(fineDiscFin, baseAmount, due.getDueDate());
+		BigDecimal fineAmount = applyDiscFin ? calculateFineAmount(fineDiscFin, baseAmount, due.getDueDate())
+				: BigDecimal.ZERO;
 		LOGGER.debug("buildDueDetails result: paymentId={}, dueId={}, amount={}, discountedAmount={}, baseAmount={}, gstAmount={}, fineAmount={}",
 				paymentEntity.getPaymentId(), dueId, amount, discountedAmount, baseAmount, gstAmount, fineAmount);
 		BigDecimal computedTotal = baseAmount.add(gstAmount).add(totalAddedCharges).add(fineAmount);
