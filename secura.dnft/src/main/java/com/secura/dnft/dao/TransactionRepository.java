@@ -30,10 +30,4 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
 	List<Transaction> findByAprmntIdAndTrnscId(String aprmntId, String trnscId);
 
 	long countByAprmntIdAndPymntId(String aprmntId, String pymntId);
-
-	List<Transaction> findByTrnscId(String trnscId);
-
-	default java.util.Optional<Transaction> findById(String trnscId) {
-		return findByTrnscId(trnscId).stream().findFirst();
-	}
 }

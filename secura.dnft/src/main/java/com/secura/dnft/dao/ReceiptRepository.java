@@ -14,8 +14,4 @@ public interface ReceiptRepository extends JpaRepository<Receipt, ReceiptId> {
 
 	long countByAprmtIdAndReceiptIdStartingWith(String aprmtId, String receiptIdPrefix);
 
-	default java.util.Optional<Receipt> findById(String receiptId) {
-		return findByReceiptId(receiptId).stream().findFirst();
-	}
-
 }
