@@ -149,6 +149,7 @@ class ReceiptServicesTest {
 		assertTrue(text.contains("₹ 2000"));
 		assertTrue(text.contains("₹ 180 (18%)"));
 		assertTrue(text.contains("Discount / Fine"));
+		assertTrue(text.indexOf("Discount / Fine") < text.indexOf("Taxes And Other Charges"));
 		assertTrue(text.contains("Discount (CODE: DISC10)"));
 		assertTrue(text.contains("₹ 100 (10%)"));
 		assertTrue(text.contains("Fine (cumulative) (CODE: FINE5)"));
@@ -378,9 +379,23 @@ class ReceiptServicesTest {
 	}
 
 	@Test
+	void createReceipt_shouldReplaceUnderscoresWithSpacesInTenderName() throws Exception {
+		CreateReceiptRequest request = createBaseRequest();
+		request.setPaymentTenderDataList(List.of(createTender("Online_Transfer", "1500")));
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
+		when(genericServices.toJson(any())).thenReturn("{}");
+		when(receiptRepository.save(any(Receipt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		CreateReceiptResponse response = receiptServices.createReceipt(request);
+
+		String pdfText = extractText(response.getReceipt());
+		assertTrue(pdfText.contains("Online Transfer"));
+		assertFalse(pdfText.contains("Online_Transfer"));
+	}
+
+	@Test
 	void previewReceipt_shouldReturnBase64JpegImageWithoutSavingToRepository() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
-		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
 
 		CreateReceiptResponse response = receiptServices.previewReceipt(request);
 

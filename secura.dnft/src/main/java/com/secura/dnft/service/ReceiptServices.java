@@ -182,8 +182,8 @@ public class ReceiptServices implements ReceiptInterface {
 		drawHeader(canvas, request, apartment);
 		drawMetaTable(canvas, request, receiptNumber, receiptDate);
 		drawItemsSection(canvas, request);
-		drawAddedChargesSection(canvas, request != null ? request.getAddedCharges() : null);
 		drawDiscountFineSection(canvas, request != null ? request.getDiscFinReceipt() : null);
+		drawAddedChargesSection(canvas, request != null ? request.getAddedCharges() : null);
 		drawTenderDetailsSection(canvas, request != null ? request.getPaymentTenderDataList() : null);
 		drawTotal(canvas, request != null ? request.getTotalAmount() : null);
 		drawElectronicReceiptNote(canvas);
@@ -383,7 +383,7 @@ public class ReceiptServices implements ReceiptInterface {
 		for (int index = 0; index < tenderList.size(); index++) {
 			PaymentTenderData tenderData = tenderList.get(index);
 			canvas.drawTableRow(new String[] { String.valueOf(index + 1),
-					defaultValue(tenderData != null ? tenderData.getTenderName() : null),
+					defaultValue(tenderData != null && tenderData.getTenderName() != null ? tenderData.getTenderName().replace("_", " ") : null),
 					formatCurrency(tenderData != null ? tenderData.getAmountPaid() : null) }, widths, false);
 		}
 		canvas.drawSectionGap(SECTION_GAP);
