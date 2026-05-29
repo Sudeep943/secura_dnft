@@ -21,7 +21,6 @@ import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
-import com.secura.dnft.entity.DueAmountDetailsEntityId;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
@@ -151,11 +150,15 @@ public class WorklistService {
 		if (transaction == null || !hasText(transaction.getDueDetails())) {
 			return;
 		}
-		DueAmountDetailsEntityId dueEntityId = parsePendingDueKeyToEntityId(transaction.getDueDetails());
-		if (dueEntityId == null) {
+		String apartmentId = resolveApartmentId(worklist, transaction);
+		PendingDueKey dueEntityId = parsePendingDueKeyToEntityId(transaction.getDueDetails());
+		if (!hasText(apartmentId) || dueEntityId == null) {
 			return;
 		}
-		DueAmountDetailsEntity dueEntity = dueAmountDetailsRepository.findById(dueEntityId).orElse(null);
+		DueAmountDetailsEntity dueEntity = dueAmountDetailsRepository
+				.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(apartmentId, dueEntityId.dueId(),
+						dueEntityId.collectionCycle(), dueEntityId.flatArea(), dueEntityId.dueDate())
+				.orElse(null);
 		if (dueEntity == null) {
 			return;
 		}
@@ -168,7 +171,6 @@ public class WorklistService {
 		if (!hasText(flatNo)) {
 			return;
 		}
-		String apartmentId = resolveApartmentId(worklist, transaction);
 		String paymentId = resolvePaymentId(dueEntity, transaction);
 		LocalDate paidStartDate = dueEntity.getDueStartDate() != null ? dueEntity.getDueStartDate() : dueEntity.getDueDate();
 		LocalDate paidEndDate = dueEntity.getDueEndDate() != null ? dueEntity.getDueEndDate() : dueEntity.getDueDate();
@@ -211,7 +213,7 @@ public class WorklistService {
 		return trimValue(transaction != null ? transaction.getPymntId() : null);
 	}
 
-	private DueAmountDetailsEntityId parsePendingDueKeyToEntityId(String pendingDueKey) {
+	private PendingDueKey parsePendingDueKeyToEntityId(String pendingDueKey) {
 		if (!hasText(pendingDueKey)) {
 			return null;
 		}
@@ -233,7 +235,7 @@ public class WorklistService {
 			return null;
 		}
 		try {
-			return new DueAmountDetailsEntityId(dueId.trim(), collectionCycle.trim(), flatArea.trim(),
+			return new PendingDueKey(dueId.trim(), collectionCycle.trim(), flatArea.trim(),
 					LocalDate.parse(dueDateValue.trim()));
 		} catch (Exception ex) {
 			return null;
@@ -449,6 +451,9 @@ public class WorklistService {
 
 	private String trimValue(String value) {
 		return value == null ? null : value.trim();
+	}
+
+	private record PendingDueKey(String dueId, String collectionCycle, String flatArea, LocalDate dueDate) {
 	}
 
 	private boolean hasText(String value) {

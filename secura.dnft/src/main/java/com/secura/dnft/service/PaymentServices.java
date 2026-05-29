@@ -39,6 +39,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -47,12 +48,13 @@ import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
-import com.secura.dnft.entity.DueAmountDetailsEntityId;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.TransDueDetailsEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
@@ -131,6 +133,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	WorklistService worklistService;
+
+	@Autowired
+	TransDueDetailsRepository transDueDetailsRepository;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -667,10 +672,11 @@ public class PaymentServices implements PaymentInterface {
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
 		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
-		DueAmountDetailsEntity dueEntity = request.getPaidDueDetails();
+		DueAmountDetailsEntity dueEntity = request != null ? request.getPaidDueDetails() : null;
 		if (dueEntity == null) {
 			dueEntity = resolveDueAmountDetailsEntity(request, flatArea, paymentEntity);
 		}
+		persistTransactionDueDetails(transaction.getTrnscId(), apartmentId, dueEntity);
 		transactionRepository.save(transaction);
 		CreateReceiptResponse receiptResponse = receiptServices
 				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
@@ -1078,19 +1084,21 @@ public class PaymentServices implements PaymentInterface {
 		return flatOptional.isPresent() ? flatOptional.get().getFlatArea() : null;
 	}
 
-	private DueAmountDetailsEntity resolveDueAmountDetailsEntity(PayDueRequest request, String flatArea,PaymentEntity paymentEntity) {
+	private DueAmountDetailsEntity resolveDueAmountDetailsEntity(PayDueRequest request, String flatArea, PaymentEntity paymentEntity) {
 		if (request == null) {
 			return null;
 		}
+		String apartmentId = request.getGenericHeader() != null ? trimValue(request.getGenericHeader().getApartmentId()) : null;
 		String dueId = request.getDueId();
 		String paymentCycle = request.getPaymentCycle();
 		LocalDate dueDate = request.getDueDate();
-		if (!hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
+		if (!hasText(apartmentId) || !hasText(dueId) || !hasText(paymentCycle) || !hasText(flatArea) || dueDate == null) {
 			return null;
 		}
 		String dueFlatAreaToken = isPerSqftCapita(paymentEntity.getPaymentCapita()) ? trimValue(flatArea) : "ALL";
 		return dueAmountDetailsRepository
-				.findById(new DueAmountDetailsEntityId(dueId, paymentCycle, dueFlatAreaToken, dueDate))
+				.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(apartmentId, dueId, paymentCycle,
+						dueFlatAreaToken, dueDate)
 				.orElse(null);
 	}
 
@@ -1205,11 +1213,14 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId) || !hasText(paidDueId)) {
 			return;
 		}
-		DueAmountDetailsEntityId paidDueEntityId = parsePendingDueKeyToEntityId(paidDueId);
+		PendingDueKey paidDueEntityId = parsePendingDueKeyToEntityId(paidDueId);
 		if (paidDueEntityId == null) {
 			return;
 		}
-		DueAmountDetailsEntity paidDue = dueAmountDetailsRepository.findById(paidDueEntityId).orElse(null);
+		DueAmountDetailsEntity paidDue = dueAmountDetailsRepository
+				.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(apartmentId, paidDueEntityId.dueId(),
+						paidDueEntityId.collectionCycle(), paidDueEntityId.flatArea(), paidDueEntityId.dueDate())
+				.orElse(null);
 		if (paidDue == null) {
 			return;
 		}
@@ -1234,7 +1245,7 @@ public class PaymentServices implements PaymentInterface {
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatId, paymentId);
 	}
 
-	private DueAmountDetailsEntityId parsePendingDueKeyToEntityId(String pendingDueKey) {
+	private PendingDueKey parsePendingDueKeyToEntityId(String pendingDueKey) {
 		if (!hasText(pendingDueKey)) {
 			return null;
 		}
@@ -1256,11 +1267,27 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		try {
-			return new DueAmountDetailsEntityId(dueId.trim(), collectionCycle.trim(), flatArea.trim(),
+			return new PendingDueKey(dueId.trim(), collectionCycle.trim(), flatArea.trim(),
 					LocalDate.parse(dueDateValue.trim()));
 		} catch (Exception ex) {
 			return null;
 		}
+	}
+
+	private void persistTransactionDueDetails(String transactionId, String apartmentId, DueAmountDetailsEntity dueEntity) {
+		if (!hasText(transactionId) || dueEntity == null) {
+			return;
+		}
+		TransDueDetailsEntity transDueDetails = new TransDueDetailsEntity();
+		BeanUtils.copyProperties(dueEntity, transDueDetails);
+		transDueDetails.setTransactionId(transactionId);
+		if (!hasText(transDueDetails.getAprmntId())) {
+			transDueDetails.setAprmntId(apartmentId);
+		}
+		if (!hasText(transDueDetails.getAprmntId()) || !hasText(transDueDetails.getDueId())) {
+			return;
+		}
+		transDueDetailsRepository.save(transDueDetails);
 	}
 
 	private boolean isCoveredDue(DueAmountDetailsEntity due, LocalDate paidStartDate, LocalDate paidEndDate) {
@@ -1819,6 +1846,9 @@ public class PaymentServices implements PaymentInterface {
 		}
 		String normalized = paymentCapita.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
 		return "PERSQFT".equals(normalized);
+	}
+
+	private record PendingDueKey(String dueId, String collectionCycle, String flatArea, LocalDate dueDate) {
 	}
 
 	private static class PastDueUploadRow {

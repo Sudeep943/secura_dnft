@@ -46,10 +46,10 @@ import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
-import com.secura.dnft.entity.DueAmountDetailsEntityId;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Transaction;
@@ -109,6 +109,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private WorklistService worklistService;
+
+	@Mock
+	private TransDueDetailsRepository transDueDetailsRepository;
 
 	@InjectMocks
 	private PaymentServices paymentServices;
@@ -704,8 +707,8 @@ class PaymentServicesTest {
 		dueEntity.setGstAmount("270");
 		dueEntity.setTotalAmount("4770");
 		dueEntity.setAddedCharges("[]");
-		when(dueAmountDetailsRepository.findById(
-				new DueAmountDetailsEntityId("DUE1001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01"))))
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(
+				"APR-001", "DUE1001", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01")))
 				.thenReturn(Optional.of(dueEntity));
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
 
@@ -798,8 +801,8 @@ class PaymentServicesTest {
 		dueEntity.setGstAmount("270");
 		dueEntity.setTotalAmount("4770");
 		dueEntity.setAddedCharges("[]");
-		when(dueAmountDetailsRepository.findById(
-				new DueAmountDetailsEntityId("DUE1002", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01"))))
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(
+				"APR-001", "DUE1002", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "1200", LocalDate.parse("2027-03-01")))
 				.thenReturn(Optional.of(dueEntity));
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
 
@@ -861,7 +864,7 @@ class PaymentServicesTest {
 		dueEntity.setDueDate(LocalDate.parse("2026-06-01"));
 		dueEntity.setAmount("2500");
 		dueEntity.setTotalAmount("2500");
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class)))
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any()))
 				.thenReturn(Optional.of(dueEntity));
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -932,7 +935,7 @@ class PaymentServicesTest {
 
 		PayDueResponse response = paymentServices.payDues(request);
 
-		verify(dueAmountDetailsRepository, never()).findById(any(DueAmountDetailsEntityId.class));
+		verify(dueAmountDetailsRepository, never()).findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any());
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
 		verify(receiptServices).createReceipt(receiptRequestCaptor.capture());
 		assertEquals("2200", receiptRequestCaptor.getValue().getItems().get(0).getAmount());
@@ -1042,7 +1045,7 @@ class PaymentServicesTest {
 		dueEntity.setFineMode("monthly");
 		dueEntity.setFineAmount("30");
 		dueEntity.setTotalAmount("1180");
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(dueEntity));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(dueEntity));
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
 				.thenReturn(List.of(new AddedCharges() {{
 					setChargeName("Maintenance");
@@ -1123,7 +1126,7 @@ class PaymentServicesTest {
 		dueEntity.setDueDate(LocalDate.parse("2026-05-29"));
 		dueEntity.setAmount("2500");
 		dueEntity.setTotalAmount("2500");
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class)))
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any()))
 				.thenReturn(Optional.of(dueEntity));
 
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1188,7 +1191,7 @@ class PaymentServicesTest {
 				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-06-30"), "PAY-9001",
 				"APPL_H1");
 
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(paidQuarterlyDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-9001"))
 				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue, monthly1, monthly2, monthly3, halfYearly)));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1280,7 +1283,7 @@ class PaymentServicesTest {
 				"APPL_Q1");
 		paidQuarterlyDue.setPaymentCapita("PER_SQFT");
 
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(paidQuarterlyDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-9001"))
 				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue)));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1365,7 +1368,7 @@ class PaymentServicesTest {
 				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-31"), "PAY-9003",
 				"APPL_PH");
 		perHeadDue.setPaymentCapita("PER_HEAD");
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(perHeadDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(perHeadDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-9003")).thenReturn(new ArrayList<>(List.of(perHeadDue)));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -1436,7 +1439,7 @@ class PaymentServicesTest {
 		paidQuarterlyDue.setPaymentCapita("PER_SQFT");
 		paidQuarterlyDue.setPaidFlats("DUE_PAID_FLATS");
 
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(paidQuarterlyDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-9001"))
 				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue)));
 
@@ -1554,7 +1557,7 @@ class PaymentServicesTest {
 				"APPL_M2_P10");
 		relatedDueDiffArea.setPaymentCapita("PER_SQFT");
 
-		when(dueAmountDetailsRepository.findById(any(DueAmountDetailsEntityId.class))).thenReturn(Optional.of(paidQuarterlyDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(paidQuarterlyDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-9010"))
 				.thenReturn(new ArrayList<>(List.of(paidQuarterlyDue, relatedDueSameArea, relatedDueDiffArea)));
 		when(dueAmountDetailsRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));

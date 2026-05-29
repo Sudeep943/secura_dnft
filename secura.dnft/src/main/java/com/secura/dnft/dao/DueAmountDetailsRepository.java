@@ -1,6 +1,8 @@
 package com.secura.dnft.dao;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -16,4 +18,7 @@ public interface DueAmountDetailsRepository extends JpaRepository<DueAmountDetai
 	List<DueAmountDetailsEntity> findByPaymentId(String paymentId);
 
 	List<DueAmountDetailsEntity> findByPaymentIdIn(List<String> paymentIds);
+
+	Optional<DueAmountDetailsEntity> findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(
+			String aprmntId, String dueId, String collectionCycle, String flatArea, LocalDate dueDate);
 }
