@@ -5,6 +5,7 @@ import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
@@ -15,6 +16,7 @@ import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
+import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 
 public interface PaymentInterface {
 
@@ -35,5 +37,7 @@ public interface PaymentInterface {
 	public LedgerEntryResponse ledgerEntry(LedgerEntryRequest request) throws Exception;
 
 	public UploadPastDueResponse uploadPastDue(UploadPastDueRequest request) throws Exception;
+
+	public GenericResponse validatePriorDuePaymnent(ValidatePriorDuePaymnentRequest request) throws Exception;
 
 }

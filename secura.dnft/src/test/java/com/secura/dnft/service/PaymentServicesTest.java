@@ -69,6 +69,7 @@ import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
@@ -79,6 +80,7 @@ import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
+import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServicesTest {
@@ -122,6 +124,8 @@ class PaymentServicesTest {
 		lenient().when(paymentRepository.findFirstByPaymentIdAndAprmtId(any(), any())).thenReturn(Optional.empty());
 		lenient().when(paymentRepository.countByAprmtIdAndCauseIdIgnoreCase(any(), any())).thenReturn(0L);
 		lenient().when(transactionRepository.findByAprmntIdAndTrnscId(any(), any())).thenReturn(List.of());
+		lenient().when(transactionRepository.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc(any(), any(), any()))
+				.thenReturn(List.of());
 	}
 
 	@Test
@@ -1850,6 +1854,51 @@ class PaymentServicesTest {
 		assertEquals(0, response.getFailedRows());
 	}
 
+	@Test
+	void validatePriorDuePaymnent_shouldReturnSuccessWhenMatchingTransactionsAreFailed() throws Exception {
+		ValidatePriorDuePaymnentRequest request = buildValidatePriorDuePaymentRequest();
+		Transaction failedTransaction = new Transaction();
+		failedTransaction.setDueDetails("DUE-1_MONTHLY_1200_2026-03-01");
+		failedTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_FAILED);
+		when(transactionRepository.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc("APR-1", "A-101", "PAY-1"))
+				.thenReturn(List.of(failedTransaction));
+
+		GenericResponse response = paymentServices.validatePriorDuePaymnent(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_46, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_46, response.getMessageCode());
+	}
+
+	@Test
+	void validatePriorDuePaymnent_shouldReturnErrorWhenMatchingTransactionIsSuccessful() throws Exception {
+		ValidatePriorDuePaymnentRequest request = buildValidatePriorDuePaymentRequest();
+		Transaction successTransaction = new Transaction();
+		successTransaction.setDueDetails("DUE-1_MONTHLY_1200_2026-03-01");
+		successTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		when(transactionRepository.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc("APR-1", "A-101", "PAY-1"))
+				.thenReturn(List.of(successTransaction));
+
+		GenericResponse response = paymentServices.validatePriorDuePaymnent(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_50, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_50, response.getMessageCode());
+	}
+
+	@Test
+	void validatePriorDuePaymnent_shouldReturnPendingErrorWhenMatchingTransactionIsNotFailedOrSuccessful() throws Exception {
+		ValidatePriorDuePaymnentRequest request = buildValidatePriorDuePaymentRequest();
+		Transaction pendingTransaction = new Transaction();
+		pendingTransaction.setDueDetails("DUE-1_MONTHLY_1200_2026-03-01");
+		pendingTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		when(transactionRepository.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc("APR-1", "A-101", "PAY-1"))
+				.thenReturn(List.of(pendingTransaction));
+
+		GenericResponse response = paymentServices.validatePriorDuePaymnent(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_51, response.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_51, response.getMessageCode());
+	}
+
 	private String buildPastDueWorkbookBase64(List<List<String>> rows) throws Exception {
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("past_due");
@@ -1905,6 +1954,19 @@ class PaymentServicesTest {
 		due.setPaymentId(paymentId);
 		due.setApplicableFlats(applicableFlatsMarker);
 		return due;
+	}
+
+	private ValidatePriorDuePaymnentRequest buildValidatePriorDuePaymentRequest() {
+		ValidatePriorDuePaymnentRequest request = new ValidatePriorDuePaymnentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		request.setDueId("DUE-1");
+		request.setPaymentCycle("MONTHLY");
+		request.setDueDate(LocalDate.of(2026, 3, 1));
+		return request;
 	}
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {

@@ -12,6 +12,7 @@ import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
@@ -33,6 +34,7 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
+import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.PaymentServices;
@@ -234,6 +236,20 @@ public class PaymentController {
 			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		 }
 		 return response;
+	}
+
+	@PostMapping("/validatePriorDuePaymnent")
+	@CrossOrigin(origins = "*")
+	public GenericResponse validatePriorDuePaymnent(@RequestBody ValidatePriorDuePaymnentRequest request) {
+		GenericResponse response = new GenericResponse();
+		try {
+			return paymentServices.validatePriorDuePaymnent(request);
+		}
+		catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 	
 	private ThirdPartyPaymentGayeway resolvePaymentGatewayService(String paymentGateway) {

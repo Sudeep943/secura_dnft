@@ -75,6 +75,7 @@ import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
@@ -88,6 +89,7 @@ import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
+import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -707,6 +709,46 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	@Override
+	public GenericResponse validatePriorDuePaymnent(ValidatePriorDuePaymnentRequest request) throws Exception {
+		GenericResponse response = new GenericResponse();
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? trimValue(request.getGenericHeader().getApartmentId())
+				: null;
+		String flatId = request != null && request.getGenericHeader() != null
+				? trimValue(request.getGenericHeader().getFlatNo())
+				: null;
+		String paymentId = trimValue(request != null ? request.getPaymentId() : null);
+		String dueId = trimValue(request != null ? request.getDueId() : null);
+		String paymentCycle = trimValue(request != null ? request.getPaymentCycle() : null);
+		LocalDate dueDate = request != null ? request.getDueDate() : null;
+		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId) || !hasText(dueId)
+				|| !hasText(paymentCycle) || dueDate == null) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+		List<Transaction> existingTransactions = transactionRepository
+				.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc(apartmentId, flatId, paymentId);
+		String expectedDueDetails = createValidationDueDetailsValue(request, apartmentId, flatId);
+		List<Transaction> matchingTransactions = existingTransactions.stream()
+				.filter(transaction -> isMatchingDueDetailsForValidation(transaction, dueId, paymentCycle, dueDate, expectedDueDetails))
+				.collect(Collectors.toList());
+		if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isSuccessfulTransaction)) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_50);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_50);
+			return response;
+		}
+		if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isPendingValidationStatus)) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_51);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_51);
+			return response;
+		}
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_46);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_46);
+		return response;
+	}
+
+	@Override
 	public LedgerEntryResponse ledgerEntry(LedgerEntryRequest request) throws Exception {
 		LedgerEntryResponse response = new LedgerEntryResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
@@ -1206,6 +1248,36 @@ public class PaymentServices implements PaymentInterface {
 			return null;
 		}
 		return dueId + "_" + paymentCycle + "_" + dueFlatAreaToken + "_" + dueDate;
+	}
+
+	private String createValidationDueDetailsValue(ValidatePriorDuePaymnentRequest request, String apartmentId, String flatId) {
+		Optional<PaymentEntity> paymentEntity = resolvePaymentEntity(request != null ? request.getPaymentId() : null, apartmentId);
+		if (paymentEntity.isEmpty()) {
+			return null;
+		}
+		String flatArea = resolveFlatArea(flatId);
+		return createFlatPendingDueId(request.getDueId(), request.getPaymentCycle(), flatArea, request.getDueDate(),
+				request.getPaymentId(), paymentEntity.get().getPaymentCapita());
+	}
+
+	private boolean isMatchingDueDetailsForValidation(Transaction transaction, String dueId, String paymentCycle, LocalDate dueDate,
+			String expectedDueDetails) {
+		if (transaction == null || !hasText(transaction.getDueDetails())) {
+			return false;
+		}
+		String dueDetails = trimValue(transaction.getDueDetails());
+		if (hasText(expectedDueDetails) && dueDetails.equals(expectedDueDetails)) {
+			return true;
+		}
+		String duePrefix = dueId + "_" + paymentCycle + "_";
+		return dueDetails.startsWith(duePrefix) && dueDetails.endsWith("_" + dueDate);
+	}
+
+	private boolean isPendingValidationStatus(String status) {
+		if (isSuccessfulTransaction(status) || isFailedTransaction(status)) {
+			return false;
+		}
+		return status == null || !status.isBlank();
 	}
 
 	private void removeCoveredDuesAfterSuccessfulPayment(String apartmentId, String flatId, String paymentId,
