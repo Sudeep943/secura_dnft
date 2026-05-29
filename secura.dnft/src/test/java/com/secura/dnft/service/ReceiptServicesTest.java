@@ -396,6 +396,7 @@ class ReceiptServicesTest {
 	@Test
 	void previewReceipt_shouldReturnBase64JpegImageWithoutSavingToRepository() throws Exception {
 		CreateReceiptRequest request = createBaseRequest();
+		when(apartmentRepository.findById("APR-1")).thenReturn(Optional.empty());
 
 		CreateReceiptResponse response = receiptServices.previewReceipt(request);
 
