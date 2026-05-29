@@ -1274,7 +1274,7 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private boolean isPendingValidationStatus(String status) {
-		if (isSuccessfulTransaction(status) || isFailedTransaction(status)) {
+		if (isSuccessfulTransaction(status) || SecuraConstants.TRANSACTION_STATUS_FAILED.equalsIgnoreCase(trimValue(status))) {
 			return false;
 		}
 		return status == null || !status.isBlank();
