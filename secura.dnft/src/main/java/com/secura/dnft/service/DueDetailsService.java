@@ -91,8 +91,8 @@ public class DueDetailsService {
 		}
 
 		PaymentEntity baseEntity = paymentEntityList.get(0);
-		String apartmentId = genericHeader != null && hasText(genericHeader.getApartmentId()) ? genericHeader.getApartmentId()
-				: baseEntity.getAprmtId();
+		String apartmentId = genericHeader != null && genericHeader.getApartmentId() != null
+				&& !genericHeader.getApartmentId().trim().isEmpty() ? genericHeader.getApartmentId() : baseEntity.getAprmtId();
 		List<Flat> apartmentFlats = flatRepository.findByAprmntId(baseEntity.getAprmtId());
 
 		Set<String> visitedCycles = new LinkedHashSet<>();

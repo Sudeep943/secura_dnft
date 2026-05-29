@@ -1284,6 +1284,9 @@ public class PaymentServices implements PaymentInterface {
 		if (!hasText(transDueDetails.getAprmntId())) {
 			transDueDetails.setAprmntId(apartmentId);
 		}
+		if (!hasText(transDueDetails.getAprmntId()) || !hasText(transDueDetails.getDueId())) {
+			return;
+		}
 		transDueDetailsRepository.save(transDueDetails);
 	}
 

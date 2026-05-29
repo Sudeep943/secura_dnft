@@ -210,7 +210,7 @@ class WorklistServiceTest {
 		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-5")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(due));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(due));
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class)))
 				.thenReturn(new ArrayList<>(List.of("DUE1001_MONTHLY_ALL_2026-06-01", "DUE1002_MONTHLY_ALL_2026-07-01")));
@@ -268,7 +268,7 @@ class WorklistServiceTest {
 		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-6")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(due));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(due));
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class)))
 				.thenReturn(new ArrayList<>(List.of("DUE1001_MONTHLY_ALL_2026-06-01")));
@@ -338,7 +338,7 @@ class WorklistServiceTest {
 		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-7")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(paidDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(paidDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001")).thenReturn(List.of(paidDue, relatedDue));
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(
@@ -438,7 +438,7 @@ class WorklistServiceTest {
 		when(transactionRepository.findByAprmntIdAndTrnscId("APR-1", "TRN-8")).thenReturn(List.of(transaction));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(worklistRepository.save(any(Worklist.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(dueAmountDetailsRepository.findById(any())).thenReturn(Optional.of(paidDue));
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any())).thenReturn(Optional.of(paidDue));
 		when(dueAmountDetailsRepository.findByPaymentId("PAY-1001"))
 				.thenReturn(List.of(paidDue, relatedDueSameArea, relatedDueDiffArea));
 		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
