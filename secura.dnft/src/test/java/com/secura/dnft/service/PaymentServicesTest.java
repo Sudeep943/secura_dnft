@@ -62,6 +62,9 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.ActionQRPaymentRequest;
+import com.secura.dnft.request.response.ActionQRPaymentResponse;
+import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -1973,6 +1976,72 @@ class PaymentServicesTest {
 		assertEquals(RECONCILE_PARTIAL_MESSAGE, response.getMessage());
 	}
 
+	@Test
+	void actionQRPayment_shouldApproveTransactionsAndReturnAllSuccess() throws Exception {
+		ActionQRPaymentRequest request = buildActionQrPaymentRequest(SecuraConstants.ACTION_APPROVE);
+		Transaction transaction = request.getFoundTransactionsfoundTransactionsList().get(0);
+		GenericResponse successResponse = new GenericResponse();
+		successResponse.setMessage(SuccessMessage.SUCC_MESSAGE_47);
+		successResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_47);
+		when(worklistService.actionTransactionReviewWorkList(any(ActionTransactionReviewWorkListRequest.class)))
+				.thenReturn(successResponse);
+
+		ActionQRPaymentResponse response = paymentServices.actionQRPayment(request);
+
+		assertTrue(response.getNotCompltedTransactionList().isEmpty());
+		assertNull(response.getFiledWorklistActionFileBase64Encoded());
+		assertEquals("SUCC_ACTION_QR_PAYMENT_ALL", response.getMessageCode());
+		ArgumentCaptor<ActionTransactionReviewWorkListRequest> captor = ArgumentCaptor
+				.forClass(ActionTransactionReviewWorkListRequest.class);
+		verify(worklistService).actionTransactionReviewWorkList(captor.capture());
+		assertEquals(SecuraConstants.ACTION_APPROVE, captor.getValue().getAction());
+		assertEquals(transaction.getWorkListId(), captor.getValue().getWorklistId());
+	}
+
+	@Test
+	void actionQRPayment_shouldRejectAndCreateFailureWorkbookForNonSuccessWorklist() throws Exception {
+		ActionQRPaymentRequest request = buildActionQrPaymentRequest(SecuraConstants.ACTION_REJECT);
+		Transaction failedTransaction = new Transaction();
+		failedTransaction.setTrnscId("TRNS-2");
+		failedTransaction.setFlatId("A-102");
+		failedTransaction.setTrnsAmt("950.50");
+		failedTransaction.setWorkListId("WL-2");
+		failedTransaction.setCreatTs(LocalDateTime.of(2026, 3, 1, 21, 45));
+		request.setFoundTransactionsfoundTransactionsList(
+				List.of(request.getFoundTransactionsfoundTransactionsList().get(0), failedTransaction));
+
+		GenericResponse successResponse = new GenericResponse();
+		successResponse.setMessage(SuccessMessage.SUCC_MESSAGE_47);
+		successResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_47);
+		GenericResponse failedResponse = new GenericResponse();
+		failedResponse.setMessage("approval blocked");
+		failedResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_53);
+		when(worklistService.actionTransactionReviewWorkList(any(ActionTransactionReviewWorkListRequest.class)))
+				.thenReturn(successResponse, failedResponse);
+
+		ActionQRPaymentResponse response = paymentServices.actionQRPayment(request);
+
+		assertEquals(1, response.getNotCompltedTransactionList().size());
+		assertEquals("TRNS-2", response.getNotCompltedTransactionList().get(0).getTrnscId());
+		assertEquals("ERR_ACTION_QR_PAYMENT_PARTIAL", response.getMessageCode());
+		assertNotNull(response.getFiledWorklistActionFileBase64Encoded());
+		try (Workbook workbook = new XSSFWorkbook(
+				new ByteArrayInputStream(Base64.getDecoder().decode(response.getFiledWorklistActionFileBase64Encoded())))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			assertEquals("Transaction Id", sheet.getRow(0).getCell(0).getStringCellValue());
+			assertEquals("TRNS-2", sheet.getRow(1).getCell(0).getStringCellValue());
+			assertEquals("A-102", sheet.getRow(1).getCell(1).getStringCellValue());
+			assertEquals("950.50", sheet.getRow(1).getCell(2).getStringCellValue());
+			assertEquals("1-Mar-2026 21:45", sheet.getRow(1).getCell(3).getStringCellValue());
+			assertEquals("approval blocked", sheet.getRow(1).getCell(4).getStringCellValue());
+		}
+		ArgumentCaptor<ActionTransactionReviewWorkListRequest> captor = ArgumentCaptor
+				.forClass(ActionTransactionReviewWorkListRequest.class);
+		verify(worklistService, times(2)).actionTransactionReviewWorkList(captor.capture());
+		assertEquals(SecuraConstants.ACTION_REJECT, captor.getAllValues().get(0).getAction());
+		assertEquals(SecuraConstants.ACTION_REJECT, captor.getAllValues().get(1).getAction());
+	}
+
 	private String buildPastDueWorkbookBase64(List<List<String>> rows) throws Exception {
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("past_due");
@@ -2050,6 +2119,23 @@ class PaymentServicesTest {
 		request.setGenericHeader(header);
 		request.setFromDate(LocalDate.of(2026, 3, 1));
 		request.setToDate(LocalDate.of(2026, 3, 31));
+		return request;
+	}
+
+	private ActionQRPaymentRequest buildActionQrPaymentRequest(String action) {
+		ActionQRPaymentRequest request = new ActionQRPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+		request.setGenericHeader(header);
+		request.setAction(action);
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("TRNS-1");
+		transaction.setFlatId("A-101");
+		transaction.setTrnsAmt("1200");
+		transaction.setWorkListId("WL-1");
+		transaction.setCreatTs(LocalDateTime.of(2026, 3, 2, 11, 15));
+		request.setFoundTransactionsfoundTransactionsList(List.of(transaction));
 		return request;
 	}
 

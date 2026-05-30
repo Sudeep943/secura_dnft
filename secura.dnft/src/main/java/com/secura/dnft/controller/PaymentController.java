@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
+import com.secura.dnft.request.response.ActionQRPaymentRequest;
+import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
 import com.secura.dnft.request.response.GenericResponse;
@@ -261,6 +263,20 @@ public class PaymentController {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
 			return paymentServices.reconcileQRPayment(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/actionQRPayment")
+	@CrossOrigin(origins = "*")
+	public ActionQRPaymentResponse actionQRPayment(@RequestBody ActionQRPaymentRequest request) {
+		ActionQRPaymentResponse response = new ActionQRPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return paymentServices.actionQRPayment(request);
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
