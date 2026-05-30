@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
@@ -85,6 +86,8 @@ import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
+import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
+import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
@@ -108,6 +111,13 @@ public class PaymentServices implements PaymentInterface {
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
 	private static final DateTimeFormatter PAST_DUE_DATE_FORMATTER = new DateTimeFormatterBuilder().parseCaseInsensitive()
 			.appendPattern("d-MMM-yyyy").toFormatter(Locale.ENGLISH);
+	private static final DataFormatter RECONCILE_QR_DATA_FORMATTER = new DataFormatter();
+	private static final String RECONCILE_QR_MSG_ALL_FOUND = "All QR Payment Transaction Verified. DownLoad The Excell TO Reconsile";
+	private static final String RECONCILE_QR_MSG_NOTHING_FOUND = "No QR Payment Transaction Verified. Recheck The Statement or Inputed Date Range";
+	private static final String RECONCILE_QR_MSG_PARTIAL_FOUND = "Few QR Payment Transaction Verified. Recheck The Statement or Inputed Date Range For Other Transcations";
+	private static final String RECONCILE_QR_CODE_ALL_FOUND = "SUCC_RECONCILE_QR_PAYMENT_ALL_FOUND";
+	private static final String RECONCILE_QR_CODE_NOTHING_FOUND = "ERR_RECONCILE_QR_PAYMENT_NONE_FOUND";
+	private static final String RECONCILE_QR_CODE_PARTIAL_FOUND = "ERR_RECONCILE_QR_PAYMENT_PARTIAL";
 
 	@Autowired
 	GenericService genericService;
@@ -746,6 +756,60 @@ public class PaymentServices implements PaymentInterface {
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_46);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_46);
 		return response;
+	}
+
+	@Override
+	public ReconcileQRPaymentResponse reconcileQRPayment(ReconcileQRPaymentRequest request) throws Exception {
+		ReconcileQRPaymentResponse response = new ReconcileQRPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		response.setFoundTransactionsList(new ArrayList<>());
+		response.setNotFoundTransactionsList(new ArrayList<>());
+		response.setFoundCount(0);
+		response.setNotFoundCount(0);
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? trimValue(request.getGenericHeader().getApartmentId())
+				: null;
+		if (!hasText(apartmentId) || request == null || !hasText(request.getBase64EncodedSatementFile())) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+		List<Transaction> transactions = transactionRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
+				.filter(transaction -> SecuraConstants.TRANSACTION_STATUS_PENDING.equalsIgnoreCase(trimValue(transaction.getTrnsStatus())))
+				.filter(this::isQrPaymentTransaction).filter(transaction -> isCreatTsInBounds(transaction, request.getFromDate(),
+						request.getToDate())).collect(Collectors.toList());
+		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(
+				Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			prependReconcileColumns(workbook);
+			CellStyle rowHighlightStyle = createReconcileHighlightStyle(workbook);
+			List<Transaction> foundTransactions = new ArrayList<>();
+			List<Transaction> notFoundTransactions = new ArrayList<>();
+			for (Transaction transaction : transactions) {
+				List<Row> matchedRows = findMatchedRowsForTransaction(workbook, trimValue(transaction.getTrnscId()));
+				if (matchedRows.isEmpty()) {
+					notFoundTransactions.add(transaction);
+					continue;
+				}
+				foundTransactions.add(transaction);
+				for (Row matchedRow : matchedRows) {
+					populateReconcileColumns(matchedRow, transaction);
+					highlightReconcileRow(matchedRow, rowHighlightStyle);
+				}
+			}
+			workbook.write(outputStream);
+			response.setHighlithedBase64EncodedFile(Base64.getEncoder().encodeToString(outputStream.toByteArray()));
+			response.setFoundTransactionsList(foundTransactions);
+			response.setNotFoundTransactionsList(notFoundTransactions);
+			response.setFoundCount(foundTransactions.size());
+			response.setNotFoundCount(notFoundTransactions.size());
+			setReconcileMessage(response);
+			return response;
+		} catch (Exception exception) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
 	}
 
 	@Override
@@ -1874,6 +1938,184 @@ public class PaymentServices implements PaymentInterface {
 			}
 			sheet.setColumnWidth(columnIndex, Math.min((maxTextLength + 2) * 256, 10000));
 		}
+	}
+
+	private boolean isQrPaymentTransaction(Transaction transaction) {
+		String tenderValue = trimValue(transaction != null ? transaction.getTrnsTender() : null);
+		if (!hasText(tenderValue)) {
+			return false;
+		}
+		try {
+			List<PaymentTenderData> tenderList = genericService.fromJson(tenderValue, new TypeReference<List<PaymentTenderData>>() {
+			});
+			if (tenderList != null && tenderList.stream().filter(Objects::nonNull)
+					.map(PaymentTenderData::getTenderName).filter(this::hasText)
+					.anyMatch(tenderName -> tenderName.toUpperCase(Locale.ROOT).contains("QR"))) {
+				return true;
+			}
+		} catch (Exception exception) {
+			// Fallback to raw text contains check.
+		}
+		return tenderValue.toUpperCase(Locale.ROOT).contains("QR");
+	}
+
+	private boolean isCreatTsInBounds(Transaction transaction, LocalDate fromDate, LocalDate toDate) {
+		if (fromDate == null && toDate == null) {
+			return true;
+		}
+		LocalDateTime creatTs = transaction != null ? transaction.getCreatTs() : null;
+		if (creatTs == null) {
+			return false;
+		}
+		LocalDate creatDate = creatTs.toLocalDate();
+		if (fromDate != null && creatDate.isBefore(fromDate)) {
+			return false;
+		}
+		if (toDate != null && creatDate.isAfter(toDate)) {
+			return false;
+		}
+		return true;
+	}
+
+	private void prependReconcileColumns(Workbook workbook) {
+		for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
+			Sheet sheet = workbook.getSheetAt(sheetIndex);
+			for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+				Row row = sheet.getRow(rowIndex);
+				if (row == null) {
+					continue;
+				}
+				shiftRowRightByTwo(row);
+			}
+			Row headerRow = sheet.getRow(0);
+			if (headerRow == null) {
+				headerRow = sheet.createRow(0);
+			}
+			headerRow.createCell(0).setCellValue("Flat Id");
+			headerRow.createCell(1).setCellValue("Transaction Id");
+		}
+	}
+
+	private void shiftRowRightByTwo(Row row) {
+		short lastCellNum = row.getLastCellNum();
+		if (lastCellNum <= 0) {
+			return;
+		}
+		for (int columnIndex = lastCellNum - 1; columnIndex >= 0; columnIndex--) {
+			Cell sourceCell = row.getCell(columnIndex, MissingCellPolicy.RETURN_BLANK_AS_NULL);
+			if (sourceCell == null) {
+				continue;
+			}
+			Cell targetCell = row.createCell(columnIndex + 2, sourceCell.getCellType());
+			copyCell(sourceCell, targetCell);
+			row.removeCell(sourceCell);
+		}
+	}
+
+	private void copyCell(Cell sourceCell, Cell targetCell) {
+		targetCell.setCellStyle(sourceCell.getCellStyle());
+		CellType cellType = sourceCell.getCellType();
+		switch (cellType) {
+		case STRING:
+			targetCell.setCellValue(sourceCell.getStringCellValue());
+			break;
+		case NUMERIC:
+			targetCell.setCellValue(sourceCell.getNumericCellValue());
+			break;
+		case BOOLEAN:
+			targetCell.setCellValue(sourceCell.getBooleanCellValue());
+			break;
+		case FORMULA:
+			targetCell.setCellFormula(sourceCell.getCellFormula());
+			break;
+		case ERROR:
+			targetCell.setCellErrorValue(sourceCell.getErrorCellValue());
+			break;
+		case BLANK:
+		case _NONE:
+		default:
+			targetCell.setBlank();
+			break;
+		}
+	}
+
+	private List<Row> findMatchedRowsForTransaction(Workbook workbook, String transactionId) {
+		List<Row> matchedRows = new ArrayList<>();
+		if (!hasText(transactionId)) {
+			return matchedRows;
+		}
+		String normalizedTransactionId = transactionId.toUpperCase(Locale.ROOT);
+		for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
+			Sheet sheet = workbook.getSheetAt(sheetIndex);
+			for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+				Row row = sheet.getRow(rowIndex);
+				if (row == null) {
+					continue;
+				}
+				if (isRowContainingTransactionId(row, normalizedTransactionId)) {
+					matchedRows.add(row);
+				}
+			}
+		}
+		return matchedRows;
+	}
+
+	private boolean isRowContainingTransactionId(Row row, String transactionId) {
+		short lastCellNum = row.getLastCellNum();
+		if (lastCellNum <= 2) {
+			return false;
+		}
+		for (int columnIndex = 2; columnIndex < lastCellNum; columnIndex++) {
+			Cell cell = row.getCell(columnIndex, MissingCellPolicy.RETURN_BLANK_AS_NULL);
+			if (cell == null) {
+				continue;
+			}
+			String cellValue = RECONCILE_QR_DATA_FORMATTER.formatCellValue(cell);
+			if (hasText(cellValue) && cellValue.toUpperCase(Locale.ROOT).contains(transactionId)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void populateReconcileColumns(Row row, Transaction transaction) {
+		row.createCell(0).setCellValue(safePastDueValue(transaction != null ? transaction.getFlatId() : null));
+		row.createCell(1).setCellValue(safePastDueValue(transaction != null ? transaction.getTrnscId() : null));
+	}
+
+	private CellStyle createReconcileHighlightStyle(Workbook workbook) {
+		CellStyle style = workbook.createCellStyle();
+		style.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+		style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		return style;
+	}
+
+	private void highlightReconcileRow(Row row, CellStyle style) {
+		short lastCellNum = row.getLastCellNum();
+		if (lastCellNum < 0) {
+			lastCellNum = 2;
+		}
+		for (int columnIndex = 0; columnIndex < lastCellNum; columnIndex++) {
+			Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
+			cell.setCellStyle(style);
+		}
+	}
+
+	private void setReconcileMessage(ReconcileQRPaymentResponse response) {
+		int foundCount = response.getFoundCount() == null ? 0 : response.getFoundCount();
+		int notFoundCount = response.getNotFoundCount() == null ? 0 : response.getNotFoundCount();
+		if (notFoundCount == 0) {
+			response.setMessage(RECONCILE_QR_MSG_ALL_FOUND);
+			response.setMessageCode(RECONCILE_QR_CODE_ALL_FOUND);
+			return;
+		}
+		if (foundCount == 0) {
+			response.setMessage(RECONCILE_QR_MSG_NOTHING_FOUND);
+			response.setMessageCode(RECONCILE_QR_CODE_NOTHING_FOUND);
+			return;
+		}
+		response.setMessage(RECONCILE_QR_MSG_PARTIAL_FOUND);
+		response.setMessageCode(RECONCILE_QR_CODE_PARTIAL_FOUND);
 	}
 
 	private boolean isNumeric(String value) {

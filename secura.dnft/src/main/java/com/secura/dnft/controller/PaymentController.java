@@ -32,6 +32,8 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
+import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
+import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
@@ -246,6 +248,20 @@ public class PaymentController {
 			return paymentServices.validatePriorDuePaymnent(request);
 		}
 		catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/reconcileQRPayment")
+	@CrossOrigin(origins = "*")
+	public ReconcileQRPaymentResponse reconcileQRPayment(@RequestBody ReconcileQRPaymentRequest request) {
+		ReconcileQRPaymentResponse response = new ReconcileQRPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return paymentServices.reconcileQRPayment(request);
+		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}

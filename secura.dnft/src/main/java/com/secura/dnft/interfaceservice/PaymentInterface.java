@@ -12,6 +12,8 @@ import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
+import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
@@ -39,5 +41,7 @@ public interface PaymentInterface {
 	public UploadPastDueResponse uploadPastDue(UploadPastDueRequest request) throws Exception;
 
 	public GenericResponse validatePriorDuePaymnent(ValidatePriorDuePaymnentRequest request) throws Exception;
+
+	public ReconcileQRPaymentResponse reconcileQRPayment(ReconcileQRPaymentRequest request) throws Exception;
 
 }

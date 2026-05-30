@@ -31,6 +31,8 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
+import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
+import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
@@ -281,6 +283,39 @@ class PaymentControllerTest {
 
 		GenericResponse actual = paymentController.validatePriorDuePaymnent(request);
 
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void reconcileQRPayment_shouldReturnServiceResponse() throws Exception {
+		ReconcileQRPaymentRequest request = new ReconcileQRPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setBase64EncodedSatementFile("base64");
+		ReconcileQRPaymentResponse expected = new ReconcileQRPaymentResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(paymentServices.reconcileQRPayment(request)).thenReturn(expected);
+
+		ReconcileQRPaymentResponse actual = paymentController.reconcileQRPayment(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void reconcileQRPayment_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		ReconcileQRPaymentRequest request = new ReconcileQRPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		when(paymentServices.reconcileQRPayment(request)).thenThrow(new RuntimeException("boom"));
+
+		ReconcileQRPaymentResponse actual = paymentController.reconcileQRPayment(request);
+
+		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
 	}

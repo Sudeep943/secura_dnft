@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,12 +80,17 @@ import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
+import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
+import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentServicesTest {
+
+	private static final String RECONCILE_ALL_FOUND_MESSAGE = "All QR Payment Transaction Verified. DownLoad The Excell TO Reconsile";
+	private static final String RECONCILE_PARTIAL_MESSAGE = "Few QR Payment Transaction Verified. Recheck The Statement or Inputed Date Range For Other Transcations";
 
 	@Mock
 	private GenericService genericService;
@@ -1899,6 +1906,73 @@ class PaymentServicesTest {
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_51, response.getMessageCode());
 	}
 
+	@Test
+	void reconcileQRPayment_shouldHighlightMatchedRowsAndReturnAllFoundMessage() throws Exception {
+		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
+		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of(
+				"UPI/SUDEEP KUM/9658733181@axl/CAMTRNM1FH/AXIS BANK",
+				"UPI/SUDEEP KUM/9658733181@axl/CAMTRNM2FH/AXIS BANK")));
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("CAMTRNM1FH");
+		transaction.setFlatId("A-101");
+		transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		transaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
+		transaction.setCreatTs(LocalDateTime.of(2026, 3, 10, 9, 30));
+		when(transactionRepository.findByAprmntId("APR-1")).thenReturn(List.of(transaction));
+
+		ReconcileQRPaymentResponse response = paymentServices.reconcileQRPayment(request);
+
+		assertEquals(1, response.getFoundCount());
+		assertEquals(0, response.getNotFoundCount());
+		assertEquals(1, response.getFoundTransactionsList().size());
+		assertEquals(RECONCILE_ALL_FOUND_MESSAGE, response.getMessage());
+		assertTrue(response.getHighlithedBase64EncodedFile() != null && !response.getHighlithedBase64EncodedFile().isBlank());
+		try (Workbook workbook = new XSSFWorkbook(
+				new ByteArrayInputStream(Base64.getDecoder().decode(response.getHighlithedBase64EncodedFile())))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			assertEquals("Flat Id", sheet.getRow(0).getCell(0).getStringCellValue());
+			assertEquals("Transaction Id", sheet.getRow(0).getCell(1).getStringCellValue());
+			Row matchedRow = sheet.getRow(1);
+			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
+			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertEquals(IndexedColors.LIGHT_GREEN.getIndex(), matchedRow.getCell(0).getCellStyle().getFillForegroundColor());
+		}
+	}
+
+	@Test
+	void reconcileQRPayment_shouldReturnMixedMessageWhenSomeTransactionsAreNotFound() throws Exception {
+		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
+		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../CAMTRNM1FH/...")));
+		Transaction foundTransaction = new Transaction();
+		foundTransaction.setTrnscId("CAMTRNM1FH");
+		foundTransaction.setFlatId("A-101");
+		foundTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		foundTransaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
+		foundTransaction.setCreatTs(LocalDateTime.of(2026, 3, 10, 10, 30));
+		Transaction notFoundTransaction = new Transaction();
+		notFoundTransaction.setTrnscId("CAMTRNM2FH");
+		notFoundTransaction.setFlatId("A-102");
+		notFoundTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		notFoundTransaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
+		notFoundTransaction.setCreatTs(LocalDateTime.of(2026, 3, 11, 10, 30));
+		Transaction outOfRangeTransaction = new Transaction();
+		outOfRangeTransaction.setTrnscId("CAMTRNM3FH");
+		outOfRangeTransaction.setFlatId("A-103");
+		outOfRangeTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		outOfRangeTransaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
+		outOfRangeTransaction.setCreatTs(LocalDateTime.of(2026, 2, 1, 10, 30));
+		when(transactionRepository.findByAprmntId("APR-1"))
+				.thenReturn(List.of(foundTransaction, notFoundTransaction, outOfRangeTransaction));
+
+		ReconcileQRPaymentResponse response = paymentServices.reconcileQRPayment(request);
+
+		assertEquals(1, response.getFoundCount());
+		assertEquals(1, response.getNotFoundCount());
+		assertEquals(1, response.getNotFoundTransactionsList().size());
+		assertEquals("CAMTRNM2FH", response.getNotFoundTransactionsList().get(0).getTrnscId());
+		assertEquals(RECONCILE_PARTIAL_MESSAGE, response.getMessage());
+	}
+
 	private String buildPastDueWorkbookBase64(List<List<String>> rows) throws Exception {
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("past_due");
@@ -1967,6 +2041,30 @@ class PaymentServicesTest {
 		request.setPaymentCycle("MONTHLY");
 		request.setDueDate(LocalDate.of(2026, 3, 1));
 		return request;
+	}
+
+	private ReconcileQRPaymentRequest buildReconcileQrPaymentRequest() {
+		ReconcileQRPaymentRequest request = new ReconcileQRPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setFromDate(LocalDate.of(2026, 3, 1));
+		request.setToDate(LocalDate.of(2026, 3, 31));
+		return request;
+	}
+
+	private String buildReconcileWorkbookBase64(List<String> statementRows) throws Exception {
+		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet("statement");
+			Row headerRow = sheet.createRow(0);
+			headerRow.createCell(0).setCellValue("Narration");
+			for (int rowIndex = 0; rowIndex < statementRows.size(); rowIndex++) {
+				Row row = sheet.createRow(rowIndex + 1);
+				row.createCell(0).setCellValue(statementRows.get(rowIndex));
+			}
+			workbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
 	}
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {
