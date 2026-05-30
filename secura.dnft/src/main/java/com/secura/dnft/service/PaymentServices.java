@@ -26,6 +26,10 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import org.apache.poi.hssf.usermodel.HSSFPalette;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hssf.util.HSSFColor;
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
@@ -37,7 +41,9 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -118,6 +124,7 @@ public class PaymentServices implements PaymentInterface {
 	private static final String RECONCILE_QR_MSG_ALL_FOUND = "All QR Payment Transaction Verified. DownLoad The Excell TO Reconsile";
 	private static final String RECONCILE_QR_MSG_NOTHING_FOUND = "No QR Payment Transaction Verified. Recheck The Statement or Inputed Date Range";
 	private static final String RECONCILE_QR_MSG_PARTIAL_FOUND = "Few QR Payment Transaction Verified. Recheck The Statement or Inputed Date Range For Other Transcations";
+	private static final byte[] RECONCILE_HIGHLIGHT_RGB = new byte[] { (byte) 0xF5, (byte) 0xFF, (byte) 0x96 };
 	private static final String RECONCILE_QR_CODE_ALL_FOUND = "SUCC_RECONCILE_QR_PAYMENT_ALL_FOUND";
 	private static final String RECONCILE_QR_CODE_NOTHING_FOUND = "ERR_RECONCILE_QR_PAYMENT_NONE_FOUND";
 	private static final String RECONCILE_QR_CODE_PARTIAL_FOUND = "ERR_RECONCILE_QR_PAYMENT_PARTIAL";
@@ -791,11 +798,11 @@ public class PaymentServices implements PaymentInterface {
 				.filter(transaction -> SecuraConstants.TRANSACTION_STATUS_PENDING.equalsIgnoreCase(trimValue(transaction.getTrnsStatus())))
 				.filter(this::isQrPaymentTransaction).filter(transaction -> isCreatTsInBounds(transaction, request.getFromDate(),
 						request.getToDate())).collect(Collectors.toList());
-		try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(
+		try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(
 				Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			prependReconcileColumns(workbook);
-			CellStyle rowHighlightStyle = createReconcileHighlightStyle(workbook);
+			Map<Short, CellStyle> rowHighlightStyleCache = new LinkedHashMap<>();
 			List<Transaction> foundTransactions = new ArrayList<>();
 			List<Transaction> notFoundTransactions = new ArrayList<>();
 			for (Transaction transaction : transactions) {
@@ -807,7 +814,7 @@ public class PaymentServices implements PaymentInterface {
 				foundTransactions.add(transaction);
 				for (Row matchedRow : matchedRows) {
 					populateReconcileColumns(matchedRow, transaction);
-					highlightReconcileRow(matchedRow, rowHighlightStyle);
+					highlightReconcileRow(workbook, matchedRow, rowHighlightStyleCache);
 				}
 			}
 			workbook.write(outputStream);
@@ -2132,21 +2139,49 @@ public class PaymentServices implements PaymentInterface {
 		row.createCell(1).setCellValue(safePastDueValue(transaction != null ? transaction.getTrnscId() : null));
 	}
 
-	private CellStyle createReconcileHighlightStyle(Workbook workbook) {
+	private CellStyle createReconcileHighlightStyle(Workbook workbook, CellStyle baseStyle) {
 		CellStyle style = workbook.createCellStyle();
-		style.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
-		style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		if (baseStyle != null) {
+			style.cloneStyleFrom(baseStyle);
+		}
+		applyReconcileHighlightColor(workbook, style);
+		style.setBorderTop(BorderStyle.THIN);
+		style.setBorderBottom(BorderStyle.THIN);
+		style.setBorderLeft(BorderStyle.THIN);
+		style.setBorderRight(BorderStyle.THIN);
+		style.setTopBorderColor(IndexedColors.BLACK.getIndex());
+		style.setBottomBorderColor(IndexedColors.BLACK.getIndex());
+		style.setLeftBorderColor(IndexedColors.BLACK.getIndex());
+		style.setRightBorderColor(IndexedColors.BLACK.getIndex());
 		return style;
 	}
 
-	private void highlightReconcileRow(Row row, CellStyle style) {
+	private void applyReconcileHighlightColor(Workbook workbook, CellStyle style) {
+		if (style instanceof XSSFCellStyle xssfCellStyle) {
+			xssfCellStyle.setFillForegroundColor(new XSSFColor(RECONCILE_HIGHLIGHT_RGB, null));
+		} else if (workbook instanceof HSSFWorkbook hssfWorkbook) {
+			HSSFPalette palette = hssfWorkbook.getCustomPalette();
+			HSSFColor highlightColor = palette.findSimilarColor(RECONCILE_HIGHLIGHT_RGB[0] & 0xFF,
+					RECONCILE_HIGHLIGHT_RGB[1] & 0xFF, RECONCILE_HIGHLIGHT_RGB[2] & 0xFF);
+			style.setFillForegroundColor(highlightColor.getIndex());
+		} else {
+			style.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
+		}
+		style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+	}
+
+	private void highlightReconcileRow(Workbook workbook, Row row, Map<Short, CellStyle> styleCache) {
 		short lastCellNum = row.getLastCellNum();
 		if (lastCellNum < 0) {
 			lastCellNum = 2;
 		}
 		for (int columnIndex = 0; columnIndex < lastCellNum; columnIndex++) {
 			Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
-			cell.setCellStyle(style);
+			CellStyle currentStyle = cell.getCellStyle();
+			short styleIndex = currentStyle != null ? currentStyle.getIndex() : -1;
+			CellStyle highlightStyle = styleCache.computeIfAbsent(styleIndex,
+					key -> createReconcileHighlightStyle(workbook, currentStyle));
+			cell.setCellStyle(highlightStyle);
 		}
 	}
 
