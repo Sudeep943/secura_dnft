@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
@@ -1943,8 +1944,8 @@ class PaymentServicesTest {
 			Row matchedRow = sheet.getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
 			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
-			assertReconcileHighlightStyle(matchedRow.getCell(0).getCellStyle());
-			assertReconcileHighlightStyle(matchedRow.getCell(1).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(1).getCellStyle());
 		}
 	}
 
@@ -1971,7 +1972,7 @@ class PaymentServicesTest {
 			Row matchedRow = workbook.getSheetAt(0).getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
 			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
-			assertEquals(BorderStyle.THIN, matchedRow.getCell(0).getCellStyle().getBorderBottom());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
 		}
 	}
 
@@ -2190,14 +2191,22 @@ class PaymentServicesTest {
 		}
 	}
 
-	private void assertReconcileHighlightStyle(CellStyle style) {
+	private void assertReconcileHighlightStyle(Workbook workbook, CellStyle style) {
 		assertEquals(BorderStyle.THIN, style.getBorderTop());
 		assertEquals(BorderStyle.THIN, style.getBorderBottom());
 		assertEquals(BorderStyle.THIN, style.getBorderLeft());
 		assertEquals(BorderStyle.THIN, style.getBorderRight());
-		XSSFColor fillColor = ((XSSFCellStyle) style).getFillForegroundColorColor();
+		if (style instanceof XSSFCellStyle xssfCellStyle) {
+			XSSFColor fillColor = xssfCellStyle.getFillForegroundColorColor();
+			assertNotNull(fillColor);
+			assertEquals("FFF5FF96", fillColor.getARGBHex());
+			return;
+		}
+		HSSFColor fillColor = ((HSSFWorkbook) workbook).getCustomPalette().getColor(style.getFillForegroundColor());
 		assertNotNull(fillColor);
-		assertEquals("FFF5FF96", fillColor.getARGBHex());
+		assertEquals((short) 245, fillColor.getTriplet()[0]);
+		assertEquals((short) 255, fillColor.getTriplet()[1]);
+		assertEquals((short) 150, fillColor.getTriplet()[2]);
 	}
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {

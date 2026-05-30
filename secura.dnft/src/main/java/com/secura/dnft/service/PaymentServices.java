@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -803,7 +804,7 @@ public class PaymentServices implements PaymentInterface {
 				Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			prependReconcileColumns(workbook);
-			Map<Short, CellStyle> rowHighlightStyleCache = new LinkedHashMap<>();
+			Map<CellStyle, CellStyle> rowHighlightStyleCache = new IdentityHashMap<>();
 			List<Transaction> foundTransactions = new ArrayList<>();
 			List<Transaction> notFoundTransactions = new ArrayList<>();
 			for (Transaction transaction : transactions) {
@@ -2171,7 +2172,7 @@ public class PaymentServices implements PaymentInterface {
 		style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 	}
 
-	private void highlightReconcileRow(Workbook workbook, Row row, Map<Short, CellStyle> styleCache) {
+	private void highlightReconcileRow(Workbook workbook, Row row, Map<CellStyle, CellStyle> styleCache) {
 		short lastCellNum = row.getLastCellNum();
 		if (lastCellNum < 0) {
 			lastCellNum = 2;
@@ -2179,8 +2180,7 @@ public class PaymentServices implements PaymentInterface {
 		for (int columnIndex = 0; columnIndex < lastCellNum; columnIndex++) {
 			Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
 			CellStyle currentStyle = cell.getCellStyle();
-			short styleIndex = currentStyle != null ? currentStyle.getIndex() : -1;
-			CellStyle highlightStyle = styleCache.computeIfAbsent(styleIndex,
+			CellStyle highlightStyle = styleCache.computeIfAbsent(currentStyle,
 					key -> createReconcileHighlightStyle(workbook, currentStyle));
 			cell.setCellStyle(highlightStyle);
 		}
