@@ -1979,7 +1979,7 @@ class PaymentServicesTest {
 	@Test
 	void actionQRPayment_shouldApproveTransactionsAndReturnAllSuccess() throws Exception {
 		ActionQRPaymentRequest request = buildActionQrPaymentRequest(SecuraConstants.ACTION_APPROVE);
-		Transaction transaction = request.getFoundTransactionsfoundTransactionsList().get(0);
+		Transaction transaction = request.getFoundTransactionsList().get(0);
 		GenericResponse successResponse = new GenericResponse();
 		successResponse.setMessage(SuccessMessage.SUCC_MESSAGE_47);
 		successResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_47);
@@ -1988,8 +1988,8 @@ class PaymentServicesTest {
 
 		ActionQRPaymentResponse response = paymentServices.actionQRPayment(request);
 
-		assertTrue(response.getNotCompltedTransactionList().isEmpty());
-		assertNull(response.getFiledWorklistActionFileBase64Encoded());
+		assertTrue(response.getNotCompletedTransactionList().isEmpty());
+		assertNull(response.getFailedWorklistActionFileBase64Encoded());
 		assertEquals("SUCC_ACTION_QR_PAYMENT_ALL", response.getMessageCode());
 		ArgumentCaptor<ActionTransactionReviewWorkListRequest> captor = ArgumentCaptor
 				.forClass(ActionTransactionReviewWorkListRequest.class);
@@ -2007,8 +2007,7 @@ class PaymentServicesTest {
 		failedTransaction.setTrnsAmt("950.50");
 		failedTransaction.setWorkListId("WL-2");
 		failedTransaction.setCreatTs(LocalDateTime.of(2026, 3, 1, 21, 45));
-		request.setFoundTransactionsfoundTransactionsList(
-				List.of(request.getFoundTransactionsfoundTransactionsList().get(0), failedTransaction));
+		request.setFoundTransactionsList(List.of(request.getFoundTransactionsList().get(0), failedTransaction));
 
 		GenericResponse successResponse = new GenericResponse();
 		successResponse.setMessage(SuccessMessage.SUCC_MESSAGE_47);
@@ -2021,12 +2020,12 @@ class PaymentServicesTest {
 
 		ActionQRPaymentResponse response = paymentServices.actionQRPayment(request);
 
-		assertEquals(1, response.getNotCompltedTransactionList().size());
-		assertEquals("TRNS-2", response.getNotCompltedTransactionList().get(0).getTrnscId());
+		assertEquals(1, response.getNotCompletedTransactionList().size());
+		assertEquals("TRNS-2", response.getNotCompletedTransactionList().get(0).getTrnscId());
 		assertEquals("ERR_ACTION_QR_PAYMENT_PARTIAL", response.getMessageCode());
-		assertNotNull(response.getFiledWorklistActionFileBase64Encoded());
+		assertNotNull(response.getFailedWorklistActionFileBase64Encoded());
 		try (Workbook workbook = new XSSFWorkbook(
-				new ByteArrayInputStream(Base64.getDecoder().decode(response.getFiledWorklistActionFileBase64Encoded())))) {
+				new ByteArrayInputStream(Base64.getDecoder().decode(response.getFailedWorklistActionFileBase64Encoded())))) {
 			Sheet sheet = workbook.getSheetAt(0);
 			assertEquals("Transaction Id", sheet.getRow(0).getCell(0).getStringCellValue());
 			assertEquals("TRNS-2", sheet.getRow(1).getCell(0).getStringCellValue());
@@ -2135,7 +2134,7 @@ class PaymentServicesTest {
 		transaction.setTrnsAmt("1200");
 		transaction.setWorkListId("WL-1");
 		transaction.setCreatTs(LocalDateTime.of(2026, 3, 2, 11, 15));
-		request.setFoundTransactionsfoundTransactionsList(List.of(transaction));
+		request.setFoundTransactionsList(List.of(transaction));
 		return request;
 	}
 

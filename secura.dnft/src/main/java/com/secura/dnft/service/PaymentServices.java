@@ -829,10 +829,10 @@ public class PaymentServices implements PaymentInterface {
 	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception {
 		ActionQRPaymentResponse response = new ActionQRPaymentResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		List<Transaction> foundTransactions = request != null ? request.getFoundTransactionsfoundTransactionsList() : null;
+		List<Transaction> foundTransactions = request != null ? request.getFoundTransactionsList() : null;
 		String action = trimValue(request != null ? request.getAction() : null);
 		if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
-			response.setNotCompltedTransactionList(new ArrayList<>());
+			response.setNotCompletedTransactionList(new ArrayList<>());
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
@@ -853,9 +853,9 @@ public class PaymentServices implements PaymentInterface {
 					formatActionQrTransactionDate(transaction != null ? transaction.getCreatTs() : null),
 					safePastDueValue(actionResponse != null ? actionResponse.getMessage() : null) });
 		}
-		response.setNotCompltedTransactionList(notCompletedTransactions);
+		response.setNotCompletedTransactionList(notCompletedTransactions);
 		if (!failedRows.isEmpty()) {
-			response.setFiledWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
+			response.setFailedWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
 		}
 		setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
 		return response;

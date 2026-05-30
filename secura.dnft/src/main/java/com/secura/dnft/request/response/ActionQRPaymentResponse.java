@@ -2,6 +2,7 @@ package com.secura.dnft.request.response;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.secura.dnft.entity.Transaction;
 
 public class ActionQRPaymentResponse {
@@ -9,8 +10,10 @@ public class ActionQRPaymentResponse {
 	private GenericHeader genericHeader;
 	private String message;
 	private String messageCode;
-	private List<Transaction> notCompltedTransactionList;
-	private String filedWorklistActionFileBase64Encoded;
+	@JsonProperty("notCompltedTransactionList")
+	private List<Transaction> notCompletedTransactionList;
+	@JsonProperty("filedWorklistActionFileBase64Encoded")
+	private String failedWorklistActionFileBase64Encoded;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -36,19 +39,19 @@ public class ActionQRPaymentResponse {
 		this.messageCode = messageCode;
 	}
 
-	public List<Transaction> getNotCompltedTransactionList() {
-		return notCompltedTransactionList;
+	public List<Transaction> getNotCompletedTransactionList() {
+		return notCompletedTransactionList;
 	}
 
-	public void setNotCompltedTransactionList(List<Transaction> notCompltedTransactionList) {
-		this.notCompltedTransactionList = notCompltedTransactionList;
+	public void setNotCompletedTransactionList(List<Transaction> notCompletedTransactionList) {
+		this.notCompletedTransactionList = notCompletedTransactionList;
 	}
 
-	public String getFiledWorklistActionFileBase64Encoded() {
-		return filedWorklistActionFileBase64Encoded;
+	public String getFailedWorklistActionFileBase64Encoded() {
+		return failedWorklistActionFileBase64Encoded;
 	}
 
-	public void setFiledWorklistActionFileBase64Encoded(String filedWorklistActionFileBase64Encoded) {
-		this.filedWorklistActionFileBase64Encoded = filedWorklistActionFileBase64Encoded;
+	public void setFailedWorklistActionFileBase64Encoded(String failedWorklistActionFileBase64Encoded) {
+		this.failedWorklistActionFileBase64Encoded = failedWorklistActionFileBase64Encoded;
 	}
 }
