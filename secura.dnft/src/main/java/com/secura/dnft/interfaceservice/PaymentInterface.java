@@ -2,6 +2,8 @@ package com.secura.dnft.interfaceservice;
 
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.ActionQRPaymentRequest;
+import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
@@ -43,5 +45,7 @@ public interface PaymentInterface {
 	public GenericResponse validatePriorDuePaymnent(ValidatePriorDuePaymnentRequest request) throws Exception;
 
 	public ReconcileQRPaymentResponse reconcileQRPayment(ReconcileQRPaymentRequest request) throws Exception;
+
+	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception;
 
 }

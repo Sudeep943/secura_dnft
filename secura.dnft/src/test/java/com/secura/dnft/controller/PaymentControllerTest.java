@@ -13,6 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.request.response.ActionQRPaymentRequest;
+import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
@@ -314,6 +316,38 @@ class PaymentControllerTest {
 		when(paymentServices.reconcileQRPayment(request)).thenThrow(new RuntimeException("boom"));
 
 		ReconcileQRPaymentResponse actual = paymentController.reconcileQRPayment(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void actionQRPayment_shouldReturnServiceResponse() throws Exception {
+		ActionQRPaymentRequest request = new ActionQRPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		ActionQRPaymentResponse expected = new ActionQRPaymentResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(paymentServices.actionQRPayment(request)).thenReturn(expected);
+
+		ActionQRPaymentResponse actual = paymentController.actionQRPayment(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void actionQRPayment_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		ActionQRPaymentRequest request = new ActionQRPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		when(paymentServices.actionQRPayment(request)).thenThrow(new RuntimeException("boom"));
+
+		ActionQRPaymentResponse actual = paymentController.actionQRPayment(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());

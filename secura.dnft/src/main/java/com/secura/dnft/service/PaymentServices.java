@@ -66,6 +66,9 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
+import com.secura.dnft.request.response.ActionQRPaymentRequest;
+import com.secura.dnft.request.response.ActionQRPaymentResponse;
+import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -118,6 +121,15 @@ public class PaymentServices implements PaymentInterface {
 	private static final String RECONCILE_QR_CODE_ALL_FOUND = "SUCC_RECONCILE_QR_PAYMENT_ALL_FOUND";
 	private static final String RECONCILE_QR_CODE_NOTHING_FOUND = "ERR_RECONCILE_QR_PAYMENT_NONE_FOUND";
 	private static final String RECONCILE_QR_CODE_PARTIAL_FOUND = "ERR_RECONCILE_QR_PAYMENT_PARTIAL";
+	private static final String ACTION_QR_MSG_ALL_SUCCESS = "All QR payment worklists processed successfully";
+	private static final String ACTION_QR_MSG_PARTIAL_SUCCESS = "Few QR payment worklists could not be processed";
+	private static final String ACTION_QR_MSG_NO_SUCCESS = "No QR payment worklist could be processed";
+	private static final String ACTION_QR_CODE_ALL_SUCCESS = "SUCC_ACTION_QR_PAYMENT_ALL";
+	private static final String ACTION_QR_CODE_PARTIAL_SUCCESS = "ERR_ACTION_QR_PAYMENT_PARTIAL";
+	private static final String ACTION_QR_CODE_NO_SUCCESS = "ERR_ACTION_QR_PAYMENT_NONE";
+	private static final String ACTION_QR_FAILED_FILE_SHEET_NAME = "failed_worklist_actions";
+	private static final DateTimeFormatter ACTION_QR_FAILED_FILE_DATE_TIME_FORMATTER = DateTimeFormatter
+			.ofPattern("d-MMM-yyyy HH:mm", Locale.ENGLISH);
 
 	@Autowired
 	GenericService genericService;
@@ -774,6 +786,7 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
+
 		List<Transaction> transactions = transactionRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
 				.filter(transaction -> SecuraConstants.TRANSACTION_STATUS_PENDING.equalsIgnoreCase(trimValue(transaction.getTrnsStatus())))
 				.filter(this::isQrPaymentTransaction).filter(transaction -> isCreatTsInBounds(transaction, request.getFromDate(),
@@ -810,6 +823,42 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
+	}
+
+	@Override
+	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception {
+		ActionQRPaymentResponse response = new ActionQRPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		List<Transaction> foundTransactions = request != null ? request.getFoundTransactionsList() : null;
+		String action = trimValue(request != null ? request.getAction() : null);
+		if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
+			response.setNotCompletedTransactionList(new ArrayList<>());
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+		List<Transaction> notCompletedTransactions = new ArrayList<>();
+		List<String[]> failedRows = new ArrayList<>();
+		for (Transaction transaction : foundTransactions) {
+			GenericResponse actionResponse = triggerWorklistAction(request, action, transaction);
+			String responseCode = trimValue(actionResponse != null ? actionResponse.getMessageCode() : null);
+			if (responseCode != null && responseCode.contains("SUCC_MESSAGE_")) {
+				continue;
+			}
+			notCompletedTransactions.add(transaction);
+			failedRows.add(new String[] {
+					safePastDueValue(transaction != null ? transaction.getTrnscId() : null),
+					safePastDueValue(transaction != null ? transaction.getFlatId() : null),
+					safePastDueValue(transaction != null ? transaction.getTrnsAmt() : null),
+					formatActionQrTransactionDate(transaction != null ? transaction.getCreatTs() : null),
+					safePastDueValue(actionResponse != null ? actionResponse.getMessage() : null) });
+		}
+		response.setNotCompletedTransactionList(notCompletedTransactions);
+		if (!failedRows.isEmpty()) {
+			response.setFailedWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
+		}
+		setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
+		return response;
 	}
 
 	@Override
@@ -2116,6 +2165,76 @@ public class PaymentServices implements PaymentInterface {
 		}
 		response.setMessage(RECONCILE_QR_MSG_PARTIAL_FOUND);
 		response.setMessageCode(RECONCILE_QR_CODE_PARTIAL_FOUND);
+	}
+
+	private boolean isValidAction(String action) {
+		return SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)
+				|| SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action);
+	}
+
+	private GenericResponse triggerWorklistAction(ActionQRPaymentRequest request, String action, Transaction transaction) {
+		try {
+			ActionTransactionReviewWorkListRequest actionRequest = new ActionTransactionReviewWorkListRequest();
+			actionRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			actionRequest.setAction(action);
+			actionRequest.setWorklistId(transaction != null ? trimValue(transaction.getWorkListId()) : null);
+			if (!hasText(actionRequest.getWorklistId())) {
+				GenericResponse invalidResponse = new GenericResponse();
+				invalidResponse.setMessage("Worklist id is missing for transaction");
+				invalidResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return invalidResponse;
+			}
+			return worklistService.actionTransactionReviewWorkList(actionRequest);
+		} catch (Exception exception) {
+			GenericResponse errorResponse = new GenericResponse();
+			errorResponse.setMessage(
+					hasText(exception.getMessage()) ? exception.getMessage() : "Failed to process worklist action");
+			errorResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return errorResponse;
+		}
+	}
+
+	private String formatActionQrTransactionDate(LocalDateTime transactionDate) {
+		return transactionDate == null ? "" : ACTION_QR_FAILED_FILE_DATE_TIME_FORMATTER.format(transactionDate);
+	}
+
+	private String createActionQrFailedWorkbook(List<String[]> failedRows) {
+		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet(ACTION_QR_FAILED_FILE_SHEET_NAME);
+			Row headerRow = sheet.createRow(0);
+			String[] headers = { "Transaction Id", "FlatId", "Amount", "Transaction Date", "Cause of failure" };
+			for (int columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+				headerRow.createCell(columnIndex).setCellValue(headers[columnIndex]);
+			}
+			for (int rowIndex = 0; rowIndex < failedRows.size(); rowIndex++) {
+				Row row = sheet.createRow(rowIndex + 1);
+				String[] values = failedRows.get(rowIndex);
+				for (int columnIndex = 0; columnIndex < values.length; columnIndex++) {
+					row.createCell(columnIndex, CellType.STRING).setCellValue(safePastDueValue(values[columnIndex]));
+				}
+			}
+			workbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		} catch (Exception exception) {
+			LOGGER.error("Failed to create action QR payment failure workbook", exception);
+			return null;
+		}
+	}
+
+	private void setActionQrMessage(ActionQRPaymentResponse response, int totalCount, int notCompletedCount) {
+		int successCount = Math.max(totalCount - notCompletedCount, 0);
+		if (notCompletedCount == 0) {
+			response.setMessage(ACTION_QR_MSG_ALL_SUCCESS);
+			response.setMessageCode(ACTION_QR_CODE_ALL_SUCCESS);
+			return;
+		}
+		if (successCount == 0) {
+			response.setMessage(ACTION_QR_MSG_NO_SUCCESS);
+			response.setMessageCode(ACTION_QR_CODE_NO_SUCCESS);
+			return;
+		}
+		response.setMessage(ACTION_QR_MSG_PARTIAL_SUCCESS);
+		response.setMessageCode(ACTION_QR_CODE_PARTIAL_SUCCESS);
 	}
 
 	private boolean isNumeric(String value) {
