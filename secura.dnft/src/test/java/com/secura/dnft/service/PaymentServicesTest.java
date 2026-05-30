@@ -30,10 +30,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hssf.util.HSSFColor;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1930,7 +1936,7 @@ class PaymentServicesTest {
 		assertEquals(1, response.getFoundTransactionsList().size());
 		assertEquals(RECONCILE_ALL_FOUND_MESSAGE, response.getMessage());
 		assertTrue(response.getHighlithedBase64EncodedFile() != null && !response.getHighlithedBase64EncodedFile().isBlank());
-		try (Workbook workbook = new XSSFWorkbook(
+		try (Workbook workbook = WorkbookFactory.create(
 				new ByteArrayInputStream(Base64.getDecoder().decode(response.getHighlithedBase64EncodedFile())))) {
 			Sheet sheet = workbook.getSheetAt(0);
 			assertEquals("Flat Id", sheet.getRow(0).getCell(0).getStringCellValue());
@@ -1938,7 +1944,35 @@ class PaymentServicesTest {
 			Row matchedRow = sheet.getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
 			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
-			assertEquals(IndexedColors.LIGHT_GREEN.getIndex(), matchedRow.getCell(0).getCellStyle().getFillForegroundColor());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(1).getCellStyle());
+		}
+	}
+
+	@Test
+	void reconcileQRPayment_shouldSupportXlsStatements() throws Exception {
+		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
+		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../CAMTRNM1FH/..."), false));
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("CAMTRNM1FH");
+		transaction.setFlatId("A-101");
+		transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		transaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
+		transaction.setCreatTs(LocalDateTime.of(2026, 3, 10, 9, 30));
+		when(transactionRepository.findByAprmntId("APR-1")).thenReturn(List.of(transaction));
+
+		ReconcileQRPaymentResponse response = paymentServices.reconcileQRPayment(request);
+
+		assertEquals(1, response.getFoundCount());
+		assertEquals(0, response.getNotFoundCount());
+		assertTrue(response.getHighlithedBase64EncodedFile() != null && !response.getHighlithedBase64EncodedFile().isBlank());
+		try (Workbook workbook = WorkbookFactory.create(
+				new ByteArrayInputStream(Base64.getDecoder().decode(response.getHighlithedBase64EncodedFile())))) {
+			assertTrue(workbook instanceof HSSFWorkbook);
+			Row matchedRow = workbook.getSheetAt(0).getRow(1);
+			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
+			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
 		}
 	}
 
@@ -2139,7 +2173,12 @@ class PaymentServicesTest {
 	}
 
 	private String buildReconcileWorkbookBase64(List<String> statementRows) throws Exception {
-		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+		return buildReconcileWorkbookBase64(statementRows, true);
+	}
+
+	private String buildReconcileWorkbookBase64(List<String> statementRows, boolean xlsxFormat) throws Exception {
+		try (Workbook workbook = xlsxFormat ? new XSSFWorkbook() : new HSSFWorkbook();
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			Sheet sheet = workbook.createSheet("statement");
 			Row headerRow = sheet.createRow(0);
 			headerRow.createCell(0).setCellValue("Narration");
@@ -2150,6 +2189,24 @@ class PaymentServicesTest {
 			workbook.write(outputStream);
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
+	}
+
+	private void assertReconcileHighlightStyle(Workbook workbook, CellStyle style) {
+		assertEquals(BorderStyle.THIN, style.getBorderTop());
+		assertEquals(BorderStyle.THIN, style.getBorderBottom());
+		assertEquals(BorderStyle.THIN, style.getBorderLeft());
+		assertEquals(BorderStyle.THIN, style.getBorderRight());
+		if (style instanceof XSSFCellStyle xssfCellStyle) {
+			XSSFColor fillColor = xssfCellStyle.getFillForegroundColorColor();
+			assertNotNull(fillColor);
+			assertEquals("FFF5FF96", fillColor.getARGBHex());
+			return;
+		}
+		HSSFColor fillColor = ((HSSFWorkbook) workbook).getCustomPalette().getColor(style.getFillForegroundColor());
+		assertNotNull(fillColor);
+		assertEquals((short) 245, fillColor.getTriplet()[0]);
+		assertEquals((short) 255, fillColor.getTriplet()[1]);
+		assertEquals((short) 150, fillColor.getTriplet()[2]);
 	}
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {
