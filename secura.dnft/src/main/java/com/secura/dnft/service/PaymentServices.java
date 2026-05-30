@@ -787,41 +787,6 @@ public class PaymentServices implements PaymentInterface {
 			return response;
 		}
 
-		@Override
-		public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception {
-			ActionQRPaymentResponse response = new ActionQRPaymentResponse();
-			response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-			List<Transaction> foundTransactions = request != null ? request.getFoundTransactionsfoundTransactionsList() : null;
-			String action = trimValue(request != null ? request.getAction() : null);
-			if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
-				response.setNotCompltedTransactionList(new ArrayList<>());
-				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-				return response;
-			}
-			List<Transaction> notCompletedTransactions = new ArrayList<>();
-			List<String[]> failedRows = new ArrayList<>();
-			for (Transaction transaction : foundTransactions) {
-				GenericResponse actionResponse = triggerWorklistAction(request, action, transaction);
-				String responseCode = trimValue(actionResponse != null ? actionResponse.getMessageCode() : null);
-				if (responseCode != null && responseCode.contains("SUCC_MESSAGE_")) {
-					continue;
-				}
-				notCompletedTransactions.add(transaction);
-				failedRows.add(new String[] {
-						safePastDueValue(transaction != null ? transaction.getTrnscId() : null),
-						safePastDueValue(transaction != null ? transaction.getFlatId() : null),
-						safePastDueValue(transaction != null ? transaction.getTrnsAmt() : null),
-						formatActionQrTransactionDate(transaction != null ? transaction.getCreatTs() : null),
-						safePastDueValue(actionResponse != null ? actionResponse.getMessage() : null) });
-			}
-			response.setNotCompltedTransactionList(notCompletedTransactions);
-			if (!failedRows.isEmpty()) {
-				response.setFiledWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
-			}
-			setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
-			return response;
-		}
 		List<Transaction> transactions = transactionRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
 				.filter(transaction -> SecuraConstants.TRANSACTION_STATUS_PENDING.equalsIgnoreCase(trimValue(transaction.getTrnsStatus())))
 				.filter(this::isQrPaymentTransaction).filter(transaction -> isCreatTsInBounds(transaction, request.getFromDate(),
@@ -858,6 +823,42 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
+	}
+
+	@Override
+	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception {
+		ActionQRPaymentResponse response = new ActionQRPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		List<Transaction> foundTransactions = request != null ? request.getFoundTransactionsfoundTransactionsList() : null;
+		String action = trimValue(request != null ? request.getAction() : null);
+		if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
+			response.setNotCompltedTransactionList(new ArrayList<>());
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+		List<Transaction> notCompletedTransactions = new ArrayList<>();
+		List<String[]> failedRows = new ArrayList<>();
+		for (Transaction transaction : foundTransactions) {
+			GenericResponse actionResponse = triggerWorklistAction(request, action, transaction);
+			String responseCode = trimValue(actionResponse != null ? actionResponse.getMessageCode() : null);
+			if (responseCode != null && responseCode.contains("SUCC_MESSAGE_")) {
+				continue;
+			}
+			notCompletedTransactions.add(transaction);
+			failedRows.add(new String[] {
+					safePastDueValue(transaction != null ? transaction.getTrnscId() : null),
+					safePastDueValue(transaction != null ? transaction.getFlatId() : null),
+					safePastDueValue(transaction != null ? transaction.getTrnsAmt() : null),
+					formatActionQrTransactionDate(transaction != null ? transaction.getCreatTs() : null),
+					safePastDueValue(actionResponse != null ? actionResponse.getMessage() : null) });
+		}
+		response.setNotCompltedTransactionList(notCompletedTransactions);
+		if (!failedRows.isEmpty()) {
+			response.setFiledWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
+		}
+		setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
+		return response;
 	}
 
 	@Override
