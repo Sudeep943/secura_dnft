@@ -2011,12 +2011,15 @@ class PaymentServicesTest {
 				new ByteArrayInputStream(Base64.getDecoder().decode(response.getHighlithedBase64EncodedFile())))) {
 			Sheet sheet = workbook.getSheetAt(0);
 			assertEquals("Flat Id", sheet.getRow(0).getCell(0).getStringCellValue());
-			assertEquals("QR Identifier", sheet.getRow(0).getCell(1).getStringCellValue());
+			assertEquals("Transaction ID", sheet.getRow(0).getCell(1).getStringCellValue());
+			assertEquals("QR Identifier", sheet.getRow(0).getCell(2).getStringCellValue());
 			Row matchedRow = sheet.getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
-			assertEquals("QR1A2", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("QR1A2", matchedRow.getCell(2).getStringCellValue());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(1).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(2).getCellStyle());
 		}
 	}
 
@@ -2043,7 +2046,8 @@ class PaymentServicesTest {
 			assertTrue(workbook instanceof HSSFWorkbook);
 			Row matchedRow = workbook.getSheetAt(0).getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
-			assertEquals("QR1A2", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("QR1A2", matchedRow.getCell(2).getStringCellValue());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
 		}
 	}
