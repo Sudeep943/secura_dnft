@@ -45,6 +45,9 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
+import com.secura.dnft.request.response.GetTransactionRequest;
+import com.secura.dnft.request.response.GetTransactionResponse;
+import com.secura.dnft.request.response.PaymentTenderData;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionAndReportsServiceTest {
@@ -75,6 +78,39 @@ class TransactionAndReportsServiceTest {
 
 	@InjectMocks
 	private TransactionAndReportsService transactionAndReportsService;
+
+	@Test
+	void getTransaction_shouldIncludeFlatIdAndNormalizeTenderValues() {
+		GetTransactionRequest request = new GetTransactionRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+
+		Transaction transaction = new Transaction();
+		transaction.setAprmntId("APR-1");
+		transaction.setTrnscId("TRN-1");
+		transaction.setFlatId("F-101");
+		transaction.setTrnsStatus("SUCCESS");
+		transaction.setReceiptNumber("RCPT-1");
+		transaction.setTrnsTender("TRNS_TENDER_JSON");
+
+		PaymentTenderData tender = new PaymentTenderData();
+		tender.setTenderName("BANK_TRANSFER");
+		tender.setAmountPaid("PARTIAL_PAYMENT");
+
+		when(transactionRepository.findByAprmntId("APR-1")).thenReturn(List.of(transaction));
+		when(genericService.fromJson(eq("TRNS_TENDER_JSON"), any(TypeReference.class))).thenReturn(List.of(tender));
+
+		GetTransactionResponse response = transactionAndReportsService.getTransaction(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_41, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_41, response.getMessageCode());
+		assertEquals(1, response.getTransactionList().size());
+		assertEquals("F-101", response.getTransactionList().get(0).getFlatId());
+		assertEquals("BANK TRANSFER", response.getTransactionList().get(0).getTrnsTender().get(0).getTenderName());
+		assertEquals("PARTIAL PAYMENT", response.getTransactionList().get(0).getTrnsTender().get(0).getAmountPaid());
+		assertEquals("RCPT-1", response.getTransactionList().get(0).getReceiptNumber());
+	}
 
 	@Test
 	void getDefaulterList_shouldReturnGroupedDefaultersForActiveMandatoryPayments() {

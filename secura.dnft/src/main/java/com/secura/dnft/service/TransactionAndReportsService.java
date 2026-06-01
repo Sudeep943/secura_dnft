@@ -783,6 +783,7 @@ public class TransactionAndReportsService {
 		item.setBankInstrumentTenderDetails(
 				parseList(transaction.getBankInstrumentTenderDetails(),
 						new TypeReference<List<BankInstrumentTenderDetails>>() {}));
+		item.setFlatId(transaction.getFlatId());
 		item.setWorkListId(transaction.getWorkListId());
 		item.setReceiptNumber(TRNS_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())
 				? transaction.getReceiptNumber()

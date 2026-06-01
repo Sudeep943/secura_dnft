@@ -2,6 +2,7 @@ package com.secura.dnft.request.response;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TransactionResponseItem {
 
@@ -24,6 +25,7 @@ public class TransactionResponseItem {
 	private DueAmountDetails dueDetails;
 	private String cause;
 	private List<BankInstrumentTenderDetails> bankInstrumentTenderDetails;
+	private String flatId;
 	private String workListId;
 	private String receiptNumber;
 	private LocalDateTime creatTs;
@@ -68,7 +70,8 @@ public class TransactionResponseItem {
 	}
 
 	public void setTrnsTender(List<PaymentTenderData> trnsTender) {
-		this.trnsTender = trnsTender;
+		this.trnsTender = trnsTender == null ? null
+				: trnsTender.stream().map(this::normalizeTender).collect(Collectors.toList());
 	}
 
 	public String getTrnsType() {
@@ -183,6 +186,14 @@ public class TransactionResponseItem {
 		this.bankInstrumentTenderDetails = bankInstrumentTenderDetails;
 	}
 
+	public String getFlatId() {
+		return flatId;
+	}
+
+	public void setFlatId(String flatId) {
+		this.flatId = flatId;
+	}
+
 	public String getWorkListId() {
 		return workListId;
 	}
@@ -229,5 +240,19 @@ public class TransactionResponseItem {
 
 	public void setLstUpdtUsrId(String lstUpdtUsrId) {
 		this.lstUpdtUsrId = lstUpdtUsrId;
+	}
+
+	private PaymentTenderData normalizeTender(PaymentTenderData tender) {
+		if (tender == null) {
+			return null;
+		}
+		PaymentTenderData normalizedTender = new PaymentTenderData();
+		normalizedTender.setTenderName(normalizeTenderValue(tender.getTenderName()));
+		normalizedTender.setAmountPaid(normalizeTenderValue(tender.getAmountPaid()));
+		return normalizedTender;
+	}
+
+	private String normalizeTenderValue(String value) {
+		return value == null ? null : value.replace('_', ' ');
 	}
 }
