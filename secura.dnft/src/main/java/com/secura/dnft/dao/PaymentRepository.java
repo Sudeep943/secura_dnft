@@ -22,4 +22,6 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, PaymentE
 	Optional<PaymentEntity> findFirstByPaymentIdAndAprmtId(String paymentId, String aprmtId);
 
 	long countByAprmtIdAndCauseIdIgnoreCase(String aprmtId, String causeId);
+
+	List<PaymentEntity> findByEmailSentflag(String emailSentflag);
 }
