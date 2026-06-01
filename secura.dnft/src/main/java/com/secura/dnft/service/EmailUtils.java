@@ -1,8 +1,9 @@
 package com.secura.dnft.service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.entity.DiscFin;
@@ -18,6 +19,17 @@ public class EmailUtils {
 //	 String societyName;
 //	  
 //	
+
+
+	public static String getFormatedDate(LocalDate date) {
+
+DateTimeFormatter formatter =
+        DateTimeFormatter.ofPattern("d-MMM-yyyy");
+
+String formattedDate = date.format(formatter);
+return formattedDate;
+	}
+	
     public static String generatePaymentCollectionEmail(
             String ownerName,          
             String logoBase64,
@@ -96,7 +108,7 @@ public class EmailUtils {
 
         html.append("<tr><td style='padding:0 30px;'>");
 
-        html.append("<h2 style='color:#0d4d8b'>Payment Details</h2>");
+        html.append("<h2 style='color:#4ac74a'>Payment Details</h2>");
 
         html.append("<table width='100%' border='1' cellpadding='8' ");
         html.append("style='border-collapse:collapse;'>");
@@ -121,51 +133,51 @@ public class EmailUtils {
 
         html.append("</td></tr>");
 
-        // UPCOMING DUES
-
-        if (upcomingDues != null && !upcomingDues.isEmpty()) {
-
-            html.append("<tr><td style='padding:30px;'>");
-
-            html.append("<h2 style='color:#0d4d8b'>Upcoming Due Details</h2>");
-
-            html.append("<table width='100%' border='1' cellpadding='8' ");
-            html.append("style='border-collapse:collapse;'>");
-
-            html.append("<tr bgcolor='#0d4d8b' style='color:white;'>");
-            html.append("<th>Cycle</th>");
-            html.append("<th>Due Date</th>");
-            html.append("<th>Amount</th>");
-            html.append("<th>Total Amount</th>");
-            html.append("</tr>");
-
-            for (DueAmountDetailsEntity due : upcomingDues) {
-
-                html.append("<tr>");
-
-                html.append("<td>")
-                        .append(safe(due.getCollectionCycle()))
-                        .append("</td>");
-
-                html.append("<td>")
-                        .append(String.valueOf(due.getDueDate()))
-                        .append("</td>");
-
-                html.append("<td>")
-                        .append(safe(due.getAmount()))
-                        .append("</td>");
-
-                html.append("<td>")
-                        .append(safe(due.getTotalAmount()))
-                        .append("</td>");
-
-                html.append("</tr>");
-            }
-
-            html.append("</table>");
-
-            html.append("</td></tr>");
-        }
+//        // UPCOMING DUES
+//
+//        if (upcomingDues != null && !upcomingDues.isEmpty()) {
+//
+//            html.append("<tr><td style='padding:30px;'>");
+//
+//            html.append("<h2 style='color:#0d4d8b'>Upcoming Due Details</h2>");
+//
+//            html.append("<table width='100%' border='1' cellpadding='8' ");
+//            html.append("style='border-collapse:collapse;'>");
+//
+//            html.append("<tr bgcolor='#0d4d8b' style='color:white;'>");
+//            html.append("<th>Cycle</th>");
+//            html.append("<th>Due Date</th>");
+//            html.append("<th>Amount</th>");
+//            html.append("<th>Total Amount</th>");
+//            html.append("</tr>");
+//
+//            for (DueAmountDetailsEntity due : upcomingDues) {
+//
+//                html.append("<tr>");
+//
+//                html.append("<td>")
+//                        .append(safe(due.getCollectionCycle()))
+//                        .append("</td>");
+//
+//                html.append("<td>")
+//                        .append(String.valueOf(due.getDueDate()))
+//                        .append("</td>");
+//
+//                html.append("<td>")
+//                        .append(safe(due.getAmount()))
+//                        .append("</td>");
+//
+//                html.append("<td>")
+//                        .append(safe(due.getTotalAmount()))
+//                        .append("</td>");
+//
+//                html.append("</tr>");
+//            }
+//
+//            html.append("</table>");
+//
+//            html.append("</td></tr>");
+//        }
 
         // CURRENT DUES
 
@@ -173,12 +185,12 @@ public class EmailUtils {
 
             html.append("<tr><td style='padding:30px;'>");
 
-            html.append("<h2 style='color:#0d4d8b'>Current Payment Dues</h2>");
+            html.append("<h2 style='color:#4ac74a'>Current Payment Dues</h2>");
 
             html.append("<table width='100%' border='1' cellpadding='8' ");
             html.append("style='border-collapse:collapse;'>");
 
-            html.append("<tr bgcolor='#0d4d8b' style='color:white;'>");
+            html.append("<tr bgcolor='#4ac74a' style='color:white;'>");
             html.append("<th>Cycle</th>");
             html.append("<th>Due Date</th>");
             html.append("<th>Amount</th>");
@@ -195,11 +207,11 @@ public class EmailUtils {
                         .append("</td>");
 
                 html.append("<td>")
-                        .append(String.valueOf(due.getDueDate()))
+                        .append(getFormatedDate(due.getDueDate()))
                         .append("</td>");
 
                 html.append("<td>")
-                        .append(safe(due.getAmount()))
+                        .append("₹ "+safe(due.getAmount()))
                         .append("</td>");
 
                 html.append("<td>")
@@ -224,12 +236,12 @@ public class EmailUtils {
 
             html.append("<tr><td style='padding:30px;'>");
 
-            html.append("<h2 style='color:#0d4d8b'>Discounts / Fines</h2>");
+            html.append("<h2 style='color:#4ac74a'>Discounts / Fines</h2>");
 
             html.append("<table width='100%' border='1' cellpadding='8' ");
             html.append("style='border-collapse:collapse;'>");
 
-            html.append("<tr bgcolor='#0d4d8b' style='color:white;'>");
+            html.append("<tr bgcolor='#4ac74a' style='color:white;'>");
             html.append("<th>Type</th>");
             html.append("<th>Mode</th>");
             html.append("<th>Value</th>");

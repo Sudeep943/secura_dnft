@@ -80,6 +80,10 @@ public class EmailService implements EmailInterface {
 
     @Value("${email.log.retention.days:90}")
     private int emailLogRetentionDays;
+    
+    
+    @Value("${app.payment.url}")
+    private String paymentURL;
 
     @Autowired
     private JavaMailSender mailSender;
@@ -244,6 +248,8 @@ public class EmailService implements EmailInterface {
     	 }
     	 return profiles;
     } 
+    
+  
     private void sendPaymentMails(List<PaymentEntity> paymentEntityList) {
         for (PaymentEntity payment : paymentEntityList) {
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_PAYMENT, payment.getPaymentId());
@@ -265,17 +271,11 @@ public class EmailService implements EmailInterface {
                     // a.4 Get owner list and email list
                     List<Owner> owners = ownerRepository.findByFlatNo(flatId).stream().filter(o->o.getStatus().equalsIgnoreCase("ACTIVE")).collect(Collectors.toList());
                     List<Profile> profiles=getOwnerProfiles(owners);
-//                    List<Profile> profiles = owners.stream()
-//                            .map(o -> profileRepository.findById(o.getPrflId()))
-//                            .filter(Optional::isPresent)
-//                            .map(Optional::get)
-//                            .collect(Collectors.toList());
-
                     List<String> emailList = profiles.stream()
                             .map(Profile::getPrflEmailAdrss)
                             .filter(e -> e != null && !e.isBlank())
                             .collect(Collectors.toList());
-                    emailList.add("sudeepmishrafanmail@gmail.com");
+                   // emailList.add("sudeepmishrafanmail@gmail.com");
                     if (emailList.isEmpty()) {
                         continue;
                     }
@@ -301,7 +301,10 @@ public class EmailService implements EmailInterface {
                     String shortDesc        = payment.getShortDetails();
                     String cause            = payment.getCauseId();
                     String paymentCapita    = payment.getPaymentCapita();
-                    String allowedTenders   = payment.getAllowedPaymentModes();
+                    List<String> allowedTendersList   =genericService.fromJson( payment.getAllowedPaymentModes(), new TypeReference<List<String>>() {
+          			});
+                    String allowedTenders= String.join(",", allowedTendersList);
+                    allowedTenders=allowedTenders.replace("_", " ");
                     String unitAmount       = payment.getPaymentAmount();
                     String gst              = payment.getGst();
                     String paymentType      = payment.getPaymentType();
@@ -343,8 +346,10 @@ public class EmailService implements EmailInterface {
                     List<DueAmountDetailsEntity> upcomingDuesByDate = getUpcomingDuesSortedByDate(upcomingDues);
 
                     // a.15 Get apartment logo
-                    String logoBase64 = getApartmentLogo(payment.getAprmtId());
-
+                    //String logoBase64 = getApartmentLogo(payment.getAprmtId());
+                    Optional<ApartmentMaster> opt = apartmentRepository.findById(payment.getAprmtId());
+                    String logoBase64=opt.map(ApartmentMaster::getAprmnt_logo).orElse(null);
+                    String apartName=opt.map(ApartmentMaster::getAprmntName).orElse(null);
                     // Build HTML email body
 //                    String htmlBody = buildPaymentEmailHtml(
 //                            ownerName, logoBase64,
@@ -354,7 +359,7 @@ public class EmailService implements EmailInterface {
 //                            currentPaymentDues
 //                    );
                     String htmlBody= emailUtils.generatePaymentCollectionEmail(ownerName, logoBase64, paymentName, shortDesc, cause, startDate, endDate, 
-                    		allowedTenders, unitAmount, isPerSqft, gst, paymentType, discFinList, upcomingDuesByDate, paymentTotalDue, currentPaymentDues,"DNFT","localhost:5000");
+                    		allowedTenders, unitAmount, isPerSqft, gst, paymentType, discFinList, upcomingDuesByDate, paymentTotalDue, currentPaymentDues,apartName,paymentURL);
                     String subject = "Due Created For " + paymentName;
 
                     // Send email
@@ -378,10 +383,12 @@ public class EmailService implements EmailInterface {
             }
 
             // Update email log
+            if(failedFlatList.size()>0) {
             emailLog.setEmailSent(emailSentCount);
             emailLog.setFailedApplicableList(toJson(failedFlatList));
             emailLog.setFailedEmailCause(toJson(failedCauses));
             emailLogRepository.save(emailLog);
+            }
 
             // Update emailSentFlag on payment if all emails sent
             if (failedFlatList.isEmpty()) {
