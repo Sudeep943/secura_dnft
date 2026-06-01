@@ -2049,6 +2049,8 @@ class PaymentServicesTest {
 			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
 			assertEquals("QR1A2", matchedRow.getCell(2).getStringCellValue());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(1).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(2).getCellStyle());
 		}
 	}
 
