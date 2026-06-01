@@ -118,6 +118,7 @@ public class PaymentServices implements PaymentInterface {
 	private static final String QR_IDENTIFIER_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	private static final int QR_IDENTIFIER_LENGTH = 5;
 	private static final String EMAIL_SENT_FLAG_NO = "N";
+	private static final int QR_IDENTIFIER_MAX_GENERATION_ATTEMPTS = 1000;
 	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount",
 			"GST%", "Total Due Amount", "Cause", "BankAccountID" };
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
@@ -1100,13 +1101,13 @@ public class PaymentServices implements PaymentInterface {
 		Set<String> usedIdentifiers = existingTransactions.stream().filter(Objects::nonNull)
 				.map(Transaction::getQrIdentifier).filter(this::hasText).map(this::trimValue)
 				.map(identifier -> identifier.toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
-		for (int attempt = 0; attempt < 10; attempt++) {
+		for (int attempt = 0; attempt < QR_IDENTIFIER_MAX_GENERATION_ATTEMPTS; attempt++) {
 			String identifier = generateQrIdentifier();
 			if (!usedIdentifiers.contains(identifier)) {
 				return identifier;
 			}
 		}
-		return generateQrIdentifier();
+		throw new IllegalStateException("Unable to generate unique QR identifier");
 	}
 
 	private List<PaymentTenderData> normalizePaymentTenderDataList(List<PaymentTenderData> paymentTenderDataList) {
