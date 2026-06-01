@@ -867,7 +867,13 @@ class PaymentServicesTest {
 		paymentEntity.setCauseId("EVENT");
 		paymentEntity.setPaymentCapita("PER_SQFT");
 		when(paymentRepository.findFirstByPaymentId("PAY-QR-1")).thenReturn(Optional.of(paymentEntity));
-		when(genericService.toJson(any())).thenReturn("JSON");
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "[{\"tenderName\":\"SOCIETY_QR\"}]";
+			}
+			return "JSON";
+		});
 		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
 
 		Flat flat = new Flat();
