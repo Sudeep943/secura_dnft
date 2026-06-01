@@ -15,4 +15,6 @@ public interface SecuraEmailLogRepository extends JpaRepository<SecuraEmailLog, 
     List<SecuraEmailLog> findByType(String type);
 
     List<SecuraEmailLog> findByCreateTsBefore(LocalDateTime cutoff);
+
+    List<SecuraEmailLog> findByFailedApplicableListIsNotNull();
 }

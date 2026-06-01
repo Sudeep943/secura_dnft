@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -76,6 +77,9 @@ public class EmailService implements EmailInterface {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("d-MMM-yyyy");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Value("${email.log.retention.days:90}")
+    private int emailLogRetentionDays;
 
     @Autowired
     private JavaMailSender mailSender;
@@ -144,7 +148,7 @@ public class EmailService implements EmailInterface {
     public void reattemptEmail() {
         logger.info("EmailService.reattemptEmail() started");
         try {
-            List<SecuraEmailLog> logs = emailLogRepository.findAll();
+            List<SecuraEmailLog> logs = emailLogRepository.findByFailedApplicableListIsNotNull();
             for (SecuraEmailLog log : logs) {
                 if (log.getFailedApplicableList() == null || log.getFailedApplicableList().isBlank()) {
                     continue;
@@ -174,7 +178,7 @@ public class EmailService implements EmailInterface {
     public void deleteOldFailedEmails() {
         logger.info("EmailService.deleteOldFailedEmails() started");
         try {
-            LocalDateTime cutoff = LocalDateTime.now().minusDays(90);
+            LocalDateTime cutoff = LocalDateTime.now().minusDays(emailLogRetentionDays);
             List<SecuraEmailLog> oldLogs = emailLogRepository.findByCreateTsBefore(cutoff);
             List<SecuraEmailLog> toDelete = oldLogs.stream()
                     .filter(log -> log.getFailedApplicableList() == null || log.getFailedApplicableList().isBlank())
@@ -333,10 +337,14 @@ public class EmailService implements EmailInterface {
                     String subject = "Due Created For " + paymentName;
 
                     // Send email
+                    boolean sentToFlat = false;
                     for (String email : emailList) {
                         sendHtmlEmail(email, subject, htmlBody);
+                        sentToFlat = true;
                     }
-                    emailSentCount++;
+                    if (sentToFlat) {
+                        emailSentCount++;
+                    }
 
                 } catch (Exception e) {
                     logger.error("Failed to send payment email for flat {}: {}", flatId, e.getMessage(), e);
@@ -396,6 +404,8 @@ public class EmailService implements EmailInterface {
 
                 for (String email : emailList) {
                     sendHtmlEmail(email, subject, htmlBody);
+                }
+                if (!emailList.isEmpty()) {
                     emailSentCount++;
                 }
 
@@ -449,6 +459,8 @@ public class EmailService implements EmailInterface {
 
                 for (String email : emailList) {
                     sendHtmlEmail(email, subject, htmlBody);
+                }
+                if (!emailList.isEmpty()) {
                     emailSentCount++;
                 }
 
@@ -837,12 +849,17 @@ public class EmailService implements EmailInterface {
     }
 
     private void sendHtmlEmail(String to, String subject, String htmlBody) throws Exception {
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(htmlBody, true);
-        mailSender.send(message);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to send email to [" + to + "] with subject [" + subject + "]: " + e.getMessage(), e);
+        }
     }
 
     private void appendRow(StringBuilder sb, String label, String value) {
