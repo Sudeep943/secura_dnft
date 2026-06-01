@@ -8,8 +8,8 @@ import com.secura.dnft.entity.Transaction;
 public class ActionQRPaymentRequest {
 
 	private GenericHeader genericHeader;
-	@JsonAlias({ "foundTransactionsfoundTransactionsList" })
-	private List<Transaction> foundTransactionsList;
+	@JsonAlias({ "transactionsList" })
+	private List<Transaction> transactionsList;
 	private String action;
 
 	public GenericHeader getGenericHeader() {
@@ -20,12 +20,12 @@ public class ActionQRPaymentRequest {
 		this.genericHeader = genericHeader;
 	}
 
-	public List<Transaction> getFoundTransactionsList() {
-		return foundTransactionsList;
+	public List<Transaction> getTransactionsList() {
+		return transactionsList;
 	}
 
-	public void setFoundTransactionsList(List<Transaction> foundTransactionsList) {
-		this.foundTransactionsList = foundTransactionsList;
+	public void setFTransactionsList(List<Transaction> transactionsList) {
+		this.transactionsList = transactionsList;
 	}
 
 	public String getAction() {

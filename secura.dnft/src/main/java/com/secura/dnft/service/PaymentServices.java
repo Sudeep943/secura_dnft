@@ -845,7 +845,7 @@ public class PaymentServices implements PaymentInterface {
 	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception {
 		ActionQRPaymentResponse response = new ActionQRPaymentResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		List<Transaction> foundTransactions = request != null ? request.getFoundTransactionsList() : null;
+		List<Transaction> foundTransactions = request != null ? request.getTransactionsList() : null;
 		String action = trimValue(request != null ? request.getAction() : null);
 		if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
 			response.setNotCompletedTransactionList(new ArrayList<>());
