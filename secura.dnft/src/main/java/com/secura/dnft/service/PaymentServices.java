@@ -27,9 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import org.apache.poi.hssf.usermodel.HSSFPalette;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -117,6 +115,9 @@ public class PaymentServices implements PaymentInterface {
 	private static final int TRANSACTION_ID_TOTAL_LENGTH = 10;
 	private static final int PAYMENT_ID_TOTAL_LENGTH = 6;
 	private static final String TRANSACTION_ID_RANDOM_CHARACTERS = "ABCDEFGH0123IJKLMNOP45678QRSTUVWXYZ0123456789";
+	private static final String QR_IDENTIFIER_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	private static final int QR_IDENTIFIER_LENGTH = 5;
+	private static final String EMAIL_SENT_FLAG_NO = "N";
 	private static final String[] PAST_DUE_UPLOAD_HEADERS = { "Flat Id", "Due From", "Due Till", "Due Cause", "Due Amount",
 			"GST%", "Total Due Amount", "Cause", "BankAccountID" };
 	private static final DataFormatter PAST_DUE_DATA_FORMATTER = new DataFormatter();
@@ -617,6 +618,7 @@ public class PaymentServices implements PaymentInterface {
 		entity.setBankAccountId(request.getBankAccountId());
 		entity.setAprmtId(apartmentId);
 		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+		entity.setEmailSentflag(EMAIL_SENT_FLAG_NO);
 		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		entity.setCauseId(request.getCause());
 		entity.setPartialPaymentAllowed(request.isPartialPaymentAllowed());
@@ -704,6 +706,10 @@ public class PaymentServices implements PaymentInterface {
 				request != null ? request.getPaymentTenderDataList() : null);
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
+		if (isPendingValidationStatus(transaction.getTrnsStatus()) && isQrPaymentTransaction(transaction)) {
+			transaction.setQrIdentifier(generateQrIdentifier());
+			response.setQrIdentifier(transaction.getQrIdentifier());
+		}
 		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
 		DueAmountDetailsEntity dueEntity = request != null ? request.getPaidDueDetails() : null;
 		if (dueEntity == null) {
@@ -808,7 +814,7 @@ public class PaymentServices implements PaymentInterface {
 			List<Transaction> foundTransactions = new ArrayList<>();
 			List<Transaction> notFoundTransactions = new ArrayList<>();
 			for (Transaction transaction : transactions) {
-				List<Row> matchedRows = findMatchedRowsForTransaction(workbook, trimValue(transaction.getTrnscId()));
+				List<Row> matchedRows = findMatchedRowsForIdentifier(workbook, trimValue(transaction.getQrIdentifier()));
 				if (matchedRows.isEmpty()) {
 					notFoundTransactions.add(transaction);
 					continue;
@@ -1075,7 +1081,17 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
 		transaction.setLstUpdtTs(null);
 		transaction.setLstUpdtUsrId(null);
+		transaction.setEmailSentflag(EMAIL_SENT_FLAG_NO);
 		return transaction;
+	}
+
+	private String generateQrIdentifier() {
+		StringBuilder identifier = new StringBuilder(QR_IDENTIFIER_LENGTH);
+		for (int index = 0; index < QR_IDENTIFIER_LENGTH; index++) {
+			int randomIndex = ThreadLocalRandom.current().nextInt(QR_IDENTIFIER_CHARACTERS.length());
+			identifier.append(QR_IDENTIFIER_CHARACTERS.charAt(randomIndex));
+		}
+		return identifier.toString();
 	}
 
 	private List<PaymentTenderData> normalizePaymentTenderDataList(List<PaymentTenderData> paymentTenderDataList) {
@@ -2050,7 +2066,7 @@ public class PaymentServices implements PaymentInterface {
 				headerRow = sheet.createRow(0);
 			}
 			headerRow.createCell(0).setCellValue("Flat Id");
-			headerRow.createCell(1).setCellValue("Transaction Id");
+			headerRow.createCell(1).setCellValue("QR Identifier");
 		}
 	}
 
@@ -2059,50 +2075,15 @@ public class PaymentServices implements PaymentInterface {
 		if (lastCellNum <= 0) {
 			return;
 		}
-		for (int columnIndex = lastCellNum - 1; columnIndex >= 0; columnIndex--) {
-			Cell sourceCell = row.getCell(columnIndex, MissingCellPolicy.RETURN_BLANK_AS_NULL);
-			if (sourceCell == null) {
-				continue;
-			}
-			Cell targetCell = row.createCell(columnIndex + 2, sourceCell.getCellType());
-			copyCell(sourceCell, targetCell);
-			row.removeCell(sourceCell);
-		}
+		row.shiftCellsRight(0, lastCellNum - 1, 2);
 	}
 
-	private void copyCell(Cell sourceCell, Cell targetCell) {
-		targetCell.setCellStyle(sourceCell.getCellStyle());
-		CellType cellType = sourceCell.getCellType();
-		switch (cellType) {
-		case STRING:
-			targetCell.setCellValue(sourceCell.getStringCellValue());
-			break;
-		case NUMERIC:
-			targetCell.setCellValue(sourceCell.getNumericCellValue());
-			break;
-		case BOOLEAN:
-			targetCell.setCellValue(sourceCell.getBooleanCellValue());
-			break;
-		case FORMULA:
-			targetCell.setCellFormula(sourceCell.getCellFormula());
-			break;
-		case ERROR:
-			targetCell.setCellErrorValue(sourceCell.getErrorCellValue());
-			break;
-		case BLANK:
-		case _NONE:
-		default:
-			targetCell.setBlank();
-			break;
-		}
-	}
-
-	private List<Row> findMatchedRowsForTransaction(Workbook workbook, String transactionId) {
+	private List<Row> findMatchedRowsForIdentifier(Workbook workbook, String identifier) {
 		List<Row> matchedRows = new ArrayList<>();
-		if (!hasText(transactionId)) {
+		if (!hasText(identifier)) {
 			return matchedRows;
 		}
-		String normalizedTransactionId = transactionId.toUpperCase(Locale.ROOT);
+		String normalizedIdentifier = identifier.toUpperCase(Locale.ROOT);
 		for (int sheetIndex = 0; sheetIndex < workbook.getNumberOfSheets(); sheetIndex++) {
 			Sheet sheet = workbook.getSheetAt(sheetIndex);
 			for (int rowIndex = 0; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
@@ -2110,7 +2091,7 @@ public class PaymentServices implements PaymentInterface {
 				if (row == null) {
 					continue;
 				}
-				if (isRowContainingTransactionId(row, normalizedTransactionId)) {
+				if (isRowContainingIdentifier(row, normalizedIdentifier)) {
 					matchedRows.add(row);
 				}
 			}
@@ -2118,7 +2099,7 @@ public class PaymentServices implements PaymentInterface {
 		return matchedRows;
 	}
 
-	private boolean isRowContainingTransactionId(Row row, String transactionId) {
+	private boolean isRowContainingIdentifier(Row row, String identifier) {
 		short lastCellNum = row.getLastCellNum();
 		if (lastCellNum <= 2) {
 			return false;
@@ -2129,7 +2110,7 @@ public class PaymentServices implements PaymentInterface {
 				continue;
 			}
 			String cellValue = RECONCILE_QR_DATA_FORMATTER.formatCellValue(cell);
-			if (hasText(cellValue) && cellValue.toUpperCase(Locale.ROOT).contains(transactionId)) {
+			if (hasText(cellValue) && cellValue.toUpperCase(Locale.ROOT).contains(identifier)) {
 				return true;
 			}
 		}
@@ -2138,7 +2119,7 @@ public class PaymentServices implements PaymentInterface {
 
 	private void populateReconcileColumns(Row row, Transaction transaction) {
 		row.createCell(0).setCellValue(safePastDueValue(transaction != null ? transaction.getFlatId() : null));
-		row.createCell(1).setCellValue(safePastDueValue(transaction != null ? transaction.getTrnscId() : null));
+		row.createCell(1).setCellValue(safePastDueValue(transaction != null ? transaction.getQrIdentifier() : null));
 	}
 
 	private CellStyle createReconcileHighlightStyle(Workbook workbook, CellStyle baseStyle) {
@@ -2161,11 +2142,8 @@ public class PaymentServices implements PaymentInterface {
 	private void applyReconcileHighlightColor(Workbook workbook, CellStyle style) {
 		if (style instanceof XSSFCellStyle xssfCellStyle) {
 			xssfCellStyle.setFillForegroundColor(new XSSFColor(RECONCILE_HIGHLIGHT_RGB, null));
-		} else if (workbook instanceof HSSFWorkbook hssfWorkbook) {
-			HSSFPalette palette = hssfWorkbook.getCustomPalette();
-			HSSFColor highlightColor = palette.findSimilarColor(RECONCILE_HIGHLIGHT_RGB[0] & 0xFF,
-					RECONCILE_HIGHLIGHT_RGB[1] & 0xFF, RECONCILE_HIGHLIGHT_RGB[2] & 0xFF);
-			style.setFillForegroundColor(highlightColor.getIndex());
+		} else if (workbook instanceof HSSFWorkbook) {
+			style.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
 		} else {
 			style.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
 		}

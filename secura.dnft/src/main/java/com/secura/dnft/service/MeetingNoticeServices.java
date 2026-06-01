@@ -71,6 +71,7 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
         if(createNoticeRequest.getOpeartion().equals(SecuraConstants.NOTICE_OPERATION_PUBLISH)) {
         	entity.setStatus("PUBLISHED");
         }
+        entity.setEmailSentflag("N");
         entity.setCreatUsrId(createNoticeRequest.getGenericHeader().getUserId());
         DocumentEntity documentEntity= new DocumentEntity();
         documentEntity.setAprmtId(createNoticeRequest.getGenericHeader().getApartmentId());

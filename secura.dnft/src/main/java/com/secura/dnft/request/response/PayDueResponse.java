@@ -6,6 +6,7 @@ public class PayDueResponse {
 	private String message;
 	private String messageCode;
 	private String transactionId;
+	private String qrIdentifier;
 	private String receipt;
 	private String receiptNumber;
 
@@ -39,6 +40,14 @@ public class PayDueResponse {
 
 	public void setTransactionId(String transactionId) {
 		this.transactionId = transactionId;
+	}
+
+	public String getQrIdentifier() {
+		return qrIdentifier;
+	}
+
+	public void setQrIdentifier(String qrIdentifier) {
+		this.qrIdentifier = qrIdentifier;
 	}
 
 	public String getReceipt() {
