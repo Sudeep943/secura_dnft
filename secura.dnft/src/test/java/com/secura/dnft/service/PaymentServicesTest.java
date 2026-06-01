@@ -31,9 +31,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -557,6 +557,7 @@ class PaymentServicesTest {
 		assertEquals("USR-001", paymentCaptor.getValue().getCreatUsrId());
 		assertEquals("ADDED_CHARGES_JSON", paymentCaptor.getValue().getAddedCharges());
 		assertEquals("DISC_FIN_JSON", paymentCaptor.getValue().getDiscFin());
+		assertEquals("N", paymentCaptor.getValue().getEmailSentflag());
 	}
 
 	@Test
@@ -741,8 +742,9 @@ class PaymentServicesTest {
 		PayDueResponse response = paymentServices.payDues(request);
 
 		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
-		verify(transactionRepository).save(transactionCaptor.capture());
-		Transaction createdTransaction = transactionCaptor.getValue();
+		verify(transactionRepository, atLeastOnce()).save(transactionCaptor.capture());
+		List<Transaction> savedTransactions = transactionCaptor.getAllValues();
+		Transaction createdTransaction = savedTransactions.get(savedTransactions.size() - 1);
 		assertEquals("TRNS_TENDER_JSON", createdTransaction.getTrnsTender());
 		assertEquals("BANK_INSTR_JSON", createdTransaction.getBankInstrumentTenderDetails());
 		assertEquals("DUE1001_MONTHLY_1200_2027-03-01", createdTransaction.getDueDetails());
@@ -751,6 +753,7 @@ class PaymentServicesTest {
 		assertEquals(SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY, createdTransaction.getThirdPartyName());
 		assertEquals("EVENT", createdTransaction.getCause());
 		assertEquals("RCT-3001", createdTransaction.getReceiptNumber());
+		assertEquals("N", createdTransaction.getEmailSentflag());
 		assertTransactionIdFormat(createdTransaction.getTrnscId(), "APR-001");
 
 		ArgumentCaptor<CreateReceiptRequest> receiptRequestCaptor = ArgumentCaptor.forClass(CreateReceiptRequest.class);
@@ -772,6 +775,7 @@ class PaymentServicesTest {
 		assertEquals(SuccessMessageCode.SUCC_MESSAGE_33, response.getMessageCode());
 		assertEquals("RCT-3001", response.getReceiptNumber());
 		assertEquals("RECEIPT_BASE64", response.getReceipt());
+		assertNull(response.getQrIdentifier());
 	}
 
 	@Test
@@ -841,6 +845,70 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void payDues_shouldGenerateQrIdentifierForPendingQrTransactions() throws Exception {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-001");
+		header.setUserId("USR-001");
+		header.setFlatNo("A-101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-QR-1");
+		request.setAmount("5000");
+		request.setDueId("DUE-QR-1");
+		request.setPaymentCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		request.setDueDate(LocalDate.parse("2027-03-01"));
+		request.setPaymentName("CAM 2026-27");
+		request.setTransactionStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		request.setPaymentTenderDataList(List.of(createTender("SOCIETY_QR", "5000")));
+
+		PaymentEntity paymentEntity = new PaymentEntity();
+		paymentEntity.setPaymentId("PAY-QR-1");
+		paymentEntity.setBankAccountId("BANK-001");
+		paymentEntity.setCauseId("EVENT");
+		paymentEntity.setPaymentCapita("PER_SQFT");
+		when(paymentRepository.findFirstByPaymentId("PAY-QR-1")).thenReturn(Optional.of(paymentEntity));
+		when(genericService.toJson(any())).thenAnswer(invocation -> {
+			Object payload = invocation.getArgument(0);
+			if (payload instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof PaymentTenderData) {
+				return "[{\"tenderName\":\"SOCIETY_QR\"}]";
+			}
+			return "JSON";
+		});
+		when(genericService.fromJson(any(), any(com.fasterxml.jackson.core.type.TypeReference.class))).thenReturn(List.of());
+
+		Flat flat = new Flat();
+		flat.setFlatArea("1200");
+		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
+		dueEntity.setDueId("DUE-QR-1");
+		dueEntity.setCollectionCycle(SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+		dueEntity.setFlatArea("1200");
+		dueEntity.setDueDate(LocalDate.parse("2027-03-01"));
+		dueEntity.setAmount("4500");
+		dueEntity.setTotalAmount("4500");
+		when(dueAmountDetailsRepository.findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(any(), any(), any(), any(), any()))
+				.thenReturn(Optional.of(dueEntity));
+
+		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(receiptServices.createReceipt(any(CreateReceiptRequest.class))).thenReturn(new CreateReceiptResponse());
+		Worklist worklist = new Worklist();
+		worklist.setWorklistId("WL-001");
+		when(worklistService.createTransactionReviewWorklist(any(), any())).thenReturn(worklist);
+
+		PayDueResponse response = paymentServices.payDues(request);
+
+		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+		verify(transactionRepository, atLeastOnce()).save(transactionCaptor.capture());
+		Transaction createdTransaction = transactionCaptor.getAllValues().get(0);
+		assertNotNull(createdTransaction.getQrIdentifier());
+		assertEquals(5, createdTransaction.getQrIdentifier().length());
+		assertTrue(createdTransaction.getQrIdentifier().matches("^[A-Z0-9]{5}$"));
+		assertEquals(createdTransaction.getQrIdentifier(), response.getQrIdentifier());
+		assertEquals("N", createdTransaction.getEmailSentflag());
+	}
+
+	@Test
 	void payDues_shouldUseAllInDueDetailsWhenPaymentCapitaIsNotPerSqft() throws Exception {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
@@ -896,8 +964,10 @@ class PaymentServicesTest {
 		paymentServices.payDues(request);
 
 		ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
-		verify(transactionRepository).save(transactionCaptor.capture());
-		assertEquals("DUE1004_MONTHLY_ALL_2026-06-01", transactionCaptor.getValue().getDueDetails());
+		verify(transactionRepository, atLeastOnce()).save(transactionCaptor.capture());
+		List<Transaction> savedTransactions = transactionCaptor.getAllValues();
+		assertEquals("DUE1004_MONTHLY_ALL_2026-06-01",
+				savedTransactions.get(savedTransactions.size() - 1).getDueDetails());
 	}
 
 	@Test
@@ -1919,10 +1989,11 @@ class PaymentServicesTest {
 	void reconcileQRPayment_shouldHighlightMatchedRowsAndReturnAllFoundMessage() throws Exception {
 		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
 		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of(
-				"UPI/SUDEEP KUM/9658733181@axl/CAMTRNM1FH/AXIS BANK",
-				"UPI/SUDEEP KUM/9658733181@axl/CAMTRNM2FH/AXIS BANK")));
+				"UPI/SUDEEP KUM/9658733181@axl/QR1A2/AXIS BANK",
+				"UPI/SUDEEP KUM/9658733181@axl/QR1A3/AXIS BANK")));
 		Transaction transaction = new Transaction();
 		transaction.setTrnscId("CAMTRNM1FH");
+		transaction.setQrIdentifier("QR1A2");
 		transaction.setFlatId("A-101");
 		transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
 		transaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
@@ -1940,10 +2011,10 @@ class PaymentServicesTest {
 				new ByteArrayInputStream(Base64.getDecoder().decode(response.getHighlithedBase64EncodedFile())))) {
 			Sheet sheet = workbook.getSheetAt(0);
 			assertEquals("Flat Id", sheet.getRow(0).getCell(0).getStringCellValue());
-			assertEquals("Transaction Id", sheet.getRow(0).getCell(1).getStringCellValue());
+			assertEquals("QR Identifier", sheet.getRow(0).getCell(1).getStringCellValue());
 			Row matchedRow = sheet.getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
-			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("QR1A2", matchedRow.getCell(1).getStringCellValue());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(1).getCellStyle());
 		}
@@ -1952,9 +2023,10 @@ class PaymentServicesTest {
 	@Test
 	void reconcileQRPayment_shouldSupportXlsStatements() throws Exception {
 		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
-		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../CAMTRNM1FH/..."), false));
+		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../QR1A2/..."), false));
 		Transaction transaction = new Transaction();
 		transaction.setTrnscId("CAMTRNM1FH");
+		transaction.setQrIdentifier("QR1A2");
 		transaction.setFlatId("A-101");
 		transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
 		transaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
@@ -1971,7 +2043,7 @@ class PaymentServicesTest {
 			assertTrue(workbook instanceof HSSFWorkbook);
 			Row matchedRow = workbook.getSheetAt(0).getRow(1);
 			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
-			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("QR1A2", matchedRow.getCell(1).getStringCellValue());
 			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
 		}
 	}
@@ -1979,21 +2051,24 @@ class PaymentServicesTest {
 	@Test
 	void reconcileQRPayment_shouldReturnMixedMessageWhenSomeTransactionsAreNotFound() throws Exception {
 		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
-		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../CAMTRNM1FH/...")));
+		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../QR1A2/...")));
 		Transaction foundTransaction = new Transaction();
 		foundTransaction.setTrnscId("CAMTRNM1FH");
+		foundTransaction.setQrIdentifier("QR1A2");
 		foundTransaction.setFlatId("A-101");
 		foundTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
 		foundTransaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
 		foundTransaction.setCreatTs(LocalDateTime.of(2026, 3, 10, 10, 30));
 		Transaction notFoundTransaction = new Transaction();
 		notFoundTransaction.setTrnscId("CAMTRNM2FH");
+		notFoundTransaction.setQrIdentifier("QR1A3");
 		notFoundTransaction.setFlatId("A-102");
 		notFoundTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
 		notFoundTransaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
 		notFoundTransaction.setCreatTs(LocalDateTime.of(2026, 3, 11, 10, 30));
 		Transaction outOfRangeTransaction = new Transaction();
 		outOfRangeTransaction.setTrnscId("CAMTRNM3FH");
+		outOfRangeTransaction.setQrIdentifier("QR1A4");
 		outOfRangeTransaction.setFlatId("A-103");
 		outOfRangeTransaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
 		outOfRangeTransaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
@@ -2202,11 +2277,7 @@ class PaymentServicesTest {
 			assertEquals("FFF5FF96", fillColor.getARGBHex());
 			return;
 		}
-		HSSFColor fillColor = ((HSSFWorkbook) workbook).getCustomPalette().getColor(style.getFillForegroundColor());
-		assertNotNull(fillColor);
-		assertEquals((short) 245, fillColor.getTriplet()[0]);
-		assertEquals((short) 255, fillColor.getTriplet()[1]);
-		assertEquals((short) 150, fillColor.getTriplet()[2]);
+		assertEquals(IndexedColors.LIGHT_YELLOW.getIndex(), style.getFillForegroundColor());
 	}
 
 	private void assertTransactionIdFormat(String transactionId, String apartmentId) {

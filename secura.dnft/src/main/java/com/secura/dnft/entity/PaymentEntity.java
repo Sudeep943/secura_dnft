@@ -79,6 +79,9 @@ public class PaymentEntity {
 
     @Column(name = "status")
     private String status;
+
+    @Column(name = "email_sent_flag")
+    private String emailSentflag;
     
     @Id
     @Column(name = "aprmt_id")
@@ -261,6 +264,14 @@ public class PaymentEntity {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public String getEmailSentflag() {
+		return emailSentflag;
+	}
+
+	public void setEmailSentflag(String emailSentflag) {
+		this.emailSentflag = emailSentflag;
+	}
     
     public String getAprmtId() {
         return aprmtId;

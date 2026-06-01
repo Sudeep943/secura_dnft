@@ -36,6 +36,9 @@ public class NoticeEntity {
     @Column(name = "status")
     private String status;
 
+    @Column(name = "email_sent_flag")
+    private String emailSentflag;
+
     @Column(name = "notice_document_id")
     private String noticeDocumentId;
 
@@ -108,6 +111,14 @@ public class NoticeEntity {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public String getEmailSentflag() {
+		return emailSentflag;
+	}
+
+	public void setEmailSentflag(String emailSentflag) {
+		this.emailSentflag = emailSentflag;
+	}
 
     public String getNoticeDocumentId() {
         return noticeDocumentId;

@@ -54,6 +54,12 @@ public class Transaction {
 	@Column(name = "trns_status")
 	private String trnsStatus;
 
+	@Column(name = "qr_identifier", length = 15)
+	private String qrIdentifier;
+
+	@Column(name = "email_sent_flag")
+	private String emailSentflag;
+
 	@Column(name = "no_of_person")
 	private String noOfPerson;
 
@@ -195,6 +201,22 @@ public class Transaction {
 
 	public void setTrnsStatus(String trnsStatus) {
 		this.trnsStatus = trnsStatus;
+	}
+
+	public String getQrIdentifier() {
+		return qrIdentifier;
+	}
+
+	public void setQrIdentifier(String qrIdentifier) {
+		this.qrIdentifier = qrIdentifier;
+	}
+
+	public String getEmailSentflag() {
+		return emailSentflag;
+	}
+
+	public void setEmailSentflag(String emailSentflag) {
+		this.emailSentflag = emailSentflag;
 	}
 
 	public String getNoOfPerson() {

@@ -25,8 +25,20 @@ ADD COLUMN allowed_payment_modes TEXT;
 ALTER TABLE secura_payments
 ADD COLUMN paid_flats TEXT;
 
+ALTER TABLE secura_payments
+ADD COLUMN email_sent_flag VARCHAR;
+
 ALTER TABLE secura_due_amount_details
 ADD COLUMN paid_flats TEXT;
+
+ALTER TABLE secura_trnsac
+ADD COLUMN qr_identifier VARCHAR(15);
+
+ALTER TABLE secura_trnsac
+ADD COLUMN email_sent_flag VARCHAR;
+
+ALTER TABLE secura_notice
+ADD COLUMN email_sent_flag VARCHAR;
 
 
 

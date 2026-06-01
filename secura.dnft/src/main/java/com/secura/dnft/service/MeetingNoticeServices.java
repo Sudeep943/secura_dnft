@@ -39,6 +39,8 @@ import com.secura.dnft.request.response.UpdateNoticeResponse;
 @Service
 public class MeetingNoticeServices implements MeetingNoticeInterface{
 
+	private static final String EMAIL_SENT_FLAG_NO = "N";
+
 	@Autowired
 	GenericService genericService;
 	
@@ -71,6 +73,7 @@ public class MeetingNoticeServices implements MeetingNoticeInterface{
         if(createNoticeRequest.getOpeartion().equals(SecuraConstants.NOTICE_OPERATION_PUBLISH)) {
         	entity.setStatus("PUBLISHED");
         }
+        entity.setEmailSentflag(EMAIL_SENT_FLAG_NO);
         entity.setCreatUsrId(createNoticeRequest.getGenericHeader().getUserId());
         DocumentEntity documentEntity= new DocumentEntity();
         documentEntity.setAprmtId(createNoticeRequest.getGenericHeader().getApartmentId());
