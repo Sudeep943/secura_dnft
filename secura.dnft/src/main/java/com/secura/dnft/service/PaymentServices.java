@@ -707,7 +707,7 @@ public class PaymentServices implements PaymentInterface {
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
 		if (isPendingValidationStatus(transaction.getTrnsStatus()) && isQrPaymentTransaction(transaction)) {
-			transaction.setQrIdentifier(generateQrIdentifier());
+			transaction.setQrIdentifier(generateUniqueQrIdentifier(apartmentId));
 			response.setQrIdentifier(transaction.getQrIdentifier());
 		}
 		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
@@ -1092,6 +1092,21 @@ public class PaymentServices implements PaymentInterface {
 			identifier.append(QR_IDENTIFIER_CHARACTERS.charAt(randomIndex));
 		}
 		return identifier.toString();
+	}
+
+	private String generateUniqueQrIdentifier(String apartmentId) {
+		List<Transaction> existingTransactions = Optional.ofNullable(transactionRepository.findByAprmntId(apartmentId))
+				.orElse(List.of());
+		Set<String> usedIdentifiers = existingTransactions.stream().filter(Objects::nonNull)
+				.map(Transaction::getQrIdentifier).filter(this::hasText).map(this::trimValue)
+				.map(identifier -> identifier.toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
+		for (int attempt = 0; attempt < 10; attempt++) {
+			String identifier = generateQrIdentifier();
+			if (!usedIdentifiers.contains(identifier)) {
+				return identifier;
+			}
+		}
+		return generateQrIdentifier();
 	}
 
 	private List<PaymentTenderData> normalizePaymentTenderDataList(List<PaymentTenderData> paymentTenderDataList) {
