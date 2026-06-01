@@ -21,6 +21,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.secura.dnft.generic.bean.Name;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.ApartmentRepository;
@@ -48,7 +49,6 @@ import com.secura.dnft.interfaceservice.EmailInterface;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
-import com.secura.dnft.request.response.PaymentDetail;
 
 import jakarta.mail.internet.MimeMessage;
 
@@ -116,13 +116,20 @@ public class EmailService implements EmailInterface {
 
     @Autowired
     private FlatServices flatServices;
+    
+    @Autowired
+    GenericService genericService;
+    
+    @Autowired
+    EmailUtils emailUtils;
 
     // -------------------------------------------------------------------------
     // Scheduled Jobs
     // -------------------------------------------------------------------------
 
     @Override
-    @Scheduled(cron = "0 30 0 * * *")
+    //@Scheduled(cron = "0 30 0 * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     public void sendEmail() {
         logger.info("EmailService.sendEmail() started");
         try {
@@ -135,8 +142,8 @@ public class EmailService implements EmailInterface {
             List<NoticeEntity>  filteredNotices      = filterNoticeList(allPendingNotices);
 
             sendPaymentMails(filteredPayments);
-            sendTransactionMails(filteredTransactions);
-            sendNoticeMails(filteredNotices);
+           // sendTransactionMails(filteredTransactions);
+            //sendNoticeMails(filteredNotices);
         } catch (Exception e) {
             logger.error("EmailService.sendEmail() encountered an error", e);
         }
@@ -225,6 +232,18 @@ public class EmailService implements EmailInterface {
     // sendPaymentMails
     // -------------------------------------------------------------------------
 
+    List<Profile> getOwnerProfiles(List<Owner> owners){
+    	 List<Profile> profiles = new ArrayList<>();
+    	 for(Owner owner: owners) {
+    		 List<String>ownerProfiles=genericService.fromJson(owner.getPrflId(), new TypeReference<List<String>>() {
+  			});
+    		 Optional<Profile> profile= profileRepository.findById(ownerProfiles.get(0));
+    		 if(profile.isPresent()) {
+    			 profiles.add(profile.get());
+    		 }
+    	 }
+    	 return profiles;
+    } 
     private void sendPaymentMails(List<PaymentEntity> paymentEntityList) {
         for (PaymentEntity payment : paymentEntityList) {
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_PAYMENT, payment.getPaymentId());
@@ -244,18 +263,19 @@ public class EmailService implements EmailInterface {
                     Flat flat = optFlat.get();
 
                     // a.4 Get owner list and email list
-                    List<Owner> owners = ownerRepository.findByFlatNo(flatId);
-                    List<Profile> profiles = owners.stream()
-                            .map(o -> profileRepository.findById(o.getPrflId()))
-                            .filter(Optional::isPresent)
-                            .map(Optional::get)
-                            .collect(Collectors.toList());
+                    List<Owner> owners = ownerRepository.findByFlatNo(flatId).stream().filter(o->o.getStatus().equalsIgnoreCase("ACTIVE")).collect(Collectors.toList());
+                    List<Profile> profiles=getOwnerProfiles(owners);
+//                    List<Profile> profiles = owners.stream()
+//                            .map(o -> profileRepository.findById(o.getPrflId()))
+//                            .filter(Optional::isPresent)
+//                            .map(Optional::get)
+//                            .collect(Collectors.toList());
 
                     List<String> emailList = profiles.stream()
                             .map(Profile::getPrflEmailAdrss)
                             .filter(e -> e != null && !e.isBlank())
                             .collect(Collectors.toList());
-
+                    emailList.add("sudeepmishrafanmail@gmail.com");
                     if (emailList.isEmpty()) {
                         continue;
                     }
@@ -326,14 +346,15 @@ public class EmailService implements EmailInterface {
                     String logoBase64 = getApartmentLogo(payment.getAprmtId());
 
                     // Build HTML email body
-                    String htmlBody = buildPaymentEmailHtml(
-                            ownerName, logoBase64,
-                            paymentName, shortDesc, cause, startDate, endDate,
-                            allowedTenders, unitAmount, isPerSqft, gst, paymentType,
-                            discFinList, upcomingDuesByDate, paymentTotalDue,
-                            currentPaymentDues
-                    );
-
+//                    String htmlBody = buildPaymentEmailHtml(
+//                            ownerName, logoBase64,
+//                            paymentName, shortDesc, cause, startDate, endDate,
+//                            allowedTenders, unitAmount, isPerSqft, gst, paymentType,
+//                            discFinList, upcomingDuesByDate, paymentTotalDue,
+//                            currentPaymentDues
+//                    );
+                    String htmlBody= emailUtils.generatePaymentCollectionEmail(ownerName, logoBase64, paymentName, shortDesc, cause, startDate, endDate, 
+                    		allowedTenders, unitAmount, isPerSqft, gst, paymentType, discFinList, upcomingDuesByDate, paymentTotalDue, currentPaymentDues,"DNFT","localhost:5000");
                     String subject = "Due Created For " + paymentName;
 
                     // Send email
@@ -837,7 +858,7 @@ public class EmailService implements EmailInterface {
     private String buildOwnerNames(List<Profile> profiles) {
         if (profiles.isEmpty()) return "Resident";
         return profiles.stream()
-                .map(p -> p.getPrflName() != null ? p.getPrflName().trim() : "")
+                .map(p -> p.getPrflName() != null ? genericService.fromJson(p.getPrflName(), Name.class).toString() : "")
                 .filter(n -> !n.isBlank())
                 .collect(Collectors.joining(" & "));
     }
@@ -885,7 +906,8 @@ public class EmailService implements EmailInterface {
         if (json == null || json.isBlank()) return new ArrayList<>();
         json = json.trim();
         try {
-            return OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {});
+            return genericService.fromJson(json, new TypeReference<List<String>>() {
+			});// OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {});
         } catch (Exception e) {
             // Could be a single value
             return new ArrayList<>(List.of(json));

@@ -40,4 +40,5 @@ public interface ProfileRepository extends JpaRepository<Profile, String>{
 	        nativeQuery = true)
 	List<Profile> searchProfiles(@Param("search") String search,
 	                             @Param("apartmentId") String apartmentId);
+	
 }
