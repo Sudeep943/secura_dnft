@@ -2075,23 +2075,24 @@ public class PaymentServices implements PaymentInterface {
 				if (row == null) {
 					continue;
 				}
-				shiftRowRightByTwo(row);
+				shiftRowRightByThree(row);
 			}
 			Row headerRow = sheet.getRow(0);
 			if (headerRow == null) {
 				headerRow = sheet.createRow(0);
 			}
 			headerRow.createCell(0).setCellValue("Flat Id");
-			headerRow.createCell(1).setCellValue("QR Identifier");
+			headerRow.createCell(1).setCellValue("Transaction ID");
+			headerRow.createCell(2).setCellValue("QR Identifier");
 		}
 	}
 
-	private void shiftRowRightByTwo(Row row) {
+	private void shiftRowRightByThree(Row row) {
 		short lastCellNum = row.getLastCellNum();
 		if (lastCellNum <= 0) {
 			return;
 		}
-		row.shiftCellsRight(0, lastCellNum - 1, 2);
+		row.shiftCellsRight(0, lastCellNum - 1, 3);
 	}
 
 	private List<Row> findMatchedRowsForIdentifier(Workbook workbook, String identifier) {
@@ -2135,7 +2136,8 @@ public class PaymentServices implements PaymentInterface {
 
 	private void populateReconcileColumns(Row row, Transaction transaction) {
 		row.createCell(0).setCellValue(safePastDueValue(transaction != null ? transaction.getFlatId() : null));
-		row.createCell(1).setCellValue(safePastDueValue(transaction != null ? transaction.getQrIdentifier() : null));
+		row.createCell(1).setCellValue(safePastDueValue(transaction != null ? transaction.getTrnscId() : null));
+		row.createCell(2).setCellValue(safePastDueValue(transaction != null ? transaction.getQrIdentifier() : null));
 	}
 
 	private CellStyle createReconcileHighlightStyle(Workbook workbook, CellStyle baseStyle) {
