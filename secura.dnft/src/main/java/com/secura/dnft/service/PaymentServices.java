@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -811,7 +811,7 @@ public class PaymentServices implements PaymentInterface {
 				Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 			prependReconcileColumns(workbook);
-			Map<CellStyle, CellStyle> rowHighlightStyleCache = new IdentityHashMap<>();
+			Map<Short, CellStyle> rowHighlightStyleCache = new HashMap<>();
 			List<Transaction> foundTransactions = new ArrayList<>();
 			List<Transaction> notFoundTransactions = new ArrayList<>();
 			for (Transaction transaction : transactions) {
@@ -2092,7 +2092,43 @@ public class PaymentServices implements PaymentInterface {
 		if (lastCellNum <= 0) {
 			return;
 		}
-		row.shiftCellsRight(0, lastCellNum - 1, 3);
+		for (int i = lastCellNum - 1; i >= 0; i--) {
+			Cell srcCell = row.getCell(i, MissingCellPolicy.RETURN_BLANK_AS_NULL);
+			if (srcCell == null) {
+				continue;
+			}
+			Cell destCell = row.createCell(i + 3);
+			copyCellContentForShift(srcCell, destCell);
+			row.removeCell(srcCell);
+		}
+	}
+
+	private void copyCellContentForShift(Cell src, Cell dest) {
+		dest.setCellStyle(src.getCellStyle());
+		switch (src.getCellType()) {
+			case NUMERIC:
+				dest.setCellValue(src.getNumericCellValue());
+				break;
+			case STRING:
+				dest.setCellValue(src.getStringCellValue());
+				break;
+			case BOOLEAN:
+				dest.setCellValue(src.getBooleanCellValue());
+				break;
+			case FORMULA:
+				try {
+					dest.setCellFormula(src.getCellFormula());
+				} catch (Exception e) {
+					dest.setCellValue(RECONCILE_QR_DATA_FORMATTER.formatCellValue(src));
+				}
+				break;
+			case ERROR:
+				dest.setCellErrorValue(src.getErrorCellValue());
+				break;
+			case BLANK:
+			default:
+				break;
+		}
 	}
 
 	private List<Row> findMatchedRowsForIdentifier(Workbook workbook, String identifier) {
@@ -2168,7 +2204,7 @@ public class PaymentServices implements PaymentInterface {
 		style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 	}
 
-	private void highlightReconcileRow(Workbook workbook, Row row, Map<CellStyle, CellStyle> styleCache) {
+	private void highlightReconcileRow(Workbook workbook, Row row, Map<Short, CellStyle> styleCache) {
 		short lastCellNum = row.getLastCellNum();
 		if (lastCellNum < 0) {
 			lastCellNum = 2;
@@ -2176,7 +2212,7 @@ public class PaymentServices implements PaymentInterface {
 		for (int columnIndex = 0; columnIndex < lastCellNum; columnIndex++) {
 			Cell cell = row.getCell(columnIndex, MissingCellPolicy.CREATE_NULL_AS_BLANK);
 			CellStyle currentStyle = cell.getCellStyle();
-			CellStyle highlightStyle = styleCache.computeIfAbsent(currentStyle,
+			CellStyle highlightStyle = styleCache.computeIfAbsent(currentStyle.getIndex(),
 					key -> createReconcileHighlightStyle(workbook, currentStyle));
 			cell.setCellStyle(highlightStyle);
 		}
