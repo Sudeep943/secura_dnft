@@ -2055,6 +2055,51 @@ class PaymentServicesTest {
 	}
 
 	@Test
+	void reconcileQRPayment_shouldSupportXlsStatementsWithMultipleColumns() throws Exception {
+		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
+		request.setBase64EncodedSatementFile(buildMultiColumnReconcileWorkbookBase64(false));
+		Transaction transaction = new Transaction();
+		transaction.setTrnscId("CAMTRNM1FH");
+		transaction.setQrIdentifier("QR1A2");
+		transaction.setFlatId("A-101");
+		transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_PENDING);
+		transaction.setTrnsTender("[{\"tenderName\":\"SOCIETY_QR\"}]");
+		transaction.setCreatTs(LocalDateTime.of(2026, 3, 10, 9, 30));
+		when(transactionRepository.findByAprmntId("APR-1")).thenReturn(List.of(transaction));
+
+		ReconcileQRPaymentResponse response = paymentServices.reconcileQRPayment(request);
+
+		assertEquals(1, response.getFoundCount());
+		assertEquals(0, response.getNotFoundCount());
+		assertTrue(response.getHighlithedBase64EncodedFile() != null && !response.getHighlithedBase64EncodedFile().isBlank());
+		try (Workbook workbook = WorkbookFactory.create(
+				new ByteArrayInputStream(Base64.getDecoder().decode(response.getHighlithedBase64EncodedFile())))) {
+			assertTrue(workbook instanceof HSSFWorkbook, "Output must be a valid HSSF workbook");
+			Sheet sheet = workbook.getSheetAt(0);
+			Row headerRow = sheet.getRow(0);
+			assertEquals("Flat Id", headerRow.getCell(0).getStringCellValue());
+			assertEquals("Transaction ID", headerRow.getCell(1).getStringCellValue());
+			assertEquals("QR Identifier", headerRow.getCell(2).getStringCellValue());
+			assertEquals("Date", headerRow.getCell(3).getStringCellValue());
+			assertEquals("Narration", headerRow.getCell(4).getStringCellValue());
+			assertEquals("Amount", headerRow.getCell(5).getStringCellValue());
+			assertEquals("Balance", headerRow.getCell(6).getStringCellValue());
+			Row matchedRow = sheet.getRow(1);
+			assertEquals("A-101", matchedRow.getCell(0).getStringCellValue());
+			assertEquals("CAMTRNM1FH", matchedRow.getCell(1).getStringCellValue());
+			assertEquals("QR1A2", matchedRow.getCell(2).getStringCellValue());
+			assertEquals("10-Mar-2026", matchedRow.getCell(3).getStringCellValue());
+			assertEquals("UPI/.../QR1A2/...", matchedRow.getCell(4).getStringCellValue());
+			assertEquals(5000.0, matchedRow.getCell(5).getNumericCellValue(), 0.001);
+			assertEquals(15000.0, matchedRow.getCell(6).getNumericCellValue(), 0.001);
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(0).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(1).getCellStyle());
+			assertReconcileHighlightStyle(workbook, matchedRow.getCell(2).getCellStyle());
+		}
+	}
+
+
+	@Test
 	void reconcileQRPayment_shouldReturnMixedMessageWhenSomeTransactionsAreNotFound() throws Exception {
 		ReconcileQRPaymentRequest request = buildReconcileQrPaymentRequest();
 		request.setBase64EncodedSatementFile(buildReconcileWorkbookBase64(List.of("UPI/.../QR1A2/...")));
@@ -2271,6 +2316,26 @@ class PaymentServicesTest {
 			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
 		}
 	}
+
+	private String buildMultiColumnReconcileWorkbookBase64(boolean xlsxFormat) throws Exception {
+		try (Workbook workbook = xlsxFormat ? new XSSFWorkbook() : new HSSFWorkbook();
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+			Sheet sheet = workbook.createSheet("statement");
+			Row headerRow = sheet.createRow(0);
+			headerRow.createCell(0).setCellValue("Date");
+			headerRow.createCell(1).setCellValue("Narration");
+			headerRow.createCell(2).setCellValue("Amount");
+			headerRow.createCell(3).setCellValue("Balance");
+			Row dataRow = sheet.createRow(1);
+			dataRow.createCell(0).setCellValue("10-Mar-2026");
+			dataRow.createCell(1).setCellValue("UPI/.../QR1A2/...");
+			dataRow.createCell(2).setCellValue(5000.0);
+			dataRow.createCell(3).setCellValue(15000.0);
+			workbook.write(outputStream);
+			return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+		}
+	}
+
 
 	private void assertReconcileHighlightStyle(Workbook workbook, CellStyle style) {
 		assertEquals(BorderStyle.THIN, style.getBorderTop());
