@@ -22,6 +22,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.generic.bean.Name;
+import com.secura.dnft.generic.bean.SecuraConstants;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.dao.ApartmentRepository;
@@ -314,10 +315,25 @@ public class EmailService implements EmailInterface {
                     List<String> discFinCodes = parseStringList(payment.getDiscFin());
                     List<DiscFin> discFinList = new ArrayList<>();
                     for (String code : discFinCodes) {
-                        List<DiscFin> found = discFinRepository.findByDiscFnId(code);
-                        found.stream()
-                                .filter(d -> "ACTIVE".equalsIgnoreCase(d.getDiscFnType()))
-                                .forEach(discFinList::add);
+                    	List<Map<String, String>>discFin=genericService.fromJson(code, new TypeReference<List<Map<String, String>>>() {
+            			});
+                    	for(Map<String, String> map:discFin) {
+                    		if(map.get("Status").equalsIgnoreCase(SecuraConstants.DISC_FIN_STATUS_ACTIVE)) {
+                    			List<DiscFin> found = discFinRepository.findByDiscFnId(map.get("code"));
+                                found.stream()
+                                        .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
+                                        .forEach(discFinList::add);
+                                break;
+                    		}
+                    	}
+//                    	Optional<Map<String, String>>activeDiscfin=discFin.stream().map(dis->).filter(dis->dis.get("status").equals(SecuraConstants.DISC_FIN_STATUS_ACTIVE)).findFirst();
+//                    	if(activeDiscfin.isPresent()) {
+//                    		List<DiscFin> found = discFinRepository.findByDiscFnId(activeDiscfin.get().get("code"));
+//                            found.stream()
+//                                    .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
+//                                    .forEach(discFinList::add);
+//                    	}
+                        
                     }
 
                     // a.11-a.12 Fetch all dues for payment, find highest cycle
@@ -359,7 +375,7 @@ public class EmailService implements EmailInterface {
 //                            currentPaymentDues
 //                    );
                     String htmlBody= emailUtils.generatePaymentCollectionEmail(ownerName, logoBase64, paymentName, shortDesc, cause, startDate, endDate, 
-                    		allowedTenders, unitAmount, isPerSqft, gst, paymentType, discFinList, upcomingDuesByDate, paymentTotalDue, currentPaymentDues,apartName,paymentURL);
+                    		allowedTenders, unitAmount, isPerSqft, gst, paymentType, discFinList, upcomingDuesByDate, paymentTotalDue, currentPaymentDues,apartName,paymentURL,flat);
                     String subject = "Due Created For " + paymentName;
 
                     // Send email

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.Flat;
 
 @Service
 public class EmailUtils {
@@ -48,7 +49,8 @@ return formattedDate;
             double paymentTotalDue,
             List<DueAmountDetailsEntity> currentPaymentDues,
             String societyName,
-            String payNowUrl
+            String payNowUrl,
+            Flat flat
             
             ) {	
 
@@ -72,7 +74,7 @@ return formattedDate;
         // HEADER
 
         html.append("<tr>");
-        html.append("<td style='background:#0d4d8b;color:white;padding:25px;text-align:center;'>");
+        html.append("<td style='background:#329932;color:white;padding:25px;text-align:center;'>");
 
         if (logoBase64 != null && !logoBase64.isEmpty()) {
             html.append("<img src='data:image/png;base64,")
@@ -103,12 +105,28 @@ return formattedDate;
         html.append("</p>");
 
         html.append("</td></tr>");
+        // Flat DETAILS
 
+        html.append("<tr><td style='padding:0 30px;'>");
+
+        html.append("<h2 style='color:#329932'>Flat Details</h2>");
+
+        html.append("<table width='100%' border='1' cellpadding='8' ");
+        html.append("style='border-collapse:collapse;'>");
+
+        addRow(html, "Flat", flat.getFlatNo());
+        if (isPerSqft) {
+        addRow(html, "Built Up Area", flat.getFlatArea());
+        }
+        html.append("</table>");
+
+        html.append("</td></tr>");
+        
         // PAYMENT DETAILS
 
         html.append("<tr><td style='padding:0 30px;'>");
 
-        html.append("<h2 style='color:#4ac74a'>Payment Details</h2>");
+        html.append("<h2 style='color:#329932'>Payment Details</h2>");
 
         html.append("<table width='100%' border='1' cellpadding='8' ");
         html.append("style='border-collapse:collapse;'>");
@@ -125,7 +143,7 @@ return formattedDate;
             amountDisplay += " Per Sqft";
         }
 
-        addRow(html, "Amount", amountDisplay);
+        addRow(html, "Amount", "₹ "+amountDisplay);
         addRow(html, "GST", gst + "%");
         addRow(html, "Payment Type", paymentType);
 
@@ -185,12 +203,12 @@ return formattedDate;
 
             html.append("<tr><td style='padding:30px;'>");
 
-            html.append("<h2 style='color:#4ac74a'>Current Payment Dues</h2>");
+            html.append("<h2 style='color:#329932'>Current Payment Dues</h2>");
 
             html.append("<table width='100%' border='1' cellpadding='8' ");
             html.append("style='border-collapse:collapse;'>");
 
-            html.append("<tr bgcolor='#4ac74a' style='color:white;'>");
+            html.append("<tr bgcolor='#329932' style='color:white;'>");
             html.append("<th>Cycle</th>");
             html.append("<th>Due Date</th>");
             html.append("<th>Amount</th>");
@@ -206,20 +224,20 @@ return formattedDate;
                         .append(safe(due.getCollectionCycle()))
                         .append("</td>");
 
-                html.append("<td>")
+                html.append("<td style=\"text-align:center;\">")
                         .append(getFormatedDate(due.getDueDate()))
                         .append("</td>");
 
-                html.append("<td>")
+                html.append("<td style=\"text-align:center;\">")
                         .append("₹ "+safe(due.getAmount()))
                         .append("</td>");
 
-                html.append("<td>")
-                        .append(safe(due.getGstAmount()))
+                html.append("<td style=\"text-align:center;\">")
+                        .append("₹ "+safe(due.getGstAmount()))
                         .append("</td>");
 
-                html.append("<td>")
-                        .append(safe(due.getTotalAmount()))
+                html.append("<td style=\"text-align:center;\">")
+                        .append("₹ "+safe(due.getTotalAmount()))
                         .append("</td>");
 
                 html.append("</tr>");
@@ -231,18 +249,18 @@ return formattedDate;
         }
 
         // DISCOUNTS / FINES
-
         if (discFinList != null && !discFinList.isEmpty()) {
 
             html.append("<tr><td style='padding:30px;'>");
 
-            html.append("<h2 style='color:#4ac74a'>Discounts / Fines</h2>");
+            html.append("<h2 style='color:#329932'>Discounts / Fines</h2>");
 
             html.append("<table width='100%' border='1' cellpadding='8' ");
             html.append("style='border-collapse:collapse;'>");
 
-            html.append("<tr bgcolor='#4ac74a' style='color:white;'>");
+            html.append("<tr bgcolor='#329932' style='color:white;'>");
             html.append("<th>Type</th>");
+            html.append("<th>Cycle</th>");
             html.append("<th>Mode</th>");
             html.append("<th>Value</th>");
             html.append("</tr>");
@@ -254,12 +272,15 @@ return formattedDate;
                 html.append("<td>")
                         .append(safe(disc.getDiscFnType()))
                         .append("</td>");
+                html.append("<td style=\"text-align:center;\">")
+                .append(safe(disc.getDiscFnCycleType()))
+                .append("</td>");
 
-                html.append("<td>")
+                html.append("<td style=\"text-align:center;\">")
                         .append(safe(disc.getDiscFnMode()))
                         .append("</td>");
 
-                html.append("<td>")
+                html.append("<td style=\"text-align:center;\">")
                         .append(safe(disc.getDiscFinValue()))
                         .append("</td>");
 
