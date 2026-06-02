@@ -465,10 +465,11 @@ public class EmailService implements EmailInterface {
                 String htmlBody = emailUtils.getTransactionHTMLBody(ownerName, logoBase64, societyName, flat, transaction);
                 String subject = "Transaction Confirmation - " + transaction.getTrnscId();
                 byte[] receiptPdfBytes = null;
-                String attachmentName = "transaction-receipt.pdf";
                 String receiptNumber = transaction.getReceiptNumber();
+                String attachmentName = (receiptNumber != null && !receiptNumber.isBlank())
+                        ? receiptNumber
+                        : "transaction-receipt.pdf";
                 if (receiptNumber != null && !receiptNumber.isBlank()) {
-                    attachmentName = receiptNumber;
                     GenerateReceiptRequest request = new GenerateReceiptRequest();
                     GenericHeader header = new GenericHeader();
                     header.setApartmentId(transaction.getAprmntId());
