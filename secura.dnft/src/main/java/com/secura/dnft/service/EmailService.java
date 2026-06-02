@@ -147,7 +147,7 @@ public class EmailService implements EmailInterface {
             List<NoticeEntity>  filteredNotices      = filterNoticeList(allPendingNotices);
 
             sendPaymentMails(filteredPayments);
-           // sendTransactionMails(filteredTransactions);
+            sendTransactionMails(filteredTransactions);
             //sendNoticeMails(filteredNotices);
         } catch (Exception e) {
             logger.error("EmailService.sendEmail() encountered an error", e);
@@ -429,9 +429,16 @@ public class EmailService implements EmailInterface {
 
             try {
                 String flatId = transaction.getFlatId();
-                List<Owner> owners = flatId != null ? ownerRepository.findByFlatNo(flatId) : new ArrayList<>();
-                List<Profile> profiles = owners.stream()
-                        .map(o -> profileRepository.findById(o.getPrflId()))
+               // List<Owner> owners = flatId != null ? ownerRepository.findByFlatNo(flatId) : new ArrayList<>();
+                Optional<Flat> optFlat = flatRepository.findById(flatId);
+                if (optFlat.isEmpty()) {
+                    continue;
+                }
+                Flat flat = optFlat.get();
+                List<String> ownerProfiles=genericService.fromJson(flat.getFlatOwnerList(), new TypeReference<List<String>>() {
+      			});
+                List<Profile> profiles = ownerProfiles.stream()
+                        .map(o -> profileRepository.findById(o))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
                         .collect(Collectors.toList());
