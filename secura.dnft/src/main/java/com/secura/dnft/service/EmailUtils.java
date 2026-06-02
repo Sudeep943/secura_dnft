@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
@@ -443,7 +444,7 @@ return formattedDate;
     	}
     	try {
     		return OBJECT_MAPPER.readValue(json, typeReference);
-    	} catch (Exception e) {
+    	} catch (JsonProcessingException e) {
     		return new ArrayList<>();
     	}
     }
