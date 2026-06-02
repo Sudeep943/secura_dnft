@@ -7,7 +7,7 @@ public interface EmailInterface {
      * Notice entities where emailSentFlag = "N", filters out those already logged in
      * SecuraEmailLog, and sends the appropriate HTML emails.
      */
-    void sendEmail();
+    void sendPaymentEmail();
 
     /**
      * Scheduled job (every day at 4:00 AM) — re-attempts sending emails for all
@@ -21,4 +21,8 @@ public interface EmailInterface {
      * failedApplicableList is empty.
      */
     void deleteOldFailedEmails();
+    
+    void sendTransactionEmail();
+    
+    void sendOtherEmail();
 }

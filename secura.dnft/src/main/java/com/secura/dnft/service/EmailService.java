@@ -140,28 +140,56 @@ public class EmailService implements EmailInterface {
     // -------------------------------------------------------------------------
 
     @Override
-    //@Scheduled(cron = "0 30 0 * * *")
     @Scheduled(cron = "0 */1 * * * *")
-    public void sendEmail() {
+    public void sendPaymentEmail() {
         logger.info("EmailService.sendEmail() started");
         try {
             List<PaymentEntity> allPendingPayments     = paymentRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
-            List<Transaction>   allPendingTransactions = transactionRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
-            List<NoticeEntity>  allPendingNotices      = noticeRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
-
             List<PaymentEntity> filteredPayments     = filterPaymentList(allPendingPayments);
-            List<Transaction>   filteredTransactions = filterTransactionList(allPendingTransactions);
-            List<NoticeEntity>  filteredNotices      = filterNoticeList(allPendingNotices);
-
+            if(null!=filteredPayments && !filteredPayments.isEmpty()) {
             sendPaymentMails(filteredPayments);
-            sendTransactionMails(filteredTransactions);
-            //sendNoticeMails(filteredNotices);
+            }
         } catch (Exception e) {
             logger.error("EmailService.sendEmail() encountered an error", e);
         }
         logger.info("EmailService.sendEmail() completed");
     }
 
+    
+    @Override
+    @Scheduled(cron = "0 */30 * * * *")
+    public void sendTransactionEmail() {
+        logger.info("EmailService.sendEmail() started");
+        try {
+            List<Transaction>   allPendingTransactions = transactionRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
+            List<Transaction>   filteredTransactions = filterTransactionList(allPendingTransactions);
+if(null!=filteredTransactions && !filteredTransactions.isEmpty()) {
+            sendTransactionMails(filteredTransactions);
+}
+        } catch (Exception e) {
+            logger.error("EmailService.sendEmail() encountered an error", e);
+        }
+        logger.info("EmailService.sendEmail() completed");
+    }
+    
+    @Override
+    //@Scheduled(cron = "0 30 0 * * *")
+  //  @Scheduled(cron = "0 */1 * * * *")
+    public void sendOtherEmail() {
+        logger.info("EmailService.sendEmail() started");
+        try {
+            List<NoticeEntity>  allPendingNotices      = noticeRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
+
+            List<NoticeEntity>  filteredNotices      = filterNoticeList(allPendingNotices);
+
+            sendNoticeMails(filteredNotices);
+        } catch (Exception e) {
+            logger.error("EmailService.sendEmail() encountered an error", e);
+        }
+        logger.info("EmailService.sendEmail() completed");
+    }
+    
+    
     @Override
     @Scheduled(cron = "0 0 4 * * *")
     public void reattemptEmail() {
