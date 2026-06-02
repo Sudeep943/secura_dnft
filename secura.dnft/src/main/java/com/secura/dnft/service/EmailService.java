@@ -908,15 +908,25 @@ public class EmailService implements EmailInterface {
             helper.setText(htmlBody, true);
             if (logoBase64 != null && !logoBase64.isEmpty()) {
                 byte[] logoBytes = java.util.Base64.getDecoder().decode(logoBase64);
+                String mimeType = detectImageMimeType(logoBase64);
                 org.springframework.core.io.ByteArrayResource logoResource =
                         new org.springframework.core.io.ByteArrayResource(logoBytes);
-                helper.addInline("societylogo", logoResource, "image/png");
+                helper.addInline("societylogo", logoResource, mimeType);
             }
             mailSender.send(message);
         } catch (Exception e) {
             throw new RuntimeException(
                     "Failed to send email to [" + to + "] with subject [" + subject + "]: " + e.getMessage(), e);
         }
+    }
+
+    private String detectImageMimeType(String base64) {
+        if (base64 == null || base64.length() < 8) return "image/png";
+        String prefix = base64.substring(0, Math.min(base64.length(), 12));
+        if (prefix.startsWith("/9j/")) return "image/jpeg";
+        if (prefix.startsWith("R0lGOD"))  return "image/gif";
+        if (prefix.startsWith("UklGR"))   return "image/webp";
+        return "image/png";
     }
 
     private void appendRow(StringBuilder sb, String label, String value) {
