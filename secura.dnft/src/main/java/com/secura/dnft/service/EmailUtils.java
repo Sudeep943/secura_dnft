@@ -116,7 +116,7 @@ return formattedDate;
 
         addRow(html, "Flat", flat.getFlatNo());
         if (isPerSqft) {
-        addRow(html, "Built Up Area", flat.getFlatArea());
+        addRow(html, "Built Up Area", flat.getFlatArea()+ " Sqft");
         }
         html.append("</table>");
 

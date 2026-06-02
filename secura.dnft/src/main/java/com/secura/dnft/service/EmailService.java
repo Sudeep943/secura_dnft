@@ -237,12 +237,12 @@ public class EmailService implements EmailInterface {
     // sendPaymentMails
     // -------------------------------------------------------------------------
 
-    List<Profile> getOwnerProfiles(List<Owner> owners){
+    List<Profile> getOwnerProfiles(List<String> ownerIds){
     	 List<Profile> profiles = new ArrayList<>();
-    	 for(Owner owner: owners) {
-    		 List<String>ownerProfiles=genericService.fromJson(owner.getPrflId(), new TypeReference<List<String>>() {
-  			});
-    		 Optional<Profile> profile= profileRepository.findById(ownerProfiles.get(0));
+    	 for(String owner: ownerIds) {
+//    		 List<String>ownerProfiles=genericService.fromJson(owner.getPrflId(), new TypeReference<List<String>>() {
+//  			});
+    		 Optional<Profile> profile= profileRepository.findById(owner);
     		 if(profile.isPresent()) {
     			 profiles.add(profile.get());
     		 }
@@ -270,8 +270,11 @@ public class EmailService implements EmailInterface {
                     Flat flat = optFlat.get();
 
                     // a.4 Get owner list and email list
-                    List<Owner> owners = ownerRepository.findByFlatNo(flatId).stream().filter(o->o.getStatus().equalsIgnoreCase("ACTIVE")).collect(Collectors.toList());
-                    List<Profile> profiles=getOwnerProfiles(owners);
+                   // List<Owner> owners = ownerRepository.findByFlatNo(flatId).stream().filter(o->o.getStatus().equalsIgnoreCase("ACTIVE")).collect(Collectors.toList());
+                    List<String> ownerProfiles=genericService.fromJson(flat.getFlatOwnerList(), new TypeReference<List<String>>() {
+          			});
+                    
+                    List<Profile> profiles=getOwnerProfiles(ownerProfiles);
                     List<String> emailList = profiles.stream()
                             .map(Profile::getPrflEmailAdrss)
                             .filter(e -> e != null && !e.isBlank())
