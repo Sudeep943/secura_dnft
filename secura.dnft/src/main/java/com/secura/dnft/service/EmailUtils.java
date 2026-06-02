@@ -9,13 +9,16 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.poi.ss.formula.functions.T;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
@@ -25,8 +28,13 @@ import com.secura.dnft.request.response.PaymentTenderData;
 @Service
 public class EmailUtils {
 	private static final Logger LOGGER = LoggerFactory.getLogger(EmailUtils.class);
+	
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
+	   static {
+		   OBJECT_MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		   OBJECT_MAPPER.findAndRegisterModules();
+		   OBJECT_MAPPER.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+	    }
 //	@Value("${email.log.retention.days:90}")
 //	String payNowUrl;
 //	
@@ -67,7 +75,7 @@ return formattedDate;
 		html.append("style='background:#ffffff;border-radius:12px;border:1px solid #c8e0c8;'>");
 
 		html.append("<tr>");
-		html.append("<td style='background:#329932;border-radius:12px 12px 0 0;padding:28px 30px;text-align:center;'>");
+		html.append("<td style='background:#00A696;border-radius:12px 12px 0 0;padding:28px 30px;text-align:center;'>");
 		html.append("<h1 style='margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;'>")
 				.append(safe(societyName))
 				.append("</h1>");
@@ -86,7 +94,7 @@ return formattedDate;
 		html.append("</td></tr>");
 
 		html.append("<tr><td style='padding:20px 30px 10px;'>");
-		html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Flat Details</h2>");
+		html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#00A696;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #00A696;padding-left:10px;'>Flat Details</h2>");
 		html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
 		html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 		addRow(html, "Flat No.", flat != null ? flat.getFlatNo() : null);
@@ -95,7 +103,7 @@ return formattedDate;
 		html.append("</td></tr>");
 
 		html.append("<tr><td style='padding:20px 30px 10px;'>");
-		html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Transaction Details</h2>");
+		html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#00A696;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #00A696;padding-left:10px;'>Transaction Details</h2>");
 		html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
 		html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 		addRow(html, "Transaction Date Time", formatTransactionDateTime(transaction != null ? transaction.getTrnsDate() : null));
@@ -113,7 +121,7 @@ return formattedDate;
 		html.append("<p style='margin:0 0 4px;'>This is an automated notification. Please do not reply to this email.</p>");
 		html.append("<p style='margin:0;'>&nbsp;</p>");
 		html.append("<p style='margin:0;'>Thanks &amp; Regards</p>");
-		html.append("<p style='margin:2px 0 0;font-weight:600;color:#329932;'>AOA ").append(safe(societyName)).append("</p>");
+		html.append("<p style='margin:2px 0 0;font-weight:600;color:#00A696;'>AOA ").append(safe(societyName)).append("</p>");
 		if (hasLogo) {
 			html.append("<br>");
 			html.append("<img src='cid:societylogo' alt='").append(safe(societyName))
@@ -173,7 +181,7 @@ return formattedDate;
 
         // HEADER
         html.append("<tr>");
-        html.append("<td style='background:#329932;border-radius:12px 12px 0 0;padding:28px 30px;text-align:center;'>");
+        html.append("<td style='background:#00A696;border-radius:12px 12px 0 0;padding:28px 30px;text-align:center;'>");
         html.append("<h1 style='margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;'>")
                 .append(safe(societyName))
                 .append("</h1>");
@@ -188,14 +196,14 @@ return formattedDate;
                 .append("</b>,</p>");
         html.append("<p style='margin:0;font-size:14px;color:#444;line-height:1.6;'>");
         html.append("The AOA has initiated a payment collection for ");
-        html.append("<b style='color:#329932;'>").append(safe(paymentName)).append("</b>.");
+        html.append("<b style='color:#00A696;'>").append(safe(paymentName)).append("</b>.");
         html.append(" Please review the details below and complete your payment at the earliest.");
         html.append("</p>");
         html.append("</td></tr>");
 
         // Flat DETAILS
         html.append("<tr><td style='padding:20px 30px 10px;'>");
-        html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Flat Details</h2>");
+        html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#00A696;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #00A696;padding-left:10px;'>Flat Details</h2>");
         html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
         html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
         addRow(html, "Flat No.", flat.getFlatNo());
@@ -207,7 +215,7 @@ return formattedDate;
 
         // PAYMENT DETAILS
         html.append("<tr><td style='padding:20px 30px 10px;'>");
-        html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Payment Details</h2>");
+        html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#00A696;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #00A696;padding-left:10px;'>Payment Details</h2>");
         html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
         html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 
@@ -278,11 +286,11 @@ return formattedDate;
         if (currentPaymentDues != null && !currentPaymentDues.isEmpty()) {
 
             html.append("<tr><td style='padding:20px 30px 10px;'>");
-            html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Current Payment Dues</h2>");
+            html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#00A696;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #00A696;padding-left:10px;'>Current Payment Dues</h2>");
             html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
             html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 
-            html.append("<tr style='background:#329932;color:#ffffff;'>");
+            html.append("<tr style='background:#00A696;color:#ffffff;'>");
             html.append("<th style='padding:10px 12px;text-align:left;font-weight:600;'>Cycle</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Due Date</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Amount</th>");
@@ -306,7 +314,7 @@ return formattedDate;
                 html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
                         .append("₹ " + safe(due.getGstAmount()))
                         .append("</td>");
-                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#329932;'>")
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#00A696;'>")
                         .append("₹ " + safe(due.getTotalAmount()))
                         .append("</td>");
                 html.append("</tr>");
@@ -321,11 +329,11 @@ return formattedDate;
         if (discFinList != null && !discFinList.isEmpty()) {
 
             html.append("<tr><td style='padding:20px 30px 10px;'>");
-            html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Discounts / Fines</h2>");
+            html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#00A696;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #00A696;padding-left:10px;'>Discounts / Fines</h2>");
             html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
             html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 
-            html.append("<tr style='background:#329932;color:#ffffff;'>");
+            html.append("<tr style='background:#00A696;color:#ffffff;'>");
             html.append("<th style='padding:10px 12px;text-align:left;font-weight:600;'>Type</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Cycle</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Mode</th>");
@@ -345,7 +353,7 @@ return formattedDate;
                 html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
                         .append(safe(disc.getDiscFnMode()))
                         .append("</td>");
-                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#329932;'>")
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#00A696;'>")
                         .append(safe(disc.getDiscFinValue()))
                         .append("</td>");
                 html.append("</tr>");
@@ -372,7 +380,7 @@ return formattedDate;
         html.append("<tr>");
         html.append("<td align='center' style='padding:20px 30px 30px;'>");
         html.append("<a href='").append(payNowUrl).append("' ");
-        html.append("style='display:inline-block;background:#329932;color:#ffffff;font-size:15px;font-weight:700;");
+        html.append("style='display:inline-block;background:#00A696;color:#ffffff;font-size:15px;font-weight:700;");
         html.append("padding:14px 48px;text-decoration:none;border-radius:6px;letter-spacing:0.5px;");
         html.append("border:2px solid #267326;'>");
         html.append("PAY NOW");
@@ -383,11 +391,11 @@ return formattedDate;
         // FOOTER
         html.append("<tr>");
         html.append("<td style='background:#f7faf7;border-top:1px solid #c8e0c8;border-radius:0 0 12px 12px;padding:20px 30px;color:#666;font-size:13px;line-height:1.6;'>");
-        html.append("<p style='margin:0 0 4px;'>Dues mentioned are excluding any discount. For exact due amount with discount (if applicable), click on Pay Now and check on the payment page.</p>");
+        html.append("<p style='margin:0 0 4px;'>Dues mentioned are excluding any discount. For exact due amount with discount (if applicable), click on Pay Now and check on the payment page.</p><p></p>");
         html.append("<p style='margin:0 0 4px;'>This is an automated notification. Please do not reply to this email.</p>");
         html.append("<p style='margin:0;'>&nbsp;</p>");
         html.append("<p style='margin:0;'>Thanks &amp; Regards</p>");
-        html.append("<p style='margin:2px 0 0;font-weight:600;color:#329932;'>AOA ").append(safe(societyName)).append("</p>");
+        html.append("<p style='margin:2px 0 0;font-weight:600;color:#00A696;'>AOA ").append(safe(societyName)).append("</p>");
         if (hasLogo) {
             html.append("<br>");
             html.append("<img src='cid:societylogo' alt='").append(safe(societyName))
