@@ -9,6 +9,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,6 +24,7 @@ import com.secura.dnft.request.response.PaymentTenderData;
 
 @Service
 public class EmailUtils {
+	private static final Logger LOGGER = LoggerFactory.getLogger(EmailUtils.class);
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
 //	@Value("${email.log.retention.days:90}")
@@ -445,6 +448,7 @@ return formattedDate;
     	try {
     		return OBJECT_MAPPER.readValue(json, typeReference);
     	} catch (JsonProcessingException e) {
+    		LOGGER.warn("Unable to parse transaction tender payload to list", e);
     		return new ArrayList<>();
     	}
     }
