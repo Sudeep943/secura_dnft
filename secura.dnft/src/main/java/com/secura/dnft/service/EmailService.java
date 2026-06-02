@@ -465,6 +465,10 @@ public class EmailService implements EmailInterface {
                 String subject = "Transaction Confirmation - " + transaction.getTrnscId();
                 byte[] receiptPdfBytes = getReceiptPdfBytes(transaction);
                 String attachmentName = getReceiptAttachmentName(transaction);
+                if (receiptPdfBytes == null) {
+                    logger.warn("Receipt attachment not found/invalid for transaction {} and receipt {}",
+                            transaction.getTrnscId(), transaction.getReceiptNumber());
+                }
 
                 for (String email : emailList) {
                     sendHtmlEmailWithLogoAndAttachment(email, subject, htmlBody, logoBase64, receiptPdfBytes, attachmentName);
@@ -987,7 +991,7 @@ public class EmailService implements EmailInterface {
             receipts = receiptRepository.findByReceiptId(transaction.getReceiptNumber());
         }
         for (Receipt receipt : receipts) {
-            String receiptBase64 = extractReceiptBase64(receipt != null ? receipt.getReceiptData() : null);
+            String receiptBase64 = extractReceiptBase64(receipt.getReceiptData());
             if (receiptBase64 == null || receiptBase64.isBlank()) {
                 continue;
             }
