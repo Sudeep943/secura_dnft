@@ -384,7 +384,7 @@ public class EmailService implements EmailInterface {
                     // Send email
                     boolean sentToFlat = false;
                     for (String email : emailList) {
-                        sendHtmlEmail(email, subject, htmlBody);
+                        sendHtmlEmailWithLogo(email, subject, htmlBody, logoBase64);
                         sentToFlat = true;
                     }
                     if (sentToFlat) {
@@ -896,12 +896,22 @@ public class EmailService implements EmailInterface {
     }
 
     private void sendHtmlEmail(String to, String subject, String htmlBody) throws Exception {
+        sendHtmlEmailWithLogo(to, subject, htmlBody, null);
+    }
+
+    private void sendHtmlEmailWithLogo(String to, String subject, String htmlBody, String logoBase64) throws Exception {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
+            if (logoBase64 != null && !logoBase64.isEmpty()) {
+                byte[] logoBytes = java.util.Base64.getDecoder().decode(logoBase64);
+                org.springframework.core.io.ByteArrayResource logoResource =
+                        new org.springframework.core.io.ByteArrayResource(logoBytes);
+                helper.addInline("societylogo", logoResource, "image/png");
+            }
             mailSender.send(message);
         } catch (Exception e) {
             throw new RuntimeException(
