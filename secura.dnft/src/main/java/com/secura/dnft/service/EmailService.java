@@ -34,7 +34,6 @@ import com.secura.dnft.dao.NoticeRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
-import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.dao.SecuraEmailLogRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.ApartmentMaster;
@@ -46,11 +45,13 @@ import com.secura.dnft.entity.NoticeEntity;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
-import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.entity.SecuraEmailLog;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.interfaceservice.EmailInterface;
+import com.secura.dnft.interfaceservice.ReceiptInterface;
+import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GenerateReceiptRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 
@@ -99,9 +100,6 @@ public class EmailService implements EmailInterface {
     private TransactionRepository transactionRepository;
     
     @Autowired
-    private ReceiptRepository receiptRepository;
-
-    @Autowired
     private NoticeRepository noticeRepository;
 
     @Autowired
@@ -133,6 +131,9 @@ public class EmailService implements EmailInterface {
     
     @Autowired
     EmailUtils emailUtils;
+
+    @Autowired
+    private ReceiptInterface receiptServices;
 
     // -------------------------------------------------------------------------
     // Scheduled Jobs
@@ -463,8 +464,33 @@ public class EmailService implements EmailInterface {
 
                 String htmlBody = emailUtils.getTransactionHTMLBody(ownerName, logoBase64, societyName, flat, transaction);
                 String subject = "Transaction Confirmation - " + transaction.getTrnscId();
-                byte[] receiptPdfBytes = getReceiptPdfBytes(transaction);
-                String attachmentName = getReceiptAttachmentName(transaction);
+                byte[] receiptPdfBytes = null;
+                String receiptNumber = transaction.getReceiptNumber();
+                String attachmentName = (receiptNumber != null && !receiptNumber.isBlank())
+                        ? receiptNumber
+                        : "transaction-receipt.pdf";
+                if (receiptNumber != null && !receiptNumber.isBlank()) {
+                    GenerateReceiptRequest request = new GenerateReceiptRequest();
+                    GenericHeader header = new GenericHeader();
+                    header.setApartmentId(transaction.getAprmntId());
+                    request.setGenericHeader(header);
+                    request.setReceiptNumber(receiptNumber);
+                    CreateReceiptResponse response = receiptServices.generateReceipt(request);
+                    String receiptBase64 = response != null ? response.getReceipt() : null;
+                    if (receiptBase64 != null && !receiptBase64.isBlank()) {
+                        String sanitizedBase64 = receiptBase64.trim();
+                        String dataPrefix = "data:application/pdf;base64,";
+                        if (sanitizedBase64.startsWith(dataPrefix)) {
+                            sanitizedBase64 = sanitizedBase64.substring(dataPrefix.length());
+                        }
+                        try {
+                            receiptPdfBytes = Base64.getDecoder().decode(sanitizedBase64);
+                        } catch (IllegalArgumentException e) {
+                            logger.warn("Invalid base64 receipt content for transaction {} and receipt {}",
+                                    transaction.getTrnscId(), receiptNumber);
+                        }
+                    }
+                }
                 if (receiptPdfBytes == null) {
                     logger.warn("Receipt attachment not found/invalid for transaction {} and receipt {}",
                             transaction.getTrnscId(), transaction.getReceiptNumber());
@@ -980,66 +1006,6 @@ public class EmailService implements EmailInterface {
         if (prefix.startsWith("R0lGOD"))  return "image/gif";
         if (prefix.startsWith("UklGR"))   return "image/webp";
         return "image/png";
-    }
-
-    private byte[] getReceiptPdfBytes(Transaction transaction) {
-        if (transaction == null || transaction.getReceiptNumber() == null || transaction.getReceiptNumber().isBlank()) {
-            return null;
-        }
-        List<Receipt> receipts = receiptRepository.findByAprmtIdAndReceiptId(transaction.getAprmntId(), transaction.getReceiptNumber());
-        if (receipts.isEmpty()) {
-            receipts = receiptRepository.findByReceiptId(transaction.getReceiptNumber());
-        }
-        for (Receipt receipt : receipts) {
-            String receiptBase64 = extractReceiptBase64(receipt.getReceiptData());
-            if (receiptBase64 == null || receiptBase64.isBlank()) {
-                continue;
-            }
-            try {
-                return Base64.getDecoder().decode(receiptBase64);
-            } catch (IllegalArgumentException e) {
-                logger.warn("Invalid base64 receipt content for transaction {} and receipt {}",
-                        transaction.getTrnscId(), transaction.getReceiptNumber());
-            }
-        }
-        return null;
-    }
-
-    private String extractReceiptBase64(String receiptData) {
-        if (receiptData == null || receiptData.isBlank()) {
-            return null;
-        }
-        String trimmedData = receiptData.trim();
-        String prefix = "data:application/pdf;base64,";
-        if (trimmedData.startsWith(prefix)) {
-            return trimmedData.substring(prefix.length());
-        }
-        if (!trimmedData.startsWith("{")) {
-            return trimmedData;
-        }
-        try {
-            var node = OBJECT_MAPPER.readTree(trimmedData);
-            if (node.hasNonNull("receipt")) {
-                return node.get("receipt").asText();
-            }
-            if (node.hasNonNull("pdfReceipt")) {
-                return node.get("pdfReceipt").asText();
-            }
-            if (node.hasNonNull("receiptData")) {
-                return node.get("receiptData").asText();
-            }
-        } catch (Exception e) {
-            logger.warn("Unable to parse receipt data for attachment", e);
-        }
-        return null;
-    }
-
-    private String getReceiptAttachmentName(Transaction transaction) {
-        String receiptNumber = transaction != null ? transaction.getReceiptNumber() : null;
-        if (receiptNumber == null || receiptNumber.isBlank()) {
-            return "transaction-receipt.pdf";
-        }
-        return receiptNumber + ".pdf";
     }
 
     private void appendRow(StringBuilder sb, String label, String value) {

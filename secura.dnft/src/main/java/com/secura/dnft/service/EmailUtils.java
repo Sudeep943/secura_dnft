@@ -89,6 +89,7 @@ return formattedDate;
 		html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 		addRow(html, "Transaction Date Time", formatTransactionDateTime(transaction != null ? transaction.getTrnsDate() : null));
 		addRow(html, "Transaction ID", transaction != null ? transaction.getTrnscId() : null);
+		addRow(html, "Invoice number", transaction != null ? transaction.getReceiptNumber() : null);
 		addRow(html, "Transaction Tender", transaction != null ? transaction.getTrnsTender() : null);
 		addRow(html, "Amount", transaction != null ? "₹ " + safe(transaction.getTrnsAmt()) : null);
 		addRow(html, "Payment Id", transaction != null ? transaction.getPymntId() : null);
