@@ -3,18 +3,29 @@ package com.secura.dnft.service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.request.response.PaymentTenderData;
 
 @Service
 public class EmailUtils {
+	private static final Logger LOGGER = LoggerFactory.getLogger(EmailUtils.class);
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
 //	@Value("${email.log.retention.days:90}")
 //	String payNowUrl;
@@ -90,7 +101,7 @@ return formattedDate;
 		addRow(html, "Transaction Date Time", formatTransactionDateTime(transaction != null ? transaction.getTrnsDate() : null));
 		addRow(html, "Transaction ID", transaction != null ? transaction.getTrnscId() : null);
 		addRow(html, "Invoice number", transaction != null ? transaction.getReceiptNumber() : null);
-		addRow(html, "Transaction Tender", transaction != null ? transaction.getTrnsTender() : null);
+		addRow(html, "Transaction Tender", transaction != null ? formatTransactionTender(transaction.getTrnsTender()) : null);
 		addRow(html, "Amount", transaction != null ? "₹ " + safe(transaction.getTrnsAmt()) : null);
 		addRow(html, "Payment Id", transaction != null ? transaction.getPymntId() : null);
 		addRow(html, "Transaction Status", transaction != null ? transaction.getTrnsStatus() : null);
@@ -411,6 +422,35 @@ return formattedDate;
             return "";
         }
         return dateTime.format(DateTimeFormatter.ofPattern("d-MMM-yyyy, HH:mm", Locale.ENGLISH));
+    }
+
+    private static String formatTransactionTender(String trnsTenderJson) {
+    	List<PaymentTenderData> tenderDataList = parseList(trnsTenderJson, new TypeReference<List<PaymentTenderData>>() {});
+    	if (!tenderDataList.isEmpty()) {
+    		String tenderNames = tenderDataList.stream()
+    				.filter(Objects::nonNull)
+    				.map(PaymentTenderData::getTenderName)
+    				.filter(Objects::nonNull)
+    				.map(tenderName -> tenderName.replace('_', ' ').trim())
+    				.filter(tenderName -> !tenderName.isEmpty())
+    				.collect(Collectors.joining(", "));
+    		if (!tenderNames.isEmpty()) {
+    			return tenderNames;
+    		}
+    	}
+    	return trnsTenderJson;
+    }
+
+    private static <T> List<T> parseList(String json, TypeReference<List<T>> typeReference) {
+    	if (json == null || json.isBlank()) {
+    		return new ArrayList<>();
+    	}
+    	try {
+    		return OBJECT_MAPPER.readValue(json, typeReference);
+    	} catch (JsonProcessingException e) {
+    		LOGGER.warn("Unable to parse transaction tender payload to list", e);
+    		return new ArrayList<>();
+    	}
     }
 
     private static String safe(String value) {
