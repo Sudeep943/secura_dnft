@@ -1,14 +1,17 @@
 package com.secura.dnft.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
+import com.secura.dnft.entity.Transaction;
 
 @Service
 public class EmailUtils {
@@ -29,6 +32,89 @@ DateTimeFormatter formatter =
 
 String formattedDate = date.format(formatter);
 return formattedDate;
+	}
+	
+	public static String getTransactionHTMLBody(
+			String ownerName,
+			String logoBase64,
+			String societyName,
+			Flat flat,
+			Transaction transaction) {
+		boolean hasLogo = logoBase64 != null && !logoBase64.isEmpty();
+
+		StringBuilder html = new StringBuilder();
+		html.append("<!DOCTYPE html>");
+		html.append("<html>");
+		html.append("<head>");
+		html.append("<meta charset='UTF-8'>");
+		html.append("<title>Transaction Confirmation</title>");
+		html.append("</head>");
+		html.append("<body style='margin:0;padding:0;background:#eef3ee;font-family:Arial,Helvetica,sans-serif;'>");
+		html.append("<table width='100%' bgcolor='#eef3ee' cellpadding='0' cellspacing='0'>");
+		html.append("<tr><td align='center' style='padding:30px 10px;'>");
+		html.append("<table width='650' cellpadding='0' cellspacing='0' ");
+		html.append("style='background:#ffffff;border-radius:12px;border:1px solid #c8e0c8;'>");
+
+		html.append("<tr>");
+		html.append("<td style='background:#329932;border-radius:12px 12px 0 0;padding:28px 30px;text-align:center;'>");
+		html.append("<h1 style='margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;'>")
+				.append(safe(societyName))
+				.append("</h1>");
+		html.append("<p style='margin:6px 0 0;font-size:13px;color:#c8f0c8;letter-spacing:1px;text-transform:uppercase;'>Association of Owners</p>");
+		html.append("</td>");
+		html.append("</tr>");
+
+		html.append("<tr><td style='padding:28px 30px 10px;'>");
+		html.append("<p style='margin:0 0 10px;font-size:15px;color:#333;'>Dear <b>")
+				.append(safe(ownerName))
+				.append("</b>,</p>");
+		html.append("<p style='margin:0;font-size:14px;color:#444;line-height:1.6;'>");
+		html.append("Your transaction has been recorded successfully. Please find transaction and flat details below. ");
+		html.append("Find detailed receipt of this transaction in the attachment.");
+		html.append("</p>");
+		html.append("</td></tr>");
+
+		html.append("<tr><td style='padding:20px 30px 10px;'>");
+		html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Flat Details</h2>");
+		html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
+		html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
+		addRow(html, "Flat No.", flat != null ? flat.getFlatNo() : null);
+		addRow(html, "Built Up Area", flat != null && flat.getFlatArea() != null ? flat.getFlatArea() + " Sqft" : null);
+		html.append("</table>");
+		html.append("</td></tr>");
+
+		html.append("<tr><td style='padding:20px 30px 10px;'>");
+		html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Transaction Details</h2>");
+		html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
+		html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
+		addRow(html, "Transaction Date Time", formatTransactionDateTime(transaction != null ? transaction.getTrnsDate() : null));
+		addRow(html, "Transaction ID", transaction != null ? transaction.getTrnscId() : null);
+		addRow(html, "Transaction Tender", transaction != null ? transaction.getTrnsTender() : null);
+		addRow(html, "Amount", transaction != null ? "₹ " + safe(transaction.getTrnsAmt()) : null);
+		addRow(html, "Payment Id", transaction != null ? transaction.getPymntId() : null);
+		addRow(html, "Transaction Status", transaction != null ? transaction.getTrnsStatus() : null);
+		html.append("</table>");
+		html.append("</td></tr>");
+
+		html.append("<tr>");
+		html.append("<td style='background:#f7faf7;border-top:1px solid #c8e0c8;border-radius:0 0 12px 12px;padding:20px 30px;color:#666;font-size:13px;line-height:1.6;'>");
+		html.append("<p style='margin:0 0 4px;'>This is an automated notification. Please do not reply to this email.</p>");
+		html.append("<p style='margin:0;'>&nbsp;</p>");
+		html.append("<p style='margin:0;'>Thanks &amp; Regards</p>");
+		html.append("<p style='margin:2px 0 0;font-weight:600;color:#329932;'>AOA ").append(safe(societyName)).append("</p>");
+		if (hasLogo) {
+			html.append("<br>");
+			html.append("<img src='cid:societylogo' alt='").append(safe(societyName))
+					.append("' style='max-height:60px;max-width:160px;margin-top:8px;'>");
+		}
+		html.append("</td>");
+		html.append("</tr>");
+		html.append("</table>");
+		html.append("</td></tr>");
+		html.append("</table>");
+		html.append("</body>");
+		html.append("</html>");
+		return html.toString();
 	}
 	
     public static String generatePaymentCollectionEmail(
@@ -285,6 +371,7 @@ return formattedDate;
         // FOOTER
         html.append("<tr>");
         html.append("<td style='background:#f7faf7;border-top:1px solid #c8e0c8;border-radius:0 0 12px 12px;padding:20px 30px;color:#666;font-size:13px;line-height:1.6;'>");
+        html.append("<p style='margin:0 0 4px;'>Dues mentioned are excluding any discount. For exact due amount with discount (if applicable), click on Pay Now and check on the payment page.</p>");
         html.append("<p style='margin:0 0 4px;'>This is an automated notification. Please do not reply to this email.</p>");
         html.append("<p style='margin:0;'>&nbsp;</p>");
         html.append("<p style='margin:0;'>Thanks &amp; Regards</p>");
@@ -316,6 +403,13 @@ return formattedDate;
                 .append(safe(value))
                 .append("</td>");
         html.append("</tr>");
+    }
+
+    private static String formatTransactionDateTime(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return "";
+        }
+        return dateTime.format(DateTimeFormatter.ofPattern("d-MMM-yyyy, HH:mm", Locale.ENGLISH));
     }
 
     private static String safe(String value) {

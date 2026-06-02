@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import com.secura.dnft.dao.NoticeRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.dao.ReceiptRepository;
 import com.secura.dnft.dao.SecuraEmailLogRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.ApartmentMaster;
@@ -44,6 +46,7 @@ import com.secura.dnft.entity.NoticeEntity;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.entity.Receipt;
 import com.secura.dnft.entity.SecuraEmailLog;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.interfaceservice.EmailInterface;
@@ -94,6 +97,9 @@ public class EmailService implements EmailInterface {
 
     @Autowired
     private TransactionRepository transactionRepository;
+    
+    @Autowired
+    private ReceiptRepository receiptRepository;
 
     @Autowired
     private NoticeRepository noticeRepository;
@@ -451,13 +457,21 @@ public class EmailService implements EmailInterface {
                 emailLog.setTotalApplicable(emailList.size());
 
                 String ownerName = buildOwnerNames(profiles);
-                String logoBase64 = getApartmentLogo(transaction.getAprmntId());
+                Optional<ApartmentMaster> apartmentOpt = apartmentRepository.findById(transaction.getAprmntId());
+                String logoBase64 = apartmentOpt.map(ApartmentMaster::getAprmnt_logo).orElse(null);
+                String societyName = apartmentOpt.map(ApartmentMaster::getAprmntName).orElse("");
 
-                String htmlBody = buildTransactionEmailHtml(ownerName, logoBase64, transaction);
+                String htmlBody = emailUtils.getTransactionHTMLBody(ownerName, logoBase64, societyName, flat, transaction);
                 String subject = "Transaction Confirmation - " + transaction.getTrnscId();
+                byte[] receiptPdfBytes = getReceiptPdfBytes(transaction);
+                String attachmentName = getReceiptAttachmentName(transaction);
+                if (receiptPdfBytes == null) {
+                    logger.warn("Receipt attachment not found/invalid for transaction {} and receipt {}",
+                            transaction.getTrnscId(), transaction.getReceiptNumber());
+                }
 
                 for (String email : emailList) {
-                    sendHtmlEmail(email, subject, htmlBody);
+                    sendHtmlEmailWithLogoAndAttachment(email, subject, htmlBody, logoBase64, receiptPdfBytes, attachmentName);
                 }
                 if (!emailList.isEmpty()) {
                     emailSentCount++;
@@ -926,6 +940,38 @@ public class EmailService implements EmailInterface {
                     "Failed to send email to [" + to + "] with subject [" + subject + "]: " + e.getMessage(), e);
         }
     }
+    
+    private void sendHtmlEmailWithLogoAndAttachment(
+            String to,
+            String subject,
+            String htmlBody,
+            String logoBase64,
+            byte[] attachmentBytes,
+            String attachmentName) throws Exception {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            if (logoBase64 != null && !logoBase64.isEmpty()) {
+                byte[] logoBytes = Base64.getDecoder().decode(logoBase64);
+                String mimeType = detectImageMimeType(logoBase64);
+                org.springframework.core.io.ByteArrayResource logoResource =
+                        new org.springframework.core.io.ByteArrayResource(logoBytes);
+                helper.addInline("societylogo", logoResource, mimeType);
+            }
+            if (attachmentBytes != null && attachmentBytes.length > 0) {
+                org.springframework.core.io.ByteArrayResource attachmentResource =
+                        new org.springframework.core.io.ByteArrayResource(attachmentBytes);
+                helper.addAttachment(attachmentName, attachmentResource, "application/pdf");
+            }
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to send email to [" + to + "] with subject [" + subject + "]: " + e.getMessage(), e);
+        }
+    }
 
     private String detectImageMimeType(String base64) {
         if (base64 == null || base64.length() < 8) return "image/png";
@@ -934,6 +980,66 @@ public class EmailService implements EmailInterface {
         if (prefix.startsWith("R0lGOD"))  return "image/gif";
         if (prefix.startsWith("UklGR"))   return "image/webp";
         return "image/png";
+    }
+
+    private byte[] getReceiptPdfBytes(Transaction transaction) {
+        if (transaction == null || transaction.getReceiptNumber() == null || transaction.getReceiptNumber().isBlank()) {
+            return null;
+        }
+        List<Receipt> receipts = receiptRepository.findByAprmtIdAndReceiptId(transaction.getAprmntId(), transaction.getReceiptNumber());
+        if (receipts.isEmpty()) {
+            receipts = receiptRepository.findByReceiptId(transaction.getReceiptNumber());
+        }
+        for (Receipt receipt : receipts) {
+            String receiptBase64 = extractReceiptBase64(receipt.getReceiptData());
+            if (receiptBase64 == null || receiptBase64.isBlank()) {
+                continue;
+            }
+            try {
+                return Base64.getDecoder().decode(receiptBase64);
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid base64 receipt content for transaction {} and receipt {}",
+                        transaction.getTrnscId(), transaction.getReceiptNumber());
+            }
+        }
+        return null;
+    }
+
+    private String extractReceiptBase64(String receiptData) {
+        if (receiptData == null || receiptData.isBlank()) {
+            return null;
+        }
+        String trimmedData = receiptData.trim();
+        String prefix = "data:application/pdf;base64,";
+        if (trimmedData.startsWith(prefix)) {
+            return trimmedData.substring(prefix.length());
+        }
+        if (!trimmedData.startsWith("{")) {
+            return trimmedData;
+        }
+        try {
+            var node = OBJECT_MAPPER.readTree(trimmedData);
+            if (node.hasNonNull("receipt")) {
+                return node.get("receipt").asText();
+            }
+            if (node.hasNonNull("pdfReceipt")) {
+                return node.get("pdfReceipt").asText();
+            }
+            if (node.hasNonNull("receiptData")) {
+                return node.get("receiptData").asText();
+            }
+        } catch (Exception e) {
+            logger.warn("Unable to parse receipt data for attachment", e);
+        }
+        return null;
+    }
+
+    private String getReceiptAttachmentName(Transaction transaction) {
+        String receiptNumber = transaction != null ? transaction.getReceiptNumber() : null;
+        if (receiptNumber == null || receiptNumber.isBlank()) {
+            return "transaction-receipt.pdf";
+        }
+        return receiptNumber + ".pdf";
     }
 
     private void appendRow(StringBuilder sb, String label, String value) {
