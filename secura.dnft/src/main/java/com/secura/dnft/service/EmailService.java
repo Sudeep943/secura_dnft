@@ -998,7 +998,8 @@ public class EmailService implements EmailInterface {
             try {
                 return Base64.getDecoder().decode(receiptBase64);
             } catch (IllegalArgumentException e) {
-                logger.warn("Invalid base64 receipt content for receipt {}", transaction.getReceiptNumber());
+                logger.warn("Invalid base64 receipt content for transaction {} and receipt {}",
+                        transaction.getTrnscId(), transaction.getReceiptNumber());
             }
         }
         return null;
