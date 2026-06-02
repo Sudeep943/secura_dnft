@@ -84,7 +84,7 @@ public class WorklistService {
 		worklist.setReferenceId(transactionId);
 		worklist.setFlatNo(genericHeader != null ? genericHeader.getFlatNo() : null);
 		worklist.setCurrentAssignee(userId);
-		worklist.setCreatUsrId(userId);
+		worklist.setCreatUsrId("admin");
 		worklist.setCreatTs(now);
 		worklist.setLstUpdtTs(now);
 		worklist.setLstUpdtUsrId(userId);

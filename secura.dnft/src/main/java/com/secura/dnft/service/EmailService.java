@@ -157,13 +157,14 @@ public class EmailService implements EmailInterface {
 
     
     @Override
-    @Scheduled(cron = "0 */30 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     public void sendTransactionEmail() {
         logger.info("EmailService.sendEmail() started");
         try {
             List<Transaction>   allPendingTransactions = transactionRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
             List<Transaction>   filteredTransactions = filterTransactionList(allPendingTransactions);
-if(null!=filteredTransactions && !filteredTransactions.isEmpty()) {
+            filteredTransactions=filteredTransactions.stream().filter(trn->trn.getTrnsStatus().equals(SecuraConstants.TRANSACTION_STATUS_SUCCESS)).collect(Collectors.toList());
+            if(null!=filteredTransactions && !filteredTransactions.isEmpty()) {
             sendTransactionMails(filteredTransactions);
 }
         } catch (Exception e) {
