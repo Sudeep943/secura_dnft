@@ -54,6 +54,8 @@ return formattedDate;
             
             ) {	
 
+        boolean hasLogo = logoBase64 != null && !logoBase64.isEmpty();
+
         StringBuilder html = new StringBuilder();
 
         html.append("<!DOCTYPE html>");
@@ -63,73 +65,53 @@ return formattedDate;
         html.append("<title>Payment Notification</title>");
         html.append("</head>");
 
-        html.append("<body style='margin:0;padding:0;background:#f4f6f9;font-family:Arial,sans-serif;'>");
+        html.append("<body style='margin:0;padding:0;background:#eef3ee;font-family:Arial,Helvetica,sans-serif;'>");
 
-        html.append("<table width='100%' bgcolor='#f4f6f9' cellpadding='20'>");
-        html.append("<tr><td align='center'>");
+        html.append("<table width='100%' bgcolor='#eef3ee' cellpadding='0' cellspacing='0'>");
+        html.append("<tr><td align='center' style='padding:30px 10px;'>");
 
-        html.append("<table width='800' cellpadding='0' cellspacing='0' ");
-        html.append("style='background:white;border-radius:10px;'>");
+        html.append("<table width='650' cellpadding='0' cellspacing='0' ");
+        html.append("style='background:#ffffff;border-radius:12px;border:1px solid #c8e0c8;'>");
 
         // HEADER
-
         html.append("<tr>");
-        html.append("<td style='background:#329932;color:white;padding:25px;text-align:center;'>");
-
-        if (logoBase64 != null && !logoBase64.isEmpty()) {
-            html.append("<img src='data:image/png;base64,")
-                    .append(logoBase64)
-                    .append("' style='max-height:80px'><br><br>");
-        }
-
-        html.append("<h1 style='margin:0;'>")
-                .append(societyName)
+        html.append("<td style='background:#329932;border-radius:12px 12px 0 0;padding:28px 30px;text-align:center;'>");
+        html.append("<h1 style='margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;'>")
+                .append(safe(societyName))
                 .append("</h1>");
-
-        html.append("<p>Association of Owners</p>");
-
+        html.append("<p style='margin:6px 0 0;font-size:13px;color:#c8f0c8;letter-spacing:1px;text-transform:uppercase;'>Association of Owners</p>");
         html.append("</td>");
         html.append("</tr>");
 
         // GREETING
-
-        html.append("<tr><td style='padding:30px;'>");
-
-        html.append("<p>Dear <b>")
-                .append(ownerName)
+        html.append("<tr><td style='padding:28px 30px 10px;'>");
+        html.append("<p style='margin:0 0 10px;font-size:15px;color:#333;'>Dear <b>")
+                .append(safe(ownerName))
                 .append("</b>,</p>");
-
-        html.append("<p>");
-        html.append("AOA of society has initiated a collection of payment ");
-        html.append("<b>").append(paymentName).append("</b>.");
+        html.append("<p style='margin:0;font-size:14px;color:#444;line-height:1.6;'>");
+        html.append("The AOA has initiated a payment collection for ");
+        html.append("<b style='color:#329932;'>").append(safe(paymentName)).append("</b>.");
+        html.append(" Please review the details below and complete your payment at the earliest.");
         html.append("</p>");
-
         html.append("</td></tr>");
+
         // Flat DETAILS
-
-        html.append("<tr><td style='padding:0 30px;'>");
-
-        html.append("<h2 style='color:#329932'>Flat Details</h2>");
-
-        html.append("<table width='100%' border='1' cellpadding='8' ");
-        html.append("style='border-collapse:collapse;'>");
-
-        addRow(html, "Flat", flat.getFlatNo());
+        html.append("<tr><td style='padding:20px 30px 10px;'>");
+        html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Flat Details</h2>");
+        html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
+        html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
+        addRow(html, "Flat No.", flat.getFlatNo());
         if (isPerSqft) {
-        addRow(html, "Built Up Area", flat.getFlatArea()+ " Sqft");
+            addRow(html, "Built Up Area", flat.getFlatArea() + " Sqft");
         }
         html.append("</table>");
-
         html.append("</td></tr>");
-        
+
         // PAYMENT DETAILS
-
-        html.append("<tr><td style='padding:0 30px;'>");
-
-        html.append("<h2 style='color:#329932'>Payment Details</h2>");
-
-        html.append("<table width='100%' border='1' cellpadding='8' ");
-        html.append("style='border-collapse:collapse;'>");
+        html.append("<tr><td style='padding:20px 30px 10px;'>");
+        html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Payment Details</h2>");
+        html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
+        html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 
         addRow(html, "Payment Name", paymentName);
         addRow(html, "Description", shortDesc);
@@ -138,17 +120,14 @@ return formattedDate;
         addRow(html, "Allowed Tenders", allowedTenders);
 
         String amountDisplay = unitAmount;
-
         if (isPerSqft) {
             amountDisplay += " Per Sqft";
         }
-
-        addRow(html, "Amount", "₹ "+amountDisplay);
+        addRow(html, "Amount", "₹ " + amountDisplay);
         addRow(html, "GST", gst + "%");
         addRow(html, "Payment Type", paymentType);
 
         html.append("</table>");
-
         html.append("</td></tr>");
 
 //        // UPCOMING DUES
@@ -198,149 +177,123 @@ return formattedDate;
 //        }
 
         // CURRENT DUES
-
         if (currentPaymentDues != null && !currentPaymentDues.isEmpty()) {
 
-            html.append("<tr><td style='padding:30px;'>");
+            html.append("<tr><td style='padding:20px 30px 10px;'>");
+            html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Current Payment Dues</h2>");
+            html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
+            html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 
-            html.append("<h2 style='color:#329932'>Current Payment Dues</h2>");
-
-            html.append("<table width='100%' border='1' cellpadding='8' ");
-            html.append("style='border-collapse:collapse;'>");
-
-            html.append("<tr bgcolor='#329932' style='color:white;'>");
-            html.append("<th>Cycle</th>");
-            html.append("<th>Due Date</th>");
-            html.append("<th>Amount</th>");
-            html.append("<th>GST</th>");
-            html.append("<th>Total</th>");
+            html.append("<tr style='background:#329932;color:#ffffff;'>");
+            html.append("<th style='padding:10px 12px;text-align:left;font-weight:600;'>Cycle</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Due Date</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Amount</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>GST</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Total</th>");
             html.append("</tr>");
 
+            int dueRowIndex = 0;
             for (DueAmountDetailsEntity due : currentPaymentDues) {
-
-                html.append("<tr>");
-
-                html.append("<td>")
+                String rowBg = (dueRowIndex % 2 == 0) ? "#ffffff" : "#f2faf2";
+                html.append("<tr style='background:").append(rowBg).append(";'>");
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;color:#333;'>")
                         .append(safe(due.getCollectionCycle()))
                         .append("</td>");
-
-                html.append("<td style=\"text-align:center;\">")
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
                         .append(getFormatedDate(due.getDueDate()))
                         .append("</td>");
-
-                html.append("<td style=\"text-align:center;\">")
-                        .append("₹ "+safe(due.getAmount()))
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
+                        .append("₹ " + safe(due.getAmount()))
                         .append("</td>");
-
-                html.append("<td style=\"text-align:center;\">")
-                        .append("₹ "+safe(due.getGstAmount()))
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
+                        .append("₹ " + safe(due.getGstAmount()))
                         .append("</td>");
-
-                html.append("<td style=\"text-align:center;\">")
-                        .append("₹ "+safe(due.getTotalAmount()))
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#329932;'>")
+                        .append("₹ " + safe(due.getTotalAmount()))
                         .append("</td>");
-
                 html.append("</tr>");
+                dueRowIndex++;
             }
 
             html.append("</table>");
-
             html.append("</td></tr>");
         }
 
         // DISCOUNTS / FINES
         if (discFinList != null && !discFinList.isEmpty()) {
 
-            html.append("<tr><td style='padding:30px;'>");
+            html.append("<tr><td style='padding:20px 30px 10px;'>");
+            html.append("<h2 style='margin:0 0 10px;font-size:15px;font-weight:700;color:#329932;text-transform:uppercase;letter-spacing:0.5px;border-left:4px solid #329932;padding-left:10px;'>Discounts / Fines</h2>");
+            html.append("<table width='100%' cellpadding='0' cellspacing='0' ");
+            html.append("style='border-collapse:collapse;border:1px solid #c8e0c8;border-radius:6px;overflow:hidden;font-size:14px;'>");
 
-            html.append("<h2 style='color:#329932'>Discounts / Fines</h2>");
-
-            html.append("<table width='100%' border='1' cellpadding='8' ");
-            html.append("style='border-collapse:collapse;'>");
-
-            html.append("<tr bgcolor='#329932' style='color:white;'>");
-            html.append("<th>Type</th>");
-            html.append("<th>Cycle</th>");
-            html.append("<th>Mode</th>");
-            html.append("<th>Value</th>");
+            html.append("<tr style='background:#329932;color:#ffffff;'>");
+            html.append("<th style='padding:10px 12px;text-align:left;font-weight:600;'>Type</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Cycle</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Mode</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Value</th>");
             html.append("</tr>");
 
+            int discRowIndex = 0;
             for (DiscFin disc : discFinList) {
-
-                html.append("<tr>");
-
-                html.append("<td>")
+                String rowBg = (discRowIndex % 2 == 0) ? "#ffffff" : "#f2faf2";
+                html.append("<tr style='background:").append(rowBg).append(";'>");
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;color:#333;'>")
                         .append(safe(disc.getDiscFnType()))
                         .append("</td>");
-                html.append("<td style=\"text-align:center;\">")
-                .append(safe(disc.getDiscFnCycleType()))
-                .append("</td>");
-
-                html.append("<td style=\"text-align:center;\">")
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
+                        .append(safe(disc.getDiscFnCycleType()))
+                        .append("</td>");
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
                         .append(safe(disc.getDiscFnMode()))
                         .append("</td>");
-
-                html.append("<td style=\"text-align:center;\">")
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#329932;'>")
                         .append(safe(disc.getDiscFinValue()))
                         .append("</td>");
-
                 html.append("</tr>");
+                discRowIndex++;
             }
 
             html.append("</table>");
-
             html.append("</td></tr>");
         }
 
         // TOTAL DUE
-
         html.append("<tr>");
-        html.append("<td align='center' style='padding:25px;'>");
-
-        html.append("<h2 style='color:red;'>");
-        html.append("Total Due : ₹ ").append(paymentTotalDue);
-        html.append("</h2>");
-
+        html.append("<td align='center' style='padding:24px 30px 10px;'>");
+        html.append("<table cellpadding='0' cellspacing='0' style='display:inline-table;'>");
+        html.append("<tr><td style='background:#fff3cd;border:2px solid #e0a800;border-radius:8px;padding:14px 36px;text-align:center;'>");
+        html.append("<span style='font-size:13px;color:#666;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;'>Total Amount Due</span>");
+        html.append("<span style='font-size:26px;font-weight:700;color:#c0392b;'>₹ ").append(paymentTotalDue).append("</span>");
+        html.append("</td></tr>");
+        html.append("</table>");
         html.append("</td>");
         html.append("</tr>");
 
         // PAY BUTTON
-
         html.append("<tr>");
-        html.append("<td align='center' style='padding-bottom:30px;'>");
-
-        html.append("<a href='")
-                .append(payNowUrl)
-                .append("' ");
-
-        html.append("style='background:#28a745;");
-        html.append("color:white;");
-        html.append("padding:15px 40px;");
-        html.append("text-decoration:none;");
-        html.append("border-radius:5px;'>");
-
+        html.append("<td align='center' style='padding:20px 30px 30px;'>");
+        html.append("<a href='").append(payNowUrl).append("' ");
+        html.append("style='display:inline-block;background:#329932;color:#ffffff;font-size:15px;font-weight:700;");
+        html.append("padding:14px 48px;text-decoration:none;border-radius:6px;letter-spacing:0.5px;");
+        html.append("border:2px solid #267326;'>");
         html.append("PAY NOW");
-
         html.append("</a>");
-
         html.append("</td>");
         html.append("</tr>");
 
         // FOOTER
-
         html.append("<tr>");
-        html.append("<td style='padding:20px;color:#666;'>");
-
-        html.append("This is an automated notification.");
-        html.append("<br>");
-        html.append("Please do not reply to this email.");
-        html.append("<br><br>");
-
-        html.append("Thanks & Regards");
-        html.append("<br>");
-        html.append("AOA ");
-        html.append(societyName);
-
+        html.append("<td style='background:#f7faf7;border-top:1px solid #c8e0c8;border-radius:0 0 12px 12px;padding:20px 30px;color:#666;font-size:13px;line-height:1.6;'>");
+        html.append("<p style='margin:0 0 4px;'>This is an automated notification. Please do not reply to this email.</p>");
+        html.append("<p style='margin:0;'>&nbsp;</p>");
+        html.append("<p style='margin:0;'>Thanks &amp; Regards</p>");
+        html.append("<p style='margin:2px 0 0;font-weight:600;color:#329932;'>AOA ").append(safe(societyName)).append("</p>");
+        if (hasLogo) {
+            html.append("<br>");
+            html.append("<img src='cid:societylogo' alt='").append(safe(societyName))
+                    .append("' style='max-height:60px;max-width:160px;margin-top:8px;'>");
+        }
         html.append("</td>");
         html.append("</tr>");
 
@@ -355,17 +308,13 @@ return formattedDate;
     }
 
     private static void addRow(StringBuilder html, String label, String value) {
-
         html.append("<tr>");
-
-        html.append("<td width='35%'><b>")
-                .append(label)
-                .append("</b></td>");
-
-        html.append("<td>")
+        html.append("<td width='38%' style='padding:9px 12px;background:#f2faf2;border-top:1px solid #ddeedd;font-weight:600;color:#4a7a4a;font-size:13px;'>")
+                .append(safe(label))
+                .append("</td>");
+        html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;color:#333;font-size:14px;'>")
                 .append(safe(value))
                 .append("</td>");
-
         html.append("</tr>");
     }
 
