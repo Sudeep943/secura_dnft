@@ -83,8 +83,8 @@ public class WorklistService {
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_PENDING);
 		worklist.setReferenceId(transactionId);
 		worklist.setFlatNo(genericHeader != null ? genericHeader.getFlatNo() : null);
-		worklist.setCurrentAssignee(userId);
-		worklist.setCreatUsrId("admin");
+		worklist.setCurrentAssignee("admin");
+		worklist.setCreatUsrId(userId);
 		worklist.setCreatTs(now);
 		worklist.setLstUpdtTs(now);
 		worklist.setLstUpdtUsrId(userId);
