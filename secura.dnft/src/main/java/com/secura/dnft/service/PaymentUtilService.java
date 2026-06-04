@@ -77,7 +77,7 @@ public class PaymentUtilService {
 
 		String flatId = request != null ? trimValue(request.getFlatId()) : null;
 		PaymentEntity paymentEntity = selectPaymentEntity(paymentEntities);
-		String flatArea = resolveFlatArea(flatId);
+		String flatArea = resolveFlatArea(apartmentId, flatId);
 		BigDecimal totalCollection = sumTransactions(fetchTransactions(apartmentId, paymentId, flatId,
 				SecuraConstants.TRANSACTION_STATUS_SUCCESS));
 		BigDecimal totalPending = sumTransactions(fetchTransactions(apartmentId, paymentId, flatId,
@@ -172,11 +172,11 @@ public class PaymentUtilService {
 		return parseStringList(due.getApplicableFlats()).stream().anyMatch(flat -> flat.equalsIgnoreCase(flatId));
 	}
 
-	private String resolveFlatArea(String flatId) {
-		if (!hasText(flatId)) {
+	private String resolveFlatArea(String apartmentId, String flatId) {
+		if (!hasText(apartmentId) || !hasText(flatId)) {
 			return null;
 		}
-		Optional<Flat> flat = flatRepository.findById(flatId);
+		Optional<Flat> flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId);
 		return flat.map(Flat::getFlatArea).map(this::trimValue).orElse(null);
 	}
 

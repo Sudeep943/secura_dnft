@@ -717,7 +717,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
 		dueEntity.setDueId("DUE1001");
@@ -814,7 +814,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
 		dueEntity.setDueId("DUE1002");
@@ -878,7 +878,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
 		dueEntity.setDueId("DUE-QR-1");
@@ -943,7 +943,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
 		dueEntity.setDueId("DUE1004");
@@ -1016,7 +1016,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 		when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		CreateReceiptResponse createReceiptResponse = new CreateReceiptResponse();
 		createReceiptResponse.setReceipt("RECEIPT_BASE64");
@@ -1114,7 +1114,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
 		dueEntity.setDueId("DUE2001");
@@ -1207,7 +1207,7 @@ class PaymentServicesTest {
 
 		Flat flat = new Flat();
 		flat.setFlatArea("1200");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueEntity = new DueAmountDetailsEntity();
 		dueEntity.setDueId("DUE1003");
@@ -1262,7 +1262,7 @@ class PaymentServicesTest {
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst("FLAT_PENDING");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",
 				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-03-31"), "PAY-9001",
@@ -1366,7 +1366,7 @@ class PaymentServicesTest {
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst("FLAT_PENDING_ONLY_Q1");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",
 				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-03-31"), "PAY-9001",
@@ -1452,7 +1452,7 @@ class PaymentServicesTest {
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst("FLAT_PENDING_PER_HEAD");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity perHeadDue = createDueEntity("DUE-PH", SecuraConstants.PAYMENT_CYCLE_MONTHLY, "ALL",
 				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-31"), "PAY-9003",
@@ -1521,7 +1521,7 @@ class PaymentServicesTest {
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst("FLAT_PENDING_ONLY_Q1");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",
 				LocalDate.parse("2025-01-01"), LocalDate.parse("2025-01-01"), LocalDate.parse("2025-03-31"), "PAY-9001",
@@ -1627,7 +1627,7 @@ class PaymentServicesTest {
 		flat.setFlatNo("A-101");
 		flat.setFlatArea("1200");
 		flat.setFlatPndngPaymntLst("FLAT_PENDING_P10");
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 
 		// Paid quarterly due (PER_SQFT, flatArea=1200)
 		DueAmountDetailsEntity paidQuarterlyDue = createDueEntity("DUE-Q1", SecuraConstants.PAYMENT_CYCLE_QUATERLY, "1200",

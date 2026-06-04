@@ -248,8 +248,8 @@ public class WorklistService {
 		if (coveredDues.isEmpty()) {
 			return;
 		}
-		List<String> pendingDueList = removeCoveredDueKeysFromFlat(flatNo, coveredDues);
-		updateCoveredDuesForFlat(flatNo, coveredDues, dueEntity);
+		List<String> pendingDueList = removeCoveredDueKeysFromFlat(apartmentId, flatNo, coveredDues);
+		updateCoveredDuesForFlat(apartmentId, flatNo, coveredDues, dueEntity);
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatNo, paymentId, pendingDueList);
 	}
 
@@ -331,11 +331,11 @@ public class WorklistService {
 		return childDueCovered || parentDueCovered;
 	}
 
-	private List<String> removeCoveredDueKeysFromFlat(String flatNo, List<DueAmountDetailsEntity> coveredDues) {
-		if (!hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
+	private List<String> removeCoveredDueKeysFromFlat(String apartmentId, String flatNo, List<DueAmountDetailsEntity> coveredDues) {
+		if (!hasText(apartmentId) || !hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
 			return new ArrayList<>();
 		}
-		Flat flat = flatRepository.findById(flatNo).orElse(null);
+		Flat flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatNo).orElse(null);
 		if (flat == null || !hasText(flat.getFlatPndngPaymntLst())) {
 			return new ArrayList<>();
 		}
@@ -357,8 +357,8 @@ public class WorklistService {
 		return pendingDueList;
 	}
 
-	private void updateCoveredDuesForFlat(String flatNo, List<DueAmountDetailsEntity> coveredDues, DueAmountDetailsEntity paidDue) {
-		if (!hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
+	private void updateCoveredDuesForFlat(String apartmentId, String flatNo, List<DueAmountDetailsEntity> coveredDues, DueAmountDetailsEntity paidDue) {
+		if (!hasText(apartmentId) || !hasText(flatNo) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
 		String flatAreaForPerSqft = null;
@@ -378,7 +378,7 @@ public class WorklistService {
 				}
 			} else if (isPerSqftCapita(due.getPaymentCapita())) {
 				if (!flatAreaResolved) {
-					Flat flat = flatRepository.findById(flatNo).orElse(null);
+					Flat flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatNo).orElse(null);
 					flatAreaForPerSqft = flat != null ? flat.getFlatArea() : null;
 					flatAreaResolved = true;
 				}

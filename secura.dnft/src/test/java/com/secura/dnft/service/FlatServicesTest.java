@@ -379,7 +379,7 @@ class FlatServicesTest {
 				buildDueEntity("D4", "PAY2", "HALF YEARLY", "1200", LocalDate.now().minusDays(5), "600", "0", "Club Fund",
 						"OPTIONAL"));
 
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
@@ -437,7 +437,7 @@ class FlatServicesTest {
 		dueEntity.setPaymentCapita("per_head");
 		List<DueAmountDetailsEntity> dueEntities = List.of(dueEntity);
 
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
@@ -474,7 +474,7 @@ class FlatServicesTest {
 				buildDueEntity("D2", "PAY2", "YEARLY", "ALL", LocalDate.now().plusDays(10), "500", "0", "Club Fund",
 						"OPTIONAL"));
 
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(dueAmountDetailsRepository.findByDueIdIn(dueIds)).thenReturn(dueEntities);
 		when(dueAmountDetailsRepository.findByPaymentIdIn(anyList())).thenReturn(dueEntities);
@@ -562,7 +562,7 @@ class FlatServicesTest {
 		Map<String, List<Map<String, DueAmountDetails>>> recalculatedDueMap = Map.of("MONTHLY",
 				List.of(Map.of("1200", recalculatedDue)));
 
-		when(flatRepository.findById("A-101")).thenReturn(Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "A-101")).thenReturn(Optional.of(flat));
 		when(genericService.fromJson(eq(flat.getFlatPndngPaymntLst()), any(TypeReference.class))).thenReturn(pendingDueKeys);
 		when(genericService.toJson(any())).thenReturn("[]");
 		when(dueAmountDetailsRepository.findByDueIdIn(List.of("D1"))).thenReturn(dueEntities);
