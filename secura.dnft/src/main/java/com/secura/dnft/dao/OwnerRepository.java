@@ -15,8 +15,8 @@ public interface OwnerRepository extends JpaRepository<Owner, OwnerId> {
 	  List<Owner> findByFlatNo(String flatNo);
 
 	  @Query("SELECT o FROM Owner o WHERE o.aprmt_id = :aprmtId AND o.flatNo = :flatNo")
-	  List<Owner> findByAprmt_idAndFlatNo(@Param("aprmtId") String aprmt_id, @Param("flatNo") String flatNo);
+	  List<Owner> findByAprmt_idAndFlatNo(@Param("aprmtId") String aprmtId, @Param("flatNo") String flatNo);
 	  
 	  @Query("SELECT o FROM Owner o WHERE o.ownerId = :ownerId AND o.flatNo = :flatNo AND o.aprmt_id = :aprmtId")
-	  Optional<Owner> findByOwnerIdAndFlatNoAndAprmt_id(@Param("ownerId") String ownerId, @Param("flatNo") String flatNo, @Param("aprmtId") String aprmt_id);
+	  Optional<Owner> findByOwnerIdAndFlatNoAndAprmt_id(@Param("ownerId") String ownerId, @Param("flatNo") String flatNo, @Param("aprmtId") String aprmtId);
 }
