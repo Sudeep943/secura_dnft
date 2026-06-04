@@ -132,7 +132,11 @@ class PublicApisControllerTest {
 	@Test
 	void getOwnerPublic_shouldReturnServiceResponse() {
 		GetOwnerRequest request = new GetOwnerRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
 		GetOwnerResponse expected = new GetOwnerResponse();
+		expected.setGenericHeader(header);
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
 		when(profileServices.getOwner(request)).thenReturn(expected);
@@ -140,6 +144,21 @@ class PublicApisControllerTest {
 		GetOwnerResponse actual = publicApisController.getOwnerPublic(request);
 
 		assertEquals(expected, actual);
+	}
+
+	@Test
+	void getOwnerPublic_shouldReturnGenericErrorWhenServiceThrows() {
+		GetOwnerRequest request = new GetOwnerRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		when(profileServices.getOwner(request)).thenThrow(new RuntimeException("boom"));
+
+		GetOwnerResponse actual = publicApisController.getOwnerPublic(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
 	}
 
 	@Test

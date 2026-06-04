@@ -95,7 +95,15 @@ public class PublicApisController {
 	@PostMapping("/getOwnerPublic")
 	@CrossOrigin(origins = "*")
 	public GetOwnerResponse getOwnerPublic(@RequestBody GetOwnerRequest request) {
-		return profileServices.getOwner(request);
+		GetOwnerResponse response = new GetOwnerResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return profileServices.getOwner(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
 	}
 
 	@PostMapping("/razorPayCreateOrderPublic")
