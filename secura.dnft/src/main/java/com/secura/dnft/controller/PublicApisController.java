@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
@@ -27,6 +28,7 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
+import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
@@ -169,6 +171,20 @@ public class PublicApisController {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 			return response;
 		}
+	}
+
+	@PostMapping("/payment/validatePriorDuePaymnent")
+	@CrossOrigin(origins = "*")
+	public GenericResponse validatePriorDuePaymnentPublic(@RequestBody ValidatePriorDuePaymnentRequest request) {
+		GenericResponse response = new GenericResponse();
+		try {
+			return paymentServices.validatePriorDuePaymnent(request);
+		}
+		catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 	
 	private ThirdPartyPaymentGayeway resolvePaymentGatewayService(String paymentGateway) {
