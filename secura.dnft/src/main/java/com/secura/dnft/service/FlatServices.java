@@ -1090,7 +1090,8 @@ public class FlatServices implements FlatInterface {
 
 	
 	private void ensureOwnerEntry(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
-		List<Owner> owners = ownerRepository.findByFlatNo(row.flatNo);
+		List<Owner> owners = ownerRepository.findByAprmt_idAndFlatNo(
+				request.getHeader() != null ? request.getHeader().getApartmentId() : null, row.flatNo);
 		if (owners != null) {
 			for (Owner owner : owners) {
 				List<String> ownerProfiles = parseProfileIds(owner.getPrflId());

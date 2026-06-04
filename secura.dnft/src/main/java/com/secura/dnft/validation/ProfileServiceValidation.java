@@ -21,17 +21,17 @@ public class ProfileServiceValidation {
 	@Autowired
 	TenantRepository tenantRepository;
 
-	public boolean validateOwnerTenantExits(String flatId, String profileType) {
+	public boolean validateOwnerTenantExits(String flatId, String apartmentId, String profileType) {
 		boolean ownerTenantExists = false;
-		if (null != flatId && null != profileType) {
+		if (null != flatId && null != apartmentId && null != profileType) {
 			if (profileType.equals(SecuraConstants.PROFILE_TYPE_OWNER)) {
-				Owner owner = getCurrentFlatOwner(flatId);
+				Owner owner = getCurrentFlatOwner(apartmentId, flatId);
 				if (owner != null) {
 					return true;
 				}
 			}
 			if (profileType.equals(SecuraConstants.PROFILE_TYPE_TENANT)) {
-				Tenant tenant =getCurrentFlatTenant(flatId);
+				Tenant tenant = getCurrentFlatTenant(apartmentId, flatId);
 				if (tenant != null) {
 					return true;
 				}
@@ -40,8 +40,8 @@ public class ProfileServiceValidation {
 		return ownerTenantExists;
 	}
 	
-	public Owner getCurrentFlatOwner(String flatId) {
-		List<Owner> ownerList = ownerRepository.findByFlatNo(flatId);
+	public Owner getCurrentFlatOwner(String apartmentId, String flatId) {
+		List<Owner> ownerList = ownerRepository.findByAprmt_idAndFlatNo(apartmentId, flatId);
 		Optional<Owner> owner = ownerList.stream().filter(tnt -> null == tnt.getEndDate()).findFirst();
 		if (owner.isPresent()) {
 			return owner.get();
@@ -50,8 +50,8 @@ public class ProfileServiceValidation {
 		}
 	}
 	
-	public Tenant getCurrentFlatTenant(String flatId) {
-		List<Tenant> tenantList = tenantRepository.findByFlatNo(flatId);
+	public Tenant getCurrentFlatTenant(String apartmentId, String flatId) {
+		List<Tenant> tenantList = tenantRepository.findByAprmt_idAndFlatNo(apartmentId, flatId);
 		Optional<Tenant> tenant = tenantList.stream().filter(tnt -> null == tnt.getEndDate()).findFirst();
 		if (tenant.isPresent()) {
 			return tenant.get();

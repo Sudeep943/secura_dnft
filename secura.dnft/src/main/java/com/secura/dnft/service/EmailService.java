@@ -564,7 +564,7 @@ public class EmailService implements EmailInterface {
                 List<Flat> flats = flatRepository.findByAprmntId(notice.getAprmtId());
                 List<String> emailList = new ArrayList<>();
                 for (Flat flat : flats) {
-                    List<Owner> owners = ownerRepository.findByFlatNo(flat.getFlatNo());
+                    List<Owner> owners = ownerRepository.findByAprmt_idAndFlatNo(notice.getAprmtId(), flat.getFlatNo());
                     owners.stream()
                             .map(o -> profileRepository.findById(o.getPrflId()))
                             .filter(Optional::isPresent)
@@ -619,7 +619,7 @@ public class EmailService implements EmailInterface {
                 if (optFlat.isEmpty()) continue;
                 Flat flat = optFlat.get();
 
-                List<Owner> owners = ownerRepository.findByFlatNo(flatId);
+                List<Owner> owners = ownerRepository.findByAprmt_idAndFlatNo(payment.getAprmtId(), flatId);
                 List<Profile> profiles = owners.stream()
                         .map(o -> profileRepository.findById(o.getPrflId()))
                         .filter(Optional::isPresent)

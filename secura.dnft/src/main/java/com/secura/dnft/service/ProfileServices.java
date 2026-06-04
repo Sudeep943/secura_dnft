@@ -98,7 +98,7 @@ public class ProfileServices {
 		try {
 			/// validation
 			boolean exits = profileValidation.validateOwnerTenantExits(request.getProfileFlatNo(),
-					request.getProfileType());
+					request.getHeader().getApartmentId(), request.getProfileType());
 
 			if (exits && null == request.getAddToExistingProfileType()) {
 				throw new BusinessException(
@@ -271,13 +271,10 @@ public class ProfileServices {
 	public ManageTenantResponse updateTenantDetails(ManageTenantRequest request) {
 		ManageTenantResponse response = new ManageTenantResponse();
 		response.setHeader(request.getHeader());
-		GetTenantRequest getTenantRequest = new GetTenantRequest();
-		getTenantRequest.setGenericHeader(request.getHeader());
-		getTenantRequest.setFlatId(request.getFlatId());
-
-		GetTenantResponse getTenantResponse = getTenant(getTenantRequest);
-		if (getTenantResponse.getProfile().size() > 0) {
-			Tenant tenant = getTenantResponse.getTenant();
+		Optional<Tenant> tenantOptional = tenantRepository.findByTenantIdAndFlatNoAndAprmt_id(request.getTenantId(),
+				request.getFlatId(), request.getHeader().getApartmentId());
+		if (tenantOptional.isPresent()) {
+			Tenant tenant = tenantOptional.get();
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 			if (null != request.getEndDate()) {
 				String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((request.getEndDate()));
@@ -306,14 +303,10 @@ public class ProfileServices {
 	public ManageOwnerResponse updateOwnerDetails(ManageOwnerRequest request) {
 		ManageOwnerResponse response = new ManageOwnerResponse();
 		response.setHeader(request.getHeader());
-		GetOwnerRequest getOwnerRequest = new GetOwnerRequest();
-		getOwnerRequest.setGenericHeader(request.getHeader());
-		getOwnerRequest.setFlatId(request.getFlatId());
-
-		GetOwnerResponse getOwnerResponse = getOwner(getOwnerRequest);
-		if (getOwnerResponse.getOwner() != null && getOwnerResponse.getProfile() != null
-				&& getOwnerResponse.getProfile().size() > 0) {
-			Owner owner = getOwnerResponse.getOwner();
+		Optional<Owner> ownerOptional = ownerRepository.findByOwnerIdAndFlatNoAndAprmt_id(request.getOwnerId(),
+				request.getFlatId(), request.getHeader().getApartmentId());
+		if (ownerOptional.isPresent()) {
+			Owner owner = ownerOptional.get();
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 			SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			if (null != request.getEndDate()) {
@@ -341,7 +334,8 @@ public class ProfileServices {
 	public GetTenantResponse getTenant(GetTenantRequest request) {
 		GetTenantResponse getTenantResponse = new GetTenantResponse();
 		getTenantResponse.setGenericHeader(request.getGenericHeader());
-		Tenant currentTenantData = profileValidation.getCurrentFlatTenant(request.getFlatId());
+		Tenant currentTenantData = profileValidation.getCurrentFlatTenant(request.getGenericHeader().getApartmentId(),
+				request.getFlatId());
 		getTenantResponse.setTenant(currentTenantData);
 		if (currentTenantData != null) {
 			List<String> tenantProfiles = genericService.fromJson(currentTenantData.getPrflId(),
@@ -370,7 +364,8 @@ public class ProfileServices {
 	public GetOwnerResponse getOwner(GetOwnerRequest request) {
 		GetOwnerResponse getOwnerResponse = new GetOwnerResponse();
 		getOwnerResponse.setGenericHeader(request.getGenericHeader());
-		Owner currentOwnerData = profileValidation.getCurrentFlatOwner(request.getFlatId());
+		Owner currentOwnerData = profileValidation.getCurrentFlatOwner(request.getGenericHeader().getApartmentId(),
+				request.getFlatId());
 		getOwnerResponse.setOwner(currentOwnerData);
 		if (currentOwnerData != null) {
 			List<String> ownerProfiles = genericService.fromJson(currentOwnerData.getPrflId(),
@@ -399,7 +394,7 @@ public class ProfileServices {
 	public String createOwnerProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) throws BusinessException {
 		String ownerId = null;
 		if(profileExits) {
-			List<Owner> ownerList= ownerRepository.findByFlatNo(flatId);
+			List<Owner> ownerList = ownerRepository.findByAprmt_idAndFlatNo(header.getApartmentId(), flatId);
 			Optional<Owner> currentOwner =ownerList.stream().filter(ow->ow.getEndDate()==null).findFirst();
 			if(addtoExistingProfile.equals("Y")) {
 				if(currentOwner.isPresent()) {
@@ -453,7 +448,7 @@ public class ProfileServices {
 	public String createTenantProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) throws BusinessException {
 		String tenantId = null;
 		if(profileExits) {
-			List<Tenant> tenantList= tenantRepository.findByFlatNo(flatId);
+			List<Tenant> tenantList = tenantRepository.findByAprmt_idAndFlatNo(header.getApartmentId(), flatId);
 			Optional<Tenant> currentTenant =tenantList.stream().filter(ow->ow.getEndDate()==null).findFirst();
 			if(null!=addtoExistingProfile && addtoExistingProfile.equals("Y")) {
 				if(currentTenant.isPresent()) {
@@ -537,7 +532,7 @@ public class ProfileServices {
 		AddTenantResponse response = new AddTenantResponse();
 		response.setHeader(request.getHeader());
 		boolean profileExits = profileValidation.validateOwnerTenantExits(request.getFlatId(),
-				SecuraConstants.PROFILE_TYPE_TENANT);
+				request.getHeader().getApartmentId(), SecuraConstants.PROFILE_TYPE_TENANT);
 		String tenantId;
 		try {
 			tenantId = createTenantProfile(request.getProfileId(), request.getAddtoExisting(), profileExits,request.getFlatId(),request.getHeader());
@@ -558,7 +553,7 @@ public class ProfileServices {
 		AddOwnerResponse response = new AddOwnerResponse();
 		response.setHeader(request.getHeader());
 		boolean profileExits = profileValidation.validateOwnerTenantExits(request.getFlatId(),
-				SecuraConstants.PROFILE_TYPE_OWNER);
+				request.getHeader().getApartmentId(), SecuraConstants.PROFILE_TYPE_OWNER);
 		String ownerId;
 		try {
 			ownerId = createOwnerProfile(request.getProfileId(), request.getAddtoExisting(), profileExits, request.getFlatId(), request.getHeader());
@@ -600,7 +595,8 @@ public class ProfileServices {
 	}
 	
 	private void removeOwnerProfile(RemoveOwnerTenantProfileRequest request) throws BusinessException {
-		List<Owner> owners = ownerRepository.findByFlatNo(request.getFlatId());
+		List<Owner> owners = ownerRepository.findByAprmt_idAndFlatNo(request.getHeader().getApartmentId(),
+				request.getFlatId());
 		Optional<Owner> currentOwnerOptional = owners.stream().filter(ow -> ow.getEndDate() == null).findFirst();
 		if (currentOwnerOptional.isEmpty()) {
 			return;
@@ -631,7 +627,8 @@ public class ProfileServices {
 	}
 	
 	private void removeTenantProfile(RemoveOwnerTenantProfileRequest request) {
-		List<Tenant> tenants = tenantRepository.findByFlatNo(request.getFlatId());
+		List<Tenant> tenants = tenantRepository.findByAprmt_idAndFlatNo(request.getHeader().getApartmentId(),
+				request.getFlatId());
 		Optional<Tenant> currentTenantOptional = tenants.stream().filter(tn -> tn.getEndDate() == null).findFirst();
 		if (currentTenantOptional.isEmpty()) {
 			return;

@@ -624,7 +624,7 @@ public class TransactionAndReportsService {
 			Map<String, List<Owner>> ownerCache, Map<String, Optional<Profile>> profileCache) {
 		LinkedHashSet<String> profileIds = new LinkedHashSet<>();
 		List<Owner> owners = ownerCache.computeIfAbsent(flatId, ignored -> {
-			List<Owner> records = ownerRepository.findByFlatNo(flatId);
+			List<Owner> records = ownerRepository.findByAprmt_idAndFlatNo(apartmentId, flatId);
 			return records == null ? Collections.emptyList() : records;
 		});
 		for (Owner owner : owners) {
