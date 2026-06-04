@@ -394,7 +394,10 @@ public class ProfileServices {
 	public String createOwnerProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) throws BusinessException {
 		String ownerId = null;
 		if(profileExits) {
-			List<Owner> ownerList = ownerRepository.findByAprmt_idAndFlatNo(header.getApartmentId(), flatId);
+			String apartmentId = header != null ? header.getApartmentId() : null;
+			List<Owner> ownerList = apartmentId != null
+					? ownerRepository.findByAprmt_idAndFlatNo(apartmentId, flatId)
+					: ownerRepository.findByFlatNo(flatId);
 			Optional<Owner> currentOwner =ownerList.stream().filter(ow->ow.getEndDate()==null).findFirst();
 			if(addtoExistingProfile.equals("Y")) {
 				if(currentOwner.isPresent()) {
@@ -448,7 +451,10 @@ public class ProfileServices {
 	public String createTenantProfile(String profileID, String addtoExistingProfile, boolean profileExits,String flatId,GenericHeader header) throws BusinessException {
 		String tenantId = null;
 		if(profileExits) {
-			List<Tenant> tenantList = tenantRepository.findByAprmt_idAndFlatNo(header.getApartmentId(), flatId);
+			String apartmentId = header != null ? header.getApartmentId() : null;
+			List<Tenant> tenantList = apartmentId != null
+					? tenantRepository.findByAprmt_idAndFlatNo(apartmentId, flatId)
+					: tenantRepository.findByFlatNo(flatId);
 			Optional<Tenant> currentTenant =tenantList.stream().filter(ow->ow.getEndDate()==null).findFirst();
 			if(null!=addtoExistingProfile && addtoExistingProfile.equals("Y")) {
 				if(currentTenant.isPresent()) {
