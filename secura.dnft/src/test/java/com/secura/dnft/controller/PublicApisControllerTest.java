@@ -18,6 +18,8 @@ import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetOwnerRequest;
+import com.secura.dnft.request.response.GetOwnerResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
@@ -33,6 +35,7 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
+import com.secura.dnft.service.ProfileServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +52,9 @@ class PublicApisControllerTest {
 	
 	@Mock
 	private AtomsPaymentServices atomsPaymentServices;
+
+	@Mock
+	private ProfileServices profileServices;
 
 	@InjectMocks
 	private PublicApisController publicApisController;
@@ -117,6 +123,38 @@ class PublicApisControllerTest {
 		when(paymentServices.payDues(request)).thenThrow(new RuntimeException("boom"));
 
 		PayDueResponse actual = publicApisController.payDuesPublic(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void getOwnerPublic_shouldReturnServiceResponse() {
+		GetOwnerRequest request = new GetOwnerRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		GetOwnerResponse expected = new GetOwnerResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(profileServices.getOwner(request)).thenReturn(expected);
+
+		GetOwnerResponse actual = publicApisController.getOwnerPublic(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void getOwnerPublic_shouldReturnGenericErrorWhenServiceThrows() {
+		GetOwnerRequest request = new GetOwnerRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		when(profileServices.getOwner(request)).thenThrow(new RuntimeException("boom"));
+
+		GetOwnerResponse actual = publicApisController.getOwnerPublic(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
