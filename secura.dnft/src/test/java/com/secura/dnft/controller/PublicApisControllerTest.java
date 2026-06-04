@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
@@ -32,6 +33,7 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
+import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
@@ -244,5 +246,29 @@ class PublicApisControllerTest {
 		PaymentGayewayPaymentDetailResponse actual = publicApisController.getPaymentDetailsPublic(request);
 
 		assertEquals(expected, actual);
+	}
+
+	@Test
+	void validatePriorDuePaymnentPublic_shouldReturnServiceResponse() throws Exception {
+		ValidatePriorDuePaymnentRequest request = new ValidatePriorDuePaymnentRequest();
+		GenericResponse expected = new GenericResponse();
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		when(paymentServices.validatePriorDuePaymnent(request)).thenReturn(expected);
+
+		GenericResponse actual = publicApisController.validatePriorDuePaymnentPublic(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void validatePriorDuePaymnentPublic_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		ValidatePriorDuePaymnentRequest request = new ValidatePriorDuePaymnentRequest();
+		when(paymentServices.validatePriorDuePaymnent(request)).thenThrow(new RuntimeException("boom"));
+
+		GenericResponse actual = publicApisController.validatePriorDuePaymnentPublic(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
 	}
 }
