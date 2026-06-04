@@ -66,7 +66,7 @@ public class PublicApisController {
 		return flatServices.getAllFlats(request);
 	}
 
-	@PostMapping("/detDueDetailsForFlatPublic")
+	@PostMapping("/getDueDetailsForFlatPublic")
 	@CrossOrigin(origins = "*")
 	public GetDueAmountForFlatResponse getDueDetailsForFlatPublic(@RequestBody GetDueAmountForFlatRequest request) {
 		try {
@@ -108,7 +108,7 @@ public class PublicApisController {
 		}
 	}
 
-	@PostMapping("/razorPayCreateOrderPublic")
+	@PostMapping("/payGatewayCreateOrder")
 	@CrossOrigin(origins = "*")
 	public PaymentGayewayOrderResponse createOrderPublic(@RequestBody PaymentGayewayOrderRequest request) {
 		try {
@@ -173,7 +173,7 @@ public class PublicApisController {
 		}
 	}
 
-	@PostMapping("/payment/validatePriorDuePaymnent")
+	@PostMapping("/validatePriorDuePaymnentPublic")
 	@CrossOrigin(origins = "*")
 	public GenericResponse validatePriorDuePaymnentPublic(@RequestBody ValidatePriorDuePaymnentRequest request) {
 		GenericResponse response = new GenericResponse();

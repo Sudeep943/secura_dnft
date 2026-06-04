@@ -1062,10 +1062,19 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private void createFlatFromUploadedRow(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
+		flatRepository.getById(profileId)
 		Flat flat = new Flat();
 		flat.setFlatNo(row.flatNo);
 		flat.setAprmntId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+		List<String> owerIds= parseProfileIds(flat.getFlatOwnerList());
+		if(null!=owerIds && !owerIds.isEmpty()) {
+			owerIds.add(profileId);
+			flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(owerIds)));
+
+		}
+		else {
 		flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(profileId)));
+		}
 		flat.setFlatTower(row.tower);
 		flat.setFlatBlock(row.block);
 		flat.setFlatPossnDate(row.possessionDate != null ? row.possessionDate.atStartOfDay() : null);
@@ -1076,6 +1085,7 @@ public class FlatServices implements FlatInterface {
 		flatRepository.save(flat);
 	}
 
+	
 	private void ensureOwnerEntry(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
 		List<Owner> owners = ownerRepository.findByFlatNo(row.flatNo);
 		if (owners != null) {
@@ -1086,14 +1096,14 @@ public class FlatServices implements FlatInterface {
 				}
 			}
 
-			Optional<Owner> activeOwner = owners.stream().filter(owner -> owner.getEndDate() == null).findFirst();
-			if (activeOwner.isPresent()) {
-				Owner currentOwner = activeOwner.get();
-				currentOwner.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
-				currentOwner.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
-				currentOwner.setLstUpdtUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
-				ownerRepository.save(currentOwner);
-			}
+			//Optional<Owner> activeOwner = owners.stream().filter(owner -> owner.getEndDate() == null).findFirst();
+//			if (activeOwner.isPresent()) {
+//				Owner currentOwner = activeOwner.get();
+//				currentOwner.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
+//				currentOwner.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+//				currentOwner.setLstUpdtUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+//				ownerRepository.save(currentOwner);
+//			}
 		}
 
 		Owner owner = new Owner();
