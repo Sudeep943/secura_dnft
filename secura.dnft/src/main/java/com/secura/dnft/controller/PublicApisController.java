@@ -13,6 +13,8 @@ import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
 import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
+import com.secura.dnft.request.response.GetOwnerRequest;
+import com.secura.dnft.request.response.GetOwnerResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
@@ -30,6 +32,7 @@ import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.FlatServices;
 import com.secura.dnft.service.PaymentServices;
+import com.secura.dnft.service.ProfileServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 
 @CrossOrigin(origins = "*")
@@ -51,6 +54,9 @@ public class PublicApisController {
 
 	@Autowired
 	private DeepLinkServices deepLinkServices;
+
+	@Autowired
+	private ProfileServices profileServices;
 
 	@PostMapping("/getFlatsPublic")
 	@CrossOrigin(origins = "*")
@@ -84,6 +90,12 @@ public class PublicApisController {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
 		return response;
+	}
+
+	@PostMapping("/getOwnerPublic")
+	@CrossOrigin(origins = "*")
+	public GetOwnerResponse getOwnerPublic(@RequestBody GetOwnerRequest request) {
+		return profileServices.getOwner(request);
 	}
 
 	@PostMapping("/razorPayCreateOrderPublic")
