@@ -8,18 +8,21 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "secura_tenant")
+@IdClass(TenantId.class)
 public class Tenant {
 	
 	@Id
 	@Column(name = "tenantid")
     private String tenantId;
 	
+	@Id
     @Column(name = "aprmt_id")
     private String aprmt_id;
 
     @Column(name = "prfl_id")
     private String prflId;
 
+    @Id
     @Column(name = "flat_no")
     private String flatNo;
 

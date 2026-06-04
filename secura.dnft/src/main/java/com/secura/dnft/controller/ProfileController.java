@@ -105,10 +105,11 @@ public class ProfileController {
    	return response;
            }
    
-   @GetMapping("/validateCurrentOwner/{flatId}/{profileType}")
+   @GetMapping("/validateCurrentOwner/{apartmentId}/{flatId}/{profileType}")
    @CrossOrigin(origins = "*")
-   public boolean validateOwnerTenantExits(@PathVariable   String flatId,@PathVariable  String profileType) {
-	   return profileServiceValidation.validateOwnerTenantExits(flatId,profileType);
+   public boolean validateOwnerTenantExits(@PathVariable String apartmentId, @PathVariable String flatId,
+		   @PathVariable String profileType) {
+	   return profileServiceValidation.validateOwnerTenantExits(flatId, apartmentId, profileType);
            }
    
    @PostMapping("/searchProfile")

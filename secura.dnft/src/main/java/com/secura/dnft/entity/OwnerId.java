@@ -9,17 +9,15 @@ public class OwnerId implements Serializable {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	private String prflId;
+	private String ownerId;
     private String flatNo;
-    private String status;
     private String aprmt_id;
 
     public OwnerId() {}
 
-    public OwnerId(String prflId, String flatNo, String status,String apartmentId) {
-        this.prflId = prflId;
+    public OwnerId(String ownerId, String flatNo, String apartmentId) {
+        this.ownerId = ownerId;
         this.flatNo = flatNo;
-        this.status = status;
         this.aprmt_id = apartmentId;
     }
 
@@ -28,14 +26,13 @@ public class OwnerId implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         OwnerId that = (OwnerId) o;
-        return Objects.equals(prflId, that.prflId) &&
+        return Objects.equals(ownerId, that.ownerId) &&
                Objects.equals(flatNo, that.flatNo) &&
-               Objects.equals(status, that.status) && 
                Objects.equals(aprmt_id, that.aprmt_id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(prflId, flatNo, status,aprmt_id);
+        return Objects.hash(ownerId, flatNo, aprmt_id);
     }
 }
