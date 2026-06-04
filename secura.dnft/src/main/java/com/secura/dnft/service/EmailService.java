@@ -299,7 +299,7 @@ public class EmailService implements EmailInterface {
 
             for (String flatId : applicableFlatList) {
                 try {
-                    Optional<Flat> optFlat = flatRepository.findById(flatId);
+                    Optional<Flat> optFlat = flatRepository.findByAprmntIdAndFlatNo(payment.getAprmtId(), flatId);
                     if (optFlat.isEmpty()) {
                         continue;
                     }
@@ -466,7 +466,7 @@ public class EmailService implements EmailInterface {
             try {
                 String flatId = transaction.getFlatId();
                // List<Owner> owners = flatId != null ? ownerRepository.findByFlatNo(flatId) : new ArrayList<>();
-                Optional<Flat> optFlat = flatRepository.findById(flatId);
+                Optional<Flat> optFlat = flatRepository.findByAprmntIdAndFlatNo(transaction.getAprmntId(), flatId);
                 if (optFlat.isEmpty()) {
                     continue;
                 }
@@ -615,7 +615,7 @@ public class EmailService implements EmailInterface {
 
         for (String flatId : failedFlats) {
             try {
-                Optional<Flat> optFlat = flatRepository.findById(flatId);
+                Optional<Flat> optFlat = flatRepository.findByAprmntIdAndFlatNo(payment.getAprmtId(), flatId);
                 if (optFlat.isEmpty()) continue;
                 Flat flat = optFlat.get();
 

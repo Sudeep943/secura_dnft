@@ -702,7 +702,7 @@ public class PaymentServices implements PaymentInterface {
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
-		String flatArea = resolveFlatArea(flatId);
+		String flatArea = resolveFlatArea(apartmentId, flatId);
 		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
 				request != null ? request.getPaymentTenderDataList() : null);
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
@@ -1272,11 +1272,11 @@ public class PaymentServices implements PaymentInterface {
 		return normalizePaymentTenderDataList(request != null ? request.getPaymentTenderDataList() : null);
 	}
 
-	private String resolveFlatArea(String flatId) {
-		if (!hasText(flatId)) {
+	private String resolveFlatArea(String apartmentId, String flatId) {
+		if (!hasText(apartmentId) || !hasText(flatId)) {
 			return null;
 		}
-		Optional<Flat> flatOptional = flatRepository.findById(flatId);
+		Optional<Flat> flatOptional = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId);
 		return flatOptional.isPresent() ? flatOptional.get().getFlatArea() : null;
 	}
 
@@ -1409,7 +1409,7 @@ public class PaymentServices implements PaymentInterface {
 		if (paymentEntity.isEmpty()) {
 			return null;
 		}
-		String flatArea = resolveFlatArea(flatId);
+		String flatArea = resolveFlatArea(apartmentId, flatId);
 		return createFlatPendingDueId(request.getDueId(), request.getPaymentCycle(), flatArea, request.getDueDate(),
 				request.getPaymentId(), paymentEntity.get().getPaymentCapita());
 	}
@@ -1466,8 +1466,8 @@ public class PaymentServices implements PaymentInterface {
 		}
 		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
-		removeCoveredDueKeysFromFlat(flatId, coveredDues, coveredDueKeys);
-		addFlatToCoveredDuePaidFlats(flatId, coveredDues, paidDue);
+		removeCoveredDueKeysFromFlat(apartmentId, flatId, coveredDues, coveredDueKeys);
+		addFlatToCoveredDuePaidFlats(apartmentId, flatId, coveredDues, paidDue);
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatId, paymentId);
 	}
 
@@ -1543,13 +1543,13 @@ public class PaymentServices implements PaymentInterface {
 				+ dueEntity.getDueDate();
 	}
 
-	private void removeCoveredDueKeysFromFlat(String flatId, List<DueAmountDetailsEntity> coveredDues,
+	private void removeCoveredDueKeysFromFlat(String apartmentId, String flatId, List<DueAmountDetailsEntity> coveredDues,
 			Set<String> coveredDueKeys) {
-		if (!hasText(flatId) || coveredDueKeys == null || coveredDueKeys.isEmpty() || coveredDues == null
+		if (!hasText(apartmentId) || !hasText(flatId) || coveredDueKeys == null || coveredDueKeys.isEmpty() || coveredDues == null
 				|| coveredDues.isEmpty()) {
 			return;
 		}
-		Flat flat = flatRepository.findById(flatId).orElse(null);
+		Flat flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId).orElse(null);
 		if (flat == null) {
 			return;
 		}
@@ -1568,9 +1568,9 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
-	private void addFlatToCoveredDuePaidFlats(String flatId, List<DueAmountDetailsEntity> coveredDues,
+	private void addFlatToCoveredDuePaidFlats(String apartmentId, String flatId, List<DueAmountDetailsEntity> coveredDues,
 			DueAmountDetailsEntity paidDue) {
-		if (!hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
+		if (!hasText(apartmentId) || !hasText(flatId) || coveredDues == null || coveredDues.isEmpty()) {
 			return;
 		}
 		String flatAreaForPerSqft = null;
@@ -1592,7 +1592,7 @@ public class PaymentServices implements PaymentInterface {
 				}
 			} else if (isPerSqftCapita(due.getPaymentCapita())) {
 				if (!flatAreaResolved) {
-					Flat flat = flatRepository.findById(flatId).orElse(null);
+					Flat flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId).orElse(null);
 					flatAreaForPerSqft = flat != null ? flat.getFlatArea() : null;
 					flatAreaResolved = true;
 				}
@@ -1655,7 +1655,7 @@ public class PaymentServices implements PaymentInterface {
 		if (paymentDueKeysForFlat.isEmpty()) {
 			return;
 		}
-		Flat flat = flatRepository.findById(flatId).orElse(null);
+		Flat flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId).orElse(null);
 		if (flat == null) {
 			return;
 		}

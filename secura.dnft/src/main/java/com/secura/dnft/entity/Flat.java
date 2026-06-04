@@ -8,12 +8,15 @@ import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 @Entity
+@IdClass(FlatId.class)
 @Table(name = "secura_flat")
 public class Flat {
 
+	@Id
 	@Column(name = "aprmnt_id")
 	private String aprmntId;
 

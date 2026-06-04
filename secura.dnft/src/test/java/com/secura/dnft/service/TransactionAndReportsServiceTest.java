@@ -154,7 +154,7 @@ class TransactionAndReportsServiceTest {
 		profileTwo.setPrflName("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profileOne));
 		when(profileRepository.findById("PR-2")).thenReturn(Optional.of(profileTwo));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -257,8 +257,8 @@ class TransactionAndReportsServiceTest {
 		profileTwo.setPrflName("{\"firstName\":\"Jane\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profileOne));
 		when(profileRepository.findById("PR-2")).thenReturn(Optional.of(profileTwo));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
-		when(flatRepository.findById("F-102")).thenReturn(Optional.of(buildFlat("F-102", "CARPET_AREA")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-102")).thenReturn(Optional.of(buildFlat("F-102", "CARPET_AREA")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -334,7 +334,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -409,7 +409,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -505,7 +505,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "LARGE_2_BHK")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "LARGE_2_BHK")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -599,7 +599,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "LARGE_2_BHK")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "LARGE_2_BHK")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -660,7 +660,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "SUPER_BUILT_UP")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);
@@ -723,7 +723,7 @@ class TransactionAndReportsServiceTest {
 		profile.setPrflPhoneNo("9999999999");
 		profile.setPrflName("{\"firstName\":\"John\",\"lastName\":\"Doe\"}");
 		when(profileRepository.findById("PR-1")).thenReturn(Optional.of(profile));
-		when(flatRepository.findById("F-101")).thenReturn(Optional.of(buildFlat("F-101", "SMALL_2_BHK")));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "F-101")).thenReturn(Optional.of(buildFlat("F-101", "SMALL_2_BHK")));
 
 		when(genericService.fromJson(anyString(), any(TypeReference.class))).thenAnswer(invocation -> {
 			String json = invocation.getArgument(0);

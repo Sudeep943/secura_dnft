@@ -141,7 +141,10 @@ public class FlatServices implements FlatInterface {
 		response.setHeader(request.getHeader());
 		response.setFlatNo(request.getFlatNo());
 		try {
-			Optional<Flat> existingFlat = flatRepository.findById(request.getFlatNo());
+			String apartmentId = request != null && request.getHeader() != null
+					? request.getHeader().getApartmentId()
+					: null;
+			Optional<Flat> existingFlat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, request.getFlatNo());
 			if (existingFlat.isEmpty()) {
 				response.setMessage(ErrorMessage.ERR_MESSAGE_41);
 				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_41);
@@ -294,7 +297,7 @@ public class FlatServices implements FlatInterface {
 			String apartmentId = request != null && request.getGenericHeader() != null
 					? request.getGenericHeader().getApartmentId()
 					: null;
-			Optional<Flat> optionalFlat = flatRepository.findById(flatId);
+			Optional<Flat> optionalFlat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId);
 			if (optionalFlat.isPresent()) {
 				Flat flat = optionalFlat.get();
 				List<String> pendingDueKeys = parseStringList(flat.getFlatPndngPaymntLst());

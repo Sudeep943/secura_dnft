@@ -187,7 +187,7 @@ public class TransactionAndReportsService {
 					.filter(this::isOverdueDue)
 					.collect(Collectors.toList());
 			if (isPerSqftCapita(paymentCapita)) {
-				processPerSqftDues(paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap, flatCache,
+				processPerSqftDues(apartmentId, paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap, flatCache,
 						flatAreaCache);
 			} else {
 				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, overdueDues,
@@ -221,10 +221,10 @@ public class TransactionAndReportsService {
 				continue;
 			}
 
-			List<Profile> ownerProfiles = resolveOwnerProfiles(accumulator.flatId(), flatCache, ownerCache, profileCache);
+			List<Profile> ownerProfiles = resolveOwnerProfiles(apartmentId, accumulator.flatId(), flatCache, ownerCache, profileCache);
 			Defaulter defaulter = new Defaulter();
 			defaulter.setFlatId(accumulator.flatId());
-			defaulter.setBuiltUpArea(resolveFlatAreaTypeDisplay(accumulator.flatId(), flatCache));
+			defaulter.setBuiltUpArea(resolveFlatAreaTypeDisplay(apartmentId, accumulator.flatId(), flatCache));
 			defaulter.setOwnerNames(resolveOwnerNames(ownerProfiles));
 			defaulter.setPhoneNumber(resolvePhoneNumber(ownerProfiles));
 			defaulter.setEmailId(resolveEmailId(ownerProfiles));
@@ -441,13 +441,13 @@ public class TransactionAndReportsService {
 						.findFirst().orElse(null);
 	}
 
-	private void processPerSqftDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
+	private void processPerSqftDues(String apartmentId, String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
 			List<DueAmountDetailsEntity> overdueDues, Map<String, DefaulterAccumulator> defaulterMap,
 			Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
 		List<String> pendingFlatIds = overdueDues.stream().flatMap(due -> findPendingFlatIds(due).stream()).distinct()
 				.collect(Collectors.toList());
 		for (String flatId : pendingFlatIds) {
-			String flatArea = resolveFlatArea(flatId, flatCache, flatAreaCache);
+			String flatArea = resolveFlatArea(apartmentId, flatId, flatCache, flatAreaCache);
 			List<DueAmountDetailsEntity> areaMatchedDues = overdueDues.stream()
 					.filter(due -> matchesFlatArea(due, flatArea)).collect(Collectors.toList());
 			//areaMatchedDues=areaMatchedDues.stream().filter(amd-> amd.getApplicableFlats().contains(flatId)).collect(Collectors.toList());
@@ -542,12 +542,13 @@ public class TransactionAndReportsService {
 				.collect(Collectors.toList());
 	}
 
-	private String resolveFlatArea(String flatId, Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
-		if (!hasText(flatId)) {
+	private String resolveFlatArea(String apartmentId, String flatId, Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
+		if (!hasText(apartmentId) || !hasText(flatId)) {
 			return null;
 		}
-		return flatAreaCache.computeIfAbsent(flatId, ignored -> flatCache.computeIfAbsent(flatId,
-				key -> flatRepository.findById(key)).map(Flat::getFlatArea).orElse(null));
+		String cacheKey = buildFlatCacheKey(apartmentId, flatId);
+		return flatAreaCache.computeIfAbsent(cacheKey, ignored -> flatCache.computeIfAbsent(cacheKey,
+				key -> flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId)).map(Flat::getFlatArea).orElse(null));
 	}
 
 	private boolean isPerSqftCapita(String paymentCapita) {
@@ -619,7 +620,7 @@ public class TransactionAndReportsService {
 		return fallbackTotalDue != null ? fallbackTotalDue : BigDecimal.ZERO;
 	}
 
-	private List<Profile> resolveOwnerProfiles(String flatId, Map<String, Optional<Flat>> flatCache,
+	private List<Profile> resolveOwnerProfiles(String apartmentId, String flatId, Map<String, Optional<Flat>> flatCache,
 			Map<String, List<Owner>> ownerCache, Map<String, Optional<Profile>> profileCache) {
 		LinkedHashSet<String> profileIds = new LinkedHashSet<>();
 		List<Owner> owners = ownerCache.computeIfAbsent(flatId, ignored -> {
@@ -633,7 +634,9 @@ public class TransactionAndReportsService {
 			profileIds.addAll(parseStringList(owner.getPrflId()));
 		}
 		if (profileIds.isEmpty()) {
-			Optional<Flat> flat = flatCache.computeIfAbsent(flatId, ignored -> flatRepository.findById(flatId));
+			String cacheKey = buildFlatCacheKey(apartmentId, flatId);
+			Optional<Flat> flat = flatCache.computeIfAbsent(cacheKey,
+					ignored -> flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId));
 			flat.map(Flat::getFlatOwnerList).ifPresent(ownerList -> profileIds.addAll(parseStringList(ownerList)));
 		}
 		List<Profile> profiles = new ArrayList<>();
@@ -644,9 +647,15 @@ public class TransactionAndReportsService {
 		return profiles;
 	}
 
-	private String resolveFlatAreaTypeDisplay(String flatId, Map<String, Optional<Flat>> flatCache) {
-		Optional<Flat> flat = flatCache.computeIfAbsent(flatId, ignored -> flatRepository.findById(flatId));
+	private String resolveFlatAreaTypeDisplay(String apartmentId, String flatId, Map<String, Optional<Flat>> flatCache) {
+		String cacheKey = buildFlatCacheKey(apartmentId, flatId);
+		Optional<Flat> flat = flatCache.computeIfAbsent(cacheKey,
+				ignored -> flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId));
 		return formatDisplayValue(flat.map(Flat::getFlatArea).orElse(null));
+	}
+
+	private String buildFlatCacheKey(String apartmentId, String flatId) {
+		return apartmentId + "::" + flatId;
 	}
 
 	private List<String> resolveOwnerNames(List<Profile> profiles) {

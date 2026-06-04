@@ -185,7 +185,7 @@ class PaymentUtilServiceTest {
 		Flat flat = new Flat();
 		flat.setFlatNo("FLAT-1");
 		flat.setFlatArea("SMALL_2_BHK");
-		when(flatRepository.findById("FLAT-1")).thenReturn(java.util.Optional.of(flat));
+		when(flatRepository.findByAprmntIdAndFlatNo(any(), "FLAT-1")).thenReturn(java.util.Optional.of(flat));
 
 		DueAmountDetailsEntity yearlyDueForOtherArea = new DueAmountDetailsEntity();
 		yearlyDueForOtherArea.setCollectionCycle("YEARLY");
