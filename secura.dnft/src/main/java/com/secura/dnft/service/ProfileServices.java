@@ -525,8 +525,8 @@ public class ProfileServices {
 			profileResponse.setProfileId(rs.getPrflId());
 			StringBuilder dispalyName= new StringBuilder();
 			Name name=genericService.fromJson(rs.getPrflName(), Name.class);
-			dispalyName.append(name.getFirstName()).append(" ").append(name.getMiddleName()).append(" ").append(name.getLastName()).append(" (").append(rs.getPrflId()).append(")");
-			profileResponse.setDisplayName(dispalyName.toString());
+			//dispalyName.append(name.getFirstName()).append(" ").append(name.getMiddleName()).append(" ").append(name.getLastName()).append(" (").append(rs.getPrflId()).append(")");
+			profileResponse.setDisplayName(name.toStringWithProfileID(rs.getPrflId(), name, profileRepository, genericService));
 			profileResponse.setProfilePic(rs.getProfile_pic());
 			return profileResponse;
 			}).collect(Collectors.toList());

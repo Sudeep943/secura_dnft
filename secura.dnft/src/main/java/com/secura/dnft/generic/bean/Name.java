@@ -39,7 +39,19 @@ public class Name {
 	
 	@Override
 	public String toString() {
-		return firstName +" "+  middleName +" "+lastName;
+		StringBuilder fullName= new StringBuilder();
+		if(null!=firstName && !firstName.isBlank()) {
+			fullName.append(firstName);
+			fullName.append(" ");
+		}
+		if(null!=middleName && !middleName.isBlank()) {
+			fullName.append(middleName);
+			fullName.append(" ");
+		}
+		if(null!=lastName && !lastName.isBlank()) {
+			fullName.append(lastName);
+		}
+		return fullName.toString();
 	}
 
 	/**
