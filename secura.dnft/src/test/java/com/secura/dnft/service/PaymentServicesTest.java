@@ -2139,7 +2139,7 @@ class PaymentServicesTest {
 	@Test
 	void actionQRPayment_shouldApproveTransactionsAndReturnAllSuccess() throws Exception {
 		ActionQRPaymentRequest request = buildActionQrPaymentRequest(SecuraConstants.ACTION_APPROVE);
-		Transaction transaction = request.getFoundTransactionsList().get(0);
+		Transaction transaction = null;//request.getFoundTransactionsList().get(0);
 		GenericResponse successResponse = new GenericResponse();
 		successResponse.setMessage(SuccessMessage.SUCC_MESSAGE_47);
 		successResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_47);
