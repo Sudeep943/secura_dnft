@@ -35,6 +35,7 @@ import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.SecuraEmailLogRepository;
+import com.secura.dnft.dao.SocietyCollectionTypesRepository;
 import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.DiscFin;
@@ -46,6 +47,7 @@ import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.SecuraEmailLog;
+import com.secura.dnft.entity.SocietyCollectionTypes;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.interfaceservice.EmailInterface;
 import com.secura.dnft.interfaceservice.ReceiptInterface;
@@ -134,6 +136,9 @@ public class EmailService implements EmailInterface {
 
     @Autowired
     private ReceiptInterface receiptServices;
+    
+    @Autowired
+	private SocietyCollectionTypesRepository socirtyCollectionTypesRepository;
 
     // -------------------------------------------------------------------------
     // Scheduled Jobs
@@ -359,9 +364,10 @@ public class EmailService implements EmailInterface {
                     	for(Map<String, String> map:discFin) {
                     		if(map.get("Status").equalsIgnoreCase(SecuraConstants.DISC_FIN_STATUS_ACTIVE)) {
                     			List<DiscFin> found = discFinRepository.findByDiscFnId(map.get("code"));
-                                found.stream()
-                                        .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
-                                        .forEach(discFinList::add);
+                    			discFinList.addAll(found);
+//                                found.stream()
+//                                        .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
+//                                        .forEach(discFinList::add);
                                 break;
                     		}
                     	}
@@ -413,6 +419,11 @@ public class EmailService implements EmailInterface {
 //                            discFinList, upcomingDuesByDate, paymentTotalDue,
 //                            currentPaymentDues
 //                    );
+                    List<SocietyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
+                    Optional<SocietyCollectionTypes> collectionype=collectionTypes.stream().filter(cse->cse.getTypeConstant().equals(payment.getCauseId())).findFirst();
+                    if(collectionype.isPresent()) {
+                    	cause=collectionype.get().getCollectionType();
+                    }
                     String htmlBody= emailUtils.generatePaymentCollectionEmail(ownerName, logoBase64, paymentName, shortDesc, cause, startDate, endDate, 
                     		allowedTenders, unitAmount, isPerSqft, gst, paymentType, discFinList, upcomingDuesByDate, paymentTotalDue, currentPaymentDues,apartName,paymentURL,flat);
                     String subject = "Due Created For " + paymentName;

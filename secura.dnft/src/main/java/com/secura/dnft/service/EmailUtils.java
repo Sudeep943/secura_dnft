@@ -176,7 +176,7 @@ return formattedDate.toUpperCase();
         html.append("<table width='100%' bgcolor='#eef3ee' cellpadding='0' cellspacing='0'>");
         html.append("<tr><td align='center' style='padding:30px 10px;'>");
 
-        html.append("<table width='650' cellpadding='0' cellspacing='0' ");
+        html.append("<table width='850' cellpadding='0' cellspacing='0' ");
         html.append("style='background:#ffffff;border-radius:12px;border:1px solid #c8e0c8;'>");
 
         // HEADER
@@ -221,8 +221,8 @@ return formattedDate.toUpperCase();
 
         addRow(html, "Payment Name", paymentName);
         addRow(html, "Description", shortDesc);
-        addRow(html, "Cause", cause.replace("_",""));
-        addRow(html, "Payment Tenure", startDate + " to " + endDate);
+        addRow(html, "Cause", cause.replace("_"," ").toUpperCase());
+        addRow(html, "Payment Tenure", startDate.toUpperCase() + " To " + endDate.toUpperCase());
         addRow(html, "Allowed Tenders", allowedTenders);
 
         String amountDisplay = unitAmount;
@@ -249,6 +249,22 @@ return formattedDate.toUpperCase();
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Due Date</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Amount</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>GST</th>");
+            if(currentPaymentDues.stream()
+            	    .anyMatch(due -> {
+            	        String charges = due.getTotalAddedCharges();
+
+            	        if (charges == null || charges.trim().isEmpty()) {
+            	            return false;
+            	        }
+
+            	        try {
+            	            return Double.parseDouble(charges.trim()) > 0;
+            	        } catch (NumberFormatException e) {
+            	            return false;
+            	        }
+            	    })) {
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Other Added Charges</th>");
+            }
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Total</th>");
             html.append("</tr>");
 
@@ -268,6 +284,11 @@ return formattedDate.toUpperCase();
                 html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
                         .append("₹ " + safe(due.getGstAmount()))
                         .append("</td>");
+                if(checkAddedChargesPresent(due)) {
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
+                .append("₹ " + safe(due.getTotalAddedCharges()))
+                .append("</td>");
+                }
                 html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#00A696;'>")
                         .append("₹ " + safe(due.getTotalAmount()))
                         .append("</td>");
@@ -279,6 +300,7 @@ return formattedDate.toUpperCase();
             html.append("</td></tr>");
         }
 
+       
         // DISCOUNTS / FINES
         if (discFinList != null && !discFinList.isEmpty()) {
 
@@ -427,4 +449,19 @@ return formattedDate.toUpperCase();
     private static String safe(String value) {
         return value == null ? "" : value.replace("_", " ");
     }
+    
+    private static boolean  checkAddedChargesPresent(DueAmountDetailsEntity due ) {
+ 	  String charges = due.getTotalAddedCharges();
+
+      if (charges == null || charges.trim().isEmpty()) {
+          return false;
+      }
+
+      try {
+          return Double.parseDouble(charges.trim()) > 0;
+      } catch (NumberFormatException e) {
+          return false;
+      }
+    }
+    
 }
