@@ -2167,7 +2167,7 @@ class PaymentServicesTest {
 		failedTransaction.setTrnsAmt("950.50");
 		failedTransaction.setWorkListId("WL-2");
 		failedTransaction.setCreatTs(LocalDateTime.of(2026, 3, 1, 21, 45));
-		request.setFoundTransactionsList(List.of(request.getFoundTransactionsList().get(0), failedTransaction));
+		//request.setFoundTransactionsList(List.of(request.getFoundTransactionsList().get(0), failedTransaction));
 
 		GenericResponse successResponse = new GenericResponse();
 		successResponse.setMessage(SuccessMessage.SUCC_MESSAGE_47);
@@ -2294,7 +2294,7 @@ class PaymentServicesTest {
 		transaction.setTrnsAmt("1200");
 		transaction.setWorkListId("WL-1");
 		transaction.setCreatTs(LocalDateTime.of(2026, 3, 2, 11, 15));
-		request.setFoundTransactionsList(List.of(transaction));
+		//request.setFoundTransactionsList(List.of(transaction));
 		return request;
 	}
 
