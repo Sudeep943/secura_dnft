@@ -77,6 +77,7 @@ import com.secura.dnft.request.response.UpdateFlatDetailsRequest;
 import com.secura.dnft.request.response.UpdateFlatDetailsResponse;
 import com.secura.dnft.request.response.UploadFlatDetailsRequest;
 import com.secura.dnft.request.response.UploadFlatDetailsResponse;
+import com.secura.dnft.validation.ProfileServiceValidation;
 
 @Service
 public class FlatServices implements FlatInterface {
@@ -113,6 +114,9 @@ public class FlatServices implements FlatInterface {
 
 	@Autowired
 	private DueDetailsService dueDetailsService;
+	
+	@Autowired
+	ProfileServiceValidation profileValidation;
 
 	private final DataFormatter dataFormatter = new DataFormatter();
 
@@ -1065,19 +1069,24 @@ public class FlatServices implements FlatInterface {
 	}
 
 	private void createFlatFromUploadedRow(UploadedFlatRow row, String profileId, UploadFlatDetailsRequest request) {
-		flatRepository.getById(profileId)
+		Optional<Flat> flatRepo=flatRepository.findByAprmntIdAndFlatNo(request.getHeader().getApartmentId(),row.flatNo);
 		Flat flat = new Flat();
-		flat.setFlatNo(row.flatNo);
-		flat.setAprmntId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
-		List<String> owerIds= parseProfileIds(flat.getFlatOwnerList());
-		if(null!=owerIds && !owerIds.isEmpty()) {
-			owerIds.add(profileId);
-			flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(owerIds)));
+		if(flatRepo.isPresent()) {
+			flat=flatRepo.get();
+			List<String> ownerIds= parseProfileIds(flat.getFlatOwnerList());
+			if(null!=ownerIds && !ownerIds.isEmpty() && !ownerIds.contains(profileId))  {
+				ownerIds.add(profileId);
+				flat.setFlatOwnerList(genericService.toJson(ownerIds));
 
+			}
+			//flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(profileId)));
+			flatRepository.save(flat);
 		}
 		else {
+		flat = new Flat();
+		flat.setFlatNo(row.flatNo);
+		flat.setAprmntId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
 		flat.setFlatOwnerList(genericService.toJson(Collections.singletonList(profileId)));
-		}
 		flat.setFlatTower(row.tower);
 		flat.setFlatBlock(row.block);
 		flat.setFlatPossnDate(row.possessionDate != null ? row.possessionDate.atStartOfDay() : null);
@@ -1086,6 +1095,7 @@ public class FlatServices implements FlatInterface {
 		flat.setFlatPndngPaymntLst("[]");
 		flat.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
 		flatRepository.save(flat);
+		}
 	}
 
 	
@@ -1093,33 +1103,89 @@ public class FlatServices implements FlatInterface {
 		String apartmentId = request.getHeader() != null ? request.getHeader().getApartmentId() : null;
 		List<Owner> owners = apartmentId != null ? ownerRepository.findByAprmt_idAndFlatNo(apartmentId, row.flatNo)
 				: ownerRepository.findByFlatNo(row.flatNo);
-		if (owners != null) {
-			for (Owner owner : owners) {
-				List<String> ownerProfiles = parseProfileIds(owner.getPrflId());
-				if (ownerProfiles.contains(profileId)) {
-					return;
-				}
+		
+		Owner currentOwnerData = profileValidation.getCurrentFlatOwner(request.getHeader().getApartmentId(), row.flatNo);
+		if(null!=currentOwnerData && null!=currentOwnerData.getPrflId()) {
+			List<String> ownerProfiles = genericService.fromJson(currentOwnerData.getPrflId(),
+					new TypeReference<List<String>>() {
+					});
+			if(ownerProfiles.contains(profileId)) {
+				return ;
 			}
-
-			//Optional<Owner> activeOwner = owners.stream().filter(owner -> owner.getEndDate() == null).findFirst();
-//			if (activeOwner.isPresent()) {
-//				Owner currentOwner = activeOwner.get();
-//				currentOwner.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
-//				currentOwner.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
-//				currentOwner.setLstUpdtUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
-//				ownerRepository.save(currentOwner);
-//			}
+			else {
+				ownerProfiles.add(profileId);
+				currentOwnerData.setPrflId( genericService.toJson(ownerProfiles));
+				ownerRepository.save(currentOwnerData);
+			}
 		}
+		else {
+			Owner newOwner = new Owner();
+			newOwner.setOwnerId(createOwnerId(row.flatNo));
+			newOwner.setAprmt_id(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+			newOwner.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+			newOwner.setFlatNo(row.flatNo);
+			newOwner.setPrflId(genericService.toJson(Collections.singletonList(profileId)));
+			newOwner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+			newOwner.setStartDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+			ownerRepository.save(newOwner);
+		}
+		
+		
+//		
+//		if (owners != null) {
+//			for (Owner owner : owners) {
+//				List<String> ownerProfiles = parseProfileIds(owner.getPrflId());
+//				if (ownerProfiles.contains(profileId)) {
+//					Optional<Owner> currentProfileOwner=owners.stream().filter(ownr->ownr.getOwnerId().equals(profileId)).findFirst();
+//					Owner currentOwnerData = profileValidation.getCurrentFlatOwner(request.getHeader().getApartmentId(), row.flatNo);
+//					List<String> ownerProfiles = genericService.fromJson(currentOwnerData.getPrflId(),
+//							new TypeReference<List<String>>() {
+//							});
+//					
+//                       if(currentProfileOwner.isPresent()) {
+//						Owner currentProfileOwnerId=currentProfileOwner.get();
+//						if(currentProfileOwnerId.getStatus().equals(SecuraConstants.PROFILE_STATUS_ACTIVE)) {
+//							return;
+//						}
+//						else {
+//							Owner newOwner = new Owner();
+//							newOwner.setOwnerId(createOwnerId(row.flatNo));
+//							newOwner.setAprmt_id(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
+//							newOwner.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+//							newOwner.setFlatNo(row.flatNo);
+//							newOwner.setPrflId(genericService.toJson(Collections.singletonList(profileId)));
+//							newOwner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+//							newOwner.setStartDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+//							ownerRepository.save(newOwner);
+//						}
+//					}
+//				}
+//				}
+//			}
+//				if (ownerProfiles.contains(profileId)) {
+//					Optional<Owner> exisigOwner=ownerRepository.findByOwnerIdAndFlatNoAndAprmt_id(profileId,row.flatNo,apartmentId);
+//					if(exisigOwner.isPresent()) {
+//						exisigOwner.get().setOwnerId(createOwnerId(row.flatNo));
+//						exisigOwner.get().setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+//						exisigOwner.get().setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
+//						exisigOwner.get().setStartDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+//						ownerRepository.save(exisigOwner.get());
+//					}
+//					return;
+//				}
+//			}
+//
+//			//Optional<Owner> activeOwner = owners.stream().filter(owner -> owner.getEndDate() == null).findFirst();
+////			if (activeOwner.isPresent()) {
+////				Owner currentOwner = activeOwner.get();
+////				currentOwner.setStatus(SecuraConstants.PROFILE_STATUS_INACTIVE);
+////				currentOwner.setEndDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+////				currentOwner.setLstUpdtUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
+////				ownerRepository.save(currentOwner);
+////			}
+//		}
 
-		Owner owner = new Owner();
-		owner.setOwnerId(createOwnerId(row.flatNo));
-		owner.setAprmt_id(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
-		owner.setCreatUsrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
-		owner.setFlatNo(row.flatNo);
-		owner.setPrflId(genericService.toJson(Collections.singletonList(profileId)));
-		owner.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
-		owner.setStartDate(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
-		ownerRepository.save(owner);
+		
 	}
 
 	private List<String> parseProfileIds(String profileIdsJson) {
