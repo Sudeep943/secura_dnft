@@ -50,7 +50,7 @@ DateTimeFormatter formatter =
         DateTimeFormatter.ofPattern("d-MMM-yyyy");
 
 String formattedDate = date.format(formatter);
-return formattedDate;
+return formattedDate.toUpperCase();
 	}
 	
 	public static String getTransactionHTMLBody(
@@ -221,7 +221,7 @@ return formattedDate;
 
         addRow(html, "Payment Name", paymentName);
         addRow(html, "Description", shortDesc);
-        addRow(html, "Cause", cause);
+        addRow(html, "Cause", cause.replace("_",""));
         addRow(html, "Payment Tenure", startDate + " to " + endDate);
         addRow(html, "Allowed Tenders", allowedTenders);
 
@@ -236,53 +236,7 @@ return formattedDate;
         html.append("</table>");
         html.append("</td></tr>");
 
-//        // UPCOMING DUES
-//
-//        if (upcomingDues != null && !upcomingDues.isEmpty()) {
-//
-//            html.append("<tr><td style='padding:30px;'>");
-//
-//            html.append("<h2 style='color:#0d4d8b'>Upcoming Due Details</h2>");
-//
-//            html.append("<table width='100%' border='1' cellpadding='8' ");
-//            html.append("style='border-collapse:collapse;'>");
-//
-//            html.append("<tr bgcolor='#0d4d8b' style='color:white;'>");
-//            html.append("<th>Cycle</th>");
-//            html.append("<th>Due Date</th>");
-//            html.append("<th>Amount</th>");
-//            html.append("<th>Total Amount</th>");
-//            html.append("</tr>");
-//
-//            for (DueAmountDetailsEntity due : upcomingDues) {
-//
-//                html.append("<tr>");
-//
-//                html.append("<td>")
-//                        .append(safe(due.getCollectionCycle()))
-//                        .append("</td>");
-//
-//                html.append("<td>")
-//                        .append(String.valueOf(due.getDueDate()))
-//                        .append("</td>");
-//
-//                html.append("<td>")
-//                        .append(safe(due.getAmount()))
-//                        .append("</td>");
-//
-//                html.append("<td>")
-//                        .append(safe(due.getTotalAmount()))
-//                        .append("</td>");
-//
-//                html.append("</tr>");
-//            }
-//
-//            html.append("</table>");
-//
-//            html.append("</td></tr>");
-//        }
-
-        // CURRENT DUES
+       // CURRENT DUES
         if (currentPaymentDues != null && !currentPaymentDues.isEmpty()) {
 
             html.append("<tr><td style='padding:20px 30px 10px;'>");
@@ -336,6 +290,8 @@ return formattedDate;
             html.append("<tr style='background:#00A696;color:#ffffff;'>");
             html.append("<th style='padding:10px 12px;text-align:left;font-weight:600;'>Type</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Cycle</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>From</th>");
+            html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Till</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Mode</th>");
             html.append("<th style='padding:10px 12px;text-align:center;font-weight:600;'>Value</th>");
             html.append("</tr>");
@@ -351,10 +307,17 @@ return formattedDate;
                         .append(safe(disc.getDiscFnCycleType()))
                         .append("</td>");
                 html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
+                .append(getFormatedDate(disc.getDiscFnStrtDt()))
+                .append("</td>");
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
+                .append(getFormatedDate(disc.getDiscFnEndDt()))
+                .append("</td>");
+                html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;color:#333;'>")
                         .append(safe(disc.getDiscFnMode()))
                         .append("</td>");
                 html.append("<td style='padding:9px 12px;border-top:1px solid #ddeedd;text-align:center;font-weight:600;color:#00A696;'>")
                         .append(safe(disc.getDiscFinValue()))
+                        .append(disc.getDiscFnMode().equalsIgnoreCase("percentage") ? "%" : "")
                         .append("</td>");
                 html.append("</tr>");
                 discRowIndex++;
@@ -462,6 +425,6 @@ return formattedDate;
     }
 
     private static String safe(String value) {
-        return value == null ? "" : value;
+        return value == null ? "" : value.replace("_", " ");
     }
 }
