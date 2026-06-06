@@ -9,8 +9,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DiscFinRepository;
+import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.entity.DiscFin;
+import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
@@ -22,19 +25,26 @@ import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.DiscFinCycleDiscount;
+import com.secura.dnft.request.response.DiscfinRequestData;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UpdateDiscfinRequest;
 import com.secura.dnft.request.response.UpdateDiscfinResponse;
 
 @Service
 public class DiscFinServices implements DiscFinInterface {
+	private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DiscFinServices.class);
 	private static final int MAX_ID_GENERATION_ATTEMPTS = 1000;
 	private static final int ID_RANDOM_MIN = 1000;
 	private static final int ID_RANDOM_MAX_EXCLUSIVE = 10000;
 
 	@Autowired
 	private DiscFinRepository discFinRepository;
+
+	@Autowired
+	private PaymentRepository paymentRepository;
 
 	@Autowired
 	private GenericService genericService;
@@ -223,6 +233,82 @@ public class DiscFinServices implements DiscFinInterface {
 		target.setDiscFnCumlatonCycle(source.getDiscFnCumlatonCycle());
 		target.setDiscFinValue(source.getDiscFinValue());
 		target.setMinimumPaymentAmount(source.getMinimumPaymentAmount());
+	}
+
+	@Override
+	public TagDiscFinFromPaymentResponse tagDiscFinFromPayment(TagDiscFinFromPaymentRequest request) throws Exception {
+		TagDiscFinFromPaymentResponse response = new TagDiscFinFromPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+
+		AddDiscfinRequest addRequest = buildAddDiscfinRequest(
+				request != null ? request.getGenericHeader() : null,
+				request != null ? request.getDiscfinRequestData() : null);
+
+		AddDiscfinResponse addResponse = addDiscfin(addRequest);
+		response.setMessage(addResponse.getMessage());
+		response.setMessageCode(addResponse.getMessageCode());
+		response.setDiscFinId(addResponse.getDiscFnId());
+
+		if (SuccessMessageCode.SUCC_MESSAGE_29.equals(addResponse.getMessageCode())) {
+			String paymentId = request != null ? request.getPaymentId() : null;
+			if (paymentId != null && !paymentId.isBlank()) {
+				List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
+				if (paymentEntityList != null && !paymentEntityList.isEmpty()) {
+					String discFinJson = paymentEntityList.get(0).getDiscFin();
+					response.setDiscFinCodes(extractAllDiscFinCodes(discFinJson));
+				}
+			}
+		}
+
+		return response;
+	}
+
+	private AddDiscfinRequest buildAddDiscfinRequest(
+			com.secura.dnft.request.response.GenericHeader genericHeader, DiscfinRequestData data) {
+		AddDiscfinRequest addRequest = new AddDiscfinRequest();
+		addRequest.setGenericHeader(genericHeader);
+		if (data != null) {
+			addRequest.setDiscFnType(data.getDiscFnType());
+			addRequest.setDueDateAsStartDateFlag(data.getDueDateAsStartDateFlag());
+			addRequest.setDiscFnStrtDt(data.getDiscFnStrtDt());
+			addRequest.setDiscFnEndDt(data.getDiscFnEndDt());
+			addRequest.setDiscFnMode(data.getDiscFnMode());
+			addRequest.setDiscFnCumlatonCycle(data.getDiscFnCumlatonCycle());
+			addRequest.setDiscFnCycleType(data.getDiscFnCycleType());
+			addRequest.setDiscFnValue(data.getDiscFnValue());
+			addRequest.setDiscFinCycleDiscountList(data.getDiscFinCycleDiscountList());
+			addRequest.setMinimumPaymentAmount(data.getMinimumPaymentAmount());
+		}
+		return addRequest;
+	}
+
+	private List<String> extractAllDiscFinCodes(String discFinJson) {
+		List<String> codes = new ArrayList<>();
+		if (discFinJson == null || discFinJson.isBlank()) {
+			return codes;
+		}
+		try {
+			List<Map<String, Object>> entries = genericService.fromJson(discFinJson,
+					new TypeReference<List<Map<String, Object>>>() {
+					});
+			if (entries != null) {
+				for (Map<String, Object> entry : entries) {
+					if (entry == null) {
+						continue;
+					}
+					Object codeObj = entry.get("code");
+					if (codeObj != null) {
+						String code = codeObj.toString();
+						if (!code.isBlank()) {
+							codes.add(code);
+						}
+					}
+				}
+			}
+		} catch (Exception ex) {
+			LOGGER.warn("Failed to parse discFin JSON while extracting codes: {}", ex.getMessage());
+		}
+		return codes;
 	}
 
 	private String createDiscFnId(String discFnType) {

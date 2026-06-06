@@ -15,6 +15,8 @@ import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
 import com.secura.dnft.request.response.GetDiscfinRequest;
 import com.secura.dnft.request.response.GetDiscfinResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UpdateDiscfinRequest;
 import com.secura.dnft.request.response.UpdateDiscfinResponse;
 import com.secura.dnft.service.DiscFinServices;
@@ -69,6 +71,19 @@ public class DiscFinController {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
 			response = discFinServices.updateDiscfin(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/tagDiscFinFromPayment")
+	public TagDiscFinFromPaymentResponse tagDiscFinFromPayment(@RequestBody TagDiscFinFromPaymentRequest request) {
+		TagDiscFinFromPaymentResponse response = new TagDiscFinFromPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			response = discFinServices.tagDiscFinFromPayment(request);
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
