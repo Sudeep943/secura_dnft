@@ -581,11 +581,15 @@ public class DueDetailsService {
 				}
 				String type = stringValue(entry.get("DISTFIN_TYPE"));
 				String code = stringValue(entry.get("code"));
-				if (SecuraConstants.DISC_FN_TYPE_DISCOUNT.equalsIgnoreCase(type)) {
-					discountCode = code;
-				} else if (SecuraConstants.DISC_FN_TYPE_FINE.equalsIgnoreCase(type)) {
-					fineCode = code;
+				String status = stringValue(entry.get("Status"));
+				if(status.equalsIgnoreCase("Active")) {
+					if (SecuraConstants.DISC_FN_TYPE_DISCOUNT.equalsIgnoreCase(type)) {
+						discountCode = code;
+					} else if (SecuraConstants.DISC_FN_TYPE_FINE.equalsIgnoreCase(type)) {
+						fineCode = code;
+					}
 				}
+				
 			}
 			return new DiscFinReference(discountCode, fineCode);
 		} catch (Exception ex) {
