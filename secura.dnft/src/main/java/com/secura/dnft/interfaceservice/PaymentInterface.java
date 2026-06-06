@@ -16,6 +16,8 @@ import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
@@ -47,5 +49,7 @@ public interface PaymentInterface {
 	public ReconcileQRPaymentResponse reconcileQRPayment(ReconcileQRPaymentRequest request) throws Exception;
 
 	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception;
+
+	public TagDiscFinFromPaymentResponse tagDiscFinFromPayment(TagDiscFinFromPaymentRequest request) throws Exception;
 
 }

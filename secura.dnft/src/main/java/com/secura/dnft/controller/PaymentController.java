@@ -36,6 +36,8 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
@@ -277,6 +279,20 @@ public class PaymentController {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
 			return paymentServices.actionQRPayment(request);
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/tagDiscFinFromPayment")
+	@CrossOrigin(origins = "*")
+	public TagDiscFinFromPaymentResponse tagDiscFinFromPayment(@RequestBody TagDiscFinFromPaymentRequest request) {
+		TagDiscFinFromPaymentResponse response = new TagDiscFinFromPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return paymentServices.tagDiscFinFromPayment(request);
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);

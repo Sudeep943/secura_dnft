@@ -35,6 +35,8 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
@@ -348,6 +350,41 @@ class PaymentControllerTest {
 		when(paymentServices.actionQRPayment(request)).thenThrow(new RuntimeException("boom"));
 
 		ActionQRPaymentResponse actual = paymentController.actionQRPayment(request);
+
+		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void tagDiscFinFromPayment_shouldReturnServiceResponse() throws Exception {
+		TagDiscFinFromPaymentRequest request = new TagDiscFinFromPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		TagDiscFinFromPaymentResponse expected = new TagDiscFinFromPaymentResponse();
+		expected.setGenericHeader(header);
+		expected.setMessage("ok");
+		expected.setMessageCode("CODE");
+		expected.setDiscFinId("DFN1");
+		when(paymentServices.tagDiscFinFromPayment(request)).thenReturn(expected);
+
+		TagDiscFinFromPaymentResponse actual = paymentController.tagDiscFinFromPayment(request);
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void tagDiscFinFromPayment_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
+		TagDiscFinFromPaymentRequest request = new TagDiscFinFromPaymentRequest();
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		when(paymentServices.tagDiscFinFromPayment(request)).thenThrow(new RuntimeException("boom"));
+
+		TagDiscFinFromPaymentResponse actual = paymentController.tagDiscFinFromPayment(request);
 
 		assertEquals(header, actual.getGenericHeader());
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());

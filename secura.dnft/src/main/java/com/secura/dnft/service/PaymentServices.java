@@ -75,6 +75,8 @@ import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.ActionQRPaymentRequest;
 import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
+import com.secura.dnft.request.response.AddDiscfinRequest;
+import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -97,6 +99,8 @@ import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
@@ -159,6 +163,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	DueDetailsService dueDetailsService;
+
+	@Autowired
+	DiscFinServices discFinServices;
 
 	@Autowired
 	FlatRepository flatRepository;
@@ -878,6 +885,54 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	@Override
+	public TagDiscFinFromPaymentResponse tagDiscFinFromPayment(TagDiscFinFromPaymentRequest request) throws Exception {
+		TagDiscFinFromPaymentResponse response = new TagDiscFinFromPaymentResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? trimValue(request.getGenericHeader().getApartmentId())
+				: null;
+		String paymentId = trimValue(request != null ? request.getPaymentId() : null);
+		AddDiscfinRequest discfinRequestData = request != null ? request.getDiscfinRequestData() : null;
+		if (!hasText(apartmentId)) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+		if (!hasText(paymentId) || discfinRequestData == null) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+		List<PaymentEntity> paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId);
+		if (paymentEntities == null || paymentEntities.isEmpty()) {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_38);
+			return response;
+		}
+
+		AddDiscfinRequest addDiscfinRequest = createDiscfinRequestForPayment(request.getGenericHeader(), discfinRequestData);
+		AddDiscfinResponse addDiscfinResponse = discFinServices.addDiscfin(addDiscfinRequest);
+		response.setMessage(addDiscfinResponse.getMessage());
+		response.setMessageCode(addDiscfinResponse.getMessageCode());
+		response.setDiscFinId(addDiscfinResponse.getDiscFnId());
+		if (!hasText(addDiscfinResponse.getDiscFnId())) {
+			return response;
+		}
+
+		List<Map<String, String>> discFinEntries = mergeDiscFinEntries(paymentEntities);
+		discFinEntries.add(createDiscFinEntry(addDiscfinRequest.getDiscFnType(), addDiscfinResponse.getDiscFnId(),
+				SecuraConstants.DISC_FIN_STATUS_ACTIVE));
+		String serializedDiscFin = genericService.toJson(discFinEntries);
+		String updatedBy = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
+		for (PaymentEntity paymentEntity : paymentEntities) {
+			paymentEntity.setDiscFin(serializedDiscFin);
+			paymentEntity.setLstUpdtUsrId(updatedBy);
+		}
+		paymentRepository.saveAll(paymentEntities);
+		return response;
+	}
+
+	@Override
 	public LedgerEntryResponse ledgerEntry(LedgerEntryRequest request) throws Exception {
 		LedgerEntryResponse response = new LedgerEntryResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
@@ -950,18 +1005,12 @@ public class PaymentServices implements PaymentInterface {
 		}
 		List<Map<String, String>> discFin = new ArrayList<>();
 		if (hasText(request.getDiscountCode())) {
-			Map<String, String> discount = new LinkedHashMap<>();
-			discount.put("DISTFIN_TYPE", "DISCOUNT");
-			discount.put("code", request.getDiscountCode());
-			discount.put("Status", SecuraConstants.DISC_FIN_STATUS_ACTIVE);
-			discFin.add(discount);
+			discFin.add(createDiscFinEntry(SecuraConstants.DISC_FN_TYPE_DISCOUNT, request.getDiscountCode(),
+					SecuraConstants.DISC_FIN_STATUS_ACTIVE));
 		}
 		if (hasText(request.getFineCode())) {
-			Map<String, String> fine = new LinkedHashMap<>();
-			fine.put("DISTFIN_TYPE", "FINE");
-			fine.put("code", request.getFineCode());
-			fine.put("Status", SecuraConstants.DISC_FIN_STATUS_ACTIVE);
-			discFin.add(fine);
+			discFin.add(createDiscFinEntry(SecuraConstants.DISC_FN_TYPE_FINE, request.getFineCode(),
+					SecuraConstants.DISC_FIN_STATUS_ACTIVE));
 		}
 		if (discFin.isEmpty()) {
 			return null;
@@ -994,6 +1043,88 @@ public class PaymentServices implements PaymentInterface {
 
 	private boolean hasText(String value) {
 		return value != null && !value.isBlank();
+	}
+
+	private AddDiscfinRequest createDiscfinRequestForPayment(GenericHeader genericHeader, AddDiscfinRequest source) {
+		AddDiscfinRequest request = new AddDiscfinRequest();
+		request.setGenericHeader(genericHeader);
+		if (source == null) {
+			return request;
+		}
+		request.setDiscFnType(source.getDiscFnType());
+		request.setDueDateAsStartDateFlag(source.getDueDateAsStartDateFlag());
+		request.setDiscFnStrtDt(source.getDiscFnStrtDt());
+		request.setDiscFnEndDt(source.getDiscFnEndDt());
+		request.setDiscFnMode(source.getDiscFnMode());
+		request.setDiscFnCumlatonCycle(source.getDiscFnCumlatonCycle());
+		request.setDiscFnCycleType(source.getDiscFnCycleType());
+		request.setDiscFnValue(source.getDiscFnValue());
+		request.setDiscFinCycleDiscountList(source.getDiscFinCycleDiscountList());
+		request.setMinimumPaymentAmount(source.getMinimumPaymentAmount());
+		return request;
+	}
+
+	private List<Map<String, String>> mergeDiscFinEntries(List<PaymentEntity> paymentEntities) {
+		List<Map<String, String>> mergedEntries = new ArrayList<>();
+		Set<String> seenEntries = new LinkedHashSet<>();
+		if (paymentEntities == null) {
+			return mergedEntries;
+		}
+		for (PaymentEntity paymentEntity : paymentEntities) {
+			for (Map<String, String> discFinEntry : parseDiscFinEntries(paymentEntity != null ? paymentEntity.getDiscFin() : null)) {
+				String type = trimValue(discFinEntry.get("DISTFIN_TYPE"));
+				String code = trimValue(discFinEntry.get("code"));
+				String status = trimValue(discFinEntry.get("Status"));
+				String key = (type == null ? "" : type) + "|" + (code == null ? "" : code) + "|"
+						+ (status == null ? "" : status);
+				if (seenEntries.add(key)) {
+					mergedEntries.add(discFinEntry);
+				}
+			}
+		}
+		return mergedEntries;
+	}
+
+	private List<Map<String, String>> parseDiscFinEntries(String discFinJson) {
+		if (!hasText(discFinJson)) {
+			return List.of();
+		}
+		try {
+			List<Map<String, Object>> entries = genericService.fromJson(discFinJson,
+					new TypeReference<List<Map<String, Object>>>() {
+					});
+			if (entries == null || entries.isEmpty()) {
+				return List.of();
+			}
+			List<Map<String, String>> normalizedEntries = new ArrayList<>();
+			for (Map<String, Object> entry : entries) {
+				if (entry == null || entry.isEmpty()) {
+					continue;
+				}
+				String type = trimValue(stringValue(entry.get("DISTFIN_TYPE")));
+				String code = trimValue(stringValue(entry.get("code")));
+				String status = trimValue(stringValue(entry.get("Status")));
+				if (!hasText(type) && !hasText(code) && !hasText(status)) {
+					continue;
+				}
+				normalizedEntries.add(createDiscFinEntry(type, code, status));
+			}
+			return normalizedEntries;
+		} catch (Exception exception) {
+			return List.of();
+		}
+	}
+
+	private Map<String, String> createDiscFinEntry(String discFinType, String code, String status) {
+		Map<String, String> discFinEntry = new LinkedHashMap<>();
+		discFinEntry.put("DISTFIN_TYPE", trimValue(discFinType));
+		discFinEntry.put("code", trimValue(code));
+		discFinEntry.put("Status", hasText(status) ? trimValue(status) : SecuraConstants.DISC_FIN_STATUS_ACTIVE);
+		return discFinEntry;
+	}
+
+	private String stringValue(Object value) {
+		return value == null ? null : String.valueOf(value);
 	}
 
 	private List<String> resolvePaymentCollectionCycles(CreatePaymentRequest request) {

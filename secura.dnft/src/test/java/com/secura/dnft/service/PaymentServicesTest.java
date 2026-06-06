@@ -71,6 +71,8 @@ import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.ActionQRPaymentRequest;
 import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
+import com.secura.dnft.request.response.AddDiscfinRequest;
+import com.secura.dnft.request.response.AddDiscfinResponse;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CreateReceiptRequest;
 import com.secura.dnft.request.response.CreateReceiptResponse;
@@ -91,6 +93,8 @@ import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentRequest;
+import com.secura.dnft.request.response.TagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
@@ -118,6 +122,9 @@ class PaymentServicesTest {
 
 	@Mock
 	private DueDetailsService dueDetailsService;
+
+	@Mock
+	private DiscFinServices discFinServices;
 
 	@Mock
 	private FlatRepository flatRepository;
@@ -262,6 +269,95 @@ class PaymentServicesTest {
 		assertEquals(List.of("MONTHLY", "QUARTERLY"), payment.getPaymentCollectionCycleList());
 		assertEquals("DISC1", payment.getDiscountCode());
 		assertEquals("FINE1", payment.getFineCode());
+	}
+
+	@Test
+	void tagDiscFinFromPayment_shouldCreateDiscfinAndPersistMergedDiscfinJson() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		header.setUserId("USR-1");
+
+		AddDiscfinRequest discfinRequestData = new AddDiscfinRequest();
+		discfinRequestData.setDiscFnType(SecuraConstants.DISC_FN_TYPE_DISCOUNT);
+		discfinRequestData.setDiscFnMode(SecuraConstants.DISC_FN_MODE_PERCENTAGE);
+		discfinRequestData.setDiscFnValue("10");
+		discfinRequestData.setMinimumPaymentAmount("500");
+
+		TagDiscFinFromPaymentRequest request = new TagDiscFinFromPaymentRequest();
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-1");
+		request.setDiscfinRequestData(discfinRequestData);
+
+		PaymentEntity monthlyPayment = new PaymentEntity();
+		monthlyPayment.setPaymentId("PAY-1");
+		monthlyPayment.setAprmtId("APR-1");
+		monthlyPayment.setDiscFin("DISC_JSON_1");
+		PaymentEntity yearlyPayment = new PaymentEntity();
+		yearlyPayment.setPaymentId("PAY-1");
+		yearlyPayment.setAprmtId("APR-1");
+		yearlyPayment.setDiscFin("DISC_JSON_2");
+
+		AddDiscfinResponse addDiscfinResponse = new AddDiscfinResponse();
+		addDiscfinResponse.setGenericHeader(header);
+		addDiscfinResponse.setDiscFnId("DFNDISCOUNT1001");
+		addDiscfinResponse.setMessage(SuccessMessage.SUCC_MESSAGE_29);
+		addDiscfinResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_29);
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-1", "APR-1")).thenReturn(List.of(monthlyPayment, yearlyPayment));
+		when(discFinServices.addDiscfin(argThat(addRequest -> addRequest != null
+				&& addRequest.getGenericHeader() == header
+				&& SecuraConstants.DISC_FN_TYPE_DISCOUNT.equals(addRequest.getDiscFnType())
+				&& SecuraConstants.DISC_FN_MODE_PERCENTAGE.equals(addRequest.getDiscFnMode())
+				&& "10".equals(addRequest.getDiscFnValue())
+				&& "500".equals(addRequest.getMinimumPaymentAmount())))).thenReturn(addDiscfinResponse);
+		when(genericService.fromJson(eq("DISC_JSON_1"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "FINE", "code", "FINE1", "Status", "Inactive")));
+		when(genericService.fromJson(eq("DISC_JSON_2"), any(TypeReference.class)))
+				.thenReturn(List.of(Map.of("DISTFIN_TYPE", "DISCOUNT", "code", "DISC1", "Status", SecuraConstants.DISC_FIN_STATUS_ACTIVE)));
+		when(genericService.toJson(any())).thenReturn("MERGED_DISC_FIN_JSON");
+		when(paymentRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		TagDiscFinFromPaymentResponse response = paymentServices.tagDiscFinFromPayment(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_29, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_29, response.getMessageCode());
+		assertEquals("DFNDISCOUNT1001", response.getDiscFinId());
+		ArgumentCaptor<Object> discFinCaptor = ArgumentCaptor.forClass(Object.class);
+		verify(genericService).toJson(discFinCaptor.capture());
+		@SuppressWarnings("unchecked")
+		List<Map<String, String>> serializedEntries = (List<Map<String, String>>) discFinCaptor.getValue();
+		assertEquals(3, serializedEntries.size());
+		assertEquals("FINE1", serializedEntries.get(0).get("code"));
+		assertEquals("DISC1", serializedEntries.get(1).get("code"));
+		assertEquals("DFNDISCOUNT1001", serializedEntries.get(2).get("code"));
+		assertEquals(SecuraConstants.DISC_FN_TYPE_DISCOUNT, serializedEntries.get(2).get("DISTFIN_TYPE"));
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<PaymentEntity>> paymentCaptor = ArgumentCaptor.forClass((Class) List.class);
+		verify(paymentRepository).saveAll(paymentCaptor.capture());
+		List<PaymentEntity> savedPayments = paymentCaptor.getValue();
+		assertEquals(2, savedPayments.size());
+		assertTrue(savedPayments.stream().allMatch(payment -> "MERGED_DISC_FIN_JSON".equals(payment.getDiscFin())));
+		assertTrue(savedPayments.stream().allMatch(payment -> "USR-1".equals(payment.getLstUpdtUsrId())));
+	}
+
+	@Test
+	void tagDiscFinFromPayment_shouldReturnNoPaymentFoundWhenPaymentDoesNotExist() throws Exception {
+		GenericHeader header = new GenericHeader();
+		header.setApartmentId("APR-1");
+		TagDiscFinFromPaymentRequest request = new TagDiscFinFromPaymentRequest();
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY-404");
+		request.setDiscfinRequestData(new AddDiscfinRequest());
+
+		when(paymentRepository.findByPaymentIdAndAprmtId("PAY-404", "APR-1")).thenReturn(List.of());
+
+		TagDiscFinFromPaymentResponse response = paymentServices.tagDiscFinFromPayment(request);
+
+		assertEquals(SuccessMessage.SUCC_MESSAGE_38, response.getMessage());
+		assertEquals(SuccessMessageCode.SUCC_MESSAGE_38, response.getMessageCode());
+		assertNull(response.getDiscFinId());
+		verify(discFinServices, never()).addDiscfin(any());
+		verify(paymentRepository, never()).saveAll(any());
 	}
 
 	@Test
