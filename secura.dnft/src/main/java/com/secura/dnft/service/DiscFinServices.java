@@ -1,6 +1,7 @@
 package com.secura.dnft.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +23,10 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.DiscFinInterface;
 import com.secura.dnft.request.response.AddDiscfinRequest;
 import com.secura.dnft.request.response.AddDiscfinResponse;
+import com.secura.dnft.request.response.DeTagDiscFinFromPaymentResponse;
 import com.secura.dnft.request.response.DeleteDiscfinRequest;
 import com.secura.dnft.request.response.DeleteDiscfinResponse;
+import com.secura.dnft.request.response.DetagDiscFinFromPaymentRequest;
 import com.secura.dnft.request.response.DiscFinCycleDiscount;
 import com.secura.dnft.request.response.DiscfinRequestData;
 import com.secura.dnft.request.response.GetDiscfinRequest;
@@ -252,10 +255,16 @@ public class DiscFinServices implements DiscFinInterface {
 		if (SuccessMessageCode.SUCC_MESSAGE_29.equals(addResponse.getMessageCode())) {
 			String paymentId = request != null ? request.getPaymentId() : null;
 			if (paymentId != null && !paymentId.isBlank()) {
-				List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentId(paymentId);
+				List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentIdAndAprmtId(paymentId,request.getGenericHeader().getApartmentId());
 				if (paymentEntityList != null && !paymentEntityList.isEmpty()) {
-					String discFinJson = paymentEntityList.get(0).getDiscFin();
-					response.setDiscFinCodes(extractAllDiscFinCodes(discFinJson));
+					PaymentEntity paymentEntity=paymentEntityList.get(0);
+					String discFinJson = paymentEntity.getDiscFin();
+					List<Map<String, Object>> entries =getUpdatedDisFinjson(discFinJson,addRequest.getDiscFnType(),addResponse.getDiscFnId());
+					if(null!=entries && !entries.isEmpty()) {
+						String discFinUpdatedJson=genericService.toJson(entries);
+						paymentEntity.setDiscFin(discFinUpdatedJson);
+						paymentRepository.save(paymentEntity);
+					}
 				}
 			}
 		}
@@ -282,10 +291,10 @@ public class DiscFinServices implements DiscFinInterface {
 		return addRequest;
 	}
 
-	private List<String> extractAllDiscFinCodes(String discFinJson) {
-		List<String> codes = new ArrayList<>();
+	private List<Map<String, Object>>  getUpdatedDisFinjson(String discFinJson, String discFinType, String discFinCode) {
+		//List<String> codes = new ArrayList<>();
 		if (discFinJson == null || discFinJson.isBlank()) {
-			return codes;
+			return null;
 		}
 		try {
 			List<Map<String, Object>> entries = genericService.fromJson(discFinJson,
@@ -296,19 +305,42 @@ public class DiscFinServices implements DiscFinInterface {
 					if (entry == null) {
 						continue;
 					}
-					Object codeObj = entry.get("code");
-					if (codeObj != null) {
-						String code = codeObj.toString();
-						if (!code.isBlank()) {
-							codes.add(code);
+					String type = stringValue(entry.get("DISTFIN_TYPE"));
+					if(discFinType.equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
+						if(type.equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
+							entry.put("Status", SecuraConstants.DISC_FIN_STATUS_INACTIVE);
 						}
 					}
+					if(discFinType.equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_FINE)) {
+						if(type.equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_FINE)) {
+							entry.put("Status", SecuraConstants.DISC_FIN_STATUS_INACTIVE);
+						}
+					}
+					
 				}
+				
+				Map<String, Object> newDiscFinEntry= new HashMap();
+				if(discFinType.equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
+				newDiscFinEntry.put("DISTFIN_TYPE", SecuraConstants.DISC_FN_TYPE_DISCOUNT);
+				}
+				if(discFinType.equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_FINE)) {
+					newDiscFinEntry.put("DISTFIN_TYPE", SecuraConstants.DISC_FN_TYPE_FINE);
+				}
+				newDiscFinEntry.put("code", discFinCode);
+				newDiscFinEntry.put("Status", SecuraConstants.DISC_FIN_STATUS_ACTIVE);
+				
+				entries.add(newDiscFinEntry);
+				return entries;
+				
 			}
 		} catch (Exception ex) {
 			LOGGER.warn("Failed to parse discFin JSON while extracting codes: {}", ex.getMessage());
 		}
-		return codes;
+		return null;
+	}
+	
+	private String stringValue(Object value) {
+		return value == null ? null : value.toString();
 	}
 
 	private String createDiscFnId(String discFnType) {
@@ -320,5 +352,42 @@ public class DiscFinServices implements DiscFinInterface {
 			}
 		}
 		throw new IllegalStateException("Unable to generate unique discFnId");
+	}
+
+	@Override
+	public DeTagDiscFinFromPaymentResponse deTagDiscFinFromPayment(DetagDiscFinFromPaymentRequest request)
+			throws Exception {
+		DeTagDiscFinFromPaymentResponse deTagDiscFinFromPaymentResponse = new DeTagDiscFinFromPaymentResponse();
+		List<PaymentEntity> paymentEntityList = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(),request.getGenericHeader().getApartmentId());
+		PaymentEntity paymentEntity= paymentEntityList.get(0);
+		
+	    String discFinJson= paymentEntity.getDiscFin();
+	    List<Map<String, Object>> entries = genericService.fromJson(discFinJson,
+				new TypeReference<List<Map<String, Object>>>() {
+				});
+	    if (entries != null) {
+			for (Map<String, Object> entry : entries) {
+				if(request.getDiscFinType().equals(SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
+					if(stringValue(entry.get("DISTFIN_TYPE")).equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_DISCOUNT)) {
+						entry.put("Status",  SecuraConstants.DISC_FIN_STATUS_INACTIVE);
+					}
+				}
+				
+				if(request.getDiscFinType().equals(SecuraConstants.DISC_FN_TYPE_FINE)) {
+					if(stringValue(entry.get("DISTFIN_TYPE")).equalsIgnoreCase(SecuraConstants.DISC_FN_TYPE_FINE)) {
+						entry.put("Status",  SecuraConstants.DISC_FIN_STATUS_INACTIVE);
+					}
+				}
+				
+				}
+			}
+	    
+	    discFinJson=genericService.toJson(entries);
+	    paymentEntity.setDiscFin(discFinJson);
+	    paymentRepository.save(paymentEntity);
+	    deTagDiscFinFromPaymentResponse.setGenericHeader(request.getGenericHeader());
+	    deTagDiscFinFromPaymentResponse.setMessage(SuccessMessageCode.SUCC_MESSAGE_50);
+	    deTagDiscFinFromPaymentResponse.setMessageCode(SuccessMessage.SUCC_MESSAGE_50);
+		return deTagDiscFinFromPaymentResponse;
 	}
 }

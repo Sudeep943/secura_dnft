@@ -1,14 +1,10 @@
 package com.secura.dnft.request.response;
 
-import java.util.List;
-
-public class TagDiscFinFromPaymentResponse {
+public class DeTagDiscFinFromPaymentResponse {
 
 	private GenericHeader genericHeader;
 	private String message;
 	private String messageCode;
-	private String discFinId;
-//	private List<String> discFinCodes;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -34,19 +30,4 @@ public class TagDiscFinFromPaymentResponse {
 		this.messageCode = messageCode;
 	}
 
-	public String getDiscFinId() {
-		return discFinId;
-	}
-
-	public void setDiscFinId(String discFinId) {
-		this.discFinId = discFinId;
-	}
-//
-//	public List<String> getDiscFinCodes() {
-//		return discFinCodes;
-//	}
-//
-//	public void setDiscFinCodes(List<String> discFinCodes) {
-//		this.discFinCodes = discFinCodes;
-//	}
 }

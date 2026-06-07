@@ -49,5 +49,6 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_45="Defaulter List Fetched Successfully" ;
 	public final String SUCC_MESSAGE_46="Prior Due Payment Validation Successful" ;
 	public final String SUCC_MESSAGE_47="Transaction review updated successfully" ;
+	public final String SUCC_MESSAGE_50="Discout Detaged Successfully" ;
 
 }

@@ -576,11 +576,15 @@ public class PaymentServices implements PaymentInterface {
 			}
 			String discFinType = trimValue(discFin.get("DISTFIN_TYPE"));
 			String code = trimValue(discFin.get("code"));
+			String status = trimValue(discFin.get("Status"));
+			
+			if(status.equalsIgnoreCase(SecuraConstants.DISC_FIN_STATUS_ACTIVE)) {
 			if ("DISCOUNT".equalsIgnoreCase(discFinType) && paymentModel.getDiscountCode() == null) {
 				paymentModel.setDiscountCode(code);
 			}
 			if ("FINE".equalsIgnoreCase(discFinType) && paymentModel.getFineCode() == null) {
 				paymentModel.setFineCode(code);
+			}
 			}
 		}
 	}
@@ -1893,7 +1897,7 @@ public class PaymentServices implements PaymentInterface {
 		createPaymentRequest.setPaymentCollectionCycleList(List.of(SecuraConstants.PAYMENT_CYCLE_ONCE));
 		createPaymentRequest.setPaymentCollectionMode("PRE");
 		createPaymentRequest.setApplicableFor(List.of(row.flatId.trim()));
-		createPaymentRequest.setAllowedPaymentModes(List.of("ONLINE", "CASH", "CHEQUE","SOCIETY_QR"));
+		createPaymentRequest.setAllowedPaymentModes(List.of("ONLINE", "CASH", "CHEQUE","QR_PAYMENT"));
 		createPaymentRequest.setPaymentType("MANDATORY");
 		createPaymentRequest.setPartialPaymentAllowed(false);
 		createPaymentRequest.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
