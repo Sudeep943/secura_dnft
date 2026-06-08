@@ -41,7 +41,7 @@ public class Profile {
     @Column(name = "prfl_othr_adrss" , columnDefinition = "TEXT")
     private String prflOthrAdrss;
     
-    @Column(name = "prfl_access")
+    @Column(name = "prfl_access" , columnDefinition = "TEXT")
     private String prfl_access;
     
     @Column(name = "profile_pic" , columnDefinition = "TEXT")
