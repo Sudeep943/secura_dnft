@@ -15,7 +15,7 @@ public interface RoleAndAccessServicesInterface {
 	boolean validateAccess (String userID, String accessConstant) throws Exception;
 	UpdateAccessResponse updateAccess(UpdateAccessRequest updateAccessRequest) throws Exception;
 	CreateRoleResponse createRole(CreateRoleRequest createRoleRequest) throws Exception;
-	UpdateRoleResponse createRole(UpdateRoleRequest updateRoleRequest) throws Exception;
+	UpdateRoleResponse updateRole(UpdateRoleRequest updateRoleRequest) throws Exception;
 
 	
 

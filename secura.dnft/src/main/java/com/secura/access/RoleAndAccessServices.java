@@ -71,7 +71,7 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 	}
 
 	@Override
-	public UpdateRoleResponse createRole(UpdateRoleRequest updateRoleRequest) throws Exception {
+	public UpdateRoleResponse updateRole(UpdateRoleRequest updateRoleRequest) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}
