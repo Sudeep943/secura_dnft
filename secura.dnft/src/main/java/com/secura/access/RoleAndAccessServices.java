@@ -1,6 +1,5 @@
 package com.secura.access;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -12,6 +11,7 @@ import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.RoleRepository;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.RoleEntity;
+import com.secura.dnft.entity.RoleEntityId;
 import com.secura.dnft.request.response.CreateRoleRequest;
 import com.secura.dnft.request.response.CreateRoleResponse;
 import com.secura.dnft.request.response.UpdateAccessRequest;
@@ -37,20 +37,34 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 	public Access getAllAccess(String userID, String aprtmentId, String position) throws Exception {
 		// TODO Auto-generated method stub
 		Optional<Profile> prfl = profileRepository.findById(userID);
+		Access access = new Access();
 		if(prfl.isPresent()) {
 			Profile profile=prfl.get();
 			Map<String, Access> accessList=genericService.fromJson(profile.getPrfl_access(),
 					new TypeReference<Map<String, Access>>() {
 					});
-			Access access= accessList.get(aprtmentId);
+			access= accessList.get(aprtmentId);
 			if(null!=access) {
 				return access;
 			}
 			
+		
+		return access;
+		}
+		else {
+			RoleEntityId roleId= new RoleEntityId();
+			roleId.setRoleId(position);
+			roleId.setAprtrmntId(aprtmentId);
+			Optional<RoleEntity> roleEntity =roleRepository.findById(roleId);
+			
+			if(roleEntity.isPresent()) {
+				access=genericService.fromJson(roleEntity.get().getAccess(),Access.class);
+				return access;
+		}
 			
 		}
+		return access;
 		
-		return null;
 	}
 
 	@Override
