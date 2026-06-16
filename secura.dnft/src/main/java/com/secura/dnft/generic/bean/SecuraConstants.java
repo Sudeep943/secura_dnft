@@ -35,6 +35,7 @@ public interface SecuraConstants {
 	
 	public final String PROFILE_TYPE_OWNER="OWNER" ;
 	public final String PROFILE_TYPE_TENANT="TENANT" ;
+	public final String PROFILE_TYPE_MEMBER="MEMBER" ;
 	public final String PROFILE_TYPE_STAFF="STAFF" ;
 	
 	public final String NOTICE_ID_PREFIX="NOTC" ;
@@ -100,6 +101,13 @@ public interface SecuraConstants {
 
 	public final String DISC_FIN_STATUS_ACTIVE = "Active";
 	public final String DISC_FIN_STATUS_INACTIVE = "InActive";
+
+	public final String ADD_OWNER="ADD_OWNER" ;
+	public final String ADD_TENANT="ADD_TENANT" ;
+	public final String REMOVE_TENANT="REMOVE_OWNER" ;
+	public final String REMOVE_OWNER="REMOVE_TENANT" ;
+
+
 
 
 

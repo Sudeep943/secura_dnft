@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -57,6 +59,7 @@ import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 import com.secura.dnft.security.BusinessException;
+import com.secura.dnft.security.LoginException;
 import com.secura.dnft.validation.ProfileServiceValidation;
 
 @Service
@@ -110,11 +113,36 @@ public class ProfileServices {
 			ProfileAccountDetails accountDetails = new ProfileAccountDetails();
 			accountDetails.setApartmentId(request.getHeader().getApartmentId());
 			accountDetails.setApartmentName(profileId);
-			List<String> flatIds = new ArrayList<>();
-			flatIds.add(request.getProfileFlatNo());
-			accountDetails.setFlatId(flatIds);
+			Map<String,List<String>> flatDetailsMap = new HashMap<>();
+			//List<String> flatIds = new ArrayList<>();
+			//flatIds.add(request.getProfileFlatNo());
+			if (request.getProfileType().equals(SecuraConstants.PROFILE_TYPE_OWNER)) {
+				List<String> flatIds=flatDetailsMap.get(SecuraConstants.PROFILE_TYPE_OWNER);
+				if(null!=flatIds && !flatIds.isEmpty()) {
+					flatIds.add(request.getProfileFlatNo());
+				}
+				else {
+					flatIds = new ArrayList<>();
+					flatIds.add(request.getProfileFlatNo());
+				}
+				flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_OWNER, flatIds);
+			}
+			if (request.getProfileType().equals(SecuraConstants.PROFILE_TYPE_TENANT)) {
+				List<String> flatIds=flatDetailsMap.get(SecuraConstants.PROFILE_TYPE_TENANT);
+				if(null!=flatIds && !flatIds.isEmpty()) {
+					flatIds.add(request.getProfileFlatNo());
+				}
+				else {
+					flatIds = new ArrayList<>();
+					flatIds.add(request.getProfileFlatNo());
+				}
+				flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_TENANT, flatIds);
+			}
+			accountDetails.setFlatDetailsMap(flatDetailsMap);
+			//accountDetails.setFlatId(flatIds);
 			accountDetails.setPosition(request.getProfilePosition());
-			accountDetails.setProfileType(request.getProfileType());
+			//accountDetails.setProfileType(request.getProfileType());
+			accountDetails.setRole("RL" + request.getHeader().getApartmentId() +"1");
 			accountDetails.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
 			accontDetailsList.add(accountDetails);
 			String name = genericService.toJson(request.getProfileName());
@@ -166,10 +194,35 @@ public class ProfileServices {
 						ProfileAccountDetails details = new ProfileAccountDetails();
 						details.setApartmentId(name);
 						List<String> flatIds = new ArrayList<>();
-						flatIds.add(request.getProfileFlatNo());
-						details.setFlatId(flatIds);
+						//flatIds.add(request.getProfileFlatNo());
+						Map<String,List<String>> flatDetailsMap = new HashMap<>();
+						//List<String> flatIds = new ArrayList<>();
+						//flatIds.add(request.getProfileFlatNo());
+						if (request.getProfileType().equals(SecuraConstants.PROFILE_TYPE_OWNER)) {
+							 flatIds=flatDetailsMap.get(SecuraConstants.PROFILE_TYPE_OWNER);
+							if(null!=flatIds && !flatIds.isEmpty()) {
+								flatIds.add(request.getProfileFlatNo());
+							}
+							else {
+								flatIds = new ArrayList<>();
+								flatIds.add(request.getProfileFlatNo());
+							}
+							flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_OWNER, flatIds);
+						}
+						if (request.getProfileType().equals(SecuraConstants.PROFILE_TYPE_TENANT)) {
+							flatIds=flatDetailsMap.get(SecuraConstants.PROFILE_TYPE_TENANT);
+							if(null!=flatIds && !flatIds.isEmpty()) {
+								flatIds.add(request.getProfileFlatNo());
+							}
+							else {
+								flatIds = new ArrayList<>();
+								flatIds.add(request.getProfileFlatNo());
+							}
+							flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_TENANT, flatIds);
+						}
+						details.setFlatDetailsMap(flatDetailsMap);
 						details.setPosition(request.getProfilePosition());
-						details.setProfileType(request.getProfileType());
+						//details.setProfileType(request.getProfileType());
 						details.setRole(request.getRole());
 						details.setStatus(request.getProfileStatus());
 						accountDetails.add(details);
@@ -180,7 +233,7 @@ public class ProfileServices {
 								.findFirst();
 						if (details.isPresent()) {
 							details.get().setPosition(request.getProfilePosition());
-							details.get().setProfileType(request.getProfileType());
+							//details.get().setProfileType(request.getProfileType());
 							details.get().setRole(request.getRole());
 						}
 					}
@@ -215,10 +268,10 @@ public class ProfileServices {
 		GetProfileResponse getProfileResponse = new GetProfileResponse();
 
 		try {
-			Optional<Profile> profile = profileRepository.findById(request.getProfileID());
-
+			//Optional<Profile> profile = profileRepository.findById(request.getProfileID());
+			Optional<Profile> profile=Optional.of(getProfileEntity(request.getProfileID()));
 			if (profile.isPresent()) {
-				getProfileResponse = new GetProfileResponse(profile.get(), request.getGenericHeader().getApartmentId());
+				getProfileResponse = new GetProfileResponse(profile.get(), request.getGenericHeader());
 				getProfileResponse.setPrflName(genericService.fromJson(profile.get().getPrflName(), Name.class));
 				getProfileResponse
 						.setPrflOthrAdrss(genericService.fromJson(profile.get().getPrflOthrAdrss(), Address.class));
@@ -534,7 +587,7 @@ public class ProfileServices {
 		return responseList;
 	}
 	
-	public AddTenantResponse addTenant(AddTenantRequest request) {
+	public AddTenantResponse addTenant(AddTenantRequest request) throws Exception {
 		AddTenantResponse response = new AddTenantResponse();
 		response.setHeader(request.getHeader());
 		boolean profileExits = profileValidation.validateOwnerTenantExits(request.getFlatId(),
@@ -542,6 +595,8 @@ public class ProfileServices {
 		String tenantId;
 		try {
 			tenantId = createTenantProfile(request.getProfileId(), request.getAddtoExisting(), profileExits,request.getFlatId(),request.getHeader());
+			updateProfileDeatails(request.getProfileId(), request.getHeader().getApartmentId(),request.getFlatId(), SecuraConstants.ADD_TENANT);
+
 			if(null!=tenantId) {
 				response.setMessage(SuccessMessage.SUCC_MESSAGE_16);
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_16);
@@ -555,7 +610,7 @@ public class ProfileServices {
 		return response;
 	}
 
-	public AddOwnerResponse addOwner(AddOwnerRequest request) {
+	public AddOwnerResponse addOwner(AddOwnerRequest request) throws Exception {
 		AddOwnerResponse response = new AddOwnerResponse();
 		response.setHeader(request.getHeader());
 		boolean profileExits = profileValidation.validateOwnerTenantExits(request.getFlatId(),
@@ -563,6 +618,8 @@ public class ProfileServices {
 		String ownerId;
 		try {
 			ownerId = createOwnerProfile(request.getProfileId(), request.getAddtoExisting(), profileExits, request.getFlatId(), request.getHeader());
+			updateProfileDeatails(request.getProfileId(), request.getHeader().getApartmentId(),request.getFlatId(), SecuraConstants.ADD_OWNER);
+			
 			if(null!=ownerId) {
 				response.setMessage(SuccessMessage.SUCC_MESSAGE_17);
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_17);
@@ -576,14 +633,60 @@ public class ProfileServices {
 		return response;
 	}
 	
+	
+	private void updateProfileDeatails(String profileId, String apartmentId, String flatId, String operation) throws Exception {
+		Optional<Profile> profiles = profileRepository.findById(profileId);
+		if(profiles.isPresent()) {
+			Profile prfl = profiles.get();
+			List<ProfileAccountDetails> accountDetailsList = genericService.fromJson(prfl.getPrflAcountDetails(),
+					new TypeReference<List<ProfileAccountDetails>>() {
+					});
+			for(ProfileAccountDetails accountDetail: accountDetailsList) {
+			if(accountDetail.getApartmentId().equals(apartmentId)) {
+				if(operation.equals(SecuraConstants.ADD_OWNER) && null!=accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_OWNER) &&  !accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_OWNER).contains(flatId)) {
+					accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_OWNER).add(flatId);
+				}
+				if(operation.equals(SecuraConstants.ADD_TENANT)) {
+					if(null!=accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT) && !accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT).contains(flatId)) {
+						accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT).add(flatId);
+					}
+					else if(null==accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT)) {
+						List<String> flatList = new ArrayList<>();
+						flatList.add(flatId);
+						accountDetail.getFlatDetailsMap().put(SecuraConstants.PROFILE_TYPE_TENANT, flatList);
+					}
+				}
+				if(operation.equals(SecuraConstants.REMOVE_OWNER) && null!=accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_OWNER) && accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_OWNER).contains(flatId)) {
+					accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_OWNER).remove(flatId);
+				}
+				if(operation.equals(SecuraConstants.REMOVE_TENANT) && null!=accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT) && accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT).contains(flatId)) {
+					accountDetail.getFlatDetailsMap().get(SecuraConstants.PROFILE_TYPE_TENANT).remove(flatId);
+				}
+				break;
+			}
+			
+			}
+			prfl.setPrflAcountDetails(genericService.toJson(accountDetailsList));
+			profileRepository.save(prfl);
+			
+		}
+		else {
+				throw new Exception();
+		}
+
+		
+	}
 	public RemoveOwnerTenantProfileResponse removeProfileFromOwnerTenant(RemoveOwnerTenantProfileRequest request) {
 		RemoveOwnerTenantProfileResponse response = new RemoveOwnerTenantProfileResponse();
 		response.setHeader(request.getHeader());
 		try {
 			if (SecuraConstants.PROFILE_TYPE_OWNER.equals(request.getProfileType())) {
 				removeOwnerProfile(request);
+				updateProfileDeatails(request.getId(), request.getHeader().getApartmentId(),request.getFlatId(), SecuraConstants.REMOVE_OWNER);
 			} else if (SecuraConstants.PROFILE_TYPE_TENANT.equals(request.getProfileType())) {
 				removeTenantProfile(request);
+				updateProfileDeatails(request.getId(), request.getHeader().getApartmentId(),request.getFlatId(), SecuraConstants.REMOVE_TENANT);
+
 			} else {
 				throw new BusinessException(ErrorMessage.ERR_MESSAGE_33, ErrorMessageCode.ERR_MESSAGE_33);
 			}
@@ -670,5 +773,25 @@ public class ProfileServices {
 		newTenant.setPrflId(genericService.toJson(updatedProfiles));
 		newTenant.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
 		tenantRepository.save(newTenant);
+	}
+	
+	public Profile getProfileEntity(String id) throws BusinessException {
+		Optional<Profile> profile = java.util.Optional.empty();
+		Optional<Profile> prfl = profileRepository.findById(id);
+		if (prfl.isEmpty()) {
+			List<Profile> profileByphoneList=profileRepository.findByPrflPhoneNo(id);
+			if(null!=profileByphoneList && !profileByphoneList.isEmpty()) {
+				Profile profileByphone=profileByphoneList.get(0);
+				profile = Optional.ofNullable(profileByphone);
+				}
+			else {
+					throw new BusinessException(ErrorMessage.ERR_MESSAGE_55, ErrorMessageCode.ERR_MESSAGE_55);
+			}
+			
+		} else {
+			profile = prfl;
+		}
+		return profile.get();
+		
 	}
 }

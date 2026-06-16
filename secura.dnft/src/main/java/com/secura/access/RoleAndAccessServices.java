@@ -1,5 +1,6 @@
 package com.secura.access;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,8 +35,7 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 	RoleRepository roleRepository;
 	
 	@Override
-	public Access getAllAccess(String userID, String aprtmentId, String position) throws Exception {
-		// TODO Auto-generated method stub
+	public Access getAllAccess(String userID, String aprtmentId, String userRole) throws Exception {
 		Optional<Profile> prfl = profileRepository.findById(userID);
 		Access access = new Access();
 		if(prfl.isPresent()) {
@@ -47,23 +47,18 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 			if(null!=access) {
 				return access;
 			}
-			
+			else {
+				List<RoleEntity> allRoles=roleRepository.findAll();
+				Optional<RoleEntity> role= allRoles.stream().filter(rl->rl.getRoleName().equals(userRole)).findFirst();
+				if(role.isPresent()) {
+					access=genericService.fromJson(role.get().getAccess(),Access.class);
+					return access;
+			}
+				
+			}
+		}
 		
-		return access;
-		}
-		else {
-			RoleEntityId roleId= new RoleEntityId();
-			roleId.setRoleId(position);
-			roleId.setAprtrmntId(aprtmentId);
-			Optional<RoleEntity> roleEntity =roleRepository.findById(roleId);
-			
-			if(roleEntity.isPresent()) {
-				access=genericService.fromJson(roleEntity.get().getAccess(),Access.class);
-				return access;
-		}
-			
-		}
-		return access;
+		return buildDefaultAccess();
 		
 	}
 
@@ -119,7 +114,7 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 
 	private Access buildDefaultAccess() {
 		AccountManagmentAccess accountManagmentAccess = new AccountManagmentAccess();
-		accountManagmentAccess.setParentAccess(false);
+		accountManagmentAccess.setParentAccess(true);
 		accountManagmentAccess.setCreateUpdateProfileAccess(false);
 		accountManagmentAccess.setViewAllProfile(false);
 		accountManagmentAccess.setAllTenantManagement(false);
@@ -139,13 +134,13 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 		adminAccess.setSocietyDetailsManagmentparentAccess(false);
 
 		BookingAccess bookingAccess = new BookingAccess();
-		bookingAccess.setParentAccess(false);
+		bookingAccess.setParentAccess(true);
 		bookingAccess.setViewAllBookingtAccess(false);
 		bookingAccess.setCreateSoceityBookingtAccess(false);
 		bookingAccess.setManageBookingtAccess(false);
 
 		FinanceAccess financeAccess = new FinanceAccess();
-		financeAccess.setParentAccess(false);
+		financeAccess.setParentAccess(true);
 		financeAccess.setLedgerEntryAccess(false);
 		financeAccess.setCreateNewPaymentAccess(false);
 		financeAccess.setUpdatePaymentAccess(false);
@@ -156,7 +151,7 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 		financeAccess.setBudgetManagment(false);
 
 		MeetingAndNoticeAccess meetingAndNoticeAccess = new MeetingAndNoticeAccess();
-		meetingAndNoticeAccess.setParentAccess(false);
+		meetingAndNoticeAccess.setParentAccess(true);
 		meetingAndNoticeAccess.setScheduleMeetingAccess(false);
 		meetingAndNoticeAccess.setUpdateMeetingAccess(false);
 		meetingAndNoticeAccess.setUpdateMOMgAccess(false);
@@ -166,9 +161,9 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 		meetingAndNoticeAccess.setCreatePollAccess(false);
 
 		ReportAccess reportAccess = new ReportAccess();
-		reportAccess.setParentAccess(false);
-		reportAccess.setViewTotalsAccess(false);
-		reportAccess.setDashboardAccess(false);
+		reportAccess.setParentAccess(true);
+		reportAccess.setViewTotalsAccess(true);
+		reportAccess.setDashboardAccess(true);
 		reportAccess.setBalanceSheetAccess(false);
 		reportAccess.setTaxSheetAccess(false);
 		reportAccess.setPaymentWiseCollectionAccess(false);
@@ -176,13 +171,13 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 		reportAccess.setPenaltyReportAccess(false);
 
 		SecurityAccess securityAccess = new SecurityAccess();
-		securityAccess.setParentAccess(false);
+		securityAccess.setParentAccess(true);
 		securityAccess.setCreateAllFlatEntryAccess(false);
 		securityAccess.setCreateDailyVisitorEntryAccess(false);
 		securityAccess.setCreateVehiclePass(false);
 
 		TicketManagementAccess ticketManagementAccess = new TicketManagementAccess();
-		ticketManagementAccess.setParentAccess(false);
+		ticketManagementAccess.setParentAccess(true);
 		ticketManagementAccess.setViewAllTicketAccess(false);
 		ticketManagementAccess.setReAsignTicketAccess(false);
 		ticketManagementAccess.setTicketHeadAccess(false);

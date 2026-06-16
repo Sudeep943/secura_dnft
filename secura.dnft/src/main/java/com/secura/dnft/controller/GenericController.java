@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
+import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.service.GenericService;
 
 @CrossOrigin(origins = "*")
@@ -24,7 +25,11 @@ public class GenericController {
 	    @CrossOrigin(origins = "*")
 	    public DashBordDataResponce dashBordData(@RequestBody GenericHeader header) {
 		  DashBordDataResponce dashBordDataResponce = new DashBordDataResponce();
-		  dashBordDataResponce=genericService.getDashBoardData(header);
+		  try {
+			dashBordDataResponce=genericService.getDashBoardData(header);
+		} catch (BusinessException e) {
+			e.printStackTrace();
+		}
 	    	return dashBordDataResponce;
 	            }
 

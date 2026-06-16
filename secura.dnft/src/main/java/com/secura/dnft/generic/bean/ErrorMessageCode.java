@@ -55,4 +55,7 @@ public interface ErrorMessageCode {
 	public final String ERR_MESSAGE_51="ERR_MESSAGE_51" ;
 	public final String ERR_MESSAGE_52="ERR_MESSAGE_52" ;
 	public final String ERR_MESSAGE_53="ERR_MESSAGE_53" ;
+	public final String ERR_MESSAGE_54="ERR_MESSAGE_54" ;
+	public final String ERR_MESSAGE_55="ERR_MESSAGE_55" ;
+
 }

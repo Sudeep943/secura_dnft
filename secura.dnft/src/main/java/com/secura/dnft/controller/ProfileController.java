@@ -125,7 +125,12 @@ public class ProfileController {
    @CrossOrigin(origins = "*")
    public AddTenantResponse addTenant(@RequestBody AddTenantRequest request) {
 	   AddTenantResponse response = new AddTenantResponse();
-	   response=profileServices.addTenant(request);
+	   try {
+		response=profileServices.addTenant(request);
+	} catch (Exception e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
    	return response;
            }
 
@@ -133,7 +138,12 @@ public class ProfileController {
    @CrossOrigin(origins = "*")
    public AddOwnerResponse addOwner(@RequestBody AddOwnerRequest request) {
 	   AddOwnerResponse response = new AddOwnerResponse();
-	   response=profileServices.addOwner(request);
+	   try {
+		response=profileServices.addOwner(request);
+	} catch (Exception e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
    	return response;
            }
    

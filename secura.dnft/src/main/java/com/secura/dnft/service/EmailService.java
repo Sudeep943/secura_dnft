@@ -145,7 +145,7 @@ public class EmailService implements EmailInterface {
     // -------------------------------------------------------------------------
 
     @Override
-    @Scheduled(cron = "0 */1 * * * *")
+   // @Scheduled(cron = "0 */1 * * * *")
     public void sendPaymentEmail() {
         logger.info("EmailService.sendEmail() started");
         try {
@@ -162,7 +162,7 @@ public class EmailService implements EmailInterface {
 
     
     @Override
-    @Scheduled(cron = "0 */1 * * * *")
+   // @Scheduled(cron = "0 */1 * * * *")
     public void sendTransactionEmail() {
         logger.info("EmailService.sendEmail() started");
         try {
@@ -197,7 +197,7 @@ public class EmailService implements EmailInterface {
     
     
     @Override
-    @Scheduled(cron = "0 0 4 * * *")
+  //  @Scheduled(cron = "0 0 4 * * *")
     public void reattemptEmail() {
         logger.info("EmailService.reattemptEmail() started");
         try {
@@ -227,7 +227,7 @@ public class EmailService implements EmailInterface {
     }
 
     @Override
-    @Scheduled(cron = "0 0 5 * * *")
+   // @Scheduled(cron = "0 0 5 * * *")
     public void deleteOldFailedEmails() {
         logger.info("EmailService.deleteOldFailedEmails() started");
         try {

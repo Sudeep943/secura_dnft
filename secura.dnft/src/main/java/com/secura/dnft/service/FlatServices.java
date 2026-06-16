@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -995,7 +996,7 @@ public class FlatServices implements FlatInterface {
 		List<Profile> existingProfiles = profileRepository.findByPrflPhoneNo(row.ownerPhone);
 		if (existingProfiles != null && !existingProfiles.isEmpty()) {
 			Profile existingProfile = existingProfiles.get(0);
-			List<ProfileAccountDetails> mergedDetails = mergeProfileAccountDetails(existingProfile.getPrflAcountDetails(),
+			List<ProfileAccountDetails> mergedDetails = mergeOwnerProfileAccountDetails(existingProfile.getPrflAcountDetails(),
 					existingProfile.getPrflId(), row.flatNo, request);
 			existingProfile.setPrflAcountDetails(genericService.toJson(mergedDetails));
 			existingProfile.setLst_updt_usrId(request.getHeader() != null ? request.getHeader().getUserId() : null);
@@ -1020,7 +1021,7 @@ public class FlatServices implements FlatInterface {
 		return new ProfileContext(profileId, true);
 	}
 
-	private List<ProfileAccountDetails> mergeProfileAccountDetails(String profileAccountDetailsJson, String profileId,
+	private List<ProfileAccountDetails> mergeOwnerProfileAccountDetails(String profileAccountDetailsJson, String profileId,
 			String flatNo, UploadFlatDetailsRequest request) {
 		List<ProfileAccountDetails> detailsList = new ArrayList<>();
 		if (profileAccountDetailsJson != null && !profileAccountDetailsJson.isBlank()) {
@@ -1037,12 +1038,26 @@ public class FlatServices implements FlatInterface {
 				.filter(details -> apartmentId != null && apartmentId.equals(details.getApartmentId())).findFirst();
 		if (apartmentDetails.isPresent()) {
 			ProfileAccountDetails details = apartmentDetails.get();
-			List<String> flatIds = details.getFlatId() != null ? new ArrayList<>(details.getFlatId()) : new ArrayList<>();
-			if (!flatIds.contains(flatNo)) {
-				flatIds.add(flatNo);
+			Map<String,List<String>> flatDetailsMap = details.getFlatDetailsMap();
+			List<String> ownerFlatIdList=flatDetailsMap.get(SecuraConstants.PROFILE_TYPE_OWNER);
+			if(null!=ownerFlatIdList && !ownerFlatIdList.isEmpty() && !ownerFlatIdList.contains(flatNo)) {
+				ownerFlatIdList.add(flatNo);
 			}
-			details.setFlatId(flatIds);
-			details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
+			else {
+				ownerFlatIdList=new ArrayList<>();
+				ownerFlatIdList.add(flatNo);
+			}
+			flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_OWNER, ownerFlatIdList);
+			details.setFlatDetailsMap(flatDetailsMap);
+//			List<String> flatIds = details.getFlatId() != null ? new ArrayList<>(details.getFlatId()) : new ArrayList<>();
+//			if (!flatIds.contains(flatNo)) {
+//				flatIds.add(flatNo);
+//			}
+//			details.setFlatId(flatIds);
+//			
+			
+			
+			//details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
 			details.setPosition("MEMBER");
 			details.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
 		} else {
@@ -1060,10 +1075,32 @@ public class FlatServices implements FlatInterface {
 			String profileId) {
 		ProfileAccountDetails details = new ProfileAccountDetails();
 		details.setApartmentId(request.getHeader() != null ? request.getHeader().getApartmentId() : null);
-		details.setApartmentName(profileId);
-		details.setFlatId(Collections.singletonList(flatNo));
-		details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
-		details.setPosition("MEMBER");
+		//details.setApartmentName(profileId);
+		//details.setFlatId(Collections.singletonList(flatNo));
+		
+		Map<String,List<String>> flatDetailsMap = details.getFlatDetailsMap();
+		if(null!=flatDetailsMap) {
+			List<String> ownerFlatIdList=flatDetailsMap.get(SecuraConstants.PROFILE_TYPE_OWNER);
+			if(null!=ownerFlatIdList && ownerFlatIdList.isEmpty()) {
+				ownerFlatIdList.add(flatNo);
+			}
+			else {
+				ownerFlatIdList=new ArrayList<>();
+				ownerFlatIdList.add(flatNo);
+			}
+			flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_OWNER, ownerFlatIdList);
+		}
+		else {
+			flatDetailsMap = new HashMap<>(); 
+			List<String> ownerFlatIdList=new ArrayList<>();
+			ownerFlatIdList.add(flatNo);
+			flatDetailsMap.put(SecuraConstants.PROFILE_TYPE_OWNER, ownerFlatIdList);
+		}
+		
+		details.setFlatDetailsMap(flatDetailsMap);
+		
+		//details.setProfileType(SecuraConstants.PROFILE_TYPE_OWNER);
+		details.setPosition(SecuraConstants.PROFILE_TYPE_MEMBER);
 		details.setStatus(SecuraConstants.PROFILE_STATUS_ACTIVE);
 		return details;
 	}

@@ -24,10 +24,13 @@ import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.Booking;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Worklist;
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetProfileRequest;
+import com.secura.dnft.security.BusinessException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -55,7 +58,7 @@ public class GenericService {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 	
-	public DashBordDataResponce getDashBoardData(GenericHeader header) {
+	public DashBordDataResponce getDashBoardData(GenericHeader header) throws BusinessException {
 		DashBordDataResponce bordDataResponce= new DashBordDataResponce();
 		List<Booking> upcomingBookings=getUpcomingHallBooking();
 		long pendingCount=getPendingWorkListCount();
@@ -65,7 +68,8 @@ public class GenericService {
 		GetProfileRequest getProfileRequest= new GetProfileRequest();
 		getProfileRequest.setGenericHeader(header);
 		getProfileRequest.setProfileID(header.getUserId());
-		Optional<Profile> profile =profileRepository.findById(header.getUserId());
+		//Optional<Profile> profile =profileRepository.findById(header.getUserId());
+		Optional<Profile> profile=Optional.of(getProfileEntity(header.getUserId()));
 		if(profile.isPresent()) {
 			bordDataResponce.setProfilePic(profile.get().getProfile_pic());	
 		}
@@ -231,6 +235,26 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 				new TypeReference<List<WorkListAssignment>>() {
 				});
 		return workListAssignments == null ? new ArrayList<>() : workListAssignments;
+	}
+	
+	public Profile getProfileEntity(String id) throws BusinessException {
+		Optional<Profile> profile = java.util.Optional.empty();
+		Optional<Profile> prfl = profileRepository.findById(id);
+		if (prfl.isEmpty()) {
+			List<Profile> profileByphoneList=profileRepository.findByPrflPhoneNo(id);
+			if(null!=profileByphoneList && !profileByphoneList.isEmpty()) {
+				Profile profileByphone=profileByphoneList.get(0);
+				profile = Optional.ofNullable(profileByphone);
+				}
+			else {
+					throw new BusinessException(ErrorMessage.ERR_MESSAGE_55, ErrorMessageCode.ERR_MESSAGE_55);
+			}
+			
+		} else {
+			profile = prfl;
+		}
+		return profile.get();
+		
 	}
 
 }

@@ -1,20 +1,20 @@
 package com.secura.dnft.bean;
 
 import java.util.List;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
 
 public class ProfileAccountDetails {
 
 	private String apartmentId;
 	
-	@JsonProperty("flatId")
-	private List<String> flatIds;
+	//@JsonProperty("flatId")
+	//private List<String> flatIds;
 	private String apartmentName;
 	private String role;
 	private String profileType;
 	private String position;
 	private String status;
+	private Map<String,List<String>> flatDetailsMap;
 	
 	public String getApartmentId() {
 		return apartmentId;
@@ -22,12 +22,12 @@ public class ProfileAccountDetails {
 	public void setApartmentId(String apartmentId) {
 		this.apartmentId = apartmentId;
 	}
-	public List<String> getFlatId() {
-		return flatIds;
-	}
-	public void setFlatId(List<String> flatId) {
-		this.flatIds = flatId;
-	}
+//	public List<String> getFlatId() {
+//		return flatIds;
+//	}
+//	public void setFlatId(List<String> flatId) {
+//		this.flatIds = flatId;
+//	}
 	public String getApartmentName() {
 		return apartmentName;
 	}
@@ -57,6 +57,18 @@ public class ProfileAccountDetails {
 	}
 	public void setStatus(String status) {
 		this.status = status;
+	}
+//	public List<String> getFlatIds() {
+//		return flatIds;
+//	}
+//	public void setFlatIds(List<String> flatIds) {
+//		this.flatIds = flatIds;
+//	}
+	public Map<String, List<String>> getFlatDetailsMap() {
+		return flatDetailsMap;
+	}
+	public void setFlatDetailsMap(Map<String, List<String>> flatDetailsMap) {
+		this.flatDetailsMap = flatDetailsMap;
 	}
 	
 	

@@ -8,11 +8,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.generic.bean.ErrorMessage;
+import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.LoginRequest;
 import com.secura.dnft.request.response.LoginResponse;
 import com.secura.dnft.request.response.UpdatePasswordRequest;
 import com.secura.dnft.request.response.UpdatePasswordResponse;
 import com.secura.dnft.security.JwtUtil;
+import com.secura.dnft.security.LoginException;
 import com.secura.dnft.service.LoginService;
 
 @CrossOrigin(origins = "*")
@@ -29,7 +32,23 @@ public class LoginController {
     @PostMapping("/login")
     @CrossOrigin(origins = "*")
     public LoginResponse login(@RequestBody LoginRequest request) {
-    	LoginResponse loginResponse= loginService.login(request);
+    	LoginResponse loginResponse= new LoginResponse();
+    	try {
+    	loginResponse= loginService.login(request);
+    	}
+    	catch (LoginException le) {
+    		loginResponse.setAccountDetails(le.getAccountDetails());
+    		loginResponse.setMessage(le.getErrorMessage());
+    		loginResponse.setMessageCode(le.getErrorMessageCode());
+		}
+    	catch (Exception e) {
+    		loginResponse.setMessage(ErrorMessage.ERR_MESSAGE_33);
+    		loginResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+    	
+    	
+    	
+    	
     	return loginResponse;
 //    	GenericHeader genericHeader = new GenericHeader();
 //    	genericHeader.setUserId("PRFL260300174587");
@@ -59,7 +78,13 @@ public class LoginController {
     @PostMapping("/updatePassword")
     @CrossOrigin(origins = "*")
     public UpdatePasswordResponse login(@RequestBody UpdatePasswordRequest request) {
-    	UpdatePasswordResponse updatePasswordResponse= loginService.updatePassword(request);
+    	UpdatePasswordResponse updatePasswordResponse = null;
+		try {
+			updatePasswordResponse = loginService.updatePassword(request);
+		} catch (LoginException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     	return updatePasswordResponse;
     	}
 }

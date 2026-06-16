@@ -84,7 +84,7 @@ public class GetProfileResponse {
 		return genericHeader;
 	}
 	
-	public GetProfileResponse(Profile entity,String apartmentId) {
+	public GetProfileResponse(Profile entity,GenericHeader genericHeader) {
 	    this.prflId = entity.getPrflId();
 
 	  List<ProfileAccountDetails> details =
@@ -92,15 +92,15 @@ public class GetProfileResponse {
  		        		entity.getPrflAcountDetails(),
  		                new TypeReference<List<ProfileAccountDetails>>() {});
  		                
-	    Optional<ProfileAccountDetails> accountDetails =details.stream().filter(ad->ad.getApartmentId().equals(apartmentId)).findFirst();
+	    Optional<ProfileAccountDetails> accountDetails =details.stream().filter(ad->ad.getApartmentId().equals(genericHeader.getApartmentId())).findFirst();
 	    
 	    if(accountDetails.isPresent()){
 	    	ProfileAccountDetails acDetails=accountDetails.get();
-	    	 this.prflFlatNo = acDetails.getFlatId();
+	    	 //this.prflFlatNo = genericHeader.getFlatNo();
 	    	 this.prflType = acDetails.getProfileType();
 	 	     this.prflStus = acDetails.getStatus();
 	 	    this.prflPosition = acDetails.getPosition();
-		    this.aprmntId = apartmentId;
+		    this.aprmntId = genericHeader.getApartmentId();
 
 
 	    }

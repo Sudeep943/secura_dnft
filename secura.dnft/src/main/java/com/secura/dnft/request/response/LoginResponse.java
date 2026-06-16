@@ -1,8 +1,19 @@
 package com.secura.dnft.request.response;
 
+import java.util.List;
+import java.util.Map;
+
 public class LoginResponse {
 
-	 public String getMessage() {
+    private Map<String,List<String>> accountDetails;
+	
+	 public Map<String,List<String>> getAccountDetails() {
+		return accountDetails;
+	}
+	public void setAccountDetails(Map<String,List<String>> accountDetails) {
+		this.accountDetails = accountDetails;
+	}
+	public String getMessage() {
 		return message;
 	}
 	public void setMessage(String message) {

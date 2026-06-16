@@ -56,5 +56,7 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_51="Already A Pending Transaction Available. Contact Society Admin To Approve/Reject for further process." ;
 	public final String ERR_MESSAGE_52="Select correct Worklist for Transaction review." ;
 	public final String ERR_MESSAGE_53="Worklist cannot be approved as this flat is not applicable for the selected due. Please reject it." ;
+	public final String ERR_MESSAGE_54="Multiple Profile Found. Please Choose The Profile To Login" ;
+	public final String ERR_MESSAGE_55="No Profile Found. Please Conatct Your Society Administration To Onboard Your Profile" ;
 	
 }
