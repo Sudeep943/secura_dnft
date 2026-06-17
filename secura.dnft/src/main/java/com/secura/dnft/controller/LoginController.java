@@ -1,6 +1,5 @@
 package com.secura.dnft.controller;
 
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,33 +22,28 @@ import com.secura.dnft.service.LoginService;
 @RequestMapping("/auth")
 public class LoginController {
 
-    @Autowired
-    JwtUtil jwtUtil;
-    
-    @Autowired
-    LoginService loginService;
+	@Autowired
+	JwtUtil jwtUtil;
 
-    @PostMapping("/login")
-    @CrossOrigin(origins = "*")
-    public LoginResponse login(@RequestBody LoginRequest request) {
-    	LoginResponse loginResponse= new LoginResponse();
-    	try {
-    	loginResponse= loginService.login(request);
-    	}
-    	catch (LoginException le) {
-    		loginResponse.setAccountDetails(le.getAccountDetails());
-    		loginResponse.setMessage(le.getErrorMessage());
-    		loginResponse.setMessageCode(le.getErrorMessageCode());
+	@Autowired
+	LoginService loginService;
+
+	@PostMapping("/login")
+	@CrossOrigin(origins = "*")
+	public LoginResponse login(@RequestBody LoginRequest request) {
+		LoginResponse loginResponse = new LoginResponse();
+		try {
+			loginResponse = loginService.login(request);
+		} catch (LoginException le) {
+			loginResponse.setAccountDetails(le.getAccountDetails());
+			loginResponse.setMessage(le.getErrorMessage());
+			loginResponse.setMessageCode(le.getErrorMessageCode());
+		} catch (Exception e) {
+			loginResponse.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			loginResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
-    	catch (Exception e) {
-    		loginResponse.setMessage(ErrorMessage.ERR_MESSAGE_33);
-    		loginResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-		}
-    	
-    	
-    	
-    	
-    	return loginResponse;
+
+		return loginResponse;
 //    	GenericHeader genericHeader = new GenericHeader();
 //    	genericHeader.setUserId("PRFL260300174587");
 //    	genericHeader.setApartmentId("APT001");
@@ -72,19 +66,26 @@ public class LoginController {
 //        }
 //
 //        throw new RuntimeException("Invalid credentials");
-    }
-    
+	}
 
-    @PostMapping("/updatePassword")
-    @CrossOrigin(origins = "*")
-    public UpdatePasswordResponse login(@RequestBody UpdatePasswordRequest request) {
-    	UpdatePasswordResponse updatePasswordResponse = null;
+	@PostMapping("/updatePassword")
+	@CrossOrigin(origins = "*")
+	public UpdatePasswordResponse login(@RequestBody UpdatePasswordRequest request) {
+		UpdatePasswordResponse updatePasswordResponse = null;
 		try {
 			updatePasswordResponse = loginService.updatePassword(request);
 		} catch (LoginException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-    	return updatePasswordResponse;
-    	}
+		return updatePasswordResponse;
+	}
+
+	@PostMapping("/validateToken")
+	@CrossOrigin(origins = "*")
+	public boolean validateToken(@RequestBody String token) {
+		return jwtUtil.validateToken(token);
+
+	}
+
 }
