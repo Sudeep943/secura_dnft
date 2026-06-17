@@ -1,12 +1,13 @@
 package com.secura.dnft.request.response;
 
+import com.secura.access.Access;
 
 public class GenericHeader {
 
 	private String userId;
 	private String apartmentId;
 	private String role;
-	private String access;
+	private Access access;
 	private String flatNo;
 	private String profileName;
 	private String apartmentName;
@@ -56,10 +57,10 @@ public class GenericHeader {
 	public void setRole(String role) {
 		this.role = role;
 	}
-	public String getAccess() {
+	public Access getAccess() {
 		return access;
 	}
-	public void setAccess(String access) {
+	public void setAccess(Access access) {
 		this.access = access;
 	}
 	public String getFlatNo() {

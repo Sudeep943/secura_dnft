@@ -50,12 +50,14 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 		Access access = new Access();
 		if(prfl.isPresent()) {
 			Profile profile=prfl.get();
-			Map<String, Access> accessList=genericService.fromJson(profile.getPrfl_access(),
-					new TypeReference<Map<String, Access>>() {
-					});
-			access= accessList.get(aprtmentId);
-			if(null!=access) {
-				return access;
+			if(null!=profile.getPrfl_access()) {
+				Map<String, Access> accessList=genericService.fromJson(profile.getPrfl_access(),
+						new TypeReference<Map<String, Access>>() {
+						});
+				access= accessList.get(aprtmentId);
+				if(null!=access) {
+					return access;
+				}	
 			}
 			else{
 				List<RoleEntity> allRoles=roleRepository.findAll();
@@ -74,6 +76,7 @@ public class RoleAndAccessServices implements RoleAndAccessServicesInterface{
 		else {
 			return buildDefaultAccess();
 		}
+		return access;
 		
 		
 		

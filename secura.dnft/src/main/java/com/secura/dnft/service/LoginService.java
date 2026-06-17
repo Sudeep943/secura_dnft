@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.access.RoleAndAccessServices;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.ProfileRepository;
@@ -58,6 +59,9 @@ public class LoginService {
 	private String flatId=null;
 	
 
+	@Autowired
+	RoleAndAccessServices roleAndAccessServices;
+	
 	public LoginResponse login(LoginRequest loginRequest) throws Exception {
 		 apartmentId=null;
 		 flatId=null;
@@ -123,10 +127,12 @@ public class LoginService {
 						
 						
 						GenericHeader genericHeader = new GenericHeader();
-						genericHeader.setUserId(loginRequest.getUsername());
+						genericHeader.setUserId(profile.get().getPrflId());
 						genericHeader.setApartmentId(apartmentId);
 						genericHeader.setRole(SecuraConstants.PROFILE_TYPE_OWNER);
-						//genericHeader.setRole(getRole(accountDetails,loginRequest.getFlatID(),loginRequest.getApartmentId()));
+						genericHeader.setRole(getRole(accountDetails,flatId,apartmentId));
+						genericHeader.setPosition(genericHeader.getRole());
+						genericHeader.setAccess(roleAndAccessServices.getAllAccess(profile.get().getPrflId(), apartmentId, genericHeader.getRole()));
 //						if(genericHeader.getRole().equals(SecuraConstants.PROFILE_TYPE_OWNER)) {
 //							genericHeader.setPosition(SecuraConstants.PROFILE_TYPE_MEMBER);
 //						}
@@ -250,13 +256,14 @@ public class LoginService {
 	
 	private String getRole(List<ProfileAccountDetails> accountDetailList, String flatId, String apartmentId) {
 		ProfileAccountDetails accountDetail=accountDetailList.stream().filter(ac->ac.getApartmentId().equals(apartmentId)).findFirst().get(); 
-		Map<String,List<String>> flatDetailsMap=accountDetail.getFlatDetailsMap();
-		List<String> keys = flatDetailsMap.entrySet()
-		        .stream()
-		        .filter(entry -> entry.getValue().contains(flatId))
-		        .map(Map.Entry::getKey)
-		        .collect(Collectors.toList());
-		return keys.get(0);
+		return accountDetail.getPosition();
+//		Map<String,List<String>> flatDetailsMap=accountDetail.getFlatDetailsMap();
+//		List<String> keys = flatDetailsMap.entrySet()
+//		        .stream()
+//		        .filter(entry -> entry.getValue().contains(flatId))
+//		        .map(Map.Entry::getKey)
+//		        .collect(Collectors.toList());
+//		return keys.get(0);
 	}
 	
 	private Map<String,List<String>>createFlatDetailsMap(List<ProfileAccountDetails> accountDetailsList) {

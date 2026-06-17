@@ -5,7 +5,7 @@ public class MeetingAndNoticeAccess {
 	private boolean parentAccess;
 	private boolean scheduleMeetingAccess;
 	private boolean updateMeetingAccess;
-	private boolean updateMOMgAccess;
+	private boolean updateMOMAccess;
 	private boolean createNoticeAccess;
 	private boolean createEventAccess;
 	private boolean updateEventAccess;
@@ -31,10 +31,10 @@ public class MeetingAndNoticeAccess {
 		this.updateMeetingAccess = updateMeetingAccess;
 	}
 	public boolean isUpdateMOMgAccess() {
-		return updateMOMgAccess;
+		return updateMOMAccess;
 	}
-	public void setUpdateMOMgAccess(boolean updateMOMgAccess) {
-		this.updateMOMgAccess = updateMOMgAccess;
+	public void setUpdateMOMgAccess(boolean updateMOMAccess) {
+		this.updateMOMAccess = updateMOMAccess;
 	}
 	public boolean isCreateNoticeAccess() {
 		return createNoticeAccess;
