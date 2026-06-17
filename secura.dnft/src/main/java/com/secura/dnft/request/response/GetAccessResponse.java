@@ -1,9 +1,12 @@
 package com.secura.dnft.request.response;
 
-public class UpdateRoleResponse {
+import com.secura.access.Access;
+
+public class GetAccessResponse {
 	private GenericHeader genericHeader;
 	private String message;
 	private String messageCode;
+	private Access access;
 	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -23,6 +26,12 @@ public class UpdateRoleResponse {
 	public void setMessageCode(String messageCode) {
 		this.messageCode = messageCode;
 	}
-
+	public Access getAccess() {
+		return access;
+	}
+	public void setAccess(Access access) {
+		this.access = access;
+	}
+	
 	
 }

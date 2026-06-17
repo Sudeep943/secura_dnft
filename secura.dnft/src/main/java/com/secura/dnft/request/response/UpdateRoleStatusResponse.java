@@ -1,10 +1,9 @@
 package com.secura.dnft.request.response;
 
-public class UpdateRoleResponse {
+public class UpdateRoleStatusResponse {
 	private GenericHeader genericHeader;
 	private String message;
 	private String messageCode;
-	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
 	}
@@ -23,6 +22,6 @@ public class UpdateRoleResponse {
 	public void setMessageCode(String messageCode) {
 		this.messageCode = messageCode;
 	}
-
+	
 	
 }

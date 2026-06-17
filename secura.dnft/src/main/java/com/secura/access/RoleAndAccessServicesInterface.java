@@ -2,10 +2,14 @@ package com.secura.access;
 
 import com.secura.dnft.request.response.CreateRoleRequest;
 import com.secura.dnft.request.response.CreateRoleResponse;
+import com.secura.dnft.request.response.GetAllRolesRequest;
+import com.secura.dnft.request.response.GetAllRolesResponse;
 import com.secura.dnft.request.response.UpdateAccessRequest;
 import com.secura.dnft.request.response.UpdateAccessResponse;
 import com.secura.dnft.request.response.UpdateRoleRequest;
 import com.secura.dnft.request.response.UpdateRoleResponse;
+import com.secura.dnft.request.response.UpdateRoleStatusRequest;
+import com.secura.dnft.request.response.UpdateRoleStatusResponse;
 
 public interface RoleAndAccessServicesInterface {
 	
@@ -16,6 +20,8 @@ public interface RoleAndAccessServicesInterface {
 	UpdateAccessResponse updateAccess(UpdateAccessRequest updateAccessRequest) throws Exception;
 	CreateRoleResponse createRole(CreateRoleRequest createRoleRequest) throws Exception;
 	UpdateRoleResponse updateRole(UpdateRoleRequest updateRoleRequest) throws Exception;
+	UpdateRoleStatusResponse updateRoleStatus(UpdateRoleStatusRequest disableRoleRequest) throws Exception;
+	GetAllRolesResponse getAllRoles(GetAllRolesRequest getAllRolesRequest) throws Exception;
 
 	
 

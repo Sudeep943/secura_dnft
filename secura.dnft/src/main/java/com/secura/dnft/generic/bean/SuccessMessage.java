@@ -50,5 +50,12 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_46="Prior Due Payment Validation Successful" ;
 	public final String SUCC_MESSAGE_47="Transaction review updated successfully" ;
 	public final String SUCC_MESSAGE_50="Discout Detaged Successfully" ;
+	public final String SUCC_MESSAGE_51="Role Created Successfully" ;
+	public final String SUCC_MESSAGE_52="Access Updated Successfully" ;
+	public final String SUCC_MESSAGE_53="Role Status Updated Successfully" ;
+	public final String SUCC_MESSAGE_54="Roles Fetched Successfully" ;
+
+
+
 
 }

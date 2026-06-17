@@ -7,7 +7,6 @@ public class UpdateRoleRequest {
 	private GenericHeader genericHeader;
 	private String roleId;
 	private Access access;
-	private String roleStatus;
 	public String getRoleId() {
 		return roleId;
 	}
@@ -19,12 +18,6 @@ public class UpdateRoleRequest {
 	}
 	public void setAccess(Access access) {
 		this.access = access;
-	}
-	public String getRoleStatus() {
-		return roleStatus;
-	}
-	public void setRoleStatus(String roleStatus) {
-		this.roleStatus = roleStatus;
 	}
 	public GenericHeader getGenericHeader() {
 		return genericHeader;

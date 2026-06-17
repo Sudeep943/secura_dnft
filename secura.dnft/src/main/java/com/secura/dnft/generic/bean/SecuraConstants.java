@@ -6,7 +6,8 @@ public interface SecuraConstants {
 	public final String BOOKING_CONST_STATUS_APPROVED="APPROVED" ;
 	public final String BOOKING_CONST_STATUS_REJECTED="REJECTED" ;
 	public final String BOOKING_CONST_STATUS_REQUEST_RECEIVED="REQUEST RECEIVED" ;
-	
+	public final String STATUS_ACTIVE="ACTIVE" ;
+	public final String STATUS_INACTIVE="INACTIVE" ;
 	
 	
 	public final String ACCESS_ADMIN="ADMIN" ;

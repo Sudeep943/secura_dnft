@@ -43,6 +43,9 @@ public class RoleEntity {
 	@Column(name = "lst_updt_ts")
 	@UpdateTimestamp
 	private LocalDateTime lstUpdtTs;
+	
+	@Column(name = "role_status")
+	private String roleStatus;
 
 	public String getAprtrmntId() {
 		return aprtrmntId;
@@ -107,4 +110,13 @@ public class RoleEntity {
 	public void setLstUpdtTs(LocalDateTime lstUpdtTs) {
 		this.lstUpdtTs = lstUpdtTs;
 	}
+
+	public String getRoleStatus() {
+		return roleStatus;
+	}
+
+	public void setRoleStatus(String roleStatus) {
+		this.roleStatus = roleStatus;
+	}
+	
 }

@@ -1,10 +1,20 @@
 package com.secura.dnft.request.response;
 
-public class UpdateRoleResponse {
+import java.util.List;
+
+import com.secura.dnft.entity.RoleEntity;
+
+public class GetAllRolesResponse {
+	private List<RoleEntity> roles;
 	private GenericHeader genericHeader;
 	private String message;
 	private String messageCode;
-	
+	public List<RoleEntity> getRoles() {
+		return roles;
+	}
+	public void setRoles(List<RoleEntity> roles) {
+		this.roles = roles;
+	}
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
 	}
@@ -23,6 +33,6 @@ public class UpdateRoleResponse {
 	public void setMessageCode(String messageCode) {
 		this.messageCode = messageCode;
 	}
-
+	
 	
 }
