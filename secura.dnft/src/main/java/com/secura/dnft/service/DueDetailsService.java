@@ -1,11 +1,13 @@
 package com.secura.dnft.service;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,10 +27,12 @@ import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.DueAmountDetails;
@@ -50,6 +54,9 @@ public class DueDetailsService {
 
 	@Autowired
 	private DueAmountDetailsRepository dueAmountDetailsRepository;
+
+	@Autowired
+	private TransactionRepository transactionRepository;
 
 	@Autowired
 	private GenericService genericService;
@@ -225,7 +232,6 @@ public class DueDetailsService {
 		DiscFinReference discFinReference = applyDiscFin ? extractDiscFinReference(paymentEntity.getDiscFin())
 				: new DiscFinReference(null, null);
 		DiscFin discountDiscFin = applyDiscFin ? resolveDiscFin(discFinReference.discountCode(), paymentCycle) : null;
-		DiscFin fineDiscFin = applyDiscFin ? resolveDiscFin(discFinReference.fineCode(), paymentCycle) : null;
 		BigDecimal discountedAmount = applyDiscFin ? calculateDiscountAmount(discountDiscFin, amount) : BigDecimal.ZERO;
 		BigDecimal baseAmount = amount.subtract(discountedAmount);
 		if (baseAmount.compareTo(BigDecimal.ZERO) < 0) {
@@ -236,11 +242,13 @@ public class DueDetailsService {
 
 		List<AddedCharges> addedCharges = parseAddedCharges(paymentEntity.getAddedCharges());
 		BigDecimal totalAddedCharges = applyAddedChargesAndCalculateTotal(addedCharges, baseAmount);
+		PenaltyCalculationResult penaltyResult = applyDiscFin
+				? calculatePenaltyAmount(paymentEntity, baseAmount, due)
+				: new PenaltyCalculationResult(null, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+		DiscFin fineDiscFin = penaltyResult.discFin();
 		String discountValue = discountDiscFin != null ? format(discountDiscFin.getDiscFinValue()) : null;
 		String fineValue = fineDiscFin != null ? format(fineDiscFin.getDiscFinValue()) : null;
-
-		BigDecimal fineAmount = applyDiscFin ? calculateFineAmount(fineDiscFin, baseAmount, due.getDueDate())
-				: BigDecimal.ZERO;
+		BigDecimal fineAmount = penaltyResult.amount();
 		LOGGER.debug("buildDueDetails result: paymentId={}, dueId={}, amount={}, discountedAmount={}, baseAmount={}, gstAmount={}, fineAmount={}",
 				paymentEntity.getPaymentId(), dueId, amount, discountedAmount, baseAmount, gstAmount, fineAmount);
 		BigDecimal computedTotal = baseAmount.add(gstAmount).add(totalAddedCharges).add(fineAmount);
@@ -570,26 +578,27 @@ public class DueDetailsService {
 			return new DiscFinReference(null, null);
 		}
 		try {
-			List<Map<String, Object>> entries = genericService.fromJson(discFinJson,
-					new TypeReference<List<Map<String, Object>>>() {
+			List<DiscFinTagEntry> entries = genericService.fromJson(discFinJson,
+					new TypeReference<List<DiscFinTagEntry>>() {
 					});
 			String discountCode = null;
 			String fineCode = null;
-			for (Map<String, Object> entry : entries) {
+			for (DiscFinTagEntry entry : entries) {
 				if (entry == null) {
 					continue;
 				}
-				String type = stringValue(entry.get("DISTFIN_TYPE"));
-				String code = stringValue(entry.get("code"));
-				String status = stringValue(entry.get("Status"));
-				if(status.equalsIgnoreCase("Active")) {
-					if (SecuraConstants.DISC_FN_TYPE_DISCOUNT.equalsIgnoreCase(type)) {
-						discountCode = code;
-					} else if (SecuraConstants.DISC_FN_TYPE_FINE.equalsIgnoreCase(type)) {
-						fineCode = code;
-					}
+				String type = stringValue(entry.getDistfinType());
+				String code = stringValue(entry.getCode());
+				String status = stringValue(entry.getStatus());
+				boolean isActive = status == null || status.isBlank() || SecuraConstants.DISC_FIN_STATUS_ACTIVE.equalsIgnoreCase(status);
+				if (!isActive) {
+					continue;
 				}
-				
+				if (SecuraConstants.DISC_FN_TYPE_DISCOUNT.equalsIgnoreCase(type)) {
+					discountCode = code;
+				} else if (SecuraConstants.DISC_FN_TYPE_FINE.equalsIgnoreCase(type)) {
+					fineCode = code;
+				}
 			}
 			return new DiscFinReference(discountCode, fineCode);
 		} catch (Exception ex) {
@@ -644,60 +653,119 @@ public class DueDetailsService {
 		return discountValue.setScale(2, RoundingMode.HALF_UP);
 	}
 
-	private BigDecimal calculateFineAmount(DiscFin fineDiscFin, BigDecimal baseAmount, LocalDate dueDate) {
-		LOGGER.debug("calculateFineAmount: fineDiscFin={}, baseAmount={}, dueDate={}",
-				fineDiscFin != null ? fineDiscFin.getDiscFnId() : null, baseAmount, dueDate);
-		if (fineDiscFin == null) {
+	private PenaltyCalculationResult calculatePenaltyAmount(PaymentEntity paymentEntity, BigDecimal baseAmount, DueAmountDetails due) {
+		if (paymentEntity == null || due == null || baseAmount == null || baseAmount.compareTo(BigDecimal.ZERO) <= 0) {
+			return new PenaltyCalculationResult(null, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+		}
+		String fineCode = resolveActiveFineCode(paymentEntity.getDiscFin());
+		if (fineCode == null || fineCode.isBlank()) {
+			return new PenaltyCalculationResult(null, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+		}
+		List<DiscFin> discFins = discFinRepository.findByDiscFnId(fineCode);
+		if (discFins == null || discFins.isEmpty()) {
+			return new PenaltyCalculationResult(null, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+		}
+		boolean isFixedFine = discFins.size() == 1
+				&& normalizeCycle(discFins.get(0).getDiscFnCycleType()).equals(normalizeCycle(SecuraConstants.DISC_FN_CYCLE_FIXED));
+		DiscFin applicableDiscFin;
+		if (isFixedFine) {
+			applicableDiscFin = discFins.get(0);
+		} else {
+			String dueCycle = normalizeCycle(due.getCollectionCycle());
+			applicableDiscFin = discFins.stream().filter(Objects::nonNull)
+					.filter(discFin -> dueCycle.equals(normalizeCycle(discFin.getDiscFnCycleType()))).findFirst().orElse(null);
+			if (applicableDiscFin == null || !isBufferTimeElapsed(applicableDiscFin, due.getDueDate())) {
+				return new PenaltyCalculationResult(null, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+			}
+		}
+		return new PenaltyCalculationResult(applicableDiscFin, calculatePenalty(applicableDiscFin, baseAmount, due));
+	}
+
+	private BigDecimal calculatePenalty(DiscFin fineDiscFin, BigDecimal baseAmount, DueAmountDetails due) {
+		LOGGER.debug("calculatePenalty: fineDiscFin={}, baseAmount={}, dueDate={}",
+				fineDiscFin != null ? fineDiscFin.getDiscFnId() : null, baseAmount, due != null ? due.getDueDate() : null);
+		if (fineDiscFin == null || due == null || baseAmount == null || baseAmount.compareTo(BigDecimal.ZERO) <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
+		LocalDate dueDate = due.getDueDate();
 		LocalDate today = LocalDate.now();
-		LocalDate fineStart = Boolean.TRUE.equals(fineDiscFin.getDueDateAsStartDateFlag()) ? dueDate
+		LocalDate fineStart = Boolean.TRUE.equals(fineDiscFin.getDueDateAsStartDateFlag()) && dueDate != null ? dueDate
 				: fineDiscFin.getDiscFnStrtDt();
 		LocalDate fineEnd = fineDiscFin.getDiscFnEndDt();
 		if (fineStart != null && today.isBefore(fineStart)) {
-			LOGGER.debug("calculateFineAmount: today {} is before fineStart {}, returning zero", today, fineStart);
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 		if (fineEnd != null && today.isAfter(fineEnd)) {
-			LOGGER.debug("calculateFineAmount: today {} is after fineEnd {}, returning zero", today, fineEnd);
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+
+		BigDecimal outstanding = baseAmount.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+		if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 
 		BigDecimal fineValue = parseNumeric(fineDiscFin.getDiscFinValue());
 		if (SecuraConstants.DISC_FN_MODE_AMOUNT.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
-			LOGGER.debug("calculateFineAmount: fixed amount fine={}", fineValue);
-			return fineValue.setScale(2, RoundingMode.HALF_UP);
+			return fineValue.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
 		}
 		if (!SecuraConstants.DISC_FN_MODE_PERCENTAGE.equalsIgnoreCase(fineDiscFin.getDiscFnMode())) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-		if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
-			LocalDate interestStartDate = fineStart != null ? fineStart : today;
-			// Calculate elapsed time in months (complete months + fractional days, inclusive)
-			long completeMonths = ChronoUnit.MONTHS.between(interestStartDate, today);
-			if (completeMonths < 0) {
-				completeMonths = 0;
-			}
-			LocalDate monthBoundary = interestStartDate.plusMonths(completeMonths);
-			long daysInPartialMonth = ChronoUnit.DAYS.between(monthBoundary, today) + 1; // inclusive per-problem-spec
-			int daysInCurrentMonth = today.lengthOfMonth();
-			double totalMonths = completeMonths + (double) daysInPartialMonth / daysInCurrentMonth;
-			if (totalMonths <= 0) {
-				return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-			}
-			// Convert months to periods based on the cumulation cycle
-			double monthsPerPeriod = getMonthsPerPeriod(fineDiscFin.getDiscFnCumlatonCycle());
-			double t = BigDecimal.valueOf(totalMonths / monthsPerPeriod).setScale(2, RoundingMode.DOWN).doubleValue();
-			double r = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP).doubleValue();
-			double compoundedFactor = Math.pow(1 + r, t);
-			LOGGER.debug("calculateFineAmount cumulative: fineCode={}, baseAmount={}, r={}, t={} periods (totalMonths={}, monthsPerPeriod={}), compoundedFactor={}",
-					fineDiscFin.getDiscFnId(), baseAmount, r, t, totalMonths, monthsPerPeriod, compoundedFactor);
-			BigDecimal compoundedAmount = baseAmount.multiply(BigDecimal.valueOf(compoundedFactor));
-			return compoundedAmount.subtract(baseAmount).setScale(2, RoundingMode.HALF_UP);
+
+		LocalDate penaltyStart = fineStart != null ? fineStart : dueDate;
+		if (penaltyStart == null || !penaltyStart.isBefore(today)) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-		LOGGER.debug("calculateFineAmount simple percentage: fineCode={}, baseAmount={}, fineValue={}",
-				fineDiscFin.getDiscFnId(), baseAmount, fineValue);
-		return calculatePercentageAmount(baseAmount, fineValue);
+
+		List<Transaction> transactions = getSuccessfulTransactionsAfterDueDate(due);
+		Map<LocalDate, BigDecimal> paymentByDate = aggregatePaymentsByDate(transactions, due);
+		for (Map.Entry<LocalDate, BigDecimal> entry : paymentByDate.entrySet()) {
+			if (!entry.getKey().isAfter(penaltyStart)) {
+				outstanding = outstanding.subtract(entry.getValue());
+			}
+		}
+		if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+
+		LocalDate cursor = penaltyStart;
+		BigDecimal totalPenalty = BigDecimal.ZERO;
+		int cycleMonths = getFineCycleMonths(fineDiscFin.getDiscFnCumlatonCycle());
+		if (cycleMonths <= 0) {
+			cycleMonths = 1;
+		}
+		boolean partCycleAsFull = Boolean.TRUE.equals(fineDiscFin.getPartOfCycleAsFull());
+		BigDecimal rate = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+		for (Map.Entry<LocalDate, BigDecimal> entry : paymentByDate.entrySet()) {
+			LocalDate paymentDate = entry.getKey();
+			if (!paymentDate.isAfter(cursor)) {
+				continue;
+			}
+			LocalDate segmentEnd = paymentDate.isAfter(today) ? today : paymentDate;
+			if (segmentEnd.isAfter(cursor)) {
+				BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, segmentEnd, cycleMonths,
+						partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()));
+				totalPenalty = totalPenalty.add(segmentPenalty);
+				if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
+					outstanding = outstanding.add(segmentPenalty);
+				}
+			}
+			outstanding = outstanding.subtract(entry.getValue());
+			if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+				return totalPenalty.setScale(2, RoundingMode.HALF_UP);
+			}
+			cursor = paymentDate;
+			if (!cursor.isBefore(today)) {
+				return totalPenalty.setScale(2, RoundingMode.HALF_UP);
+			}
+		}
+
+		if (cursor.isBefore(today) && outstanding.compareTo(BigDecimal.ZERO) > 0) {
+			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, today, cycleMonths,
+					partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()));
+			totalPenalty = totalPenalty.add(segmentPenalty);
+		}
+		return totalPenalty.setScale(2, RoundingMode.HALF_UP);
 	}
 
 	private boolean isCumulativeFine(String fnCalculationType) {
@@ -711,32 +779,144 @@ public class DueDetailsService {
 				|| normalized.equals(SecuraConstants.DISC_FN_CYCLE_TYPE_CUMILATIVE);
 	}
 
-	private double getMonthsPerPeriod(String cumulationCycle) {
-		if (cumulationCycle == null) {
-			return 1.0;
+	private String resolveActiveFineCode(String discFinJson) {
+		if (discFinJson == null || discFinJson.isBlank()) {
+			return null;
 		}
-		String normalized = cumulationCycle.toUpperCase(Locale.ROOT).replaceAll("[\\s_-]", "");
-		if (SecuraConstants.DISC_FN_CYCLE_MONTHLY.equals(normalized)
-				|| SecuraConstants.DISC_FN_CYCLE_MONTHLY_MISSPELLED.equals(normalized)) {
-			return 1.0;
+		try {
+			List<DiscFinTagEntry> entries = genericService.fromJson(discFinJson, new TypeReference<List<DiscFinTagEntry>>() {
+			});
+			if (entries == null || entries.isEmpty()) {
+				return null;
+			}
+			return entries.stream().filter(Objects::nonNull)
+					.filter(entry -> SecuraConstants.DISC_FN_TYPE_FINE.equalsIgnoreCase(stringValue(entry.getDistfinType())))
+					.filter(entry -> {
+						String status = stringValue(entry.getStatus());
+						return status == null || status.isBlank() || SecuraConstants.DISC_FIN_STATUS_ACTIVE.equalsIgnoreCase(status);
+					})
+					.map(DiscFinTagEntry::getCode).filter(Objects::nonNull).findFirst().orElse(null);
+		} catch (Exception ex) {
+			return null;
 		}
-		if (SecuraConstants.DISC_FN_CYCLE_QUARTERLY.equals(normalized)
-				|| SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED.equals(normalized)) {
-			return 3.0;
+	}
+
+	private boolean isBufferTimeElapsed(DiscFin discFin, LocalDate dueDate) {
+		if (discFin == null || dueDate == null) {
+			return false;
+		}
+		BigDecimal bufferValue = parseNumeric(discFin.getBufferTime());
+		if (bufferValue.compareTo(BigDecimal.ZERO) <= 0) {
+			return LocalDate.now().isAfter(dueDate);
+		}
+		int bufferUnits = bufferValue.intValue();
+		LocalDate thresholdDate = dueDate;
+		String unit = stringValue(discFin.getBufferTimeUnit());
+		if ("MONTH".equalsIgnoreCase(unit)) {
+			thresholdDate = thresholdDate.plusMonths(bufferUnits);
+		} else {
+			thresholdDate = thresholdDate.plusDays(bufferUnits);
+		}
+		return LocalDate.now().isAfter(thresholdDate);
+	}
+
+	private List<Transaction> getSuccessfulTransactionsAfterDueDate(DueAmountDetails due) {
+		if (due == null || due.getDueDate() == null || due.getPaymentId() == null || due.getPaymentId().isBlank()) {
+			return List.of();
+		}
+		List<Transaction> transactions = transactionRepository.findByPymntIdAndTrnsStatusOrderByTrnsDateAsc(
+				due.getPaymentId(), SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+		if (transactions == null || transactions.isEmpty()) {
+			return List.of();
+		}
+		LocalDate dueDate = due.getDueDate();
+		return transactions.stream().filter(Objects::nonNull).filter(transaction -> transaction.getTrnsDate() != null)
+				.filter(transaction -> transaction.getTrnsDate().toLocalDate().isAfter(dueDate))
+				.filter(transaction -> isTransactionForDue(transaction, due))
+				.sorted(Comparator.comparing(Transaction::getTrnsDate)).toList();
+	}
+
+	private Map<LocalDate, BigDecimal> aggregatePaymentsByDate(List<Transaction> transactions, DueAmountDetails due) {
+		Map<LocalDate, BigDecimal> paymentsByDate = new LinkedHashMap<>();
+		if (transactions == null || transactions.isEmpty() || due == null) {
+			return paymentsByDate;
+		}
+		for (Transaction transaction : transactions) {
+			LocalDate transactionDate = transaction != null && transaction.getTrnsDate() != null
+					? transaction.getTrnsDate().toLocalDate()
+					: null;
+			if (transactionDate == null) {
+				continue;
+			}
+			BigDecimal amount = parseNumeric(transaction.getTrnsAmt());
+			if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+				continue;
+			}
+			paymentsByDate.merge(transactionDate, amount, BigDecimal::add);
+		}
+		return paymentsByDate;
+	}
+
+	private boolean isTransactionForDue(Transaction transaction, DueAmountDetails due) {
+		if (transaction == null || due == null || transaction.getDueDetails() == null || transaction.getDueDetails().isBlank()) {
+			return false;
+		}
+		if (due.getDueId() == null || due.getCollectionCycle() == null || due.getDueDate() == null) {
+			return false;
+		}
+		String dueDetails = transaction.getDueDetails().trim();
+		String duePrefix = due.getDueId() + "_" + due.getCollectionCycle() + "_";
+		return dueDetails.startsWith(duePrefix) && dueDetails.endsWith("_" + due.getDueDate());
+	}
+
+	private BigDecimal calculateSegmentPenalty(BigDecimal outstanding, BigDecimal rate, LocalDate start, LocalDate end,
+			int cycleMonths, boolean partCycleAsFull, boolean cumulative) {
+		BigDecimal cycleUnits = calculateCycleUnits(start, end, cycleMonths, partCycleAsFull);
+		if (cycleUnits.compareTo(BigDecimal.ZERO) <= 0 || outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
+		if (cumulative) {
+			double exponent = cycleUnits.doubleValue();
+			double factor = Math.pow(BigDecimal.ONE.add(rate).doubleValue(), exponent) - 1.0d;
+			return outstanding.multiply(BigDecimal.valueOf(factor), MathContext.DECIMAL64).setScale(2, RoundingMode.HALF_UP);
+		}
+		return outstanding.multiply(rate, MathContext.DECIMAL64).multiply(cycleUnits, MathContext.DECIMAL64)
+				.setScale(2, RoundingMode.HALF_UP);
+	}
+
+	private BigDecimal calculateCycleUnits(LocalDate start, LocalDate end, int cycleMonths, boolean partCycleAsFull) {
+		if (start == null || end == null || !end.isAfter(start)) {
+			return BigDecimal.ZERO;
+		}
+		long days = ChronoUnit.DAYS.between(start, end);
+		if (days <= 0) {
+			return BigDecimal.ZERO;
+		}
+		long cycleDays = ChronoUnit.DAYS.between(start, start.plusMonths(Math.max(cycleMonths, 1)));
+		if (cycleDays <= 0) {
+			cycleDays = 30L;
+		}
+		BigDecimal cycleUnits = BigDecimal.valueOf(days).divide(BigDecimal.valueOf(cycleDays), 10, RoundingMode.HALF_UP);
+		if (partCycleAsFull && cycleUnits.compareTo(BigDecimal.ZERO) > 0) {
+			cycleUnits = BigDecimal.valueOf(Math.ceil(cycleUnits.doubleValue()));
+		}
+		return cycleUnits;
+	}
+
+	private int getFineCycleMonths(String cumulationCycle) {
+		String normalized = normalizeCycle(cumulationCycle);
+		if (SecuraConstants.DISC_FN_CYCLE_QUARTERLY.equals(normalized)) {
+			return 3;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_HALFYEARLY.equals(normalized)
-				|| SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY.replaceAll("[\\s_-]", "").equals(normalized)
-				|| SecuraConstants.DISC_FN_CYCLE_HALF_DASH_YEARLY.replaceAll("[\\s_-]", "").equals(normalized)) {
-			return 6.0;
+				|| normalizeCycle(SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY).equals(normalized)
+				|| normalizeCycle(SecuraConstants.DISC_FN_CYCLE_HALF_DASH_YEARLY).equals(normalized)) {
+			return 6;
 		}
 		if (SecuraConstants.DISC_FN_CYCLE_YEARLY.equals(normalized)) {
-			return 12.0;
+			return 12;
 		}
-		if (SecuraConstants.DISC_FN_CYCLE_DAILY.equals(normalized)) {
-			// Daily rate: return months per day (1 day ≈ 12/365.25 months)
-			return 12.0 / 365.25;
-		}
-		return 1.0;
+		return 1;
 	}
 
 	private BigDecimal calculateAmount(PaymentEntity paymentEntity, LocalDate startDate, LocalDate endDate,
@@ -924,7 +1104,42 @@ public class DueDetailsService {
 		return "DUE" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
 	}
 
+	private static class DiscFinTagEntry {
+		@com.fasterxml.jackson.annotation.JsonProperty("DISTFIN_TYPE")
+		private String distfinType;
+		private String code;
+		@com.fasterxml.jackson.annotation.JsonProperty("Status")
+		private String status;
+
+		public String getDistfinType() {
+			return distfinType;
+		}
+
+		public void setDistfinType(String distfinType) {
+			this.distfinType = distfinType;
+		}
+
+		public String getCode() {
+			return code;
+		}
+
+		public void setCode(String code) {
+			this.code = code;
+		}
+
+		public String getStatus() {
+			return status;
+		}
+
+		public void setStatus(String status) {
+			this.status = status;
+		}
+	}
+
 	private record DiscFinReference(String discountCode, String fineCode) {
+	}
+
+	private record PenaltyCalculationResult(DiscFin discFin, BigDecimal amount) {
 	}
 
 	private record DueRow(String cycle, String flatType, DueAmountDetails dueAmountDetails, String amountPerMonth,

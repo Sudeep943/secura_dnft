@@ -30,6 +30,7 @@ import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
@@ -52,6 +53,9 @@ class DueDetailsServiceTest {
 
 	@Mock
 	private DueAmountDetailsRepository dueAmountDetailsRepository;
+
+	@Mock
+	private TransactionRepository transactionRepository;
 
 	@Mock
 	private GenericService genericService;

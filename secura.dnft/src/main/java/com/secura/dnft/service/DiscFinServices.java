@@ -102,6 +102,9 @@ public class DiscFinServices implements DiscFinInterface {
 		entity.setCreatUsrId(userId);
 		entity.setDiscFinValue(request.getDiscFnValue());
 		entity.setMinimumPaymentAmount(request.getMinimumPaymentAmount());
+		entity.setPartOfCycleAsFull(request.getPartOfCycleAsFull());
+		entity.setBufferTime(request.getBufferTime());
+		entity.setBufferTimeUnit(request.getBufferTimeUnit());
 		return entity;
 	}
 
@@ -236,6 +239,9 @@ public class DiscFinServices implements DiscFinInterface {
 		target.setDiscFnCumlatonCycle(source.getDiscFnCumlatonCycle());
 		target.setDiscFinValue(source.getDiscFinValue());
 		target.setMinimumPaymentAmount(source.getMinimumPaymentAmount());
+		target.setPartOfCycleAsFull(source.getPartOfCycleAsFull());
+		target.setBufferTime(source.getBufferTime());
+		target.setBufferTimeUnit(source.getBufferTimeUnit());
 	}
 
 	@Override
@@ -287,6 +293,9 @@ public class DiscFinServices implements DiscFinInterface {
 			addRequest.setDiscFnValue(data.getDiscFnValue());
 			addRequest.setDiscFinCycleDiscountList(data.getDiscFinCycleDiscountList());
 			addRequest.setMinimumPaymentAmount(data.getMinimumPaymentAmount());
+			addRequest.setPartOfCycleAsFull(data.getPartOfCycleAsFull());
+			addRequest.setBufferTime(data.getBufferTime());
+			addRequest.setBufferTimeUnit(data.getBufferTimeUnit());
 		}
 		return addRequest;
 	}

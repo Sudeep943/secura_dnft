@@ -73,6 +73,14 @@ public class DiscFin {
 	@Column(name = "disc_fn_value")
 	private String discFinValue;
 
+	private Boolean partOfCycleAsFull;
+
+	@Column(length = 255)
+	private String bufferTime;
+
+	@Column(length = 255)
+	private String bufferTimeUnit;
+
 	public String getFnCalculationType() {
 		return fnCalculationType;
 	}
@@ -87,6 +95,30 @@ public class DiscFin {
 
 	public void setDiscFinValue(String discFinValue) {
 		this.discFinValue = discFinValue;
+	}
+
+	public Boolean getPartOfCycleAsFull() {
+		return partOfCycleAsFull;
+	}
+
+	public void setPartOfCycleAsFull(Boolean partOfCycleAsFull) {
+		this.partOfCycleAsFull = partOfCycleAsFull;
+	}
+
+	public String getBufferTime() {
+		return bufferTime;
+	}
+
+	public void setBufferTime(String bufferTime) {
+		this.bufferTime = bufferTime;
+	}
+
+	public String getBufferTimeUnit() {
+		return bufferTimeUnit;
+	}
+
+	public void setBufferTimeUnit(String bufferTimeUnit) {
+		this.bufferTimeUnit = bufferTimeUnit;
 	}
 
 	public String getAprmtId() {
