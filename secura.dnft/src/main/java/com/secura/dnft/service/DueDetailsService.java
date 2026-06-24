@@ -42,6 +42,8 @@ import com.secura.dnft.request.response.GenericHeader;
 public class DueDetailsService {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(DueDetailsService.class);
+	// Fallback when cycle metadata is invalid; monthly-equivalent duration.
+	private static final long DEFAULT_CYCLE_DAYS = 30L;
 
 	@Autowired
 	private PaymentRepository paymentRepository;
@@ -590,7 +592,7 @@ public class DueDetailsService {
 				String type = stringValue(entry.getDistfinType());
 				String code = stringValue(entry.getCode());
 				String status = stringValue(entry.getStatus());
-				boolean isActive = status == null || status.isBlank() || SecuraConstants.DISC_FIN_STATUS_ACTIVE.equalsIgnoreCase(status);
+				boolean isActive = isStatusActive(status);
 				if (!isActive) {
 					continue;
 				}
@@ -793,7 +795,7 @@ public class DueDetailsService {
 					.filter(entry -> SecuraConstants.DISC_FN_TYPE_FINE.equalsIgnoreCase(stringValue(entry.getDistfinType())))
 					.filter(entry -> {
 						String status = stringValue(entry.getStatus());
-						return status == null || status.isBlank() || SecuraConstants.DISC_FIN_STATUS_ACTIVE.equalsIgnoreCase(status);
+						return isStatusActive(status);
 					})
 					.map(DiscFinTagEntry::getCode).filter(Objects::nonNull).findFirst().orElse(null);
 		} catch (Exception ex) {
@@ -864,9 +866,20 @@ public class DueDetailsService {
 		if (due.getDueId() == null || due.getCollectionCycle() == null || due.getDueDate() == null) {
 			return false;
 		}
-		String dueDetails = transaction.getDueDetails().trim();
-		String duePrefix = due.getDueId() + "_" + due.getCollectionCycle() + "_";
-		return dueDetails.startsWith(duePrefix) && dueDetails.endsWith("_" + due.getDueDate());
+		return matchesDueDetailsKey(transaction.getDueDetails().trim(), due.getDueId(), due.getCollectionCycle(), due.getDueDate());
+	}
+
+	private boolean matchesDueDetailsKey(String dueDetails, String dueId, String collectionCycle, LocalDate dueDate) {
+		if (dueDetails == null || dueId == null || collectionCycle == null || dueDate == null) {
+			return false;
+		}
+		String duePrefix = dueId + "_" + collectionCycle + "_";
+		String dueDateToken = dueDate.toString();
+		return dueDetails.startsWith(duePrefix) && dueDetails.endsWith("_" + dueDateToken);
+	}
+
+	private boolean isStatusActive(String status) {
+		return SecuraConstants.DISC_FIN_STATUS_ACTIVE.equalsIgnoreCase(stringValue(status));
 	}
 
 	private BigDecimal calculateSegmentPenalty(BigDecimal outstanding, BigDecimal rate, LocalDate start, LocalDate end,
@@ -894,11 +907,11 @@ public class DueDetailsService {
 		}
 		long cycleDays = ChronoUnit.DAYS.between(start, start.plusMonths(Math.max(cycleMonths, 1)));
 		if (cycleDays <= 0) {
-			cycleDays = 30L;
+			cycleDays = DEFAULT_CYCLE_DAYS;
 		}
 		BigDecimal cycleUnits = BigDecimal.valueOf(days).divide(BigDecimal.valueOf(cycleDays), 10, RoundingMode.HALF_UP);
 		if (partCycleAsFull && cycleUnits.compareTo(BigDecimal.ZERO) > 0) {
-			cycleUnits = BigDecimal.valueOf(Math.ceil(cycleUnits.doubleValue()));
+			cycleUnits = cycleUnits.setScale(0, RoundingMode.CEILING);
 		}
 		return cycleUnits;
 	}
