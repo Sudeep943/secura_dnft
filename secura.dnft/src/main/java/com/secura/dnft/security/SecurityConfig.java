@@ -70,7 +70,8 @@ public class SecurityConfig {
             "http://localhost:3000",
             "http://localhost:5000",
             "http://localhost:8080",
-            "http://localhost:61404"
+            "http://localhost:61404",
+            "https://secura-web-519f5.web.app"
         ));
 
         config.setAllowedMethods(List.of(
