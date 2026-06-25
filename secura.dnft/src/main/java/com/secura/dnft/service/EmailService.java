@@ -149,7 +149,12 @@ public class EmailService implements EmailInterface {
    }
 
    private void logEmailSent(String emailType, String referenceId, String flatId, String recipient) {
-       logger.info("EmailService.{} sent for referenceId={}, flatId={}, to={}", emailType, referenceId, flatId, recipient);
+       logger.info("EmailService.{} sent for referenceId={}, flatId={}, to={}", sanitizeForLog(emailType),
+               sanitizeForLog(referenceId), sanitizeForLog(flatId), sanitizeForLog(recipient));
+   }
+
+   private String sanitizeForLog(String value) {
+       return value == null ? null : value.replaceAll("[\\r\\n\\t]", "_");
    }
 
    // -------------------------------------------------------------------------
@@ -332,7 +337,7 @@ public class EmailService implements EmailInterface {
             List<String> applicableFlatList = getApplicableFlats(payment);
             emailLog.setTotalApplicable(applicableFlatList.size());
             logger.info("EmailService.sendPaymentMails processing paymentId={}, apartmentId={}, applicableFlatCount={}",
-                    payment.getPaymentId(), payment.getAprmtId(), applicableFlatList.size());
+                    sanitizeForLog(payment.getPaymentId()), sanitizeForLog(payment.getAprmtId()), applicableFlatList.size());
 
             for (String flatId : applicableFlatList) {
                 try {
@@ -661,7 +666,7 @@ public class EmailService implements EmailInterface {
 
     private void retryPaymentEmailForFlats(PaymentEntity payment, List<String> failedFlats, SecuraEmailLog log) {
         logger.info("EmailService.retryPaymentEmailForFlats started for paymentId={}, failedFlatCount={}",
-                payment.getPaymentId(), failedFlats.size());
+                sanitizeForLog(payment.getPaymentId()), failedFlats.size());
         List<String> stillFailed = new ArrayList<>();
         List<FailedEmailCause> failedCauses = new ArrayList<>();
         int sentCount = log.getEmailSent() != null ? log.getEmailSent() : 0;
@@ -751,7 +756,7 @@ public class EmailService implements EmailInterface {
         log.setFailedEmailCause(toJson(failedCauses));
         emailLogRepository.save(log);
         logger.info("EmailService.retryPaymentEmailForFlats finished for paymentId={}, remainingFailedFlatCount={}",
-                payment.getPaymentId(), stillFailed.size());
+                sanitizeForLog(payment.getPaymentId()), stillFailed.size());
     }
 
     private void retryTransactionEmail(SecuraEmailLog log) {

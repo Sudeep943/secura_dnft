@@ -184,11 +184,15 @@ public class PaymentServices implements PaymentInterface {
 	}
 
 	private String getUserId(GenericHeader header) {
-		return header != null ? trimValue(header.getUserId()) : null;
+		return sanitizeForLog(header != null ? trimValue(header.getUserId()) : null);
 	}
 
 	private String getApartmentId(GenericHeader header) {
-		return header != null ? trimValue(header.getApartmentId()) : null;
+		return sanitizeForLog(header != null ? trimValue(header.getApartmentId()) : null);
+	}
+
+	private String sanitizeForLog(String value) {
+		return value == null ? null : value.replaceAll("[\\r\\n\\t]", "_");
 	}
 
 	@Override
@@ -235,7 +239,7 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
 			LOGGER.info(
 					"PaymentServices.getDuePaymentAmountDetails computed due summary for userId={}, apartmentId={}, paymentCapita={}",
-					getUserId(header), getApartmentId(header), request.getPaymentCapita());
+					getUserId(header), getApartmentId(header), sanitizeForLog(request.getPaymentCapita()));
 			return response;
 		} finally {
 			logMethodEnd("getDuePaymentAmountDetails", header);
@@ -553,7 +557,8 @@ public class PaymentServices implements PaymentInterface {
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
 			}
 			LOGGER.info("PaymentServices.getPayments resolved {} payments for userId={}, apartmentId={}, paymentId={}",
-					paymentList.size(), getUserId(header), apartmentId, request != null ? trimValue(request.getPaymentId()) : null);
+					paymentList.size(), getUserId(header), sanitizeForLog(apartmentId),
+					sanitizeForLog(request != null ? trimValue(request.getPaymentId()) : null));
 			return response;
 		} finally {
 			logMethodEnd("getPayments", header);
@@ -690,7 +695,8 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
 			LOGGER.info(
 					"PaymentServices.createPayment created paymentId={} for userId={}, apartmentId={}, causeId={}, cycleCount={}",
-					paymentId, getUserId(header), apartmentId, request.getCause(), paymentCollectionCycles.size());
+					sanitizeForLog(paymentId), getUserId(header), sanitizeForLog(apartmentId),
+					sanitizeForLog(request != null ? request.getCause() : null), paymentCollectionCycles.size());
 			return response;
 		} finally {
 			logMethodEnd("createPayment", header);
@@ -753,7 +759,7 @@ public class PaymentServices implements PaymentInterface {
 			response.setSuccessRows(successRows);
 			response.setFailedRows(failedRows.size());
 			LOGGER.info("PaymentServices.uploadPastDue processed past-due file for userId={}, apartmentId={}, successRows={}, failedRows={}",
-					getUserId(header), apartmentId, successRows, failedRows.size());
+					getUserId(header), sanitizeForLog(apartmentId), successRows, failedRows.size());
 
 			if (!failedRows.isEmpty()) {
 				response.setFile(generatePastDueFailedRowsWorkbook(failedRows));
@@ -823,8 +829,9 @@ public class PaymentServices implements PaymentInterface {
 			}
 			LOGGER.info(
 					"PaymentServices.payDues created transactionId={} for userId={}, apartmentId={}, paymentId={}, flatId={}, status={}",
-					transaction.getTrnscId(), getUserId(header), apartmentId, request != null ? trimValue(request.getPaymentId()) : null,
-					flatId, trimValue(transaction.getTrnsStatus()));
+					sanitizeForLog(transaction.getTrnscId()), getUserId(header), sanitizeForLog(apartmentId),
+					sanitizeForLog(request != null ? trimValue(request.getPaymentId()) : null), sanitizeForLog(flatId),
+					sanitizeForLog(trimValue(transaction.getTrnsStatus())));
 			return response;
 		} finally {
 			logMethodEnd("payDues", header);
@@ -861,7 +868,8 @@ public class PaymentServices implements PaymentInterface {
 					.collect(Collectors.toList());
 			LOGGER.info(
 					"PaymentServices.validatePriorDuePaymnent evaluated {} matching transactions for userId={}, apartmentId={}, paymentId={}, flatId={}",
-					matchingTransactions.size(), getUserId(header), apartmentId, paymentId, flatId);
+					matchingTransactions.size(), getUserId(header), sanitizeForLog(apartmentId), sanitizeForLog(paymentId),
+					sanitizeForLog(flatId));
 			if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isSuccessfulTransaction)) {
 				response.setMessage(ErrorMessage.ERR_MESSAGE_50);
 				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_50);
@@ -908,7 +916,7 @@ public class PaymentServices implements PaymentInterface {
 					.collect(Collectors.toList());
 			LOGGER.info(
 					"PaymentServices.reconcileQRPayment identified {} pending QR transactions for userId={}, apartmentId={}",
-					transactions.size(), getUserId(header), apartmentId);
+					transactions.size(), getUserId(header), sanitizeForLog(apartmentId));
 			try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(
 					Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
 					ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -937,7 +945,7 @@ public class PaymentServices implements PaymentInterface {
 				setReconcileMessage(response);
 				LOGGER.info(
 						"PaymentServices.reconcileQRPayment completed for userId={}, apartmentId={}, foundCount={}, notFoundCount={}",
-						getUserId(header), apartmentId, foundTransactions.size(), notFoundTransactions.size());
+						getUserId(header), sanitizeForLog(apartmentId), foundTransactions.size(), notFoundTransactions.size());
 				return response;
 			} catch (Exception exception) {
 				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
@@ -986,7 +994,8 @@ public class PaymentServices implements PaymentInterface {
 			setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
 			LOGGER.info(
 					"PaymentServices.actionQRPayment processed action={} for userId={}, apartmentId={}, requestedCount={}, failedCount={}",
-					action, getUserId(header), getApartmentId(header), foundTransactions.size(), notCompletedTransactions.size());
+					sanitizeForLog(action), getUserId(header), getApartmentId(header), foundTransactions.size(),
+					notCompletedTransactions.size());
 			return response;
 		} finally {
 			logMethodEnd("actionQRPayment", header);
@@ -1023,7 +1032,8 @@ public class PaymentServices implements PaymentInterface {
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_40);
 			LOGGER.info(
 					"PaymentServices.ledgerEntry created transactionId={} for userId={}, apartmentId={}, tenderCount={}",
-					transaction.getTrnscId(), getUserId(header), getApartmentId(header), paymentTenderDataList.size());
+					sanitizeForLog(transaction.getTrnscId()), getUserId(header), getApartmentId(header),
+					paymentTenderDataList.size());
 			return response;
 		} finally {
 			logMethodEnd("ledgerEntry", header);
