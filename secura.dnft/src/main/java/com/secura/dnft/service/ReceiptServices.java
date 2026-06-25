@@ -67,6 +67,7 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final PDFont FALLBACK_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 	private static final PDFont FALLBACK_BOLD_FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
 	private static final String RUPEE_SYMBOL = "\u20B9";
+	private static final String RUPEE_FALLBACK = "Rs.";
 	private static final float TITLE_FONT_SIZE = 12f;
 	private static final float TEXT_FONT_SIZE = 10f;
 	private static final float SMALL_FONT_SIZE = 9f;
@@ -631,7 +632,7 @@ public class ReceiptServices implements ReceiptInterface {
 
 		private void drawCenteredText(String text, PDFont font, float fontSize) throws IOException {
 			ensureSpace(fontSize + 6f);
-			float textWidth = font.getStringWidth(text) / 1000f * fontSize;
+			float textWidth = measureTextWidth(text, font, fontSize);
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
 			drawText(text, x, y, font, fontSize);
 			y -= fontSize + CENTERED_TEXT_BOTTOM_PADDING;
@@ -639,7 +640,7 @@ public class ReceiptServices implements ReceiptInterface {
 
 		private void drawCenteredUnderlinedText(String text, PDFont font, float fontSize, float underlineOffset) throws IOException {
 			ensureSpace(fontSize + 10f);
-			float textWidth = font.getStringWidth(text) / 1000f * fontSize;
+			float textWidth = measureTextWidth(text, font, fontSize);
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
 			drawText(text, x, y, font, fontSize);
 			float underlineY = y - underlineOffset;
@@ -653,7 +654,7 @@ public class ReceiptServices implements ReceiptInterface {
 			ensureSpace(SECTION_TITLE_HEIGHT + 6f);
 			stream.addRect(LEFT_MARGIN, y - SECTION_TITLE_HEIGHT, getUsableWidth(), SECTION_TITLE_HEIGHT);
 			stream.stroke();
-			float textWidth = boldFont.getStringWidth(title) / 1000f * TEXT_FONT_SIZE;
+			float textWidth = measureTextWidth(title, boldFont, TEXT_FONT_SIZE);
 			float x = LEFT_MARGIN + Math.max(0f, (getUsableWidth() - textWidth) / 2);
 			drawText(title, x, y - 13f, boldFont, TEXT_FONT_SIZE);
 			y -= SECTION_TITLE_HEIGHT;
@@ -717,7 +718,7 @@ public class ReceiptServices implements ReceiptInterface {
 			if (text == null) {
 				return Collections.emptyList();
 			}
-			String normalized = text.replace("\r", " ").trim();
+			String normalized = normalizeForFont(text, font).replace("\r", " ").trim();
 			if (normalized.isEmpty()) {
 				return Collections.singletonList("");
 			}
@@ -727,7 +728,7 @@ public class ReceiptServices implements ReceiptInterface {
 				StringBuilder line = new StringBuilder();
 				for (String word : words) {
 					String candidate = line.length() == 0 ? word : line + " " + word;
-					float width = font.getStringWidth(candidate) / 1000f * fontSize;
+					float width = measureTextWidth(candidate, font, fontSize);
 					if (width <= maxWidth || line.length() == 0) {
 						line.setLength(0);
 						line.append(candidate);
@@ -745,11 +746,52 @@ public class ReceiptServices implements ReceiptInterface {
 		}
 
 		private void drawText(String text, float x, float yPosition, PDFont font, float fontSize) throws IOException {
+			String normalizedText = normalizeForFont(text, font);
 			stream.beginText();
 			stream.setFont(font, fontSize);
 			stream.newLineAtOffset(x, yPosition);
-			stream.showText(text == null ? "" : text);
+			stream.showText(normalizedText);
 			stream.endText();
+		}
+
+		private float measureTextWidth(String text, PDFont targetFont, float fontSize) throws IOException {
+			String normalizedText = normalizeForFont(text, targetFont);
+			if (normalizedText.isEmpty()) {
+				return 0f;
+			}
+			return targetFont.getStringWidth(normalizedText) / 1000f * fontSize;
+		}
+
+		private String normalizeForFont(String text, PDFont targetFont) {
+			if (text == null || text.isEmpty()) {
+				return "";
+			}
+			String source = text.replace(RUPEE_SYMBOL, RUPEE_FALLBACK);
+			StringBuilder sanitized = new StringBuilder(source.length());
+			for (int offset = 0; offset < source.length();) {
+				int codePoint = source.codePointAt(offset);
+				offset += Character.charCount(codePoint);
+				if (codePoint == '\n' || codePoint == '\r' || codePoint == '\t') {
+					sanitized.appendCodePoint(codePoint);
+					continue;
+				}
+				String candidate = new String(Character.toChars(codePoint));
+				if (canRender(targetFont, candidate)) {
+					sanitized.append(candidate);
+					continue;
+				}
+				sanitized.append(Character.isWhitespace(codePoint) ? ' ' : '?');
+			}
+			return sanitized.toString();
+		}
+
+		private boolean canRender(PDFont targetFont, String value) {
+			try {
+				targetFont.getStringWidth(value);
+				return true;
+			} catch (IOException | IllegalArgumentException exception) {
+				return false;
+			}
 		}
 
 		private byte[] decodeImage(String value) {
