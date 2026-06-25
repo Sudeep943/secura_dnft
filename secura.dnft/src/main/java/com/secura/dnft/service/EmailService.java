@@ -140,68 +140,94 @@ public class EmailService implements EmailInterface {
     @Autowired
 	private SocietyCollectionTypesRepository socirtyCollectionTypesRepository;
 
-    // -------------------------------------------------------------------------
-    // Scheduled Jobs
-    // -------------------------------------------------------------------------
+   private void logMethodStart(String methodName) {
+       logger.info("EmailService.{} started", methodName);
+   }
 
-    @Override
+   private void logMethodEnd(String methodName) {
+       logger.info("EmailService.{} finished", methodName);
+   }
+
+   private void logEmailSent(String emailType, String referenceId, String flatId, String recipient) {
+       logger.info("EmailService.{} sent for referenceId={}, flatId={}, to={}", emailType, referenceId, flatId, recipient);
+   }
+
+   // -------------------------------------------------------------------------
+   // Scheduled Jobs
+   // -------------------------------------------------------------------------
+
+   @Override
    // @Scheduled(cron = "0 */1 * * * *")
-    public void sendPaymentEmail() {
-        logger.info("EmailService.sendEmail() started");
-        try {
-            List<PaymentEntity> allPendingPayments     = paymentRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
-            List<PaymentEntity> filteredPayments     = filterPaymentList(allPendingPayments);
-            if(null!=filteredPayments && !filteredPayments.isEmpty()) {
-            sendPaymentMails(filteredPayments);
-            }
-        } catch (Exception e) {
-            logger.error("EmailService.sendEmail() encountered an error", e);
-        }
-        logger.info("EmailService.sendEmail() completed");
-    }
+   public void sendPaymentEmail() {
+       String methodName = "sendPaymentEmail";
+       logMethodStart(methodName);
+       try {
+           List<PaymentEntity> allPendingPayments     = paymentRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
+           List<PaymentEntity> filteredPayments     = filterPaymentList(allPendingPayments);
+           logger.info("EmailService.sendPaymentEmail found pendingPayments={}, filteredPayments={}",
+                   allPendingPayments.size(), filteredPayments.size());
+           if(null!=filteredPayments && !filteredPayments.isEmpty()) {
+           sendPaymentMails(filteredPayments);
+           }
+       } catch (Exception e) {
+           logger.error("EmailService.sendPaymentEmail() encountered an error", e);
+       } finally {
+           logMethodEnd(methodName);
+       }
+   }
 
     
-    @Override
+   @Override
    // @Scheduled(cron = "0 */1 * * * *")
-    public void sendTransactionEmail() {
-        logger.info("EmailService.sendEmail() started");
-        try {
-            List<Transaction>   allPendingTransactions = transactionRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
-            List<Transaction>   filteredTransactions = filterTransactionList(allPendingTransactions);
-            filteredTransactions=filteredTransactions.stream().filter(trn->trn.getTrnsStatus().equals(SecuraConstants.TRANSACTION_STATUS_SUCCESS)).collect(Collectors.toList());
-            if(null!=filteredTransactions && !filteredTransactions.isEmpty()) {
-            sendTransactionMails(filteredTransactions);
+   public void sendTransactionEmail() {
+       String methodName = "sendTransactionEmail";
+       logMethodStart(methodName);
+       try {
+           List<Transaction>   allPendingTransactions = transactionRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
+           List<Transaction>   filteredTransactions = filterTransactionList(allPendingTransactions);
+           filteredTransactions=filteredTransactions.stream().filter(trn->trn.getTrnsStatus().equals(SecuraConstants.TRANSACTION_STATUS_SUCCESS)).collect(Collectors.toList());
+           logger.info("EmailService.sendTransactionEmail found pendingTransactions={}, filteredTransactions={}",
+                   allPendingTransactions.size(), filteredTransactions.size());
+           if(null!=filteredTransactions && !filteredTransactions.isEmpty()) {
+           sendTransactionMails(filteredTransactions);
 }
-        } catch (Exception e) {
-            logger.error("EmailService.sendEmail() encountered an error", e);
-        }
-        logger.info("EmailService.sendEmail() completed");
-    }
+       } catch (Exception e) {
+           logger.error("EmailService.sendTransactionEmail() encountered an error", e);
+       } finally {
+           logMethodEnd(methodName);
+       }
+   }
     
-    @Override
-    //@Scheduled(cron = "0 30 0 * * *")
+   @Override
+   //@Scheduled(cron = "0 30 0 * * *")
   //  @Scheduled(cron = "0 */1 * * * *")
-    public void sendOtherEmail() {
-        logger.info("EmailService.sendEmail() started");
-        try {
-            List<NoticeEntity>  allPendingNotices      = noticeRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
+   public void sendOtherEmail() {
+       String methodName = "sendOtherEmail";
+       logMethodStart(methodName);
+       try {
+           List<NoticeEntity>  allPendingNotices      = noticeRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
 
-            List<NoticeEntity>  filteredNotices      = filterNoticeList(allPendingNotices);
+           List<NoticeEntity>  filteredNotices      = filterNoticeList(allPendingNotices);
+           logger.info("EmailService.sendOtherEmail found pendingNotices={}, filteredNotices={}",
+                   allPendingNotices.size(), filteredNotices.size());
 
-            sendNoticeMails(filteredNotices);
-        } catch (Exception e) {
-            logger.error("EmailService.sendEmail() encountered an error", e);
-        }
-        logger.info("EmailService.sendEmail() completed");
-    }
+           sendNoticeMails(filteredNotices);
+       } catch (Exception e) {
+           logger.error("EmailService.sendOtherEmail() encountered an error", e);
+       } finally {
+           logMethodEnd(methodName);
+       }
+   }
     
     
     @Override
   //  @Scheduled(cron = "0 0 4 * * *")
     public void reattemptEmail() {
-        logger.info("EmailService.reattemptEmail() started");
+        String methodName = "reattemptEmail";
+        logMethodStart(methodName);
         try {
             List<SecuraEmailLog> logs = emailLogRepository.findByFailedApplicableListIsNotNull();
+            logger.info("EmailService.reattemptEmail retrying failed email logs count={}", logs.size());
             for (SecuraEmailLog log : logs) {
                 if (log.getFailedApplicableList() == null || log.getFailedApplicableList().isBlank()) {
                     continue;
@@ -222,14 +248,16 @@ public class EmailService implements EmailInterface {
             }
         } catch (Exception e) {
             logger.error("EmailService.reattemptEmail() encountered an error", e);
+        } finally {
+            logMethodEnd(methodName);
         }
-        logger.info("EmailService.reattemptEmail() completed");
     }
 
     @Override
    // @Scheduled(cron = "0 0 5 * * *")
     public void deleteOldFailedEmails() {
-        logger.info("EmailService.deleteOldFailedEmails() started");
+        String methodName = "deleteOldFailedEmails";
+        logMethodStart(methodName);
         try {
             LocalDateTime cutoff = LocalDateTime.now().minusDays(emailLogRetentionDays);
             List<SecuraEmailLog> oldLogs = emailLogRepository.findByCreateTsBefore(cutoff);
@@ -242,8 +270,9 @@ public class EmailService implements EmailInterface {
             }
         } catch (Exception e) {
             logger.error("EmailService.deleteOldFailedEmails() encountered an error", e);
+        } finally {
+            logMethodEnd(methodName);
         }
-        logger.info("EmailService.deleteOldFailedEmails() completed");
     }
 
     // -------------------------------------------------------------------------
@@ -293,6 +322,7 @@ public class EmailService implements EmailInterface {
     
   
     private void sendPaymentMails(List<PaymentEntity> paymentEntityList) {
+        logger.info("EmailService.sendPaymentMails started for paymentCount={}", paymentEntityList.size());
         for (PaymentEntity payment : paymentEntityList) {
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_PAYMENT, payment.getPaymentId());
             List<String> failedFlatList = new ArrayList<>();
@@ -301,6 +331,8 @@ public class EmailService implements EmailInterface {
 
             List<String> applicableFlatList = getApplicableFlats(payment);
             emailLog.setTotalApplicable(applicableFlatList.size());
+            logger.info("EmailService.sendPaymentMails processing paymentId={}, apartmentId={}, applicableFlatCount={}",
+                    payment.getPaymentId(), payment.getAprmtId(), applicableFlatList.size());
 
             for (String flatId : applicableFlatList) {
                 try {
@@ -432,6 +464,7 @@ public class EmailService implements EmailInterface {
                     boolean sentToFlat = false;
                     for (String email : emailList) {
                         sendHtmlEmailWithLogo(email, subject, htmlBody, logoBase64);
+                        logEmailSent("payment", payment.getPaymentId(), flatId, email);
                         sentToFlat = true;
                     }
                     if (sentToFlat) {
@@ -462,6 +495,7 @@ public class EmailService implements EmailInterface {
                 paymentRepository.save(payment);
             }
         }
+        logger.info("EmailService.sendPaymentMails finished for paymentCount={}", paymentEntityList.size());
     }
 
     // -------------------------------------------------------------------------
@@ -469,6 +503,7 @@ public class EmailService implements EmailInterface {
     // -------------------------------------------------------------------------
 
     private void sendTransactionMails(List<Transaction> transactionList) {
+        logger.info("EmailService.sendTransactionMails started for transactionCount={}", transactionList.size());
         for (Transaction transaction : transactionList) {
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_TRANSACTION, transaction.getTrnscId());
             List<FailedEmailCause> failedCauses = new ArrayList<>();
@@ -538,6 +573,7 @@ public class EmailService implements EmailInterface {
 
                 for (String email : emailList) {
                     sendHtmlEmailWithLogoAndAttachment(email, subject, htmlBody, logoBase64, receiptPdfBytes, attachmentName);
+                    logEmailSent("transaction", transaction.getTrnscId(), flatId, email);
                 }
                 if (!emailList.isEmpty()) {
                     emailSentCount++;
@@ -558,6 +594,7 @@ public class EmailService implements EmailInterface {
             emailLog.setFailedEmailCause(toJson(failedCauses));
             emailLogRepository.save(emailLog);
         }
+        logger.info("EmailService.sendTransactionMails finished for transactionCount={}", transactionList.size());
     }
 
     // -------------------------------------------------------------------------
@@ -565,6 +602,7 @@ public class EmailService implements EmailInterface {
     // -------------------------------------------------------------------------
 
     private void sendNoticeMails(List<NoticeEntity> noticeList) {
+        logger.info("EmailService.sendNoticeMails started for noticeCount={}", noticeList.size());
         for (NoticeEntity notice : noticeList) {
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_NOTICE, notice.getNoticeId());
             List<FailedEmailCause> failedCauses = new ArrayList<>();
@@ -593,6 +631,7 @@ public class EmailService implements EmailInterface {
 
                 for (String email : emailList) {
                     sendHtmlEmail(email, subject, htmlBody);
+                    logEmailSent("notice", notice.getNoticeId(), null, email);
                 }
                 if (!emailList.isEmpty()) {
                     emailSentCount++;
@@ -613,6 +652,7 @@ public class EmailService implements EmailInterface {
             emailLog.setFailedEmailCause(toJson(failedCauses));
             emailLogRepository.save(emailLog);
         }
+        logger.info("EmailService.sendNoticeMails finished for noticeCount={}", noticeList.size());
     }
 
     // -------------------------------------------------------------------------
@@ -620,6 +660,8 @@ public class EmailService implements EmailInterface {
     // -------------------------------------------------------------------------
 
     private void retryPaymentEmailForFlats(PaymentEntity payment, List<String> failedFlats, SecuraEmailLog log) {
+        logger.info("EmailService.retryPaymentEmailForFlats started for paymentId={}, failedFlatCount={}",
+                payment.getPaymentId(), failedFlats.size());
         List<String> stillFailed = new ArrayList<>();
         List<FailedEmailCause> failedCauses = new ArrayList<>();
         int sentCount = log.getEmailSent() != null ? log.getEmailSent() : 0;
@@ -692,6 +734,7 @@ public class EmailService implements EmailInterface {
                 String subject = "Due Created For " + payment.getPaymentName();
                 for (String email : emailList) {
                     sendHtmlEmail(email, subject, htmlBody);
+                    logEmailSent("paymentRetry", payment.getPaymentId(), flatId, email);
                 }
                 sentCount++;
 
@@ -707,6 +750,8 @@ public class EmailService implements EmailInterface {
         log.setFailedApplicableList(toJson(stillFailed));
         log.setFailedEmailCause(toJson(failedCauses));
         emailLogRepository.save(log);
+        logger.info("EmailService.retryPaymentEmailForFlats finished for paymentId={}, remainingFailedFlatCount={}",
+                payment.getPaymentId(), stillFailed.size());
     }
 
     private void retryTransactionEmail(SecuraEmailLog log) {

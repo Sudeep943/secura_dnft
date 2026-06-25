@@ -85,6 +85,7 @@ import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.GetPaymentRequest;
@@ -172,88 +173,124 @@ public class PaymentServices implements PaymentInterface {
 	@Autowired
 	TransDueDetailsRepository transDueDetailsRepository;
 
+	private void logMethodStart(String methodName, GenericHeader header) {
+		LOGGER.info("PaymentServices.{} started for userId={}, apartmentId={}", methodName, getUserId(header),
+				getApartmentId(header));
+	}
+
+	private void logMethodEnd(String methodName, GenericHeader header) {
+		LOGGER.info("PaymentServices.{} finished for userId={}, apartmentId={}", methodName, getUserId(header),
+				getApartmentId(header));
+	}
+
+	private String getUserId(GenericHeader header) {
+		return header != null ? trimValue(header.getUserId()) : null;
+	}
+
+	private String getApartmentId(GenericHeader header) {
+		return header != null ? trimValue(header.getApartmentId()) : null;
+	}
+
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
-		DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
-		response.setGenericHeader(request.getGenericHeader());
-		response.setPaymentCapita(request.getPaymentCapita());
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("getDuePaymentAmountDetails", header);
+		try {
+			DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
+			response.setGenericHeader(header);
+			response.setPaymentCapita(request != null ? request.getPaymentCapita() : null);
 
-		if (request.getCollectionStartDate() == null || request.getCollectionEndDate() == null
-				|| request.getTodayDate() == null) {
-			return response;
-		}
-
-		BigDecimal cycleAmount = resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
-		BigDecimal gstPercent = parseNumeric(request.getGst());
-		BigDecimal dueBaseAmount;
-		if (isOnceCycle(request.getPaymentCollectionCycle())) {
-			response.setDueDate(isPost(request.getPaymentCollectionMode()) ? request.getCollectionEndDate().plusDays(1)
-					: request.getCollectionStartDate());
-			dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
-		} else {
-			int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
-			if (cycleMonths <= 0) {
+			if (request == null || request.getCollectionStartDate() == null || request.getCollectionEndDate() == null
+					|| request.getTodayDate() == null) {
 				return response;
 			}
-			DueWindow dueWindow = calculateDueWindow(request.getCollectionStartDate(), request.getCollectionEndDate(),
-					request.getTodayDate(), request.getPaymentCollectionMode(), cycleMonths);
-			response.setDueDate(dueWindow.getDueDate());
-			dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths, request.getCollectionEndDate(),
-					cycleAmount);
+
+			BigDecimal cycleAmount = resolveCycleAmount(request.getPaymentAmount(), request.getPaymentCapita());
+			BigDecimal gstPercent = parseNumeric(request.getGst());
+			BigDecimal dueBaseAmount;
+			if (isOnceCycle(request.getPaymentCollectionCycle())) {
+				response.setDueDate(isPost(request.getPaymentCollectionMode()) ? request.getCollectionEndDate().plusDays(1)
+						: request.getCollectionStartDate());
+				dueBaseAmount = cycleAmount.setScale(2, RoundingMode.HALF_UP);
+			} else {
+				int cycleMonths = getCycleMonths(request.getPaymentCollectionCycle());
+				if (cycleMonths <= 0) {
+					return response;
+				}
+				DueWindow dueWindow = calculateDueWindow(request.getCollectionStartDate(), request.getCollectionEndDate(),
+						request.getTodayDate(), request.getPaymentCollectionMode(), cycleMonths);
+				response.setDueDate(dueWindow.getDueDate());
+				dueBaseAmount = calculateDueBaseAmount(dueWindow.getChargePeriodStart(), cycleMonths,
+						request.getCollectionEndDate(), cycleAmount);
+			}
+			dueBaseAmount = roundAmountByThreshold(dueBaseAmount);
+			BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+			BigDecimal totalWithGst = roundAmountByThreshold(dueBaseAmount.add(gstAmount));
+
+			response.setAmountExcludingGst(formatNumber(dueBaseAmount));
+			response.setGstPercent(formatNumber(gstPercent));
+			response.setGstAmount(formatNumber(gstAmount));
+			response.setAmountIncludingGst(formatNumber(totalWithGst));
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
+			LOGGER.info(
+					"PaymentServices.getDuePaymentAmountDetails computed due summary for userId={}, apartmentId={}, paymentCapita={}",
+					getUserId(header), getApartmentId(header), request.getPaymentCapita());
+			return response;
+		} finally {
+			logMethodEnd("getDuePaymentAmountDetails", header);
 		}
-		dueBaseAmount = roundAmountByThreshold(dueBaseAmount);
-		BigDecimal gstAmount = dueBaseAmount.multiply(gstPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-		BigDecimal totalWithGst = roundAmountByThreshold(dueBaseAmount.add(gstAmount));
-
-		response.setAmountExcludingGst(formatNumber(dueBaseAmount));
-		response.setGstPercent(formatNumber(gstPercent));
-		response.setGstAmount(formatNumber(gstAmount));
-		response.setAmountIncludingGst(formatNumber(totalWithGst));
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
-
-		return response;
 	}
 	
 	@Override
 	public GetDuePaymentAmountDetailsResponse getDuePaymentAmountDetails(CreatePaymentRequest request) {
-		GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap = new LinkedHashMap<>();
-		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
-		LocalDate collectionStartDate = request != null && request.getCollectionStartDate() != null
-				? request.getCollectionStartDate().toLocalDate()
-				: null;
-		LocalDate collectionEndDate = request != null && request.getCollectionEndDate() != null
-				? request.getCollectionEndDate().toLocalDate()
-				: null;
-		LocalDate todayDate = request != null ? request.getTodayDate() : null;
-		if (todayDate == null) {
-			todayDate = LocalDate.now();
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("getDuePaymentAmountDetails", header);
+		try {
+			GetDuePaymentAmountDetailsResponse response = new GetDuePaymentAmountDetailsResponse();
+			response.setGenericHeader(header);
+			Map<String, DuePaymentAmountDetailsResponse> duePaymentAmountDetailsMap = new LinkedHashMap<>();
+			List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
+			LocalDate collectionStartDate = request != null && request.getCollectionStartDate() != null
+					? request.getCollectionStartDate().toLocalDate()
+					: null;
+			LocalDate collectionEndDate = request != null && request.getCollectionEndDate() != null
+					? request.getCollectionEndDate().toLocalDate()
+					: null;
+			LocalDate todayDate = request != null ? request.getTodayDate() : null;
+			if (todayDate == null) {
+				todayDate = LocalDate.now();
+			}
+			Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = new LinkedHashMap<>();
+			if (collectionStartDate != null && collectionEndDate != null) {
+				dueAmountDetailsEntityMap = dueDetailsService.previewDuesForPayment(
+						buildPreviewPaymentEntities(request, paymentCollectionCycles), header);
+			}
+			for (String cycle : paymentCollectionCycles) {
+				DuePaymentAmountDetailsRequest dueRequest = new DuePaymentAmountDetailsRequest();
+				dueRequest.setGenericHeader(header);
+				dueRequest.setPaymentAmount(request != null ? request.getPaymentAmount() : null);
+				dueRequest.setGst(request != null ? request.getGst() : null);
+				dueRequest.setCollectionStartDate(collectionStartDate);
+				dueRequest.setCollectionEndDate(collectionEndDate);
+				dueRequest.setPaymentCollectionCycle(cycle);
+				dueRequest.setPaymentCollectionMode(request != null ? request.getPaymentCollectionMode() : null);
+				dueRequest.setPaymentCapita(request != null ? request.getPaymentCapita() : null);
+				dueRequest.setTodayDate(todayDate);
+				duePaymentAmountDetailsMap.put(cycle, getDuePaymentAmountDetails(dueRequest));
+			}
+			response.setDuePaymentAmountDetailsMap(duePaymentAmountDetailsMap);
+			response.setDueAmountDetailsEntityMap(
+					dueAmountDetailsEntityMap == null ? new LinkedHashMap<>() : dueAmountDetailsEntityMap);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
+			LOGGER.info(
+					"PaymentServices.getDuePaymentAmountDetails prepared preview for userId={}, apartmentId={}, cycleCount={}",
+					getUserId(header), getApartmentId(header), paymentCollectionCycles.size());
+			return response;
+		} finally {
+			logMethodEnd("getDuePaymentAmountDetails", header);
 		}
-		Map<String, List<Map<String, DueAmountDetails>>> dueAmountDetailsEntityMap = new LinkedHashMap<>();
-		if (collectionStartDate != null && collectionEndDate != null) {
-			dueAmountDetailsEntityMap = dueDetailsService.previewDuesForPayment(
-					buildPreviewPaymentEntities(request, paymentCollectionCycles), request != null ? request.getGenericHeader() : null);
-		}
-		for (String cycle : paymentCollectionCycles) {
-			DuePaymentAmountDetailsRequest dueRequest = new DuePaymentAmountDetailsRequest();
-			dueRequest.setGenericHeader(request != null ? request.getGenericHeader() : null);
-			dueRequest.setPaymentAmount(request != null ? request.getPaymentAmount() : null);
-			dueRequest.setGst(request != null ? request.getGst() : null);
-			dueRequest.setCollectionStartDate(collectionStartDate);
-			dueRequest.setCollectionEndDate(collectionEndDate);
-			dueRequest.setPaymentCollectionCycle(cycle);
-			dueRequest.setPaymentCollectionMode(request != null ? request.getPaymentCollectionMode() : null);
-			dueRequest.setPaymentCapita(request != null ? request.getPaymentCapita() : null);
-			dueRequest.setTodayDate(todayDate);
-			duePaymentAmountDetailsMap.put(cycle, getDuePaymentAmountDetails(dueRequest));
-		}
-		response.setDuePaymentAmountDetailsMap(duePaymentAmountDetailsMap);
-		response.setDueAmountDetailsEntityMap(dueAmountDetailsEntityMap == null ? new LinkedHashMap<>() : dueAmountDetailsEntityMap);
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_28);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_28);
-		return response;
 	}
 
 	private List<PaymentEntity> buildPreviewPaymentEntities(CreatePaymentRequest request, List<String> paymentCollectionCycles) {
@@ -473,40 +510,54 @@ public class PaymentServices implements PaymentInterface {
 
 	@Override
 	public UpdatePaymentResponse updatePayment(UpdatePaymentRequest request) throws Exception {
-		UpdatePaymentResponse response = new UpdatePaymentResponse();
-		response.setGenericHeader(request.getGenericHeader());
-		return response;
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("updatePayment", header);
+		try {
+			UpdatePaymentResponse response = new UpdatePaymentResponse();
+			response.setGenericHeader(header);
+			return response;
+		} finally {
+			logMethodEnd("updatePayment", header);
+		}
 	}
 
 	@Override
 	public GetPaymentResponse getPayments(GetPaymentRequest request) throws Exception {
-		GetPaymentResponse response = new GetPaymentResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		String apartmentId = request != null && request.getGenericHeader() != null
-				? request.getGenericHeader().getApartmentId()
-				: null;
-		if (apartmentId == null || apartmentId.isBlank()) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
-			response.setPaymentList(new ArrayList<>());
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("getPayments", header);
+		try {
+			GetPaymentResponse response = new GetPaymentResponse();
+			response.setGenericHeader(header);
+			String apartmentId = request != null && request.getGenericHeader() != null
+					? request.getGenericHeader().getApartmentId()
+					: null;
+			if (apartmentId == null || apartmentId.isBlank()) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+				response.setPaymentList(new ArrayList<>());
+				return response;
+			}
+			List<PaymentEntity> paymentEntities = new ArrayList<>();
+			if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
+				paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(), apartmentId);
+			} else {
+				paymentEntities = paymentRepository.findByAprmtId(apartmentId);
+			}
+			List<PaymentEntityModel> paymentList = buildPaymentEntityModels(paymentEntities);
+			response.setPaymentList(paymentList);
+			if (paymentList.isEmpty()) {
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_38);
+			} else {
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_37);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
+			}
+			LOGGER.info("PaymentServices.getPayments resolved {} payments for userId={}, apartmentId={}, paymentId={}",
+					paymentList.size(), getUserId(header), apartmentId, request != null ? trimValue(request.getPaymentId()) : null);
 			return response;
+		} finally {
+			logMethodEnd("getPayments", header);
 		}
-		List<PaymentEntity> paymentEntities = new ArrayList<>();
-		if (request != null && request.getPaymentId() != null && !request.getPaymentId().isBlank()) {
-			paymentEntities = paymentRepository.findByPaymentIdAndAprmtId(request.getPaymentId(), apartmentId);
-		} else {
-			paymentEntities = paymentRepository.findByAprmtId(apartmentId);
-		}
-		List<PaymentEntityModel> paymentList = buildPaymentEntityModels(paymentEntities);
-		response.setPaymentList(paymentList);
-		if (paymentList.isEmpty()) {
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_38);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_38);
-		} else {
-			response.setMessage(SuccessMessage.SUCC_MESSAGE_37);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_37);
-		}
-		return response;
 	}
 
 	private List<PaymentEntityModel> buildPaymentEntityModels(List<PaymentEntity> paymentEntities) {
@@ -591,322 +642,392 @@ public class PaymentServices implements PaymentInterface {
 
 	@Override
 	public CreatePaymentResponse createPayment(CreatePaymentRequest request) throws Exception {
-		CreatePaymentResponse response = new CreatePaymentResponse();
-		response.setGenericHeader(request.getGenericHeader());
-		List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
-		LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate() : null;
-		LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate() : null;
-		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
-		String paymentId = getPaymentId(request != null ? request.getCause() : null, apartmentId);
-		String applicableFor = serializeApplicableFor(request.getApplicableFor());
-		String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
-		String addedCharges = serializeAddedCharges(request.getAddedCharges());
-		String discFin = serializeDiscFin(request);
-		String paymentCollectionCyclesJson = serializePaymentCollectionCycles(paymentCollectionCycles);
-		PaymentEntity entity = new PaymentEntity();
-		entity.setPaymentId(paymentId);
-		entity.setPaymentName(request.getPaymentName());
-		entity.setShortDetails(request.getShortDetails());
-		entity.setPaymentCapita(request.getPaymentCapita());
-		entity.setPaymentAmount(request.getPaymentAmount());
-		entity.setGst(request.getGst());
-		entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
-		entity.setCollectionStartDate(collectionStartDate);
-		entity.setCollectionEndDate(collectionEndDate);
-		entity.setPaymentCollectionCycle(paymentCollectionCyclesJson);
-		entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
-		entity.setApplicableFor(applicableFor);
-		entity.setAllowedPaymentModes(allowedPaymentModes);
-		entity.setAddedCharges(addedCharges);
-		entity.setDiscFin(discFin);
-		entity.setPaymentType(request.getPaymentType());
-		entity.setBankAccountId(request.getBankAccountId());
-		entity.setAprmtId(apartmentId);
-		entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
-		entity.setEmailSentflag(EMAIL_SENT_FLAG_NO);
-		entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		entity.setCauseId(request.getCause());
-		entity.setPartialPaymentAllowed(request.isPartialPaymentAllowed());
-		paymentRepository.save(entity);
-		dueDetailsService.calculateDuesForPaymentWithoutDiscFine(paymentId, request.getGenericHeader());
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
-		response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
-		return response;
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("createPayment", header);
+		try {
+			CreatePaymentResponse response = new CreatePaymentResponse();
+			response.setGenericHeader(header);
+			List<String> paymentCollectionCycles = resolvePaymentCollectionCycles(request);
+			LocalDate collectionStartDate = request.getCollectionStartDate() != null ? request.getCollectionStartDate().toLocalDate()
+					: null;
+			LocalDate collectionEndDate = request.getCollectionEndDate() != null ? request.getCollectionEndDate().toLocalDate()
+					: null;
+			String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
+					: null;
+			String paymentId = getPaymentId(request != null ? request.getCause() : null, apartmentId);
+			String applicableFor = serializeApplicableFor(request.getApplicableFor());
+			String allowedPaymentModes = serializeAllowedPaymentModes(request.getAllowedPaymentModes());
+			String addedCharges = serializeAddedCharges(request.getAddedCharges());
+			String discFin = serializeDiscFin(request);
+			String paymentCollectionCyclesJson = serializePaymentCollectionCycles(paymentCollectionCycles);
+			PaymentEntity entity = new PaymentEntity();
+			entity.setPaymentId(paymentId);
+			entity.setPaymentName(request.getPaymentName());
+			entity.setShortDetails(request.getShortDetails());
+			entity.setPaymentCapita(request.getPaymentCapita());
+			entity.setPaymentAmount(request.getPaymentAmount());
+			entity.setGst(request.getGst());
+			entity.setCurrency(SecuraConstants.PAYMENT_CURRENCY);
+			entity.setCollectionStartDate(collectionStartDate);
+			entity.setCollectionEndDate(collectionEndDate);
+			entity.setPaymentCollectionCycle(paymentCollectionCyclesJson);
+			entity.setPaymentCollectionMode(request.getPaymentCollectionMode());
+			entity.setApplicableFor(applicableFor);
+			entity.setAllowedPaymentModes(allowedPaymentModes);
+			entity.setAddedCharges(addedCharges);
+			entity.setDiscFin(discFin);
+			entity.setPaymentType(request.getPaymentType());
+			entity.setBankAccountId(request.getBankAccountId());
+			entity.setAprmtId(apartmentId);
+			entity.setStatus(SecuraConstants.PAYMENT_STATUS_ACTIVE);
+			entity.setEmailSentflag(EMAIL_SENT_FLAG_NO);
+			entity.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
+			entity.setCauseId(request.getCause());
+			entity.setPartialPaymentAllowed(request.isPartialPaymentAllowed());
+			paymentRepository.save(entity);
+			dueDetailsService.calculateDuesForPaymentWithoutDiscFine(paymentId, request.getGenericHeader());
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
+			response.setMessage_code(SuccessMessageCode.SUCC_MESSAGE_23);
+			LOGGER.info(
+					"PaymentServices.createPayment created paymentId={} for userId={}, apartmentId={}, causeId={}, cycleCount={}",
+					paymentId, getUserId(header), apartmentId, request.getCause(), paymentCollectionCycles.size());
+			return response;
+		} finally {
+			logMethodEnd("createPayment", header);
+		}
 	}
 
 	@Override
 	public UploadPastDueResponse uploadPastDue(UploadPastDueRequest request) throws Exception {
-		UploadPastDueResponse response = new UploadPastDueResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		String apartmentId = request != null && request.getGenericHeader() != null
-				? trimValue(request.getGenericHeader().getApartmentId())
-				: null;
-		if (!hasText(apartmentId) || request == null || !hasText(request.getFile())) {
-			response.setSuccessRows(0);
-			response.setFailedRows(0);
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-			return response;
-		}
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("uploadPastDue", header);
+		try {
+			UploadPastDueResponse response = new UploadPastDueResponse();
+			response.setGenericHeader(header);
+			String apartmentId = request != null && request.getGenericHeader() != null
+					? trimValue(request.getGenericHeader().getApartmentId())
+					: null;
+			if (!hasText(apartmentId) || request == null || !hasText(request.getFile())) {
+				response.setSuccessRows(0);
+				response.setFailedRows(0);
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return response;
+			}
 
-		List<List<String>> failedRows = new ArrayList<>();
-		int successRows = 0;
-		Set<String> validFlatIds = flatRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
-				.map(Flat::getFlatNo).filter(this::hasText).map(this::normalizeFlatNoForMatch).filter(Objects::nonNull)
-				.collect(Collectors.toCollection(HashSet::new));
+			List<List<String>> failedRows = new ArrayList<>();
+			int successRows = 0;
+			Set<String> validFlatIds = flatRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
+					.map(Flat::getFlatNo).filter(this::hasText).map(this::normalizeFlatNoForMatch).filter(Objects::nonNull)
+					.collect(Collectors.toCollection(HashSet::new));
 
-		try (Workbook workbook = new XSSFWorkbook(
-				new ByteArrayInputStream(Base64.getDecoder().decode(stripDataUrlPrefix(request.getFile()))))) {
-			Sheet sheet = workbook.getSheetAt(0);
-			for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-				Row row = sheet.getRow(rowIndex);
-				if (row == null || isPastDueRowBlank(row)) {
-					continue;
-				}
-				try {
-					PastDueUploadRow uploadRow = extractPastDueUploadRow(row);
-					List<String> validationErrors = validatePastDueUploadRow(uploadRow, validFlatIds);
-					if (!validationErrors.isEmpty()) {
-						failedRows.add(buildPastDueFailedRow(uploadRow, String.join("; ", validationErrors)));
+			try (Workbook workbook = new XSSFWorkbook(
+					new ByteArrayInputStream(Base64.getDecoder().decode(stripDataUrlPrefix(request.getFile()))))) {
+				Sheet sheet = workbook.getSheetAt(0);
+				for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+					Row row = sheet.getRow(rowIndex);
+					if (row == null || isPastDueRowBlank(row)) {
 						continue;
 					}
-					CreatePaymentRequest createPaymentRequest = buildPastDueCreatePaymentRequest(request, uploadRow);
-					createPayment(createPaymentRequest);
-					successRows++;
-				} catch (Exception rowException) {
-					failedRows.add(buildPastDueFailedRow(row, rowException.getMessage()));
+					try {
+						PastDueUploadRow uploadRow = extractPastDueUploadRow(row);
+						List<String> validationErrors = validatePastDueUploadRow(uploadRow, validFlatIds);
+						if (!validationErrors.isEmpty()) {
+							failedRows.add(buildPastDueFailedRow(uploadRow, String.join("; ", validationErrors)));
+							continue;
+						}
+						CreatePaymentRequest createPaymentRequest = buildPastDueCreatePaymentRequest(request, uploadRow);
+						createPayment(createPaymentRequest);
+						successRows++;
+					} catch (Exception rowException) {
+						failedRows.add(buildPastDueFailedRow(row, rowException.getMessage()));
+					}
 				}
+			} catch (Exception exception) {
+				response.setSuccessRows(successRows);
+				response.setFailedRows(failedRows.size());
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return response;
 			}
-		} catch (Exception exception) {
 			response.setSuccessRows(successRows);
 			response.setFailedRows(failedRows.size());
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-			return response;
-		}
-		response.setSuccessRows(successRows);
-		response.setFailedRows(failedRows.size());
+			LOGGER.info("PaymentServices.uploadPastDue processed past-due file for userId={}, apartmentId={}, successRows={}, failedRows={}",
+					getUserId(header), apartmentId, successRows, failedRows.size());
 
-		if (!failedRows.isEmpty()) {
-			response.setFile(generatePastDueFailedRowsWorkbook(failedRows));
-			response.setMessage(ErrorMessage.ERR_MESSAGE_42);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_42);
+			if (!failedRows.isEmpty()) {
+				response.setFile(generatePastDueFailedRowsWorkbook(failedRows));
+				response.setMessage(ErrorMessage.ERR_MESSAGE_42);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_42);
+				return response;
+			}
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_23);
 			return response;
+		} finally {
+			logMethodEnd("uploadPastDue", header);
 		}
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_23);
-		return response;
 	}
 
 	@Override
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
-		PayDueResponse response = new PayDueResponse();
-		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
-		PaymentEntity paymentEntity = resolvePaymentEntity(request != null ? request.getPaymentId() : null, apartmentId)
-				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
-		String flatArea = resolveFlatArea(apartmentId, flatId);
-		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
-				request != null ? request.getPaymentTenderDataList() : null);
-		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
-		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
-		if (isPendingValidationStatus(transaction.getTrnsStatus()) && isQrPaymentTransaction(transaction)) {
-			transaction.setQrIdentifier(generateUniqueQrIdentifier(apartmentId));
-			response.setQrIdentifier(transaction.getQrIdentifier());
-		}
-		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
-		DueAmountDetailsEntity dueEntity = request != null ? request.getPaidDueDetails() : null;
-		if (dueEntity == null) {
-			dueEntity = resolveDueAmountDetailsEntity(request, flatArea, paymentEntity);
-		}
-		persistTransactionDueDetails(transaction.getTrnscId(), apartmentId, dueEntity);
-		transactionRepository.save(transaction);
-		CreateReceiptResponse receiptResponse = receiptServices
-				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
-		transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
-		transactionRepository.save(transaction);
-		if (!onlinePayment) {
-			Worklist worklist = worklistService.createTransactionReviewWorklist(transaction.getTrnscId(),
-					request != null ? request.getGenericHeader() : null);
-			transaction.setWorkListId(worklist.getWorklistId());
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("payDues", header);
+		try {
+			PayDueResponse response = new PayDueResponse();
+			String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId()
+					: null;
+			PaymentEntity paymentEntity = resolvePaymentEntity(request != null ? request.getPaymentId() : null, apartmentId)
+					.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
+			response.setGenericHeader(header);
+			String flatId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null;
+			String flatArea = resolveFlatArea(apartmentId, flatId);
+			List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
+					request != null ? request.getPaymentTenderDataList() : null);
+			boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
+			Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
+			if (isPendingValidationStatus(transaction.getTrnsStatus()) && isQrPaymentTransaction(transaction)) {
+				transaction.setQrIdentifier(generateUniqueQrIdentifier(apartmentId));
+				response.setQrIdentifier(transaction.getQrIdentifier());
+			}
+			boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
+			DueAmountDetailsEntity dueEntity = request != null ? request.getPaidDueDetails() : null;
+			if (dueEntity == null) {
+				dueEntity = resolveDueAmountDetailsEntity(request, flatArea, paymentEntity);
+			}
+			persistTransactionDueDetails(transaction.getTrnscId(), apartmentId, dueEntity);
 			transactionRepository.save(transaction);
-		} else if (successfulTransaction) {
-			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
-			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+			CreateReceiptResponse receiptResponse = receiptServices
+					.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
+			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+			transactionRepository.save(transaction);
+			if (!onlinePayment) {
+				Worklist worklist = worklistService.createTransactionReviewWorklist(transaction.getTrnscId(), header);
+				transaction.setWorkListId(worklist.getWorklistId());
+				transactionRepository.save(transaction);
+			} else if (successfulTransaction) {
+				response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+				response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+			}
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
+			response.setTransactionId(transaction.getTrnscId());
+			if (onlinePayment && successfulTransaction) {
+				response.setReceiptNumber(transaction.getReceiptNumber());
+			}
+			if (successfulTransaction) {
+				removeCoveredDuesAfterSuccessfulPayment(
+						request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
+						request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null, request.getPaymentId(),
+						transaction.getDueDetails());
+			}
+			LOGGER.info(
+					"PaymentServices.payDues created transactionId={} for userId={}, apartmentId={}, paymentId={}, flatId={}, status={}",
+					transaction.getTrnscId(), getUserId(header), apartmentId, request != null ? trimValue(request.getPaymentId()) : null,
+					flatId, trimValue(transaction.getTrnsStatus()));
+			return response;
+		} finally {
+			logMethodEnd("payDues", header);
 		}
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
-		response.setTransactionId(transaction.getTrnscId());
-		if (onlinePayment && successfulTransaction) {
-			response.setReceiptNumber(transaction.getReceiptNumber());
-		}
-		if (successfulTransaction) {
-			removeCoveredDuesAfterSuccessfulPayment(
-					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
-					request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null,
-					request.getPaymentId(), transaction.getDueDetails());
-		}
-		return response;
 	}
 
 	@Override
 	public GenericResponse validatePriorDuePaymnent(ValidatePriorDuePaymnentRequest request) throws Exception {
-		GenericResponse response = new GenericResponse();
-		String apartmentId = request != null && request.getGenericHeader() != null
-				? trimValue(request.getGenericHeader().getApartmentId())
-				: null;
-		String flatId = request != null && request.getGenericHeader() != null
-				? trimValue(request.getGenericHeader().getFlatNo())
-				: null;
-		String paymentId = trimValue(request != null ? request.getPaymentId() : null);
-		String dueId = trimValue(request != null ? request.getDueId() : null);
-		String paymentCycle = trimValue(request != null ? request.getPaymentCycle() : null);
-		LocalDate dueDate = request != null ? request.getDueDate() : null;
-		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId) || !hasText(dueId)
-				|| !hasText(paymentCycle) || dueDate == null) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("validatePriorDuePaymnent", header);
+		try {
+			GenericResponse response = new GenericResponse();
+			String apartmentId = request != null && request.getGenericHeader() != null
+					? trimValue(request.getGenericHeader().getApartmentId())
+					: null;
+			String flatId = request != null && request.getGenericHeader() != null
+					? trimValue(request.getGenericHeader().getFlatNo())
+					: null;
+			String paymentId = trimValue(request != null ? request.getPaymentId() : null);
+			String dueId = trimValue(request != null ? request.getDueId() : null);
+			String paymentCycle = trimValue(request != null ? request.getPaymentCycle() : null);
+			LocalDate dueDate = request != null ? request.getDueDate() : null;
+			if (!hasText(apartmentId) || !hasText(flatId) || !hasText(paymentId) || !hasText(dueId)
+					|| !hasText(paymentCycle) || dueDate == null) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return response;
+			}
+			List<Transaction> existingTransactions = transactionRepository
+					.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc(apartmentId, flatId, paymentId);
+			String expectedDueDetails = createValidationDueDetailsValue(request, apartmentId, flatId);
+			List<Transaction> matchingTransactions = existingTransactions.stream().filter(
+					transaction -> isMatchingDueDetailsForValidation(transaction, dueId, paymentCycle, dueDate, expectedDueDetails))
+					.collect(Collectors.toList());
+			LOGGER.info(
+					"PaymentServices.validatePriorDuePaymnent evaluated {} matching transactions for userId={}, apartmentId={}, paymentId={}, flatId={}",
+					matchingTransactions.size(), getUserId(header), apartmentId, paymentId, flatId);
+			if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isSuccessfulTransaction)) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_50);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_50);
+				return response;
+			}
+			if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isPendingValidationStatus)) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_51);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_51);
+				return response;
+			}
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_46);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_46);
 			return response;
+		} finally {
+			logMethodEnd("validatePriorDuePaymnent", header);
 		}
-		List<Transaction> existingTransactions = transactionRepository
-				.findByAprmntIdAndFlatIdAndPymntIdOrderByTrnsDateDesc(apartmentId, flatId, paymentId);
-		String expectedDueDetails = createValidationDueDetailsValue(request, apartmentId, flatId);
-		List<Transaction> matchingTransactions = existingTransactions.stream()
-				.filter(transaction -> isMatchingDueDetailsForValidation(transaction, dueId, paymentCycle, dueDate, expectedDueDetails))
-				.collect(Collectors.toList());
-		if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isSuccessfulTransaction)) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_50);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_50);
-			return response;
-		}
-		if (matchingTransactions.stream().map(Transaction::getTrnsStatus).anyMatch(this::isPendingValidationStatus)) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_51);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_51);
-			return response;
-		}
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_46);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_46);
-		return response;
 	}
 
 	@Override
 	public ReconcileQRPaymentResponse reconcileQRPayment(ReconcileQRPaymentRequest request) throws Exception {
-		ReconcileQRPaymentResponse response = new ReconcileQRPaymentResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		response.setFoundTransactionsList(new ArrayList<>());
-		response.setNotFoundTransactionsList(new ArrayList<>());
-		response.setFoundCount(0);
-		response.setNotFoundCount(0);
-		String apartmentId = request != null && request.getGenericHeader() != null
-				? trimValue(request.getGenericHeader().getApartmentId())
-				: null;
-		if (!hasText(apartmentId) || request == null || !hasText(request.getBase64EncodedSatementFile())) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-			return response;
-		}
-
-		List<Transaction> transactions = transactionRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
-				.filter(transaction -> SecuraConstants.TRANSACTION_STATUS_PENDING.equalsIgnoreCase(trimValue(transaction.getTrnsStatus())))
-				.filter(this::isQrPaymentTransaction).filter(transaction -> isCreatTsInBounds(transaction, request.getFromDate(),
-						request.getToDate())).collect(Collectors.toList());
-		try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(
-				Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
-				ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-			prependReconcileColumns(workbook);
-			Map<Short, CellStyle> rowHighlightStyleCache = new HashMap<>();
-			List<Transaction> foundTransactions = new ArrayList<>();
-			List<Transaction> notFoundTransactions = new ArrayList<>();
-			for (Transaction transaction : transactions) {
-				List<Row> matchedRows = findMatchedRowsForIdentifier(workbook, trimValue(transaction.getQrIdentifier()));
-				if (matchedRows.isEmpty()) {
-					notFoundTransactions.add(transaction);
-					continue;
-				}
-				foundTransactions.add(transaction);
-				for (Row matchedRow : matchedRows) {
-					populateReconcileColumns(matchedRow, transaction);
-					highlightReconcileRow(workbook, matchedRow, rowHighlightStyleCache);
-				}
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("reconcileQRPayment", header);
+		try {
+			ReconcileQRPaymentResponse response = new ReconcileQRPaymentResponse();
+			response.setGenericHeader(header);
+			response.setFoundTransactionsList(new ArrayList<>());
+			response.setNotFoundTransactionsList(new ArrayList<>());
+			response.setFoundCount(0);
+			response.setNotFoundCount(0);
+			String apartmentId = request != null && request.getGenericHeader() != null
+					? trimValue(request.getGenericHeader().getApartmentId())
+					: null;
+			if (!hasText(apartmentId) || request == null || !hasText(request.getBase64EncodedSatementFile())) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return response;
 			}
-			workbook.write(outputStream);
-			response.setHighlithedBase64EncodedFile(Base64.getEncoder().encodeToString(outputStream.toByteArray()));
-			response.setFoundTransactionsList(foundTransactions);
-			response.setNotFoundTransactionsList(notFoundTransactions);
-			response.setFoundCount(foundTransactions.size());
-			response.setNotFoundCount(notFoundTransactions.size());
-			setReconcileMessage(response);
-			return response;
-		} catch (Exception exception) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-			return response;
+
+			List<Transaction> transactions = transactionRepository.findByAprmntId(apartmentId).stream().filter(Objects::nonNull)
+					.filter(transaction -> SecuraConstants.TRANSACTION_STATUS_PENDING
+							.equalsIgnoreCase(trimValue(transaction.getTrnsStatus())))
+					.filter(this::isQrPaymentTransaction)
+					.filter(transaction -> isCreatTsInBounds(transaction, request.getFromDate(), request.getToDate()))
+					.collect(Collectors.toList());
+			LOGGER.info(
+					"PaymentServices.reconcileQRPayment identified {} pending QR transactions for userId={}, apartmentId={}",
+					transactions.size(), getUserId(header), apartmentId);
+			try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(
+					Base64.getDecoder().decode(stripDataUrlPrefix(request.getBase64EncodedSatementFile()))));
+					ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+				prependReconcileColumns(workbook);
+				Map<Short, CellStyle> rowHighlightStyleCache = new HashMap<>();
+				List<Transaction> foundTransactions = new ArrayList<>();
+				List<Transaction> notFoundTransactions = new ArrayList<>();
+				for (Transaction transaction : transactions) {
+					List<Row> matchedRows = findMatchedRowsForIdentifier(workbook, trimValue(transaction.getQrIdentifier()));
+					if (matchedRows.isEmpty()) {
+						notFoundTransactions.add(transaction);
+						continue;
+					}
+					foundTransactions.add(transaction);
+					for (Row matchedRow : matchedRows) {
+						populateReconcileColumns(matchedRow, transaction);
+						highlightReconcileRow(workbook, matchedRow, rowHighlightStyleCache);
+					}
+				}
+				workbook.write(outputStream);
+				response.setHighlithedBase64EncodedFile(Base64.getEncoder().encodeToString(outputStream.toByteArray()));
+				response.setFoundTransactionsList(foundTransactions);
+				response.setNotFoundTransactionsList(notFoundTransactions);
+				response.setFoundCount(foundTransactions.size());
+				response.setNotFoundCount(notFoundTransactions.size());
+				setReconcileMessage(response);
+				LOGGER.info(
+						"PaymentServices.reconcileQRPayment completed for userId={}, apartmentId={}, foundCount={}, notFoundCount={}",
+						getUserId(header), apartmentId, foundTransactions.size(), notFoundTransactions.size());
+				return response;
+			} catch (Exception exception) {
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return response;
+			}
+		} finally {
+			logMethodEnd("reconcileQRPayment", header);
 		}
 	}
 
 	@Override
 	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception {
-		ActionQRPaymentResponse response = new ActionQRPaymentResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		List<Transaction> foundTransactions = request != null ? request.getTransactionsList() : null;
-		String action = trimValue(request != null ? request.getAction() : null);
-		if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
-			response.setNotCompletedTransactionList(new ArrayList<>());
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-			return response;
-		}
-		List<Transaction> notCompletedTransactions = new ArrayList<>();
-		List<String[]> failedRows = new ArrayList<>();
-		for (Transaction transaction : foundTransactions) {
-			GenericResponse actionResponse = triggerWorklistAction(request, action, transaction);
-			String responseCode = trimValue(actionResponse != null ? actionResponse.getMessageCode() : null);
-			if (responseCode != null && responseCode.contains("SUCC_MESSAGE_")) {
-				continue;
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("actionQRPayment", header);
+		try {
+			ActionQRPaymentResponse response = new ActionQRPaymentResponse();
+			response.setGenericHeader(header);
+			List<Transaction> foundTransactions = request != null ? request.getTransactionsList() : null;
+			String action = trimValue(request != null ? request.getAction() : null);
+			if (foundTransactions == null || foundTransactions.isEmpty() || !isValidAction(action)) {
+				response.setNotCompletedTransactionList(new ArrayList<>());
+				response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+				return response;
 			}
-			notCompletedTransactions.add(transaction);
-			failedRows.add(new String[] {
-					safePastDueValue(transaction != null ? transaction.getTrnscId() : null),
-					safePastDueValue(transaction != null ? transaction.getFlatId() : null),
-					safePastDueValue(transaction != null ? transaction.getTrnsAmt() : null),
-					formatActionQrTransactionDate(transaction != null ? transaction.getCreatTs() : null),
-					safePastDueValue(actionResponse != null ? actionResponse.getMessage() : null) });
+			List<Transaction> notCompletedTransactions = new ArrayList<>();
+			List<String[]> failedRows = new ArrayList<>();
+			for (Transaction transaction : foundTransactions) {
+				GenericResponse actionResponse = triggerWorklistAction(request, action, transaction);
+				String responseCode = trimValue(actionResponse != null ? actionResponse.getMessageCode() : null);
+				if (responseCode != null && responseCode.contains("SUCC_MESSAGE_")) {
+					continue;
+				}
+				notCompletedTransactions.add(transaction);
+				failedRows.add(new String[] { safePastDueValue(transaction != null ? transaction.getTrnscId() : null),
+						safePastDueValue(transaction != null ? transaction.getFlatId() : null),
+						safePastDueValue(transaction != null ? transaction.getTrnsAmt() : null),
+						formatActionQrTransactionDate(transaction != null ? transaction.getCreatTs() : null),
+						safePastDueValue(actionResponse != null ? actionResponse.getMessage() : null) });
+			}
+			response.setNotCompletedTransactionList(notCompletedTransactions);
+			if (!failedRows.isEmpty()) {
+				response.setFailedWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
+			}
+			setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
+			LOGGER.info(
+					"PaymentServices.actionQRPayment processed action={} for userId={}, apartmentId={}, requestedCount={}, failedCount={}",
+					action, getUserId(header), getApartmentId(header), foundTransactions.size(), notCompletedTransactions.size());
+			return response;
+		} finally {
+			logMethodEnd("actionQRPayment", header);
 		}
-		response.setNotCompletedTransactionList(notCompletedTransactions);
-		if (!failedRows.isEmpty()) {
-			response.setFailedWorklistActionFileBase64Encoded(createActionQrFailedWorkbook(failedRows));
-		}
-		setActionQrMessage(response, foundTransactions.size(), notCompletedTransactions.size());
-		return response;
 	}
 
 	@Override
 	public LedgerEntryResponse ledgerEntry(LedgerEntryRequest request) throws Exception {
-		LedgerEntryResponse response = new LedgerEntryResponse();
-		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
-				request != null ? request.getTrnsTenderList() : null);
-		if (paymentTenderDataList.isEmpty()) {
-			throw new IllegalArgumentException("At least one tender is required");
+		GenericHeader header = request != null ? request.getGenericHeader() : null;
+		logMethodStart("ledgerEntry", header);
+		try {
+			LedgerEntryResponse response = new LedgerEntryResponse();
+			response.setGenericHeader(header);
+			List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
+					request != null ? request.getTrnsTenderList() : null);
+			if (paymentTenderDataList.isEmpty()) {
+				throw new IllegalArgumentException("At least one tender is required");
+			}
+			LocalDateTime currentTimestamp = LocalDateTime.now();
+			List<String> documentIdList = saveLedgerDocuments(request, currentTimestamp);
+			LocalDateTime transactionDate = resolveLedgerTransactionDate(request, currentTimestamp);
+			Transaction transaction = buildLedgerTransaction(request, paymentTenderDataList, transactionDate, currentTimestamp,
+					documentIdList);
+			if (shouldCreateLedgerReceipt(request)) {
+				CreateReceiptResponse receiptResponse = receiptServices
+						.createReceipt(buildLedgerReceiptRequest(request, transaction.getTrnscId(), paymentTenderDataList));
+				transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+				transactionRepository.save(transaction);
+				response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+			} else {
+				transactionRepository.save(transaction);
+			}
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_40);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_40);
+			LOGGER.info(
+					"PaymentServices.ledgerEntry created transactionId={} for userId={}, apartmentId={}, tenderCount={}",
+					transaction.getTrnscId(), getUserId(header), getApartmentId(header), paymentTenderDataList.size());
+			return response;
+		} finally {
+			logMethodEnd("ledgerEntry", header);
 		}
-		LocalDateTime currentTimestamp = LocalDateTime.now();
-		List<String> documentIdList = saveLedgerDocuments(request, currentTimestamp);
-		LocalDateTime transactionDate = resolveLedgerTransactionDate(request, currentTimestamp);
-		Transaction transaction = buildLedgerTransaction(request, paymentTenderDataList, transactionDate, currentTimestamp,
-				documentIdList);
-		if (shouldCreateLedgerReceipt(request)) {
-			CreateReceiptResponse receiptResponse = receiptServices
-					.createReceipt(buildLedgerReceiptRequest(request, transaction.getTrnscId(), paymentTenderDataList));
-			transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
-			transactionRepository.save(transaction);
-			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
-		} else {
-			transactionRepository.save(transaction);
-		}
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_40);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_40);
-		return response;
 	}
 
 	public String getPaymentId(String cause, String apartmentId) {
