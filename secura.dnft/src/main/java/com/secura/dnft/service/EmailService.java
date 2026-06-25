@@ -175,7 +175,7 @@ public class EmailService implements EmailInterface {
            sendPaymentMails(filteredPayments);
            }
        } catch (Exception e) {
-           logger.error("EmailService.sendPaymentEmail() encountered an error", e);
+           logger.error("EmailService.sendPaymentEmail encountered an error", e);
        } finally {
            logMethodEnd(methodName);
        }
@@ -197,7 +197,7 @@ public class EmailService implements EmailInterface {
            sendTransactionMails(filteredTransactions);
 }
        } catch (Exception e) {
-           logger.error("EmailService.sendTransactionEmail() encountered an error", e);
+           logger.error("EmailService.sendTransactionEmail encountered an error", e);
        } finally {
            logMethodEnd(methodName);
        }
@@ -218,7 +218,7 @@ public class EmailService implements EmailInterface {
 
            sendNoticeMails(filteredNotices);
        } catch (Exception e) {
-           logger.error("EmailService.sendOtherEmail() encountered an error", e);
+           logger.error("EmailService.sendOtherEmail encountered an error", e);
        } finally {
            logMethodEnd(methodName);
        }
