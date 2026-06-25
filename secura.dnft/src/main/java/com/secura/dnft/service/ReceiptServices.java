@@ -100,6 +100,8 @@ public class ReceiptServices implements ReceiptInterface {
 	private static final String RECEIPT_NUMBER_PREFIX = "INV-";
 	private static final String RECEIPT_NUMBER_GENERIC_PREFIX = "INV-GEN-";
 	private static final int RECEIPT_NUMBER_DIGITS = 4;
+	private static final String[] REGULAR_FONT_RESOURCES = new String[] { "/fonts/DejaVuSans.ttf" };
+	private static final String[] BOLD_FONT_RESOURCES = new String[] { "/fonts/DejaVuSans-Bold.ttf" };
 	private static final String[] REGULAR_FONT_PATHS = new String[] { "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 			"/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", "/Library/Fonts/Arial Unicode.ttf",
 			"/System/Library/Fonts/Supplemental/Arial Unicode.ttf", "C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/segoeui.ttf" };
@@ -472,22 +474,6 @@ public class ReceiptServices implements ReceiptInterface {
 		return RUPEE_SYMBOL + " " + formattedAmount;
 	}
 
-	private static PDFont loadFont(PDDocument document, String[] candidates, PDFont fallback) {
-		for (String candidate : candidates) {
-			Path path = Path.of(candidate);
-			if (!Files.isRegularFile(path)) {
-				continue;
-			}
-			try (InputStream stream = Files.newInputStream(path)) {
-				return PDType0Font.load(document, stream);
-			} catch (IOException ex) {
-				LOGGER.debug("Unable to load receipt font from {}", candidate, ex);
-			}
-		}
-		LOGGER.warn("Falling back to built-in PDF font; rupee symbol rendering may be limited");
-		return fallback;
-	}
-
 	private Optional<Receipt> resolveReceiptByNumber(String apartmentId, String receiptNumber) {
 		if (!hasText(receiptNumber)) {
 			return Optional.empty();
@@ -538,8 +524,8 @@ public class ReceiptServices implements ReceiptInterface {
 
 		private PdfCanvas(PDDocument document) throws IOException {
 			this.document = document;
-			this.font = loadFont(document, REGULAR_FONT_PATHS, FALLBACK_FONT);
-			this.boldFont = loadFont(document, BOLD_FONT_PATHS, FALLBACK_BOLD_FONT);
+			this.font = ReceiptFontLoader.loadFont(document, REGULAR_FONT_RESOURCES, REGULAR_FONT_PATHS, FALLBACK_FONT);
+			this.boldFont = ReceiptFontLoader.loadFont(document, BOLD_FONT_RESOURCES, BOLD_FONT_PATHS, FALLBACK_BOLD_FONT);
 			newPage();
 		}
 
