@@ -474,32 +474,6 @@ public class ReceiptServices implements ReceiptInterface {
 		return RUPEE_SYMBOL + " " + formattedAmount;
 	}
 
-	private static PDFont loadFont(PDDocument document, String[] resourceCandidates, String[] fileCandidates, PDFont fallback) {
-		for (String resourceCandidate : resourceCandidates) {
-			try (InputStream stream = ReceiptServices.class.getResourceAsStream(resourceCandidate)) {
-				if (stream == null) {
-					continue;
-				}
-				return PDType0Font.load(document, stream);
-			} catch (IOException ex) {
-				LOGGER.debug("Unable to load bundled receipt font from {}", resourceCandidate, ex);
-			}
-		}
-		for (String candidate : fileCandidates) {
-			Path path = Path.of(candidate);
-			if (!Files.isRegularFile(path)) {
-				continue;
-			}
-			try (InputStream stream = Files.newInputStream(path)) {
-				return PDType0Font.load(document, stream);
-			} catch (IOException ex) {
-				LOGGER.debug("Unable to load receipt font from {}", candidate, ex);
-			}
-		}
-		LOGGER.warn("Falling back to built-in PDF font; rupee symbol rendering may be limited");
-		return fallback;
-	}
-
 	private Optional<Receipt> resolveReceiptByNumber(String apartmentId, String receiptNumber) {
 		if (!hasText(receiptNumber)) {
 			return Optional.empty();
@@ -550,8 +524,8 @@ public class ReceiptServices implements ReceiptInterface {
 
 		private PdfCanvas(PDDocument document) throws IOException {
 			this.document = document;
-			this.font = loadFont(document, REGULAR_FONT_RESOURCES, REGULAR_FONT_PATHS, FALLBACK_FONT);
-			this.boldFont = loadFont(document, BOLD_FONT_RESOURCES, BOLD_FONT_PATHS, FALLBACK_BOLD_FONT);
+			this.font = ReceiptFontLoader.loadFont(document, REGULAR_FONT_RESOURCES, REGULAR_FONT_PATHS, FALLBACK_FONT);
+			this.boldFont = ReceiptFontLoader.loadFont(document, BOLD_FONT_RESOURCES, BOLD_FONT_PATHS, FALLBACK_BOLD_FONT);
 			newPage();
 		}
 

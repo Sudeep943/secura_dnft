@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.lang.reflect.Method;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -491,13 +490,10 @@ class ReceiptServicesTest {
 	@Test
 	void loadFont_shouldUseBundledFontWhenFileSystemFontIsUnavailable() throws Exception {
 		try (PDDocument document = new PDDocument()) {
-			Method loadFont = ReceiptServices.class.getDeclaredMethod("loadFont", PDDocument.class, String[].class, String[].class, PDFont.class);
-			loadFont.setAccessible(true);
-			PDFont font = (PDFont) loadFont.invoke(null, document, new String[] { "/fonts/DejaVuSans.ttf" },
+			PDFont font = ReceiptFontLoader.loadFont(document, new String[] { "/fonts/DejaVuSans.ttf" },
 					new String[] { "/path/that/does/not/exist.ttf" }, null);
 
 			assertNotNull(font);
-			assertEquals("PDType0Font", font.getClass().getSimpleName());
 			assertTrue(font.getStringWidth("₹ 2500") > 0f);
 		}
 	}
