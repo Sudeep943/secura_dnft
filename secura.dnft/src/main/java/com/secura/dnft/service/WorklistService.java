@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,6 +25,7 @@ import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
+import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.TransDueDetailsEntityId;
 import com.secura.dnft.entity.Worklist;
@@ -37,6 +39,7 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetWorkListsRequest;
 import com.secura.dnft.request.response.GetWorkListsResponse;
+import com.secura.dnft.security.BusinessException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -73,8 +76,19 @@ public class WorklistService {
 	@Autowired
 	private TransDueDetailsRepository transDueDetailsRepository;
 
+	@Autowired
+	ProfileServices profileServices;
+	
 	public Worklist createTransactionReviewWorklist(String transactionId, GenericHeader genericHeader) {
 		LocalDateTime now = LocalDateTime.now();
+		Optional<Profile> profile = java.util.Optional.empty();
+		try {
+			profile=Optional.of(profileServices.getProfileEntity("9658733181"));
+		} catch (BusinessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 		String userId = genericHeader != null ? genericHeader.getUserId() : null;
 		Worklist worklist = new Worklist();
 		worklist.setWorklistId(genericService.createWorklistId(SecuraConstants.WORKLIST_TYPE_TRANSACTION_REVIEW, userId));
@@ -83,7 +97,14 @@ public class WorklistService {
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_PENDING);
 		worklist.setReferenceId(transactionId);
 		worklist.setFlatNo(genericHeader != null ? genericHeader.getFlatNo() : null);
-		worklist.setCurrentAssignee("admin");
+		if(profile.isPresent()) {
+			worklist.setCurrentAssignee(profile.get().getPrflId());
+
+		}
+		else {
+			worklist.setCurrentAssignee("admin");
+
+		}
 		worklist.setCreatUsrId(userId);
 		worklist.setCreatTs(now);
 		worklist.setLstUpdtTs(now);
