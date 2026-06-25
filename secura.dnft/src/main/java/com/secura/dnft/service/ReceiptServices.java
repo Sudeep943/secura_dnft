@@ -766,7 +766,7 @@ public class ReceiptServices implements ReceiptInterface {
 			if (text == null || text.isEmpty()) {
 				return "";
 			}
-			String source = text.replace(RUPEE_SYMBOL, RUPEE_FALLBACK);
+			String source = text;
 			StringBuilder sanitized = new StringBuilder(source.length());
 			for (int offset = 0; offset < source.length();) {
 				int codePoint = source.codePointAt(offset);
@@ -776,6 +776,10 @@ public class ReceiptServices implements ReceiptInterface {
 					continue;
 				}
 				String candidate = new String(Character.toChars(codePoint));
+				if (RUPEE_SYMBOL.equals(candidate) && !canRender(targetFont, candidate)) {
+					sanitized.append(RUPEE_FALLBACK);
+					continue;
+				}
 				if (canRender(targetFont, candidate)) {
 					sanitized.append(candidate);
 					continue;
