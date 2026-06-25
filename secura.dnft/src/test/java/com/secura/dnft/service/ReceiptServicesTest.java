@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Method;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +29,6 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
@@ -491,11 +491,13 @@ class ReceiptServicesTest {
 	@Test
 	void loadFont_shouldUseBundledFontWhenFileSystemFontIsUnavailable() throws Exception {
 		try (PDDocument document = new PDDocument()) {
-			PDFont font = ReceiptServices.loadFont(document, new String[] { "/fonts/DejaVuSans.ttf" },
-					new String[] { "/path/that/does/not/exist.ttf" }, new PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA));
+			Method loadFont = ReceiptServices.class.getDeclaredMethod("loadFont", PDDocument.class, String[].class, String[].class, PDFont.class);
+			loadFont.setAccessible(true);
+			PDFont font = (PDFont) loadFont.invoke(null, document, new String[] { "/fonts/DejaVuSans.ttf" },
+					new String[] { "/path/that/does/not/exist.ttf" }, null);
 
 			assertNotNull(font);
-			assertFalse(font instanceof PDType1Font);
+			assertEquals("PDType0Font", font.getClass().getSimpleName());
 			assertTrue(font.getStringWidth("₹ 2500") > 0f);
 		}
 	}
