@@ -16,6 +16,9 @@ public class AddDiscfinRequest {
 	private String discFnValue;
 	private List<DiscFinCycleDiscount> discFinCycleDiscountList;
 	private String minimumPaymentAmount;
+	private Boolean partOfCycleAsFull;
+	private String bufferTime;
+	private String bufferTimeUnit;
 
 
 	public GenericHeader getGenericHeader() {
@@ -104,6 +107,30 @@ public class AddDiscfinRequest {
 
 	public void setMinimumPaymentAmount(String minimumPaymentAmount) {
 		this.minimumPaymentAmount = minimumPaymentAmount;
+	}
+
+	public Boolean getPartOfCycleAsFull() {
+		return partOfCycleAsFull;
+	}
+
+	public void setPartOfCycleAsFull(Boolean partOfCycleAsFull) {
+		this.partOfCycleAsFull = partOfCycleAsFull;
+	}
+
+	public String getBufferTime() {
+		return bufferTime;
+	}
+
+	public void setBufferTime(String bufferTime) {
+		this.bufferTime = bufferTime;
+	}
+
+	public String getBufferTimeUnit() {
+		return bufferTimeUnit;
+	}
+
+	public void setBufferTimeUnit(String bufferTimeUnit) {
+		this.bufferTimeUnit = bufferTimeUnit;
 	}
 
 }
