@@ -27,6 +27,8 @@ import org.apache.pdfbox.cos.COSNumber;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
@@ -484,6 +486,18 @@ class ReceiptServicesTest {
 		assertEquals(ErrorMessage.ERR_MESSAGE_49, response.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_49, response.getMessageCode());
 		assertNull(response.getReceipt());
+	}
+
+	@Test
+	void loadFont_shouldUseBundledFontWhenFileSystemFontIsUnavailable() throws Exception {
+		try (PDDocument document = new PDDocument()) {
+			PDFont font = ReceiptServices.loadFont(document, new String[] { "/fonts/DejaVuSans.ttf" },
+					new String[] { "/path/that/does/not/exist.ttf" }, new PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA));
+
+			assertNotNull(font);
+			assertFalse(font instanceof PDType1Font);
+			assertTrue(font.getStringWidth("₹ 2500") > 0f);
+		}
 	}
 
 	private CreateReceiptRequest createBaseRequest() {
