@@ -44,6 +44,7 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetWorkListsRequest;
 import com.secura.dnft.request.response.GetWorkListsResponse;
+import com.secura.dnft.security.BusinessException;
 
 @ExtendWith(MockitoExtension.class)
 class WorklistServiceTest {
@@ -73,7 +74,7 @@ class WorklistServiceTest {
 	private WorklistService worklistService;
 
 	@Test
-	void createTransactionReviewWorklist_shouldPersistPendingReviewWorklist() {
+	void createTransactionReviewWorklist_shouldPersistPendingReviewWorklist() throws BusinessException {
 		GenericHeader header = new GenericHeader();
 		header.setApartmentId("APR-1");
 		header.setUserId("USR-1");

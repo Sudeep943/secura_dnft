@@ -37,6 +37,7 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetWorkListsRequest;
 import com.secura.dnft.request.response.GetWorkListsResponse;
+import com.secura.dnft.security.BusinessException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -68,12 +69,15 @@ public class WorklistService {
 	private FlatRepository flatRepository;
 
 	@Autowired
+	private ProfileServices profileServices;
+	
+	@Autowired
 	private PaymentRepository paymentRepository;
 
 	@Autowired
 	private TransDueDetailsRepository transDueDetailsRepository;
 
-	public Worklist createTransactionReviewWorklist(String transactionId, GenericHeader genericHeader) {
+	public Worklist createTransactionReviewWorklist(String transactionId, GenericHeader genericHeader) throws BusinessException {
 		LocalDateTime now = LocalDateTime.now();
 		String userId = genericHeader != null ? genericHeader.getUserId() : null;
 		Worklist worklist = new Worklist();
@@ -83,7 +87,7 @@ public class WorklistService {
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_PENDING);
 		worklist.setReferenceId(transactionId);
 		worklist.setFlatNo(genericHeader != null ? genericHeader.getFlatNo() : null);
-		worklist.setCurrentAssignee("admin");
+		worklist.setCurrentAssignee(profileServices.getProfileEntity("9658733181").getPrflId());
 		worklist.setCreatUsrId(userId);
 		worklist.setCreatTs(now);
 		worklist.setLstUpdtTs(now);

@@ -71,7 +71,10 @@ public class SecurityConfig {
             "http://localhost:5000",
             "http://localhost:8080",
             "http://localhost:61404",
-            "https://secura-web-519f5.web.app"
+            "https://secura-web-519f5.web.app",
+            "https://dnfaoa.org",
+            "https://www.dnfaoa.org",
+            "https://securadnft-api-380953428736.asia-south1.run.app"
         ));
 
         config.setAllowedMethods(List.of(
