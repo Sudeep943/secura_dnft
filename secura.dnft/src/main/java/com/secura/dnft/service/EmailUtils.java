@@ -79,7 +79,7 @@ return formattedDate.toUpperCase();
 		html.append("<h1 style='margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;'>")
 				.append(safe(societyName))
 				.append("</h1>");
-		html.append("<p style='margin:6px 0 0;font-size:13px;color:#c8f0c8;letter-spacing:1px;text-transform:uppercase;'>Association of Owners</p>");
+		html.append("<p style='margin:6px 0 0;font-size:13px;color:#c8f0c8;letter-spacing:1px;text-transform:uppercase;'>Association of Allotees</p>");
 		html.append("</td>");
 		html.append("</tr>");
 
@@ -185,7 +185,7 @@ return formattedDate.toUpperCase();
         html.append("<h1 style='margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;'>")
                 .append(safe(societyName))
                 .append("</h1>");
-        html.append("<p style='margin:6px 0 0;font-size:13px;color:#c8f0c8;letter-spacing:1px;text-transform:uppercase;'>Association of Owners</p>");
+        html.append("<p style='margin:6px 0 0;font-size:13px;color:#c8f0c8;letter-spacing:1px;text-transform:uppercase;'>Association of Allotees</p>");
         html.append("</td>");
         html.append("</tr>");
 
