@@ -256,5 +256,63 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		return profile.get();
 		
 	}
+	
+	public static String maskEmail(String email) {
+
+	    if (email == null || email.trim().isEmpty()) {
+	        return email;
+	    }
+
+	    int atIndex = email.indexOf('@');
+
+	    if (atIndex <= 0 || atIndex == email.length() - 1) {
+	        return email;
+	    }
+
+	    String localPart = email.substring(0, atIndex);
+	    String domain = email.substring(atIndex);
+
+	    // If local part is too short, don't mask
+	    if (localPart.length() <= 6) {
+	        return email;
+	    }
+
+	    String firstPart = localPart.substring(0, 3);
+	    String middlePart = localPart.substring(6, 9);
+
+	    StringBuilder masked = new StringBuilder();
+	    masked.append(firstPart);
+	    masked.append("***");
+	    masked.append(middlePart);
+
+	    for (int i = 9; i < localPart.length(); i++) {
+	        masked.append('*');
+	    }
+
+	    return masked + domain;
+	}
+	
+	  public String maskPhoneNumber(String phoneNumber) {
+
+	        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+	            return phoneNumber;
+	        }
+
+	        phoneNumber = phoneNumber.trim();
+
+	        if (phoneNumber.length() <= 4) {
+	            return phoneNumber;
+	        }
+
+	        StringBuilder masked = new StringBuilder();
+
+	        for (int i = 0; i < phoneNumber.length() - 4; i++) {
+	            masked.append('*');
+	        }
+
+	        masked.append(phoneNumber.substring(phoneNumber.length() - 4));
+
+	        return masked.toString();
+	    }
 
 }

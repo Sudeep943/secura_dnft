@@ -7,8 +7,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -29,10 +31,10 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
-import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.FlatServices;
+import com.secura.dnft.service.GenericService;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.ProfileServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
@@ -59,6 +61,9 @@ public class PublicApisController {
 
 	@Autowired
 	private ProfileServices profileServices;
+	
+	@Autowired
+	private GenericService genericService;
 
 	@PostMapping("/getFlatsPublic")
 	@CrossOrigin(origins = "*")
@@ -100,7 +105,13 @@ public class PublicApisController {
 		GetOwnerResponse response = new GetOwnerResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
-			return profileServices.getOwner(request);
+			GetOwnerResponse getOwnerResponse =profileServices.getOwner(request);
+            for(Profile profile: getOwnerResponse.getProfile()) {
+            	profile.setPassword(null);
+            	profile.setPrflEmailAdrss(genericService.maskEmail(profile.getPrflEmailAdrss()));
+            	profile.setPrflPhoneNo(genericService.maskPhoneNumber(profile.getPrflPhoneNo()));
+            }
+			return getOwnerResponse;
 		} catch (Exception e) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
