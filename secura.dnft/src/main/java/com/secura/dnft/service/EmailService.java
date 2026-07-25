@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -145,9 +146,10 @@ public class EmailService implements EmailInterface {
     // -------------------------------------------------------------------------
 
     @Override
-    @Scheduled(cron = "0 */1 * * * *")
+   // @Scheduled(cron = "0 0 16 * * *", zone = "Asia/Kolkata")
+    @Scheduled(cron = "0 00 17 * * *")
     public void sendPaymentEmail() {
-        logger.info("EmailService.sendEmail() started");
+        logger.info("Payment EmailService.sendEmail() started");
         try {
             List<PaymentEntity> allPendingPayments     = paymentRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
             List<PaymentEntity> filteredPayments     = filterPaymentList(allPendingPayments);
@@ -155,16 +157,16 @@ public class EmailService implements EmailInterface {
             sendPaymentMails(filteredPayments);
             }
         } catch (Exception e) {
-            logger.error("EmailService.sendEmail() encountered an error", e);
+            logger.error("Payment EmailService.sendEmail() encountered an error", e);
         }
-        logger.info("EmailService.sendEmail() completed");
+        logger.info("Payment EmailService.sendEmail() completed");
     }
 
     
     @Override
-   @Scheduled(cron = "0 */1 * * * *")
+   @Scheduled(cron = "0 */30 * * * *")
     public void sendTransactionEmail() {
-        logger.info("EmailService.sendEmail() started");
+        logger.info("Transaction EmailService.sendEmail() started");
         try {
             List<Transaction>   allPendingTransactions = transactionRepository.findByEmailSentflag(EMAIL_SENT_FLAG_NO);
             List<Transaction>   filteredTransactions = filterTransactionList(allPendingTransactions);
@@ -173,14 +175,14 @@ public class EmailService implements EmailInterface {
             sendTransactionMails(filteredTransactions);
 }
         } catch (Exception e) {
-            logger.error("EmailService.sendEmail() encountered an error", e);
+            logger.error("Transaction EmailService.sendEmail() encountered an error", e);
         }
-        logger.info("EmailService.sendEmail() completed");
+        logger.info("Transaction EmailService.sendEmail() completed");
     }
     
     @Override
     //@Scheduled(cron = "0 30 0 * * *")
-  //  @Scheduled(cron = "0 */1 * * * *")
+    //@Scheduled(cron = "0 */1 * * * *")
     public void sendOtherEmail() {
         logger.info("EmailService.sendEmail() started");
         try {
@@ -250,7 +252,7 @@ public class EmailService implements EmailInterface {
     // Filter helpers
     // -------------------------------------------------------------------------
 
-    private List<PaymentEntity> filterPaymentList(List<PaymentEntity> paymentList) {
+    public List<PaymentEntity> filterPaymentList(List<PaymentEntity> paymentList) {
         return paymentList.stream()
                 .filter(p -> emailLogRepository
                         .findByTypeAndReferenceUniqueId(EMAIL_LOG_TYPE_PAYMENT, p.getPaymentId())
@@ -258,7 +260,7 @@ public class EmailService implements EmailInterface {
                 .collect(Collectors.toList());
     }
 
-    private List<Transaction> filterTransactionList(List<Transaction> transactionList) {
+    public List<Transaction> filterTransactionList(List<Transaction> transactionList) {
         return transactionList.stream()
                 .filter(t -> emailLogRepository
                         .findByTypeAndReferenceUniqueId(EMAIL_LOG_TYPE_TRANSACTION, t.getTrnscId())
@@ -292,8 +294,11 @@ public class EmailService implements EmailInterface {
     } 
     
   
-    private void sendPaymentMails(List<PaymentEntity> paymentEntityList) {
+    public void sendPaymentMails(List<PaymentEntity> paymentEntityList) {
+    	List<SocietyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
         for (PaymentEntity payment : paymentEntityList) {
+        	List<Flat>allFlat=flatRepository.findByAprmntId(payment.getAprmtId());
+        	logger.info("Sending Mail For {} For Payment Id::{} Payment Name: {} To Total Flat:{}", payment.getPaymentId(),payment.getPaymentName(),allFlat.size());
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_PAYMENT, payment.getPaymentId());
             List<String> failedFlatList = new ArrayList<>();
             List<FailedEmailCause> failedCauses = new ArrayList<>();
@@ -301,14 +306,33 @@ public class EmailService implements EmailInterface {
 
             List<String> applicableFlatList = getApplicableFlats(payment);
             emailLog.setTotalApplicable(applicableFlatList.size());
-
+            List<DueAmountDetailsEntity> allDues = dueAmountDetailsRepository.findByPaymentId(payment.getPaymentId());
+            List<String> discFinCodes = parseStringList(payment.getDiscFin());
+            List<DiscFin> discFinList = new ArrayList<>();
+            for (String code : discFinCodes) {
+            	List<Map<String, String>>discFin=genericService.fromJson(code, new TypeReference<List<Map<String, String>>>() {
+    			});
+            	for(Map<String, String> map:discFin) {
+            		if(map.get("Status").equalsIgnoreCase(SecuraConstants.DISC_FIN_STATUS_ACTIVE)) {
+            			List<DiscFin> found = discFinRepository.findByDiscFnId(map.get("code"));
+            			discFinList.addAll(found);
+//                        found.stream()
+//                                .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
+//                                .forEach(discFinList::add);
+                        break;
+            		}
+            	}
+            	}
+            Optional<ApartmentMaster> opt = apartmentRepository.findById(payment.getAprmtId());
             for (String flatId : applicableFlatList) {
-                try {
-                    Optional<Flat> optFlat = flatRepository.findByAprmntIdAndFlatNo(payment.getAprmtId(), flatId);
+            		 try {
+                	Optional<Flat> optFlat=allFlat.stream().filter(flt->flt.getFlatNo().equals(flatId)).findFirst(); 
+                //	Optional<Flat> optFlat = flatRepository.findByAprmntIdAndFlatNo(payment.getAprmtId(), flatId);
                     if (optFlat.isEmpty()) {
                         continue;
                     }
                     Flat flat = optFlat.get();
+                	logger.info("Sending Mail For {} For Payment Id::{} Payment Name: {} Flat :{}", payment.getPaymentId(),payment.getPaymentName(),flat.getFlatNo());
 
                     // a.4 Get owner list and email list
                    // List<Owner> owners = ownerRepository.findByFlatNo(flatId).stream().filter(o->o.getStatus().equalsIgnoreCase("ACTIVE")).collect(Collectors.toList());
@@ -356,33 +380,33 @@ public class EmailService implements EmailInterface {
                     boolean isPerSqft       = "PER_SQFT".equalsIgnoreCase(paymentCapita);
 
                     // a.9 Fetch discount details
-                    List<String> discFinCodes = parseStringList(payment.getDiscFin());
-                    List<DiscFin> discFinList = new ArrayList<>();
-                    for (String code : discFinCodes) {
-                    	List<Map<String, String>>discFin=genericService.fromJson(code, new TypeReference<List<Map<String, String>>>() {
-            			});
-                    	for(Map<String, String> map:discFin) {
-                    		if(map.get("Status").equalsIgnoreCase(SecuraConstants.DISC_FIN_STATUS_ACTIVE)) {
-                    			List<DiscFin> found = discFinRepository.findByDiscFnId(map.get("code"));
-                    			discFinList.addAll(found);
-//                                found.stream()
-//                                        .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
-//                                        .forEach(discFinList::add);
-                                break;
-                    		}
-                    	}
-//                    	Optional<Map<String, String>>activeDiscfin=discFin.stream().map(dis->).filter(dis->dis.get("status").equals(SecuraConstants.DISC_FIN_STATUS_ACTIVE)).findFirst();
-//                    	if(activeDiscfin.isPresent()) {
-//                    		List<DiscFin> found = discFinRepository.findByDiscFnId(activeDiscfin.get().get("code"));
-//                            found.stream()
-//                                    .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
-//                                    .forEach(discFinList::add);
+                   // List<String> discFinCodes = parseStringList(payment.getDiscFin());
+                   // List<DiscFin> discFinList = new ArrayList<>();
+//                    for (String code : discFinCodes) {
+//                    	List<Map<String, String>>discFin=genericService.fromJson(code, new TypeReference<List<Map<String, String>>>() {
+//            			});
+//                    	for(Map<String, String> map:discFin) {
+//                    		if(map.get("Status").equalsIgnoreCase(SecuraConstants.DISC_FIN_STATUS_ACTIVE)) {
+//                    			List<DiscFin> found = discFinRepository.findByDiscFnId(map.get("code"));
+//                    			discFinList.addAll(found);
+////                                found.stream()
+////                                        .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
+////                                        .forEach(discFinList::add);
+//                                break;
+//                    		}
 //                    	}
-                        
-                    }
+////                    	Optional<Map<String, String>>activeDiscfin=discFin.stream().map(dis->).filter(dis->dis.get("status").equals(SecuraConstants.DISC_FIN_STATUS_ACTIVE)).findFirst();
+////                    	if(activeDiscfin.isPresent()) {
+////                    		List<DiscFin> found = discFinRepository.findByDiscFnId(activeDiscfin.get().get("code"));
+////                            found.stream()
+////                                    .filter(d -> "DISCOUNT".equalsIgnoreCase(d.getDiscFnType()))
+////                                    .forEach(discFinList::add);
+////                    	}
+//                        
+//                    }
 
                     // a.11-a.12 Fetch all dues for payment, find highest cycle
-                    List<DueAmountDetailsEntity> allDues = dueAmountDetailsRepository.findByPaymentId(payment.getPaymentId());
+                    
                     List<DueAmountDetailsEntity> flatDues = allDues.stream()
                             .filter(d -> isPerSqft
                                     ? flat.getFlatArea() != null && flat.getFlatArea().equals(d.getFlatArea())
@@ -408,7 +432,6 @@ public class EmailService implements EmailInterface {
 
                     // a.15 Get apartment logo
                     //String logoBase64 = getApartmentLogo(payment.getAprmtId());
-                    Optional<ApartmentMaster> opt = apartmentRepository.findById(payment.getAprmtId());
                     String logoBase64=opt.map(ApartmentMaster::getAprmnt_logo).orElse(null);
                     String apartName=opt.map(ApartmentMaster::getAprmntName).orElse(null);
                     // Build HTML email body
@@ -419,7 +442,7 @@ public class EmailService implements EmailInterface {
 //                            discFinList, upcomingDuesByDate, paymentTotalDue,
 //                            currentPaymentDues
 //                    );
-                    List<SocietyCollectionTypes> collectionTypes = socirtyCollectionTypesRepository.findAll();
+                    
                     Optional<SocietyCollectionTypes> collectionype=collectionTypes.stream().filter(cse->cse.getTypeConstant().equals(payment.getCauseId())).findFirst();
                     if(collectionype.isPresent()) {
                     	cause=collectionype.get().getCollectionType();
@@ -431,8 +454,11 @@ public class EmailService implements EmailInterface {
                     // Send email
                     boolean sentToFlat = false;
                     for (String email : emailList) {
+                    	logger.info("Sendind The Mail Send To Flat {} For Email ID:{} Payment Name: {}", flat,email,paymentName);
                         sendHtmlEmailWithLogo(email, subject, htmlBody, logoBase64);
                         sentToFlat = true;
+                    
+
                     }
                     if (sentToFlat) {
                         emailSentCount++;
@@ -445,8 +471,9 @@ public class EmailService implements EmailInterface {
                             payment.getPaymentId(), EMAIL_LOG_TYPE_PAYMENT, e.getMessage(), flatId
                     );
                     failedCauses.add(failedCause);
-                }
+                
             }
+        }
 
             // Update email log
             if(failedFlatList.size()>0) {
@@ -454,6 +481,8 @@ public class EmailService implements EmailInterface {
             emailLog.setFailedApplicableList(toJson(failedFlatList));
             emailLog.setFailedEmailCause(toJson(failedCauses));
             emailLogRepository.save(emailLog);
+            logger.info("Total Failed Email Count {}", failedFlatList.size());
+
             }
 
             // Update emailSentFlag on payment if all emails sent
@@ -468,8 +497,9 @@ public class EmailService implements EmailInterface {
     // sendTransactionMails
     // -------------------------------------------------------------------------
 
-    private void sendTransactionMails(List<Transaction> transactionList) {
+    public void sendTransactionMails(List<Transaction> transactionList) {
         for (Transaction transaction : transactionList) {
+        	logger.info("Sending Mail For {} For Transcation Id::{}", transaction.getTrnscId());
             SecuraEmailLog emailLog = createInitialEmailLog(EMAIL_LOG_TYPE_TRANSACTION, transaction.getTrnscId());
             List<FailedEmailCause> failedCauses = new ArrayList<>();
             int emailSentCount = 0;
@@ -1000,7 +1030,15 @@ public class EmailService implements EmailInterface {
                         new org.springframework.core.io.ByteArrayResource(logoBytes);
                 helper.addInline("societylogo", logoResource, mimeType);
             }
-            mailSender.send(message);
+            CompletableFuture.runAsync(() -> {
+                try {
+                	mailSender.send(message);
+                    logger.info("Mail Send To {} For Subject: {}", to,subject);
+                } catch (Exception e) {
+                    logger.error("Error sending Email to: {}, Subject: {}", to, subject,e);
+                }
+            });
+            
         } catch (Exception e) {
             throw new RuntimeException(
                     "Failed to send email to [" + to + "] with subject [" + subject + "]: " + e.getMessage(), e);
@@ -1032,7 +1070,15 @@ public class EmailService implements EmailInterface {
                         new org.springframework.core.io.ByteArrayResource(attachmentBytes);
                 helper.addAttachment(attachmentName, attachmentResource, "application/pdf");
             }
-            mailSender.send(message);
+            CompletableFuture.runAsync(() -> {
+                try {
+                	mailSender.send(message);
+                    logger.info("Mail Send To {} For Subject: {}", to,subject);
+                } catch (Exception e) {
+                    logger.error("Error sending Email to: {}, Subject: {}", to, subject,e);
+                }
+            });
+          //  mailSender.send(message);
         } catch (Exception e) {
             throw new RuntimeException(
                     "Failed to send email to [" + to + "] with subject [" + subject + "]: " + e.getMessage(), e);

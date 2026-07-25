@@ -278,7 +278,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	    }
 
 	    String firstPart = localPart.substring(0, 3);
-	    String middlePart = localPart.substring(6, 9);
+	    String middlePart = localPart.substring(6, localPart.length()-1);
 
 	    StringBuilder masked = new StringBuilder();
 	    masked.append(firstPart);

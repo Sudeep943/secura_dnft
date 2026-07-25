@@ -22,6 +22,7 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
+import com.secura.dnft.security.AuthCryptoUtil;
 
 @Service
 public class DeepLinkServices implements ThirdPartyPaymentGayeway {
@@ -34,6 +35,8 @@ public class DeepLinkServices implements ThirdPartyPaymentGayeway {
 	@Autowired
 	private GenericService genericService;
 	
+	@Autowired
+	AuthCryptoUtil authCryptoUtil;
 	
 	@Override
 	public PaymentGayewayOrderResponse createOrder(PaymentGayewayOrderRequest request) {
@@ -54,19 +57,23 @@ public class DeepLinkServices implements ThirdPartyPaymentGayeway {
 		String bankId=(String)requestMap.get("bankId");
 		Optional<BankEntity> bankEntityOptional = bankRepository.findByAprmntIdAndBankDetailsID(apartmentId, bankId);
 		BankEntity bankEntity = bankEntityOptional.get();
-		String upiId = decryptNullable(bankEntity.getUpiId());
+		String upiId = "f058m00301@indianbk";// ;decryptNullable(bankEntity.getUpiId());
 		double amountInRupee=Double.valueOf(amountInPaisa)/100;
 		StringBuilder upiUrl= new StringBuilder("upi://pay?pa=");
 		upiUrl.append(upiId+"&");
 		upiUrl.append("tid="+tid+"&");
+		upiUrl.append("pn="+tn+"&");
+		upiUrl.append("tr="+tn+"&");
 		upiUrl.append("tn="+tn+"&");
 		upiUrl.append("am="+amountInRupee+"&cu=INR");
 		
+		//upi://pay?pa=payeeVpa@handle&pn=Payee%20Name&tid=TRANSACTIONID123&tr=10141%20Common%20Area%20Ma&tn=Transaction%20Note&am=100.00&cu=INR
+		
 		Map<String, Object> responseMap= new HashMap<>();
-		responseMap.put("upiPaymentURL", upiUrl.toString());
-		responseMap.put("amount", amountInRupee);
-		responseMap.put("bankName", decryptNullable(bankEntity.getBankName()));
-		responseMap.put("accountHolderName", decryptNullable(bankEntity.getAccountName()));
+		responseMap.put("upiPaymentURL",authCryptoUtil.encrypt(upiUrl.toString()));
+		responseMap.put("amount", authCryptoUtil.encrypt(String.valueOf(amountInRupee)));
+		responseMap.put("bankName", authCryptoUtil.encrypt(decryptNullable(bankEntity.getBankName())));
+		responseMap.put("accountHolderName", authCryptoUtil.encrypt(decryptNullable(bankEntity.getAccountName())));
 		return responseMap;
 	}
 
