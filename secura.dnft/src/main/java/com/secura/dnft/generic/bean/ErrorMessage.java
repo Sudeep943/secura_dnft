@@ -59,6 +59,9 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_54="Multiple Profile Found. Please Choose The Profile To Login" ;
 	public final String ERR_MESSAGE_55="No Profile Found. Please Conatct Your Society Administration To Onboard Your Profile" ;
 	public final String ERR_MESSAGE_56="Role Not Found" ;
+	public final String ERR_MESSAGE_57="Maximum OTP resend limit reached. Please try again after some time." ;
+	public final String ERR_MESSAGE_58="Maximum OTP attempt limit reached. Please try again after some time." ;
+	public final String ERR_MESSAGE_59="The OTP you entered is incorrect. Please check and try again." ;
 
 	
 }
