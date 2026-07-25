@@ -1,16 +1,27 @@
 package com.secura.dnft.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -19,10 +30,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.secura.dnft.bean.WorkListAssignment;
 import com.secura.dnft.dao.BookingRepository;
+import com.secura.dnft.dao.OtpRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.Booking;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.entity.SecuraOtp;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -32,11 +45,21 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetProfileRequest;
 import com.secura.dnft.security.BusinessException;
 
+import jakarta.mail.internet.MimeMessage;
 import jakarta.persistence.EntityNotFoundException;
 
 
 @Service
 public class GenericService {
+
+	private static final Logger logger = LoggerFactory.getLogger(GenericService.class);
+
+	private static final int OTP_MAX_RESEND_LIMIT = 3;
+	private static final int OTP_MAX_ATTEMPT_LIMIT = 3;
+	private static final int OTP_EXPIRY_MINUTES = 5;
+	private static final int OTP_CLEANUP_HOURS = 4;
+
+	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
 	@Autowired
 	BookingRepository bookingRepository;
@@ -49,6 +72,15 @@ public class GenericService {
 
 	@Autowired
 	DataPrivacyService dataPrivacyService;
+
+	@Autowired
+	OtpRepository otpRepository;
+
+	@Autowired
+	JavaMailSender mailSender;
+
+	@Value("${spring.mail.username}")
+	private String senderEmail;
 	
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -314,5 +346,176 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 
 	        return masked.toString();
 	    }
+
+	// -------------------------------------------------------------------------
+	// OTP Methods
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Generates a 6-digit OTP, hashes it, persists it in secura_otp, and sends it
+	 * to the email address associated with the given userId.
+	 *
+	 * @param sessionId the current session identifier
+	 * @param userId    the profile/user identifier
+	 * @throws BusinessException if the resend limit (3) has been reached
+	 */
+	public void createOTP(String sessionId, String userId) throws BusinessException {
+		logger.info("createOTP: initiated for userId={}, sessionId={}", userId, sessionId);
+
+		List<SecuraOtp> existingOtps = otpRepository.findByUserId(userId);
+		long activeOtpCount = existingOtps.stream()
+				.filter(o -> o.getExpiryAt().isAfter(LocalDateTime.now()))
+				.count();
+		if (activeOtpCount >= OTP_MAX_RESEND_LIMIT) {
+			logger.warn("createOTP: resend limit reached for userId={}", userId);
+			throw new BusinessException(ErrorMessage.ERR_MESSAGE_57, ErrorMessageCode.ERR_MESSAGE_57);
+		}
+
+		String rawOtp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+		String hashedOtp = hashOtp(rawOtp);
+
+		LocalDateTime now = LocalDateTime.now();
+		SecuraOtp otpEntry = new SecuraOtp();
+		otpEntry.setOtpId(UUID.randomUUID().toString());
+		otpEntry.setSessionId(sessionId);
+		otpEntry.setUserId(userId);
+		otpEntry.setOtpHash(hashedOtp);
+		otpEntry.setAttempts(0);
+		otpEntry.setCreatedAt(now);
+		otpEntry.setExpiryAt(now.plusMinutes(OTP_EXPIRY_MINUTES));
+		otpRepository.save(otpEntry);
+		logger.info("createOTP: OTP record saved for userId={}, otpId={}", userId, otpEntry.getOtpId());
+
+		Profile profile = getProfileEntity(userId);
+		String emailId = profile.getPrflEmailAdrss();
+		if (emailId == null || emailId.isBlank()) {
+			logger.error("createOTP: no email address found for userId={}", userId);
+			otpRepository.delete(otpEntry);
+			throw new BusinessException("No email address registered for this user. Please contact your society administrator.",
+					ErrorMessageCode.ERR_MESSAGE_28);
+		}
+
+		try {
+			sendOtpEmail(emailId, rawOtp);
+			logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
+		} catch (Exception e) {
+			logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
+			otpRepository.delete(otpEntry);
+			throw new BusinessException("Failed to send OTP email. Please try again.", ErrorMessageCode.ERR_MESSAGE_33);
+		}
+	}
+
+	/**
+	 * Validates the supplied OTP against the latest stored entry for the given session.
+	 * <ol>
+	 *   <li>Rejects if the attempt count has already reached the limit (3).</li>
+	 *   <li>Rejects if the latest OTP has expired.</li>
+	 *   <li>Compares the SHA-256 hash of the supplied OTP with the latest stored hash.</li>
+	 *   <li>On match: deletes all OTP records for the session and returns {@code true}.</li>
+	 *   <li>On mismatch: increments the attempt counter and throws a {@link BusinessException}.</li>
+	 * </ol>
+	 *
+	 * @param sessionId the session identifier used when the OTP was created
+	 * @param otp       the raw 6-digit OTP entered by the user
+	 * @return {@code true} when the OTP is valid
+	 * @throws BusinessException on attempt-limit breach, expiry, or OTP mismatch
+	 */
+	public boolean validateOTP(String sessionId, String otp) throws BusinessException {
+		logger.info("validateOTP: initiated for sessionId={}", sessionId);
+
+		List<SecuraOtp> otpEntries = otpRepository.findBySessionIdOrderByCreatedAtDesc(sessionId);
+		if (otpEntries == null || otpEntries.isEmpty()) {
+			logger.warn("validateOTP: no OTP record found for sessionId={}", sessionId);
+			throw new BusinessException("No active OTP found for this session. Please request a new OTP.",
+					ErrorMessageCode.ERR_MESSAGE_59);
+		}
+
+		SecuraOtp latestOtp = otpEntries.get(0);
+
+		if (latestOtp.getAttempts() >= OTP_MAX_ATTEMPT_LIMIT) {
+			logger.warn("validateOTP: attempt limit reached for sessionId={}", sessionId);
+			throw new BusinessException(ErrorMessage.ERR_MESSAGE_58, ErrorMessageCode.ERR_MESSAGE_58);
+		}
+
+		if (latestOtp.getExpiryAt().isBefore(LocalDateTime.now())) {
+			logger.warn("validateOTP: OTP has expired for sessionId={}", sessionId);
+			otpRepository.deleteAll(otpEntries);
+			throw new BusinessException("The OTP has expired. Please request a new OTP.",
+					ErrorMessageCode.ERR_MESSAGE_59);
+		}
+
+		String hashedInput = hashOtp(otp);
+		if (hashedInput.equals(latestOtp.getOtpHash())) {
+			otpRepository.deleteAll(otpEntries);
+			logger.info("validateOTP: OTP matched, all session OTP records deleted for sessionId={}", sessionId);
+			return true;
+		} else {
+			latestOtp.setAttempts(latestOtp.getAttempts() + 1);
+			otpRepository.save(latestOtp);
+			logger.warn("validateOTP: OTP mismatch for sessionId={}, attempts now={}", sessionId, latestOtp.getAttempts());
+			throw new BusinessException(ErrorMessage.ERR_MESSAGE_59, ErrorMessageCode.ERR_MESSAGE_59);
+		}
+	}
+
+	/**
+	 * Scheduled job that runs every 5 minutes and purges OTP records whose
+	 * {@code expiry_at} timestamp is more than {@value #OTP_CLEANUP_HOURS} hours in the past.
+	 */
+	@Scheduled(cron = "0 */5 * * * *")
+	public void deleteExpiredOTP() {
+		logger.info("deleteExpiredOTP: scheduled cleanup started");
+		try {
+			LocalDateTime cutoff = LocalDateTime.now().minusHours(OTP_CLEANUP_HOURS);
+			List<SecuraOtp> expiredOtps = otpRepository.findByExpiryAtBefore(cutoff);
+			if (!expiredOtps.isEmpty()) {
+				otpRepository.deleteAll(expiredOtps);
+				logger.info("deleteExpiredOTP: deleted {} expired OTP record(s)", expiredOtps.size());
+			} else {
+				logger.info("deleteExpiredOTP: no expired OTP records found");
+			}
+		} catch (Exception e) {
+			logger.error("deleteExpiredOTP: error during cleanup", e);
+		}
+		logger.info("deleteExpiredOTP: scheduled cleanup completed");
+	}
+
+	private String hashOtp(String otp) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hashBytes = digest.digest(otp.getBytes(StandardCharsets.UTF_8));
+			return HexFormat.of().formatHex(hashBytes);
+		} catch (Exception e) {
+			throw new RuntimeException("SHA-256 algorithm not available on this platform", e);
+		}
+	}
+
+	private void sendOtpEmail(String toEmail, String otp) {
+		try {
+			MimeMessage message = mailSender.createMimeMessage();
+			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+			helper.setFrom(senderEmail);
+			helper.setTo(toEmail);
+			helper.setSubject("Your Secura Verification OTP");
+			String htmlBody = buildOtpEmailBody(otp);
+			helper.setText(htmlBody, true);
+			mailSender.send(message);
+		} catch (Exception e) {
+			logger.error("sendOtpEmail: failed to send OTP email to {}", maskEmail(toEmail), e);
+			throw new RuntimeException("Failed to dispatch OTP email. Please try again.", e);
+		}
+	}
+
+	private String buildOtpEmailBody(String otp) {
+		return "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto;'>"
+				+ "<h2 style='color: #2c3e50;'>Secura – One-Time Password (OTP)</h2>"
+				+ "<p>Dear User,</p>"
+				+ "<p>Please use the following One-Time Password (OTP) to complete your verification. "
+				+ "This OTP is valid for <strong>" + OTP_EXPIRY_MINUTES + " minutes</strong> and should not be shared with anyone.</p>"
+				+ "<p style='font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #2980b9;'>"
+				+ "<strong>" + otp + "</strong></p>"
+				+ "<p>If you did not request this OTP, please ignore this email or contact your society administrator immediately.</p>"
+				+ "<br/><p style='color: #7f8c8d; font-size: 12px;'>This is an automated message. Please do not reply to this email.</p>"
+				+ "</div>";
+	}
 
 }
