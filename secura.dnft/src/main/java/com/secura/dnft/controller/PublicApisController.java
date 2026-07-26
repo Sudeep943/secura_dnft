@@ -1,16 +1,24 @@
 package com.secura.dnft.controller;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -44,8 +52,17 @@ import com.secura.dnft.service.RazorPayPaymentServices;
 @RequestMapping("/publicapis")
 public class PublicApisController {
 
+	private static final String PUBLIC_USER_ID = "ext";
+	private static final String PUBLIC_APARTMENT_ID = "APRT001";
+
 	@Autowired
 	private FlatServices flatServices;
+
+	@Autowired
+	private FlatRepository flatRepository;
+
+	@Autowired
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
 
 	@Autowired
 	private PaymentServices paymentServices;
@@ -89,6 +106,11 @@ public class PublicApisController {
 	public PayDueResponse payDuesPublic(@RequestBody PayDueRequest request) {
 		PayDueResponse response = new PayDueResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		if (!isPayDuesPublicRequestValid(request)) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
 		try {
 			return paymentServices.payDues(request);
 		} catch (Exception e) {
@@ -209,5 +231,89 @@ public class PublicApisController {
 			return deepLinkServices;
 		}
 		throw new IllegalArgumentException("Unsupported payment gateway");
+	}
+
+	private boolean isPayDuesPublicRequestValid(PayDueRequest request) {
+		if (request == null) {
+			return false;
+		}
+		GenericHeader genericHeader = request.getGenericHeader();
+		if (genericHeader == null) {
+			return false;
+		}
+		if (!PUBLIC_USER_ID.equalsIgnoreCase(trimValue(genericHeader.getUserId()))) {
+			return false;
+		}
+		if (!PUBLIC_APARTMENT_ID.equalsIgnoreCase(trimValue(genericHeader.getApartmentId()))) {
+			return false;
+		}
+		String flatNo = trimValue(genericHeader.getFlatNo());
+		if (!StringUtils.hasText(flatNo)) {
+			return false;
+		}
+		if (flatRepository.findByAprmntIdAndFlatNo(PUBLIC_APARTMENT_ID, flatNo).isEmpty()) {
+			return false;
+		}
+		if (!StringUtils.hasText(trimValue(request.getPaymentId())) || !StringUtils.hasText(trimValue(request.getDueId()))) {
+			return false;
+		}
+		DueAmountDetailsEntity paidDueDetails = request.getPaidDueDetails();
+		if (paidDueDetails == null) {
+			return false;
+		}
+		List<DueAmountDetailsEntity> dueDetails = dueAmountDetailsRepository
+				.findByPaymentIdAndDueId(trimValue(request.getPaymentId()), trimValue(request.getDueId()));
+		if (dueDetails == null || dueDetails.isEmpty()) {
+			return false;
+		}
+		String normalizedFlatNo = normalizeFlatNo(flatNo);
+		for (DueAmountDetailsEntity dueDetail : dueDetails) {
+			if (dueDetail != null && isFlatApplicableForDue(dueDetail.getApplicableFlats(), normalizedFlatNo)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isFlatApplicableForDue(String applicableFlats, String flatNo) {
+		if (!StringUtils.hasText(applicableFlats) || !StringUtils.hasText(flatNo)) {
+			return false;
+		}
+		String normalizedApplicableFlats = applicableFlats.trim();
+		if ("ALL".equalsIgnoreCase(normalizedApplicableFlats)) {
+			return true;
+		}
+		try {
+			List<String> flats = genericService.fromJson(normalizedApplicableFlats, new TypeReference<List<String>>() {});
+			if (flats == null) {
+				return false;
+			}
+			for (String applicableFlat : flats) {
+				if (flatNo.equals(normalizeFlatNo(applicableFlat))) {
+					return true;
+				}
+			}
+			return false;
+		} catch (RuntimeException exception) {
+			for (String applicableFlat : normalizedApplicableFlats.split(",")) {
+				if (flatNo.equals(normalizeFlatNo(applicableFlat))) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
+	private String normalizeFlatNo(String flatNo) {
+		String value = trimValue(flatNo);
+		return StringUtils.hasText(value) ? value.toUpperCase() : null;
+	}
+
+	private String trimValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		String trimmed = value.trim();
+		return trimmed.isEmpty() ? null : trimmed;
 	}
 }
