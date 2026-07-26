@@ -49,6 +49,10 @@ import com.secura.dnft.service.RazorPayPaymentServices;
 @ExtendWith(MockitoExtension.class)
 class PublicApisControllerTest {
 
+	private static final String PUBLIC_USER_ID = "ext";
+	private static final String PUBLIC_APARTMENT_ID = "APRT001";
+	private static final String PUBLIC_FLAT_NO = "A101";
+
 	@Mock
 	private FlatServices flatServices;
 
@@ -170,6 +174,7 @@ class PublicApisControllerTest {
 		request.setGenericHeader(header);
 		GetOwnerResponse expected = new GetOwnerResponse();
 		expected.setGenericHeader(header);
+		expected.setProfile(List.of());
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
 		when(profileServices.getOwner(request)).thenReturn(expected);
@@ -306,9 +311,9 @@ class PublicApisControllerTest {
 	private PayDueRequest createValidPayDueRequest() {
 		PayDueRequest request = new PayDueRequest();
 		GenericHeader header = new GenericHeader();
-		header.setUserId("ext");
-		header.setApartmentId("APRT001");
-		header.setFlatNo("A101");
+		header.setUserId(PUBLIC_USER_ID);
+		header.setApartmentId(PUBLIC_APARTMENT_ID);
+		header.setFlatNo(PUBLIC_FLAT_NO);
 		request.setGenericHeader(header);
 		request.setPaymentId("PAY1");
 		request.setDueId("DUE1");
@@ -318,9 +323,9 @@ class PublicApisControllerTest {
 
 	private void mockPayDuesPublicValidationDependencies(PayDueRequest request, String applicableFlats) {
 		Flat flat = new Flat();
-		flat.setAprmntId("APRT001");
-		flat.setFlatNo("A101");
-		when(flatRepository.findByAprmntIdAndFlatNo("APRT001", "A101")).thenReturn(Optional.of(flat));
+		flat.setAprmntId(PUBLIC_APARTMENT_ID);
+		flat.setFlatNo(PUBLIC_FLAT_NO);
+		when(flatRepository.findByAprmntIdAndFlatNo(PUBLIC_APARTMENT_ID, PUBLIC_FLAT_NO)).thenReturn(Optional.of(flat));
 
 		DueAmountDetailsEntity dueAmountDetailsEntity = new DueAmountDetailsEntity();
 		dueAmountDetailsEntity.setApplicableFlats(applicableFlats);

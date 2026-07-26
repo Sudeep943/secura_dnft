@@ -52,6 +52,9 @@ import com.secura.dnft.service.RazorPayPaymentServices;
 @RequestMapping("/publicapis")
 public class PublicApisController {
 
+	private static final String PUBLIC_USER_ID = "ext";
+	private static final String PUBLIC_APARTMENT_ID = "APRT001";
+
 	@Autowired
 	private FlatServices flatServices;
 
@@ -238,17 +241,17 @@ public class PublicApisController {
 		if (genericHeader == null) {
 			return false;
 		}
-		if (!"ext".equalsIgnoreCase(trimValue(genericHeader.getUserId()))) {
+		if (!PUBLIC_USER_ID.equalsIgnoreCase(trimValue(genericHeader.getUserId()))) {
 			return false;
 		}
-		if (!"APRT001".equalsIgnoreCase(trimValue(genericHeader.getApartmentId()))) {
+		if (!PUBLIC_APARTMENT_ID.equalsIgnoreCase(trimValue(genericHeader.getApartmentId()))) {
 			return false;
 		}
 		String flatNo = trimValue(genericHeader.getFlatNo());
 		if (!StringUtils.hasText(flatNo)) {
 			return false;
 		}
-		if (flatRepository.findByAprmntIdAndFlatNo("APRT001", flatNo).isEmpty()) {
+		if (flatRepository.findByAprmntIdAndFlatNo(PUBLIC_APARTMENT_ID, flatNo).isEmpty()) {
 			return false;
 		}
 		if (!StringUtils.hasText(trimValue(request.getPaymentId())) || !StringUtils.hasText(trimValue(request.getDueId()))) {
