@@ -1,7 +1,5 @@
 package com.secura.dnft.controller;
 
-import java.util.Optional;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,9 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
-import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
-import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -22,8 +18,6 @@ import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
 import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetOwnerRequest;
 import com.secura.dnft.request.response.GetOwnerResponse;
-import com.secura.dnft.request.response.GetTransactionRequest;
-import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentGayewayOrderRequest;
@@ -36,8 +30,6 @@ import com.secura.dnft.request.response.PaymentGayewayPaymentDetailRequest;
 import com.secura.dnft.request.response.PaymentGayewayPaymentDetailResponse;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
-import com.secura.dnft.request.response.RejectTransactionWorkListRequest;
-import com.secura.dnft.request.response.TransactionResponseItem;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
@@ -46,8 +38,6 @@ import com.secura.dnft.service.GenericService;
 import com.secura.dnft.service.PaymentServices;
 import com.secura.dnft.service.ProfileServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
-import com.secura.dnft.service.TransactionAndReportsService;
-import com.secura.dnft.service.WorklistService;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -75,12 +65,6 @@ public class PublicApisController {
 	@Autowired
 	private GenericService genericService;
 
-	@Autowired
-	TransactionAndReportsService transactionAndReportsService;
-	
-	@Autowired
-	private WorklistService worklistService;
-	
 	@PostMapping("/getFlatsPublic")
 	@CrossOrigin(origins = "*")
 	public GetAllFlatsResponse getFlatsPublic(@RequestBody GetAllFlatsRequest request) {
@@ -208,33 +192,6 @@ public class PublicApisController {
 			return paymentServices.validatePriorDuePaymnent(request);
 		}
 		catch (Exception e) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
-		}
-		return response;
-	}
-	
-	@PostMapping("/rejectTransactionWorkList")
-	@CrossOrigin(origins = "*")
-	public GenericResponse rejectTransctionWorkList(@RequestBody RejectTransactionWorkListRequest request) {
-		GenericResponse response = new GenericResponse();
-		try {
-			GetTransactionRequest getTransactionRequest = new GetTransactionRequest();
-			getTransactionRequest.setGenericHeader(request.getGenericHeader());
-			getTransactionRequest.setTransactionId(request.getTransactionId());
-			GetTransactionResponse getTransactionResponse=transactionAndReportsService.getTransaction(getTransactionRequest);
-			Optional<TransactionResponseItem> transactionResponseItem=getTransactionResponse.getTransactionList().stream().filter(trn->trn.getTrnscId().equals(request.getTransactionId())).findFirst();
-			if(transactionResponseItem.isPresent()) {
-				if(null!=transactionResponseItem.get().getWorkListId() && !transactionResponseItem.get().getWorkListId().isEmpty()) {
-					 ActionTransactionReviewWorkListRequest actionWorkListrequest= new ActionTransactionReviewWorkListRequest();
-					 actionWorkListrequest.setGenericHeader(request.getGenericHeader());
-					 actionWorkListrequest.setWorklistId(transactionResponseItem.get().getWorkListId());
-					 actionWorkListrequest.setAction(SecuraConstants.ACTION_REJECT);
-					 return worklistService.actionTransactionReviewWorkList(actionWorkListrequest);
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
