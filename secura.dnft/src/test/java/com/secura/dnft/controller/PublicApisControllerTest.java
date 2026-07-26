@@ -3,7 +3,9 @@ package com.secura.dnft.controller;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +13,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.secura.dnft.dao.DueAmountDetailsRepository;
+import com.secura.dnft.dao.FlatRepository;
+import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.GenericHeader;
@@ -45,6 +51,12 @@ class PublicApisControllerTest {
 
 	@Mock
 	private FlatServices flatServices;
+
+	@Mock
+	private FlatRepository flatRepository;
+
+	@Mock
+	private DueAmountDetailsRepository dueAmountDetailsRepository;
 
 	@Mock
 	private PaymentServices paymentServices;
@@ -100,13 +112,11 @@ class PublicApisControllerTest {
 
 	@Test
 	void payDuesPublic_shouldReturnServiceResponse() throws Exception {
-		PayDueRequest request = new PayDueRequest();
-		GenericHeader header = new GenericHeader();
-		header.setApartmentId("APR-1");
-		request.setGenericHeader(header);
+		PayDueRequest request = createValidPayDueRequest();
+		mockPayDuesPublicValidationDependencies(request, "ALL");
 
 		PayDueResponse expected = new PayDueResponse();
-		expected.setGenericHeader(header);
+		expected.setGenericHeader(request.getGenericHeader());
 		expected.setMessage("ok");
 		expected.setMessageCode("CODE");
 		when(paymentServices.payDues(request)).thenReturn(expected);
@@ -118,15 +128,36 @@ class PublicApisControllerTest {
 
 	@Test
 	void payDuesPublic_shouldReturnGenericErrorWhenServiceThrows() throws Exception {
-		PayDueRequest request = new PayDueRequest();
-		GenericHeader header = new GenericHeader();
-		header.setApartmentId("APR-1");
-		request.setGenericHeader(header);
+		PayDueRequest request = createValidPayDueRequest();
+		GenericHeader header = request.getGenericHeader();
+		mockPayDuesPublicValidationDependencies(request, "ALL");
 		when(paymentServices.payDues(request)).thenThrow(new RuntimeException("boom"));
 
 		PayDueResponse actual = publicApisController.payDuesPublic(request);
 
 		assertEquals(header, actual.getGenericHeader());
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void payDuesPublic_shouldReturnGenericErrorWhenPublicHeaderValidationFails() {
+		PayDueRequest request = createValidPayDueRequest();
+		request.getGenericHeader().setUserId("user123");
+
+		PayDueResponse actual = publicApisController.payDuesPublic(request);
+
+		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
+		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	@Test
+	void payDuesPublic_shouldReturnGenericErrorWhenFlatNotApplicableForDue() {
+		PayDueRequest request = createValidPayDueRequest();
+		mockPayDuesPublicValidationDependencies(request, "[\"A102\"]");
+
+		PayDueResponse actual = publicApisController.payDuesPublic(request);
+
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
 	}
@@ -270,5 +301,30 @@ class PublicApisControllerTest {
 
 		assertEquals(ErrorMessage.ERR_MESSAGE_33, actual.getMessage());
 		assertEquals(ErrorMessageCode.ERR_MESSAGE_33, actual.getMessageCode());
+	}
+
+	private PayDueRequest createValidPayDueRequest() {
+		PayDueRequest request = new PayDueRequest();
+		GenericHeader header = new GenericHeader();
+		header.setUserId("ext");
+		header.setApartmentId("APRT001");
+		header.setFlatNo("A101");
+		request.setGenericHeader(header);
+		request.setPaymentId("PAY1");
+		request.setDueId("DUE1");
+		request.setPaidDueDetails(new DueAmountDetailsEntity());
+		return request;
+	}
+
+	private void mockPayDuesPublicValidationDependencies(PayDueRequest request, String applicableFlats) {
+		Flat flat = new Flat();
+		flat.setAprmntId("APRT001");
+		flat.setFlatNo("A101");
+		when(flatRepository.findByAprmntIdAndFlatNo("APRT001", "A101")).thenReturn(Optional.of(flat));
+
+		DueAmountDetailsEntity dueAmountDetailsEntity = new DueAmountDetailsEntity();
+		dueAmountDetailsEntity.setApplicableFlats(applicableFlats);
+		when(dueAmountDetailsRepository.findByPaymentIdAndDueId(request.getPaymentId(), request.getDueId()))
+				.thenReturn(List.of(dueAmountDetailsEntity));
 	}
 }
