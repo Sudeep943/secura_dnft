@@ -62,6 +62,7 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_57="Maximum OTP resend limit reached. Please try again after some time." ;
 	public final String ERR_MESSAGE_58="Maximum OTP attempt limit reached. Please try again after some time." ;
 	public final String ERR_MESSAGE_59="The OTP you entered is incorrect. Please check and try again." ;
+	public final String ERR_MESSAGE_60="Kripaya Kuch Aur Tigdam Try Kare" ;
 
 	
 }

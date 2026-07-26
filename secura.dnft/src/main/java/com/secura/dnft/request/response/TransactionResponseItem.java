@@ -32,6 +32,7 @@ public class TransactionResponseItem {
 	private String creatUsrId;
 	private LocalDateTime lstUpdtTs;
 	private String lstUpdtUsrId;
+	private String paymentName;
 
 	public String getAprmntId() {
 		return aprmntId;
@@ -255,4 +256,14 @@ public class TransactionResponseItem {
 	private String normalizeTenderValue(String value) {
 		return value == null ? null : value.replace('_', ' ');
 	}
+
+	public String getPaymentName() {
+		return paymentName;
+	}
+
+	public void setPaymentName(String paymentName) {
+		this.paymentName = paymentName;
+	}
+	
+	
 }

@@ -54,6 +54,7 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_52="Access Updated Successfully" ;
 	public final String SUCC_MESSAGE_53="Role Status Updated Successfully" ;
 	public final String SUCC_MESSAGE_54="Roles Fetched Successfully" ;
+	public final String SUCC_MESSAGE_55="WorkList Action Successfully Completed" ;
 
 
 

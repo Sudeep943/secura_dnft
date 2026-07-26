@@ -801,6 +801,10 @@ public class TransactionAndReportsService {
 		item.setCreatUsrId(transaction.getCreatUsrId());
 		item.setLstUpdtTs(transaction.getLstUpdtTs());
 		item.setLstUpdtUsrId(transaction.getLstUpdtUsrId());
+		List<PaymentEntity> payment=paymentRepository.findByPaymentIdAndAprmtId(transaction.getPymntId(),transaction.getAprmntId());
+		if(!payment.isEmpty()&& payment!=null) {
+			item.setPaymentName(payment.get(0).getPaymentName());
+		}
 		return item;
 	}
 

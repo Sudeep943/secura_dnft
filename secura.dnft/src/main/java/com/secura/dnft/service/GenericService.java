@@ -461,7 +461,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	 * Scheduled job that runs every 5 minutes and purges OTP records whose
 	 * {@code expiry_at} timestamp is more than {@value #OTP_CLEANUP_HOURS} hours in the past.
 	 */
-	@Scheduled(cron = "0 */5 * * * *")
+	//@Scheduled(cron = "0 */5 * * * *")
 	public void deleteExpiredOTP() {
 		logger.info("deleteExpiredOTP: scheduled cleanup started");
 		try {
