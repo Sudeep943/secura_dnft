@@ -508,7 +508,9 @@ public class TransactionAndReportsService {
 				.collect(Collectors.toList());
 		for (String flatId : pendingFlatIds) {
 			selectedDues=filterPaidFlats(selectedDues,flatId);
-			selectedDues=selectHighestPriorityDues(selectedDues);
+			if(!selectedDues.get(0).getCollectionCycle().equals(SecuraConstants.PAYMENT_CYCLE_ONCE)) {
+				selectedDues=selectHighestPriorityDues(selectedDues);
+			}
 			List<DueAmountDetailsEntity> selectedDuesForFlat = findPendingDuesForFlat(selectedDues, flatId);
 			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat,
 					resolveLatestDueDate(findPendingDuesForFlat(overdueDues, flatId)), defaulterMap);

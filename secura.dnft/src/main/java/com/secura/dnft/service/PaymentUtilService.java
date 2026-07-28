@@ -124,12 +124,18 @@ public class PaymentUtilService {
 		if (dues == null || dues.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
+		if(!dues.get(0).getCollectionCycle().equals(SecuraConstants.PAYMENT_CYCLE_ONCE)) {
 		List<DueAmountDetailsEntity> selectedCycleDues = selectHighestPriorityDues(dues, paymentCapita, flatArea);
+		
 		if (selectedCycleDues.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
 		
 		return selectedCycleDues.stream().map(this::resolveDueAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+		}
+		else {
+			return dues.stream().map(this::resolveDueAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+		}
 	}
 
 	private PaymentEntity selectPaymentEntity(List<PaymentEntity> paymentEntities) {
