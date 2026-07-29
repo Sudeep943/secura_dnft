@@ -2465,7 +2465,7 @@ public class PaymentServices implements PaymentInterface {
 		if (hasText(dueId) && hasText(flatId)) {
 			List<Transaction> txForPaymentFlat = hasText(apartmentId)
 					? transactionRepository.findByAprmntIdAndPymntIdAndFlatId(apartmentId, paymentId, flatId)
-					: transactionRepository.findByAprmntIdAndPymntId(apartmentId != null ? apartmentId : "", paymentId);
+					: List.of();
 			return filterTransactionsByDueId(txForPaymentFlat, dueId);
 		} else if (hasText(dueId)) {
 			List<Transaction> txForPayment = hasText(apartmentId)
@@ -2507,14 +2507,8 @@ public class PaymentServices implements PaymentInterface {
 			removeDueFromFlat(apartmentId, flatId, dueString);
 
 			// Step 2: Remove flatId from due's applicable_flats and paid_flats
-			updateDueApplicableFlats(due, flatId);
-
 			// Step 3: If both lists become empty, delete the due record
-			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
-			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
-			if (applicableFlats.isEmpty() && paidFlats.isEmpty()) {
-				dueAmountDetailsRepository.delete(due);
-			}
+			removeFlatFromDueAndDeleteIfEmpty(due, flatId);
 		}
 
 		// Step 4: Check remaining dues for payment - if none, delete payment
@@ -2564,14 +2558,8 @@ public class PaymentServices implements PaymentInterface {
 			removeDueFromFlat(apartmentId, flatId, dueString);
 
 			// Remove flatId from due's applicable_flats and paid_flats
-			updateDueApplicableFlats(due, flatId);
-
 			// If both lists become empty, delete the due record
-			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
-			List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
-			if (applicableFlats.isEmpty() && paidFlats.isEmpty()) {
-				dueAmountDetailsRepository.delete(due);
-			}
+			removeFlatFromDueAndDeleteIfEmpty(due, flatId);
 		}
 
 		// Delete transactions by paymentId + flatId
@@ -2627,6 +2615,29 @@ public class PaymentServices implements PaymentInterface {
 		if (removed) {
 			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueKeys));
 			flatRepository.save(flat);
+		}
+	}
+
+	private void removeFlatFromDueAndDeleteIfEmpty(DueAmountDetailsEntity due, String flatId) {
+		if (due == null || !hasText(flatId)) {
+			return;
+		}
+		List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+		boolean applicableModified = applicableFlats.removeIf(
+				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
+
+		List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+		boolean paidModified = paidFlats.removeIf(
+				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
+
+		if (applicableModified || paidModified) {
+			due.setApplicableFlats(genericService.toJson(applicableFlats));
+			due.setPaidFlats(genericService.toJson(paidFlats));
+			dueAmountDetailsRepository.save(due);
+		}
+
+		if (applicableFlats.isEmpty() && paidFlats.isEmpty()) {
+			dueAmountDetailsRepository.delete(due);
 		}
 	}
 

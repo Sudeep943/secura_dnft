@@ -296,7 +296,6 @@ public class PaymentController {
 			response.setMessage(e.getErrorMessage());
 			response.setMessageCode(e.getErrorMessageCode());
 		} catch (Exception e) {
-			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
