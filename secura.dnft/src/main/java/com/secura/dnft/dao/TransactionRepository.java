@@ -36,4 +36,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
 	long countByAprmntIdAndPymntId(String aprmntId, String pymntId);
 
 	List<Transaction> findByEmailSentflag(String emailSentflag);
+
+	List<Transaction> findByAprmntIdAndPymntId(String aprmntId, String pymntId);
+
+	List<Transaction> findByAprmntIdAndPymntIdAndFlatId(String aprmntId, String pymntId, String flatId);
 }

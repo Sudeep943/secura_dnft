@@ -20,6 +20,7 @@ import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
+import com.secura.dnft.request.response.RemovePaymentRequest;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 
 public interface PaymentInterface {
@@ -47,5 +48,7 @@ public interface PaymentInterface {
 	public ReconcileQRPaymentResponse reconcileQRPayment(ReconcileQRPaymentRequest request) throws Exception;
 
 	public ActionQRPaymentResponse actionQRPayment(ActionQRPaymentRequest request) throws Exception;
+
+	public GenericResponse removePayment(RemovePaymentRequest request) throws Exception;
 
 }
