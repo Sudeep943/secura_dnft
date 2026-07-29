@@ -2418,6 +2418,15 @@ public class PaymentServices implements PaymentInterface {
 		String dueId = trimValue(request.getDueId());
 		String flatId = trimValue(request.getFlatId());
 
+		// 6. Validate all input parameters are alphanumeric (fail-fast before DB calls)
+		validateAlphanumeric(paymentId, "Payment ID");
+		if (hasText(dueId)) {
+			validateAlphanumeric(dueId, "Due ID");
+		}
+		if (hasText(flatId)) {
+			validateAlphanumeric(flatId, "Flat ID");
+		}
+
 		// 2. Check payment exists
 		Optional<PaymentEntity> paymentOpt = paymentRepository.findFirstByPaymentId(paymentId);
 		if (paymentOpt.isEmpty()) {
@@ -2449,15 +2458,6 @@ public class PaymentServices implements PaymentInterface {
 			if (flatOpt.isEmpty()) {
 				throw new BusinessException("No Flat Found for the given Flat ID", ErrorMessageCode.ERR_MESSAGE_33);
 			}
-		}
-
-		// 6. Validate all input parameters are alphanumeric
-		validateAlphanumeric(paymentId, "Payment ID");
-		if (hasText(dueId)) {
-			validateAlphanumeric(dueId, "Due ID");
-		}
-		if (hasText(flatId)) {
-			validateAlphanumeric(flatId, "Flat ID");
 		}
 	}
 
@@ -2630,30 +2630,9 @@ public class PaymentServices implements PaymentInterface {
 		boolean paidModified = paidFlats.removeIf(
 				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
 
-		if (applicableModified || paidModified) {
-			due.setApplicableFlats(genericService.toJson(applicableFlats));
-			due.setPaidFlats(genericService.toJson(paidFlats));
-			dueAmountDetailsRepository.save(due);
-		}
-
 		if (applicableFlats.isEmpty() && paidFlats.isEmpty()) {
 			dueAmountDetailsRepository.delete(due);
-		}
-	}
-
-	private void updateDueApplicableFlats(DueAmountDetailsEntity due, String flatId) {
-		if (due == null || !hasText(flatId)) {
-			return;
-		}
-		List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
-		boolean applicableModified = applicableFlats.removeIf(
-				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
-
-		List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
-		boolean paidModified = paidFlats.removeIf(
-				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
-
-		if (applicableModified || paidModified) {
+		} else if (applicableModified || paidModified) {
 			due.setApplicableFlats(genericService.toJson(applicableFlats));
 			due.setPaidFlats(genericService.toJson(paidFlats));
 			dueAmountDetailsRepository.save(due);
