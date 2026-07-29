@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DocumentRepository;
@@ -99,9 +100,11 @@ import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
+import com.secura.dnft.request.response.RemovePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
+import com.secura.dnft.security.BusinessException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -2372,6 +2375,354 @@ public class PaymentServices implements PaymentInterface {
 		private String bankAccountId;
 		private LocalDate dueFrom;
 		private LocalDate dueTill;
+	}
+
+	// -------------------------------------------------------------------------
+	// removePayment API
+	// -------------------------------------------------------------------------
+
+	@Override
+	@Transactional
+	public GenericResponse removePayment(RemovePaymentRequest request) throws Exception {
+		GenericResponse response = new GenericResponse();
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? trimValue(request.getGenericHeader().getApartmentId()) : null;
+		validateRemovePaymentRequest(request, apartmentId);
+		String paymentId = trimValue(request.getPaymentId());
+		String dueId = trimValue(request.getDueId());
+		String flatId = trimValue(request.getFlatId());
+		if (hasText(dueId)) {
+			if (hasText(flatId)) {
+				executeRemoveDueWithFlat(apartmentId, paymentId, dueId, flatId);
+			} else {
+				executeRemoveDueAllFlats(apartmentId, paymentId, dueId);
+			}
+		} else {
+			if (hasText(flatId)) {
+				executeRemoveAllDuesWithFlat(apartmentId, paymentId, flatId);
+			} else {
+				executeRemoveAllDuesAllFlats(apartmentId, paymentId);
+			}
+		}
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_23);
+		return response;
+	}
+
+	private void validateRemovePaymentRequest(RemovePaymentRequest request, String apartmentId) throws BusinessException {
+		// 1. paymentId must not be null or blank
+		if (request == null || !hasText(request.getPaymentId())) {
+			throw new BusinessException("Payment ID must not be null or blank", ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		String paymentId = trimValue(request.getPaymentId());
+		String dueId = trimValue(request.getDueId());
+		String flatId = trimValue(request.getFlatId());
+
+		// 6. Validate all input parameters are alphanumeric (fail-fast before DB calls)
+		validateAlphanumeric(paymentId, "Payment ID");
+		if (hasText(dueId)) {
+			validateAlphanumeric(dueId, "Due ID");
+		}
+		if (hasText(flatId)) {
+			validateAlphanumeric(flatId, "Flat ID");
+		}
+
+		// 2. Check payment exists
+		Optional<PaymentEntity> paymentOpt = paymentRepository.findFirstByPaymentId(paymentId);
+		if (paymentOpt.isEmpty()) {
+			throw new BusinessException("No Payment Found", ErrorMessageCode.ERR_MESSAGE_33);
+		}
+
+		// 3. If dueId provided, validate payment_id + due_id exists in secura_due_amount_details
+		if (hasText(dueId)) {
+			List<DueAmountDetailsEntity> dues = dueAmountDetailsRepository.findByPaymentIdAndDueId(paymentId, dueId);
+			if (dues == null || dues.isEmpty()) {
+				throw new BusinessException("No Due Found for the given Payment ID and Due ID", ErrorMessageCode.ERR_MESSAGE_33);
+			}
+		}
+
+		// 4. Check transactions and prompt confirmation if needed
+		List<Transaction> existingTransactions = findTransactionsForRemovalCheck(apartmentId, paymentId, dueId, flatId);
+		if (!existingTransactions.isEmpty() && !request.isConfirmDeleteTransactionFlag()) {
+			throw new BusinessException(
+					"Transaction Present for the Due. Deleting this Due will remove all transaction traces. Are you sure To Proceed",
+					ErrorMessageCode.ERR_MESSAGE_33);
+		}
+
+		// 5. If flatId is present, validate flat exists
+		if (hasText(flatId)) {
+			if (!hasText(apartmentId)) {
+				throw new BusinessException("Apartment ID must be provided to validate flat", ErrorMessageCode.ERR_MESSAGE_33);
+			}
+			Optional<Flat> flatOpt = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId);
+			if (flatOpt.isEmpty()) {
+				throw new BusinessException("No Flat Found for the given Flat ID", ErrorMessageCode.ERR_MESSAGE_33);
+			}
+		}
+	}
+
+	private List<Transaction> findTransactionsForRemovalCheck(String apartmentId, String paymentId, String dueId, String flatId) {
+		if (hasText(dueId) && hasText(flatId)) {
+			List<Transaction> txForPaymentFlat = hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntIdAndFlatId(apartmentId, paymentId, flatId)
+					: List.of();
+			return filterTransactionsByDueId(txForPaymentFlat, dueId);
+		} else if (hasText(dueId)) {
+			List<Transaction> txForPayment = hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntId(apartmentId, paymentId)
+					: List.of();
+			return filterTransactionsByDueId(txForPayment, dueId);
+		} else {
+			return hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntId(apartmentId, paymentId)
+					: List.of();
+		}
+	}
+
+	private List<Transaction> filterTransactionsByDueId(List<Transaction> transactions, String dueId) {
+		if (transactions == null || transactions.isEmpty() || !hasText(dueId)) {
+			return new ArrayList<>();
+		}
+		String prefix = trimValue(dueId) + "_";
+		return transactions.stream()
+				.filter(t -> hasText(t.getDueDetails()) && t.getDueDetails().trim().startsWith(prefix))
+				.collect(Collectors.toList());
+	}
+
+	private void validateAlphanumeric(String value, String fieldName) throws BusinessException {
+		if (hasText(value) && !trimValue(value).matches("[a-zA-Z0-9]+")) {
+			throw new BusinessException(fieldName + " must be alphanumeric", ErrorMessageCode.ERR_MESSAGE_33);
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// Case A1: dueId present, flatId present
+	// -------------------------------------------------------------------------
+
+	private void executeRemoveDueWithFlat(String apartmentId, String paymentId, String dueId, String flatId) {
+		List<DueAmountDetailsEntity> dues = dueAmountDetailsRepository.findByPaymentIdAndDueId(paymentId, dueId);
+		for (DueAmountDetailsEntity due : dues) {
+			// Step 1: Remove due string from flat's pending payment list
+			String dueString = createDueString(due);
+			removeDueFromFlat(apartmentId, flatId, dueString);
+
+			// Step 2: Remove flatId from due's applicable_flats and paid_flats
+			// Step 3: If both lists become empty, delete the due record
+			removeFlatFromDueAndDeleteIfEmpty(due, flatId);
+		}
+
+		// Step 4: Check remaining dues for payment - if none, delete payment
+		boolean paymentDeleted = deletePaymentIfNoDueExists(apartmentId, paymentId);
+
+		// Step 5: If payment still exists, remove flatId from payment's applicable_for and paid_flat
+		if (!paymentDeleted) {
+			updatePaymentApplicableFlats(apartmentId, paymentId, flatId);
+		}
+
+		// Step 6: Delete all matching transactions
+		deleteTransactions(apartmentId, paymentId, dueId, flatId);
+	}
+
+	// -------------------------------------------------------------------------
+	// Case A2: dueId present, flatId absent
+	// -------------------------------------------------------------------------
+
+	private void executeRemoveDueAllFlats(String apartmentId, String paymentId, String dueId) {
+		List<DueAmountDetailsEntity> dues = dueAmountDetailsRepository.findByPaymentIdAndDueId(paymentId, dueId);
+		for (DueAmountDetailsEntity due : dues) {
+			String dueString = createDueString(due);
+			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+			for (String applicableFlatId : applicableFlats) {
+				removeDueFromFlat(apartmentId, applicableFlatId, dueString);
+			}
+			dueAmountDetailsRepository.delete(due);
+		}
+
+		// Delete transactions by paymentId + dueId
+		deleteTransactions(apartmentId, paymentId, dueId, null);
+
+		// If payment has no remaining dues, delete payment
+		deletePaymentIfNoDueExists(apartmentId, paymentId);
+	}
+
+	// -------------------------------------------------------------------------
+	// Case B1: dueId absent, flatId present
+	// -------------------------------------------------------------------------
+
+	private void executeRemoveAllDuesWithFlat(String apartmentId, String paymentId, String flatId) {
+		List<DueAmountDetailsEntity> allDues = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		for (DueAmountDetailsEntity due : allDues) {
+			String dueString = createDueString(due);
+
+			// Remove due string from this flat's pending payment list
+			removeDueFromFlat(apartmentId, flatId, dueString);
+
+			// Remove flatId from due's applicable_flats and paid_flats
+			// If both lists become empty, delete the due record
+			removeFlatFromDueAndDeleteIfEmpty(due, flatId);
+		}
+
+		// Delete transactions by paymentId + flatId
+		deleteTransactions(apartmentId, paymentId, null, flatId);
+
+		// Update payment's applicable_for and paid_flat - remove flatId
+		updatePaymentApplicableFlats(apartmentId, paymentId, flatId);
+
+		// If payment has no remaining dues, delete payment
+		deletePaymentIfNoDueExists(apartmentId, paymentId);
+	}
+
+	// -------------------------------------------------------------------------
+	// Case B2: dueId absent, flatId absent
+	// -------------------------------------------------------------------------
+
+	private void executeRemoveAllDuesAllFlats(String apartmentId, String paymentId) {
+		List<DueAmountDetailsEntity> allDues = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		for (DueAmountDetailsEntity due : allDues) {
+			String dueString = createDueString(due);
+			List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+			for (String applicableFlatId : applicableFlats) {
+				removeDueFromFlat(apartmentId, applicableFlatId, dueString);
+			}
+			dueAmountDetailsRepository.delete(due);
+		}
+
+		// Delete all transactions by paymentId
+		deleteTransactions(apartmentId, paymentId, null, null);
+
+		// Delete payment
+		deletePaymentIfNoDueExists(apartmentId, paymentId);
+	}
+
+	// -------------------------------------------------------------------------
+	// Private helper methods
+	// -------------------------------------------------------------------------
+
+	private String createDueString(DueAmountDetailsEntity dueEntity) {
+		return buildFlatPendingDueKey(dueEntity);
+	}
+
+	private void removeDueFromFlat(String apartmentId, String flatId, String dueString) {
+		if (!hasText(apartmentId) || !hasText(flatId) || !hasText(dueString)) {
+			return;
+		}
+		Flat flat = flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId).orElse(null);
+		if (flat == null) {
+			return;
+		}
+		List<String> pendingDueKeys = parseJsonStringList(flat.getFlatPndngPaymntLst());
+		boolean removed = pendingDueKeys.removeIf(key -> hasText(key) && key.trim().equals(dueString.trim()));
+		if (removed) {
+			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueKeys));
+			flatRepository.save(flat);
+		}
+	}
+
+	private void removeFlatFromDueAndDeleteIfEmpty(DueAmountDetailsEntity due, String flatId) {
+		if (due == null || !hasText(flatId)) {
+			return;
+		}
+		List<String> applicableFlats = parseJsonStringList(due.getApplicableFlats());
+		boolean applicableModified = applicableFlats.removeIf(
+				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
+
+		List<String> paidFlats = parseJsonStringList(due.getPaidFlats());
+		boolean paidModified = paidFlats.removeIf(
+				f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
+
+		if (applicableFlats.isEmpty() && paidFlats.isEmpty()) {
+			dueAmountDetailsRepository.delete(due);
+		} else if (applicableModified || paidModified) {
+			due.setApplicableFlats(genericService.toJson(applicableFlats));
+			due.setPaidFlats(genericService.toJson(paidFlats));
+			dueAmountDetailsRepository.save(due);
+		}
+	}
+
+	private void updatePaymentApplicableFlats(String apartmentId, String paymentId, String flatId) {
+		if (!hasText(paymentId) || !hasText(flatId)) {
+			return;
+		}
+		List<PaymentEntity> paymentEntities = hasText(apartmentId)
+				? paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId)
+				: paymentRepository.findByPaymentId(paymentId);
+		if (paymentEntities == null || paymentEntities.isEmpty()) {
+			return;
+		}
+		List<PaymentEntity> updatedPayments = new ArrayList<>();
+		for (PaymentEntity paymentEntity : paymentEntities) {
+			if (paymentEntity == null) {
+				continue;
+			}
+			boolean modified = false;
+			List<String> applicableFor = parseJsonStringList(paymentEntity.getApplicableFor());
+			boolean applicableModified = applicableFor.removeIf(
+					f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
+			if (applicableModified) {
+				paymentEntity.setApplicableFor(genericService.toJson(applicableFor));
+				modified = true;
+			}
+			List<String> paidFlats = parseJsonStringList(paymentEntity.getPaidFlats());
+			boolean paidModified = paidFlats.removeIf(
+					f -> hasText(f) && f.trim().equalsIgnoreCase(flatId.trim()));
+			if (paidModified) {
+				paymentEntity.setPaidFlats(genericService.toJson(paidFlats));
+				modified = true;
+			}
+			if (modified) {
+				updatedPayments.add(paymentEntity);
+			}
+		}
+		if (!updatedPayments.isEmpty()) {
+			paymentRepository.saveAll(updatedPayments);
+		}
+	}
+
+	private void deleteTransactions(String apartmentId, String paymentId, String dueId, String flatId) {
+		if (!hasText(paymentId)) {
+			return;
+		}
+		List<Transaction> transactionsToDelete;
+		if (hasText(dueId) && hasText(flatId)) {
+			List<Transaction> allTx = hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntIdAndFlatId(apartmentId, paymentId, flatId)
+					: List.of();
+			transactionsToDelete = filterTransactionsByDueId(allTx, dueId);
+		} else if (hasText(dueId)) {
+			List<Transaction> allTx = hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntId(apartmentId, paymentId)
+					: List.of();
+			transactionsToDelete = filterTransactionsByDueId(allTx, dueId);
+		} else if (hasText(flatId)) {
+			transactionsToDelete = hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntIdAndFlatId(apartmentId, paymentId, flatId)
+					: List.of();
+		} else {
+			transactionsToDelete = hasText(apartmentId)
+					? transactionRepository.findByAprmntIdAndPymntId(apartmentId, paymentId)
+					: List.of();
+		}
+		if (!transactionsToDelete.isEmpty()) {
+			transactionRepository.deleteAll(transactionsToDelete);
+		}
+	}
+
+	private boolean deletePaymentIfNoDueExists(String apartmentId, String paymentId) {
+		if (!hasText(paymentId)) {
+			return false;
+		}
+		List<DueAmountDetailsEntity> remainingDues = dueAmountDetailsRepository.findByPaymentId(paymentId);
+		if (remainingDues != null && !remainingDues.isEmpty()) {
+			return false;
+		}
+		List<PaymentEntity> paymentEntities = hasText(apartmentId)
+				? paymentRepository.findByPaymentIdAndAprmtId(paymentId, apartmentId)
+				: paymentRepository.findByPaymentId(paymentId);
+		if (paymentEntities != null && !paymentEntities.isEmpty()) {
+			paymentRepository.deleteAll(paymentEntities);
+			return true;
+		}
+		return false;
 	}
 
 }

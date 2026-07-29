@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
+import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.request.response.ActionQRPaymentRequest;
 import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -36,6 +37,7 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
+import com.secura.dnft.request.response.RemovePaymentRequest;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
@@ -283,7 +285,23 @@ public class PaymentController {
 		}
 		return response;
 	}
-	
+
+	@PostMapping("/removePayment")
+	@CrossOrigin(origins = "*")
+	public GenericResponse removePayment(@RequestBody RemovePaymentRequest request) {
+		GenericResponse response = new GenericResponse();
+		try {
+			return paymentServices.removePayment(request);
+		} catch (BusinessException e) {
+			response.setMessage(e.getErrorMessage());
+			response.setMessageCode(e.getErrorMessageCode());
+		} catch (Exception e) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
 	private ThirdPartyPaymentGayeway resolvePaymentGatewayService(String paymentGateway) {
 		if ("RAZORPAY".equalsIgnoreCase(paymentGateway)) {
 			return razorPayPaymentServices;
