@@ -5,8 +5,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -20,6 +22,11 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -51,6 +58,7 @@ import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsRequest;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
+import com.secura.dnft.request.response.GetTransactionByPageRequest;
 import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
@@ -91,6 +99,9 @@ public class TransactionAndReportsService {
 
 	@Autowired
 	PaymentUtilService paymentUtilService;
+
+	@Value("${transaction.chunk}")
+	private Integer transactionChunkSize;
 
 	public GetTransactionResponse getTransaction(GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
@@ -819,6 +830,130 @@ public class TransactionAndReportsService {
 		} catch (Exception e) {
 			return new ArrayList<>();
 		}
+	}
+
+	public GetTransactionResponse getTransactionByPage(GetTransactionByPageRequest request) {
+		LOGGER.info("getTransactionByPage called");
+		GetTransactionResponse response = new GetTransactionResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+
+		String aprmntId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+
+		if (!hasText(aprmntId)) {
+			LOGGER.warn("getTransactionByPage: apartmentId is missing");
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+
+		Specification<Transaction> spec = buildTransactionSpecification(request, aprmntId);
+
+		long totalTransaction = transactionRepository.count(spec);
+		LOGGER.info("getTransactionByPage: totalTransaction={}", totalTransaction);
+
+		int chunkSize = transactionChunkSize != null && transactionChunkSize > 0 ? transactionChunkSize : 50;
+		int totalPage = (int) Math.ceil((double) totalTransaction / chunkSize);
+
+		int pageFrom = request.getPageFrom() != null ? request.getPageFrom() : 0;
+		Pageable pageable = PageRequest.of(pageFrom, chunkSize);
+		Page<Transaction> page = transactionRepository.findAll(spec, pageable);
+
+		List<TransactionResponseItem> transactionList = page.getContent().stream()
+				.map(this::toResponseItem)
+				.collect(Collectors.toList());
+
+		BigDecimal totalCredit = calculateTotalAmount(spec, TRNS_TYPE_CREDIT);
+		BigDecimal totalDebit = calculateTotalAmount(spec, TRNS_TYPE_DEBIT);
+
+		response.setTransactionList(transactionList);
+		response.setTotalTransaction(totalTransaction);
+		response.setTotalPage(totalPage);
+		response.setTotalCredit(totalCredit);
+		response.setTotalDebit(totalDebit);
+
+		if (transactionList.isEmpty()) {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_42);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_42);
+		} else {
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_41);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_41);
+		}
+
+		LOGGER.info("getTransactionByPage: returned {} records, totalPage={}", transactionList.size(), totalPage);
+		return response;
+	}
+
+	private Specification<Transaction> buildTransactionSpecification(GetTransactionByPageRequest request,
+			String aprmntId) {
+		return (root, query, cb) -> {
+			List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+			predicates.add(cb.equal(root.get("aprmntId"), aprmntId));
+
+			if (request == null) {
+				return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+			}
+
+			if (hasText(request.getTransactionId())) {
+				predicates.add(cb.equal(root.get("trnscId"), request.getTransactionId()));
+			}
+
+			if (request.getFromDate() != null) {
+				LocalDateTime fromDateTime = request.getFromDate().toInstant()
+						.atZone(ZoneId.systemDefault()).toLocalDateTime();
+				predicates.add(cb.greaterThanOrEqualTo(root.get("creatTs"), fromDateTime));
+			}
+
+			if (request.getToDate() != null) {
+				LocalDateTime toDateTime = request.getToDate().toInstant()
+						.atZone(ZoneId.systemDefault()).toLocalDateTime().with(LocalTime.MAX);
+				predicates.add(cb.lessThanOrEqualTo(root.get("creatTs"), toDateTime));
+			}
+
+			if (hasText(request.getTransactionStatus())) {
+				predicates.add(cb.equal(root.get("trnsStatus"), request.getTransactionStatus()));
+			}
+
+			if (hasText(request.getTransactionType())) {
+				predicates.add(cb.equal(root.get("trnsType"), request.getTransactionType()));
+			}
+
+			if (hasText(request.getCause())) {
+				predicates.add(cb.equal(root.get("cause"), request.getCause()));
+			}
+
+			if (hasText(request.getFlatId())) {
+				predicates.add(cb.equal(root.get("flatId"), request.getFlatId()));
+			}
+
+			if (hasText(request.getPaymentId())) {
+				predicates.add(cb.equal(root.get("pymntId"), request.getPaymentId()));
+			}
+
+			return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+		};
+	}
+
+	private BigDecimal calculateTotalAmount(Specification<Transaction> baseSpec, String trnsType) {
+		Specification<Transaction> amtSpec = baseSpec
+				.and((root, query, cb) -> cb.equal(root.get("trnsStatus"), TRNS_STATUS_SUCCESS))
+				.and((root, query, cb) -> cb.equal(root.get("trnsType"), trnsType));
+
+		List<Transaction> transactions = transactionRepository.findAll(amtSpec);
+		return transactions.stream()
+				.map(t -> {
+					if (t.getTrnsAmt() == null || t.getTrnsAmt().isBlank()) {
+						return BigDecimal.ZERO;
+					}
+					try {
+						return new BigDecimal(t.getTrnsAmt().trim());
+					} catch (NumberFormatException e) {
+						return BigDecimal.ZERO;
+					}
+				})
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private record DefaulterAccumulator(String flatId, Map<String, DefaultPaymentAccumulator> defaultPaymentMap) {
