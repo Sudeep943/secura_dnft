@@ -291,37 +291,47 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	
 	public static String maskEmail(String email) {
 
-	    if (email == null || email.trim().isEmpty()) {
-	        return email;
-	    }
+		 if (email == null || email.isBlank()) {
+	            return email;
+	        }
 
-	    int atIndex = email.indexOf('@');
+	        int atIndex = email.indexOf('@');
 
-	    if (atIndex <= 0 || atIndex == email.length() - 1) {
-	        return email;
-	    }
+	        // Invalid email
+	        if (atIndex <= 0) {
+	            return email;
+	        }
 
-	    String localPart = email.substring(0, atIndex);
-	    String domain = email.substring(atIndex);
+	        String username = email.substring(0, atIndex);
+	        String domain = email.substring(atIndex);
 
-	    // If local part is too short, don't mask
-	    if (localPart.length() <= 6) {
-	        return email;
-	    }
+	        int length = username.length();
 
-	    String firstPart = localPart.substring(0, 3);
-	    String middlePart = localPart.substring(6, localPart.length()-1);
+	        String maskedUsername;
 
-	    StringBuilder masked = new StringBuilder();
-	    masked.append(firstPart);
-	    masked.append("***");
-	    masked.append(middlePart);
+	        if (length <= 1) {
+	            // a@gmail.com
+	            maskedUsername = username;
+	        } else if (length < 4) {
+	            // Keep all except last character before @
+	            // as -> a*
+	            // asl -> as*
+	            maskedUsername = username.substring(0, length - 1) + "*";
+	        } else {
+	            // Keep first 3 chars and last char
+	            // Mask everything in between
+	            StringBuilder sb = new StringBuilder();
+	            sb.append(username, 0, 3);
 
-	    for (int i = 9; i < localPart.length(); i++) {
-	        masked.append('*');
-	    }
+	            for (int i = 0; i < length - 4; i++) {
+	                sb.append('*');
+	            }
 
-	    return masked + domain;
+	            sb.append(username.charAt(length - 1));
+	            maskedUsername = sb.toString();
+	        }
+
+	        return maskedUsername + domain;
 	}
 	
 	  public String maskPhoneNumber(String phoneNumber) {
