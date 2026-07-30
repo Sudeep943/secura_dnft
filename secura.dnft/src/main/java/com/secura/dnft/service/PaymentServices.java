@@ -2404,8 +2404,8 @@ public class PaymentServices implements PaymentInterface {
 				executeRemoveAllDuesAllFlats(apartmentId, paymentId);
 			}
 		}
-		response.setMessage(SuccessMessage.SUCC_MESSAGE_23);
-		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_23);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_56);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_56);
 		return response;
 	}
 

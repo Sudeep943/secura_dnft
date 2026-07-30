@@ -24,8 +24,8 @@ import com.secura.dnft.dao.WorklistRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.PaymentEntity;
-import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.TransDueDetailsEntityId;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -35,6 +35,8 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
+import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
+import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetWorkListsRequest;
 import com.secura.dnft.request.response.GetWorkListsResponse;
 import com.secura.dnft.security.BusinessException;
@@ -58,6 +60,9 @@ public class WorklistService {
 
 	@Autowired
 	private TransactionRepository transactionRepository;
+	
+//	@Autowired
+//	private FlatServices flatServices;
 
 	@Autowired
 	private GenericService genericService;
@@ -153,6 +158,11 @@ public class WorklistService {
 		transaction.setLstUpdtTs(LocalDateTime.now());
 		transaction.setLstUpdtUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
 		transactionRepository.save(transaction);
+//		GetDueAmountForFlatRequest getDueAmountForFlatRequest = new GetDueAmountForFlatRequest();
+//		getDueAmountForFlatRequest.setFlatId(transaction.getFlatId());
+//		getDueAmountForFlatRequest.setGenericHeader(request.getGenericHeader());
+//		GetDueAmountForFlatResponse getDueAmountForFlatResponse=flatServices.getDueAmountForFlat(getDueAmountForFlatRequest);
+		
 		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)) {
 			processApprovedTransactionDue(worklist, transaction);
 		} else if (SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action)) {
@@ -228,11 +238,13 @@ public class WorklistService {
 		if (dueEntity == null) {
 			return;
 		}
-		BigDecimal transactionAmount = parseAmount(transaction.getTrnsAmt());
-		BigDecimal totalDueAmount = parseAmount(dueEntity.getTotalAmount());
-		if (transactionAmount == null || totalDueAmount == null || transactionAmount.compareTo(totalDueAmount) != 0) {
-			return;
-		}
+//		
+//		BigDecimal transactionAmount = parseAmount(transaction.getTrnsAmt());
+//		BigDecimal totalDueAmount = parseAmount(dueEntity.getTotalAmount());
+//		
+//		if (transactionAmount == null || totalDueAmount == null || transactionAmount.compareTo(totalDueAmount) != 0) {
+//			return;
+//		}
 		String flatNo = resolveFlatNo(worklist, transaction);
 		if (!hasText(flatNo)) {
 			return;
@@ -257,6 +269,7 @@ public class WorklistService {
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatNo, paymentId, pendingDueList);
 	}
 
+	
 	private String resolveFlatNo(Worklist worklist, Transaction transaction) {
 		if (worklist != null && hasText(worklist.getFlatNo())) {
 			return worklist.getFlatNo().trim();
