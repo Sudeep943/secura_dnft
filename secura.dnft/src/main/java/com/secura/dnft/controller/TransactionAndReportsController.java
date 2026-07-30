@@ -13,9 +13,12 @@ import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
 import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
+import com.secura.dnft.request.response.GetTransactionByPageRequest;
 import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.service.TransactionAndReportsService;
+
+import jakarta.validation.Valid;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -62,6 +65,21 @@ public class TransactionAndReportsController {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {
 			return transactionAndReportsService.getDefaulterList(request);
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/getTransctionByPage")
+	@CrossOrigin(origins = "*")
+	public GetTransactionResponse getTransactionByPage(@Valid @RequestBody GetTransactionByPageRequest request) {
+		GetTransactionResponse response = new GetTransactionResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return transactionAndReportsService.getTransactionByPage(request);
 		} catch (Exception e) {
 			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
