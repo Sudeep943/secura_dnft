@@ -38,7 +38,10 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 
 	@Autowired
 	private CreditNoteRepository creditNoteRepository;
-
+	
+	@Autowired
+	private CreditNoteUtiltyService creditNoteUtiltyService;
+	
 	@Override
 	public IssueCreditNoteResponse issueCreditNote(IssueCreditNoteRequest request) throws Exception {
 		LOGGER.info("issueCreditNote :: Start for flatId: {}", request != null ? request.getFlatId() : null);
@@ -49,14 +52,13 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 		String apartmentId = extractApartmentId(request);
 		String flatId = request != null ? request.getFlatId() : null;
 		CreditNoteDetails incomingDetails = request != null ? request.getCreditNoteDetails() : null;
-
 		if (incomingDetails == null) {
 			LOGGER.warn("issueCreditNote :: Credit note details missing for flatId: {}", flatId);
 			response.setMessage(ErrorMessage.ERR_MESSAGE_62);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_62);
 			return response;
 		}
-
+		incomingDetails.setCreditNoteNo(creditNoteUtiltyService.generateCreditNoteNo(request.getFlatId()));
 		Optional<CreditNoteEntity> existingEntityOpt = creditNoteRepository.findByApartmentIdAndFlatId(apartmentId, flatId);
 
 		CreditNoteEntity entity;

@@ -8,7 +8,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -26,6 +25,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -855,9 +855,16 @@ public class TransactionAndReportsService {
 
 		int chunkSize = transactionChunkSize != null && transactionChunkSize > 0 ? transactionChunkSize : 50;
 		int totalPage = (int) Math.ceil((double) totalTransaction / chunkSize);
-
+		
+		if(request.getPageFrom() >totalPage || request.getPageTo() >totalPage) {
+			LOGGER.warn("getTransactionByPage: apartmentId is missing");
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+			}
 		int pageFrom = request.getPageFrom() != null ? request.getPageFrom() : 0;
-		Pageable pageable = PageRequest.of(pageFrom, chunkSize);
+		//int pageSize = (request.getPageTo() - pageFrom + 1) * chunkSize;
+		Pageable pageable = PageRequest.of(pageFrom, 50, Sort.by("creatTs").descending());
 		Page<Transaction> page = transactionRepository.findAll(spec, pageable);
 
 		List<TransactionResponseItem> transactionList = page.getContent().stream()

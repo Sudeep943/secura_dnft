@@ -369,7 +369,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	 * @param userId    the profile/user identifier
 	 * @throws BusinessException if the resend limit (3) has been reached
 	 */
-	public void createOTP(String sessionId, String userId) throws BusinessException {
+	public String createOTP(String sessionId, String userId) throws BusinessException {
 		logger.info("createOTP: initiated for userId={}, sessionId={}", userId, sessionId);
 
 		List<SecuraOtp> existingOtps = otpRepository.findByUserId(userId);
@@ -408,6 +408,8 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		try {
 			sendOtpEmail(emailId, rawOtp);
 			logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
+			String maskedEmailId= maskEmail(emailId);
+			return ("Please Enter OTP send to Email id: "+maskedEmailId);
 		} catch (Exception e) {
 			logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
 			otpRepository.delete(otpEntry);
