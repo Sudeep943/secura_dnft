@@ -63,6 +63,8 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_58="Maximum OTP attempt limit reached. Please try again after some time." ;
 	public final String ERR_MESSAGE_59="The OTP you entered is incorrect. Please check and try again." ;
 	public final String ERR_MESSAGE_60="Kripaya Kuch Aur Tigdam Try Kare" ;
+	public final String ERR_MESSAGE_61="Credit Note Not Found For The Provided Details" ;
+	public final String ERR_MESSAGE_62="Please Provide Credit Note Details" ;
 
 	
 }
