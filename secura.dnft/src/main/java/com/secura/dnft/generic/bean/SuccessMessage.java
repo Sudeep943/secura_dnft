@@ -56,6 +56,10 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_54="Roles Fetched Successfully" ;
 	public final String SUCC_MESSAGE_55="WorkList Action Successfully Completed" ;
 	public final String SUCC_MESSAGE_56="Payment Removed For Requested Flat" ;
+	public final String SUCC_MESSAGE_57="Credit Note Issued Successfully" ;
+	public final String SUCC_MESSAGE_58="Credit Note Details Fetched Successfully" ;
+	public final String SUCC_MESSAGE_59="Credit Note Deleted Successfully" ;
+	public final String SUCC_MESSAGE_60="Credit Note Available" ;
 
 
 
