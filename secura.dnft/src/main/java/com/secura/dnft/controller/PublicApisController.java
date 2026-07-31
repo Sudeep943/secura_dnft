@@ -3,6 +3,8 @@ package com.secura.dnft.controller;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -45,7 +47,14 @@ import com.secura.dnft.request.response.PaymentGayewayProcessRefundRequest;
 import com.secura.dnft.request.response.PaymentGayewayProcessRefundResponse;
 import com.secura.dnft.request.response.RejectTransactionWorkListRequest;
 import com.secura.dnft.request.response.TransactionResponseItem;
+import com.secura.dnft.request.response.ValidateOtpRequest;
+import com.secura.dnft.request.response.ValidateOtpResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.request.response.CreateOtpRequest;
+import com.secura.dnft.request.response.CreateOtpResponse;
+import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.FlatServices;
@@ -338,6 +347,56 @@ public class PublicApisController {
 		return trimmed.isEmpty() ? null : trimmed;
 	}
 	
+	@PostMapping("/createOTP")
+	@CrossOrigin(origins = "*")
+	public CreateOtpResponse createOTP(@RequestBody CreateOtpRequest request, HttpServletRequest httpRequest) {
+		CreateOtpResponse response = new CreateOtpResponse();
+		if (request == null || !StringUtils.hasText(request.getUserId())) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_60);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_60);
+			return response;
+		}
+		try {
+			String sessionId = httpRequest.getSession(true).getId();
+			String message = genericService.createOTP(sessionId, request.getUserId().trim());
+			response.setMessage(message);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_61);
+		} catch (BusinessException e) {
+			response.setMessage(e.getErrorMessage());
+			response.setMessageCode(e.getErrorMessageCode());
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/validateOTP")
+	@CrossOrigin(origins = "*")
+	public ValidateOtpResponse validateOTP(@RequestBody ValidateOtpRequest request, HttpServletRequest httpRequest) {
+		ValidateOtpResponse response = new ValidateOtpResponse();
+		if (request == null || !StringUtils.hasText(request.getOtp())) {
+			response.setMessage(ErrorMessage.ERR_MESSAGE_60);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_60);
+			return response;
+		}
+		try {
+			String sessionId = httpRequest.getSession(true).getId();
+			genericService.validateOTP(sessionId, request.getOtp().trim());
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_62);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_62);
+		} catch (BusinessException e) {
+			response.setMessage(e.getErrorMessage());
+			response.setMessageCode(e.getErrorMessageCode());
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
 	@PostMapping("/rejectTransactionWorkList")
 	@CrossOrigin(origins = "*")
 	public GenericResponse rejectTransctionWorkList(@RequestBody RejectTransactionWorkListRequest request) {

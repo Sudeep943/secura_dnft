@@ -60,6 +60,8 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_58="Credit Note Details Fetched Successfully" ;
 	public final String SUCC_MESSAGE_59="Credit Note Deleted Successfully" ;
 	public final String SUCC_MESSAGE_60="Credit Note Available" ;
+	public final String SUCC_MESSAGE_61="OTP sent successfully" ;
+	public final String SUCC_MESSAGE_62="OTP validated successfully" ;
 
 
 
