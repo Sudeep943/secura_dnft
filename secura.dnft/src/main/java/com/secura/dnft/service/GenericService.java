@@ -40,6 +40,7 @@ import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.request.response.CreateOtpResponse;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetProfileRequest;
@@ -369,7 +370,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	 * @param userId    the profile/user identifier
 	 * @throws BusinessException if the resend limit (3) has been reached
 	 */
-	public String createOTP(String sessionId, String userId) throws BusinessException {
+	public CreateOtpResponse createOTP(String sessionId, String userId, boolean sendMobile, boolean sendMail) throws BusinessException {
 		logger.info("createOTP: initiated for userId={}, sessionId={}", userId, sessionId);
 
 		List<SecuraOtp> existingOtps = otpRepository.findByUserId(userId);
@@ -396,25 +397,32 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		otpRepository.save(otpEntry);
 		logger.info("createOTP: OTP record saved for userId={}, otpId={}", userId, otpEntry.getOtpId());
 
-		Profile profile = getProfileEntity(userId);
-		String emailId = profile.getPrflEmailAdrss();
-		if (emailId == null || emailId.isBlank()) {
-			logger.error("createOTP: no email address found for userId={}", userId);
-			otpRepository.delete(otpEntry);
-			throw new BusinessException("No email address registered for this user. Please contact your society administrator.",
-					ErrorMessageCode.ERR_MESSAGE_28);
+		CreateOtpResponse response = new CreateOtpResponse();
+		response.setOtpId(otpEntry.getOtpId());
+
+		if (sendMail) {
+			Profile profile = getProfileEntity(userId);
+			String emailId = profile.getPrflEmailAdrss();
+			if (emailId == null || emailId.isBlank()) {
+				logger.error("createOTP: no email address found for userId={}", userId);
+				otpRepository.delete(otpEntry);
+				throw new BusinessException("No email address registered for this user. Please contact your society administrator.",
+						ErrorMessageCode.ERR_MESSAGE_28);
+			}
+			try {
+				sendOtpEmail(emailId, rawOtp);
+				logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
+				String maskedEmailId = maskEmail(emailId);
+				response.setMailId(maskedEmailId);
+				response.setMessage("Please Enter OTP send to Email id: " + maskedEmailId);
+			} catch (Exception e) {
+				logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
+				otpRepository.delete(otpEntry);
+				throw new BusinessException("Failed to send OTP email. Please try again.", ErrorMessageCode.ERR_MESSAGE_33);
+			}
 		}
 
-		try {
-			sendOtpEmail(emailId, rawOtp);
-			logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
-			String maskedEmailId= maskEmail(emailId);
-			return ("Please Enter OTP send to Email id: "+maskedEmailId);
-		} catch (Exception e) {
-			logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
-			otpRepository.delete(otpEntry);
-			throw new BusinessException("Failed to send OTP email. Please try again.", ErrorMessageCode.ERR_MESSAGE_33);
-		}
+		return response;
 	}
 
 	/**
