@@ -1,5 +1,6 @@
 package com.secura.dnft.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +55,7 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.CreateOtpRequest;
 import com.secura.dnft.request.response.CreateOtpResponse;
+import com.secura.dnft.request.response.CreateOtpResponsePublicAPI;
 import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
@@ -349,27 +351,41 @@ public class PublicApisController {
 	
 	@PostMapping("/createOTP")
 	@CrossOrigin(origins = "*")
-	public CreateOtpResponse createOTP(@RequestBody CreateOtpRequest request, HttpServletRequest httpRequest) {
-		CreateOtpResponse response = new CreateOtpResponse();
-		if (request == null || !StringUtils.hasText(request.getUserId())) {
-			response.setMessage(ErrorMessage.ERR_MESSAGE_60);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_60);
-			return response;
+	public CreateOtpResponsePublicAPI createOTP(@RequestBody CreateOtpRequest request, HttpServletRequest httpRequest) {
+		CreateOtpResponsePublicAPI publicResponse = new CreateOtpResponsePublicAPI();
+		if (request == null || request.getUserIds() == null || request.getUserIds().isEmpty()) {
+			publicResponse.setMessage(ErrorMessage.ERR_MESSAGE_60);
+			publicResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_60);
+			return publicResponse;
 		}
 		try {
 			String sessionId = httpRequest.getSession(true).getId();
-			String message = genericService.createOTP(sessionId, request.getUserId().trim());
-			response.setMessage(message);
-			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_61);
+			List<String> maskedEmails = new ArrayList<>();
+			String lastOtpId = null;
+			for (String userId : request.getUserIds()) {
+				if (!org.springframework.util.StringUtils.hasText(userId)) {
+					continue;
+				}
+				CreateOtpResponse otpResponse = genericService.createOTP(sessionId, userId.trim(), false, true);
+				if (otpResponse.getOtpId() != null) {
+					lastOtpId = otpResponse.getOtpId();
+				}
+				if (otpResponse.getMailId() != null) {
+					maskedEmails.add(otpResponse.getMailId());
+				}
+			}
+			publicResponse.setOtpId(lastOtpId);
+			publicResponse.setEmails(maskedEmails);
+			publicResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_61);
 		} catch (BusinessException e) {
-			response.setMessage(e.getErrorMessage());
-			response.setMessageCode(e.getErrorMessageCode());
+			publicResponse.setMessage(e.getErrorMessage());
+			publicResponse.setMessageCode(e.getErrorMessageCode());
 		} catch (Exception e) {
 			e.printStackTrace();
-			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			publicResponse.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			publicResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
-		return response;
+		return publicResponse;
 	}
 
 	@PostMapping("/validateOTP")
