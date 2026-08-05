@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -14,9 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.secura.dnft.interfaceservice.CreditNoteInterface;
-import com.secura.dnft.request.response.CreditNoteAvailableRequest;
-import com.secura.dnft.request.response.CreditNoteAvailableResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
@@ -25,8 +20,16 @@ import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.generic.bean.SuccessMessage;
+import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.interfaceservice.CreditNoteInterface;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
+import com.secura.dnft.request.response.CreateOtpRequest;
+import com.secura.dnft.request.response.CreateOtpResponse;
+import com.secura.dnft.request.response.CreateOtpResponsePublicAPI;
+import com.secura.dnft.request.response.CreditNoteAvailableRequest;
+import com.secura.dnft.request.response.CreditNoteAvailableResponse;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
@@ -54,11 +57,8 @@ import com.secura.dnft.request.response.TransactionResponseItem;
 import com.secura.dnft.request.response.ValidateOtpRequest;
 import com.secura.dnft.request.response.ValidateOtpResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
-import com.secura.dnft.generic.bean.SuccessMessage;
-import com.secura.dnft.generic.bean.SuccessMessageCode;
-import com.secura.dnft.request.response.CreateOtpRequest;
-import com.secura.dnft.request.response.CreateOtpResponse;
-import com.secura.dnft.request.response.CreateOtpResponsePublicAPI;
+import com.secura.dnft.request.response.ViewCreditNoteDetailsRequest;
+import com.secura.dnft.request.response.ViewCreditNoteDetailsResponse;
 import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
@@ -69,6 +69,8 @@ import com.secura.dnft.service.ProfileServices;
 import com.secura.dnft.service.RazorPayPaymentServices;
 import com.secura.dnft.service.TransactionAndReportsService;
 import com.secura.dnft.service.WorklistService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -425,6 +427,23 @@ public class PublicApisController {
 		return response;
 	}
 
+	
+	@PostMapping("/viewCreditNoteDetailsPublic")
+	@CrossOrigin(origins = "*")
+	public ViewCreditNoteDetailsResponse creditNoteAvailablePublic(@RequestBody ViewCreditNoteDetailsRequest request) {
+		ViewCreditNoteDetailsResponse response = new ViewCreditNoteDetailsResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return creditNoteInterface.viewCreditNoteDetails(request);
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+	
+	
 	@PostMapping("/rejectTransactionWorkList")
 	@CrossOrigin(origins = "*")
 	public GenericResponse rejectTransctionWorkList(@RequestBody RejectTransactionWorkListRequest request) {

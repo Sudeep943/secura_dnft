@@ -61,7 +61,7 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 			return response;
 		}
 		incomingDetails.setCreditNoteNo(creditNoteUtiltyService.generateCreditNoteNo(request.getFlatId()));
-		String issuedBy = request.getGenericHeader() != null ? request.getGenericHeader().getProfileName() : null;
+		String issuedBy = request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null;
 		Date issueDate = Date.valueOf(LocalDate.now());
 		Optional<CreditNoteEntity> existingEntityOpt = creditNoteRepository.findByApartmentIdAndFlatId(apartmentId, flatId);
 

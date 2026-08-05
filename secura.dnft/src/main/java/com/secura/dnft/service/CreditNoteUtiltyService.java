@@ -2,6 +2,9 @@ package com.secura.dnft.service;
 
 import java.security.SecureRandom;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class CreditNoteUtiltyService {
 
     private static final String ALPHA_NUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
