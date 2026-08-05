@@ -65,6 +65,8 @@ public interface ErrorMessage {
 	public final String ERR_MESSAGE_60="Kripaya Kuch Aur Tigdam Try Kare" ;
 	public final String ERR_MESSAGE_61="Credit Note Not Found For The Provided Details" ;
 	public final String ERR_MESSAGE_62="Please Provide Credit Note Details" ;
+	public final String ERR_MESSAGE_63="OTP details are required for Credit Note payment. Please provide valid OTP, OTP ID and Session ID." ;
+	public final String ERR_MESSAGE_64="Credit Note remaining balance is insufficient to cover the requested tender amount." ;
 
 	
 }

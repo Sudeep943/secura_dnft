@@ -34,6 +34,7 @@ public class PayDueRequest {
 	@JsonAlias({ "listOfFiles" })
 	private List<String> files;
 	private DueAmountDetailsEntity paidDueDetails;
+	private OtpDetails otpDetails;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -169,5 +170,13 @@ public class PayDueRequest {
 
 	public void setPaidDueDetails(DueAmountDetailsEntity paidDueDetails) {
 		this.paidDueDetails = paidDueDetails;
+	}
+
+	public OtpDetails getOtpDetails() {
+		return otpDetails;
+	}
+
+	public void setOtpDetails(OtpDetails otpDetails) {
+		this.otpDetails = otpDetails;
 	}
 }
