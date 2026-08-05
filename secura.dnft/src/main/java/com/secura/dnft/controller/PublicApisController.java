@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.interfaceservice.CreditNoteInterface;
+import com.secura.dnft.request.response.CreditNoteAvailableRequest;
+import com.secura.dnft.request.response.CreditNoteAvailableResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
@@ -107,6 +110,9 @@ public class PublicApisController {
 	
 	@Autowired
 	private WorklistService worklistService;
+
+	@Autowired
+	private CreditNoteInterface creditNoteInterface;
 
 	@PostMapping("/getFlatsPublic")
 	@CrossOrigin(origins = "*")
@@ -396,6 +402,21 @@ public class PublicApisController {
 		} catch (BusinessException e) {
 			response.setMessage(e.getErrorMessage());
 			response.setMessageCode(e.getErrorMessageCode());
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
+	}
+
+	@PostMapping("/creditNoteAvailablePublic")
+	@CrossOrigin(origins = "*")
+	public CreditNoteAvailableResponse creditNoteAvailablePublic(@RequestBody CreditNoteAvailableRequest request) {
+		CreditNoteAvailableResponse response = new CreditNoteAvailableResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return creditNoteInterface.creditNoteAvailable(request);
 		} catch (Exception e) {
 			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
