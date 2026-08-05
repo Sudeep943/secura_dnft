@@ -383,14 +383,14 @@ public class PublicApisController {
 	@CrossOrigin(origins = "*")
 	public ValidateOtpResponse validateOTP(@RequestBody ValidateOtpRequest request, HttpServletRequest httpRequest) {
 		ValidateOtpResponse response = new ValidateOtpResponse();
-		if (request == null || !StringUtils.hasText(request.getOtp())) {
+		if (request == null || !StringUtils.hasText(request.getOtp()) || !StringUtils.hasText(request.getOtpId())) {
 			response.setMessage(ErrorMessage.ERR_MESSAGE_60);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_60);
 			return response;
 		}
 		try {
 			String sessionId = httpRequest.getSession(true).getId();
-			genericService.validateOTP(sessionId, request.getOtp().trim());
+			genericService.validateOTP(sessionId, request.getOtpId().trim(), request.getOtp().trim());
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_62);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_62);
 		} catch (BusinessException e) {

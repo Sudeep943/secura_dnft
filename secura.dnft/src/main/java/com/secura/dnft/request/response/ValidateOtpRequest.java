@@ -4,6 +4,7 @@ public class ValidateOtpRequest {
 
 	private GenericHeader genericHeader;
 	private String otp;
+	private String otpId;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -19,5 +20,13 @@ public class ValidateOtpRequest {
 
 	public void setOtp(String otp) {
 		this.otp = otp;
+	}
+
+	public String getOtpId() {
+		return otpId;
+	}
+
+	public void setOtpId(String otpId) {
+		this.otpId = otpId;
 	}
 }

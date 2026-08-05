@@ -52,12 +52,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.dao.CreditNoteRepository;
 import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.entity.CreditNoteEntity;
 import com.secura.dnft.entity.DocumentEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
@@ -92,6 +94,7 @@ import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
+import com.secura.dnft.request.response.OtpDetails;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
 import com.secura.dnft.request.response.PaymentEntityModel;
@@ -174,6 +177,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	TransDueDetailsRepository transDueDetailsRepository;
+
+	@Autowired
+	CreditNoteRepository creditNoteRepository;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -712,6 +718,17 @@ public class PaymentServices implements PaymentInterface {
 		String flatArea = resolveFlatArea(apartmentId, flatId);
 		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
 				request != null ? request.getPaymentTenderDataList() : null);
+
+		// Validate CREDIT_NOTE tender(s) before proceeding with payment
+		if (paymentTenderDataList != null) {
+			for (PaymentTenderData tender : paymentTenderDataList) {
+				if (tender != null && "CREDIT_NOTE".equalsIgnoreCase(tender.getTenderName())) {
+					LOGGER.info("payDues: CREDIT_NOTE tender detected, initiating OTP and credit note validation for apartmentId={}, flatId={}", apartmentId, flatId);
+					validateCreditNoteTender(tender, request.getOtpDetails(), apartmentId, flatId);
+				}
+			}
+		}
+
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
 		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
 		if (isPendingValidationStatus(transaction.getTrnsStatus()) && isQrPaymentTransaction(transaction)) {
@@ -751,6 +768,50 @@ public class PaymentServices implements PaymentInterface {
 					request.getPaymentId(), transaction.getDueDetails());
 		}
 		return response;
+	}
+
+	/**
+	 * Validates that a CREDIT_NOTE tender is authorized:
+	 * <ol>
+	 *   <li>OTP details must not be null/blank.</li>
+	 *   <li>OTP is verified via {@link GenericService#validateOTP}.</li>
+	 *   <li>The flat's credit-note remaining balance must be &gt;= the tender amount.</li>
+	 * </ol>
+	 */
+	private void validateCreditNoteTender(PaymentTenderData tender, OtpDetails otpDetails,
+			String apartmentId, String flatId) throws BusinessException {
+		BigDecimal tenderAmount = parseNumeric(tender.getAmountPaid());
+		LOGGER.info("validateCreditNoteTender: validating CREDIT_NOTE tender amount={} for apartmentId={}, flatId={}", tenderAmount, apartmentId, flatId);
+
+		// 1. OTP details must not be null or empty
+		if (otpDetails == null
+				|| !hasText(otpDetails.getOtp())
+				|| !hasText(otpDetails.getOtpId())
+				|| !hasText(otpDetails.getSessionId())) {
+			LOGGER.warn("validateCreditNoteTender: OTP details missing for CREDIT_NOTE tender, apartmentId={}, flatId={}", apartmentId, flatId);
+			throw new BusinessException(ErrorMessage.ERR_MESSAGE_63, ErrorMessageCode.ERR_MESSAGE_63);
+		}
+
+		// 2. Validate OTP (sessionId + otpId + otp)
+		LOGGER.info("validateCreditNoteTender: validating OTP for sessionId={}, otpId={}", otpDetails.getSessionId(), otpDetails.getOtpId());
+		genericService.validateOTP(otpDetails.getSessionId(), otpDetails.getOtpId(), otpDetails.getOtp().trim());
+		LOGGER.info("validateCreditNoteTender: OTP validated successfully for sessionId={}", otpDetails.getSessionId());
+
+		// 3. Check credit note remaining balance >= tender amount
+		CreditNoteEntity creditNote = creditNoteRepository
+				.findByApartmentIdAndFlatId(apartmentId, flatId)
+				.orElseThrow(() -> {
+					LOGGER.warn("validateCreditNoteTender: credit note not found for apartmentId={}, flatId={}", apartmentId, flatId);
+					return new BusinessException(ErrorMessage.ERR_MESSAGE_61, ErrorMessageCode.ERR_MESSAGE_61);
+				});
+
+		BigDecimal remaining = creditNote.getRemainingAmount() != null ? creditNote.getRemainingAmount() : BigDecimal.ZERO;
+		LOGGER.info("validateCreditNoteTender: credit note remainingAmount={}, tenderAmount={} for apartmentId={}, flatId={}", remaining, tenderAmount, apartmentId, flatId);
+		if (remaining.compareTo(tenderAmount) < 0) {
+			LOGGER.warn("validateCreditNoteTender: insufficient credit note balance. remaining={}, required={}, apartmentId={}, flatId={}", remaining, tenderAmount, apartmentId, flatId);
+			throw new BusinessException(ErrorMessage.ERR_MESSAGE_64, ErrorMessageCode.ERR_MESSAGE_64);
+		}
+		LOGGER.info("validateCreditNoteTender: all validations passed for CREDIT_NOTE tender, apartmentId={}, flatId={}", apartmentId, flatId);
 	}
 
 	@Override

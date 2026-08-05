@@ -40,6 +40,7 @@ import com.secura.dnft.entity.Worklist;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
+import com.secura.dnft.generic.util.OtpEmailUtility;
 import com.secura.dnft.request.response.CreateOtpResponse;
 import com.secura.dnft.request.response.DashBordDataResponce;
 import com.secura.dnft.request.response.GenericHeader;
@@ -377,7 +378,9 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		String hashedOtp = hashOtp(rawOtp);
 		LocalDateTime now = LocalDateTime.now();
 
-		String lastOtpId = null;
+		// A single shared otpId is generated for this OTP request so that all
+		// recipients receive – and can reference – the same identifier.
+		String sharedOtpId = UUID.randomUUID().toString();
 		List<String> maskedMailIds = new ArrayList<>();
 
 		for (String userId : userIdList) {
@@ -395,7 +398,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 			}
 
 			SecuraOtp otpEntry = new SecuraOtp();
-			otpEntry.setOtpId(UUID.randomUUID().toString());
+			otpEntry.setOtpId(sharedOtpId);
 			otpEntry.setSessionId(sessionId);
 			otpEntry.setUserId(userId);
 			otpEntry.setOtpHash(hashedOtp);
@@ -403,8 +406,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 			otpEntry.setCreatedAt(now);
 			otpEntry.setExpiryAt(now.plusMinutes(OTP_EXPIRY_MINUTES));
 			otpRepository.save(otpEntry);
-			lastOtpId = otpEntry.getOtpId();
-			logger.info("createOTP: OTP record saved for userId={}, otpId={}", userId, otpEntry.getOtpId());
+			logger.info("createOTP: OTP record saved for userId={}, otpId={}", userId, sharedOtpId);
 
 			if (sendMail) {
 				Profile profile = getProfileEntity(userId);
@@ -416,8 +418,8 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 							ErrorMessageCode.ERR_MESSAGE_28);
 				}
 				try {
-					sendOtpEmail(emailId, rawOtp);
-					logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
+					sendOtpEmail(emailId, rawOtp, sharedOtpId);
+					logger.info("createOTP: OTP email dispatched to {} for userId={}, otpId={}", maskEmail(emailId), userId, sharedOtpId);
 					maskedMailIds.add(maskEmail(emailId));
 				} catch (Exception e) {
 					logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
@@ -428,7 +430,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		}
 
 		CreateOtpResponse response = new CreateOtpResponse();
-		response.setOtpId(lastOtpId);
+		response.setOtpId(sharedOtpId);
 		if (!maskedMailIds.isEmpty()) {
 			response.setMailIds(maskedMailIds);
 			response.setMessage("Please Enter OTP sent to Email id(s): " + String.join(", ", maskedMailIds));
@@ -451,12 +453,12 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	 * @return {@code true} when the OTP is valid
 	 * @throws BusinessException on attempt-limit breach, expiry, or OTP mismatch
 	 */
-	public boolean validateOTP(String sessionId, String otp) throws BusinessException {
-		logger.info("validateOTP: initiated for sessionId={}", sessionId);
+	public boolean validateOTP(String sessionId, String otpId, String otp) throws BusinessException {
+		logger.info("validateOTP: initiated for sessionId={}, otpId={}", sessionId, otpId);
 
-		List<SecuraOtp> otpEntries = otpRepository.findBySessionIdOrderByCreatedAtDesc(sessionId);
+		List<SecuraOtp> otpEntries = otpRepository.findByOtpIdAndSessionIdOrderByCreatedAtDesc(otpId, sessionId);
 		if (otpEntries == null || otpEntries.isEmpty()) {
-			logger.warn("validateOTP: no OTP record found for sessionId={}", sessionId);
+			logger.warn("validateOTP: no OTP record found for sessionId={}, otpId={}", sessionId, otpId);
 			throw new BusinessException("No active OTP found for this session. Please request a new OTP.",
 					ErrorMessageCode.ERR_MESSAGE_59);
 		}
@@ -464,12 +466,12 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		SecuraOtp latestOtp = otpEntries.get(0);
 
 		if (latestOtp.getAttempts() >= OTP_MAX_ATTEMPT_LIMIT) {
-			logger.warn("validateOTP: attempt limit reached for sessionId={}", sessionId);
+			logger.warn("validateOTP: attempt limit reached for sessionId={}, otpId={}", sessionId, otpId);
 			throw new BusinessException(ErrorMessage.ERR_MESSAGE_58, ErrorMessageCode.ERR_MESSAGE_58);
 		}
 
 		if (latestOtp.getExpiryAt().isBefore(LocalDateTime.now())) {
-			logger.warn("validateOTP: OTP has expired for sessionId={}", sessionId);
+			logger.warn("validateOTP: OTP has expired for sessionId={}, otpId={}", sessionId, otpId);
 			otpRepository.deleteAll(otpEntries);
 			throw new BusinessException("The OTP has expired. Please request a new OTP.",
 					ErrorMessageCode.ERR_MESSAGE_59);
@@ -478,12 +480,12 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		String hashedInput = hashOtp(otp);
 		if (hashedInput.equals(latestOtp.getOtpHash())) {
 			otpRepository.deleteAll(otpEntries);
-			logger.info("validateOTP: OTP matched, all session OTP records deleted for sessionId={}", sessionId);
+			logger.info("validateOTP: OTP matched, all matching OTP records deleted for sessionId={}, otpId={}", sessionId, otpId);
 			return true;
 		} else {
 			latestOtp.setAttempts(latestOtp.getAttempts() + 1);
 			otpRepository.save(latestOtp);
-			logger.warn("validateOTP: OTP mismatch for sessionId={}, attempts now={}", sessionId, latestOtp.getAttempts());
+			logger.warn("validateOTP: OTP mismatch for sessionId={}, otpId={}, attempts now={}", sessionId, otpId, latestOtp.getAttempts());
 			throw new BusinessException(ErrorMessage.ERR_MESSAGE_59, ErrorMessageCode.ERR_MESSAGE_59);
 		}
 	}
@@ -520,33 +522,20 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 		}
 	}
 
-	private void sendOtpEmail(String toEmail, String otp) {
+	private void sendOtpEmail(String toEmail, String otp, String otpId) {
 		try {
 			MimeMessage message = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 			helper.setFrom(senderEmail);
 			helper.setTo(toEmail);
 			helper.setSubject("Your Secura Verification OTP");
-			String htmlBody = buildOtpEmailBody(otp);
+			String htmlBody = OtpEmailUtility.buildOtpEmailBody(otp, otpId);
 			helper.setText(htmlBody, true);
 			mailSender.send(message);
 		} catch (Exception e) {
 			logger.error("sendOtpEmail: failed to send OTP email to {}", maskEmail(toEmail), e);
 			throw new RuntimeException("Failed to dispatch OTP email. Please try again.", e);
 		}
-	}
-
-	private String buildOtpEmailBody(String otp) {
-		return "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto;'>"
-				+ "<h2 style='color: #2c3e50;'>Secura – One-Time Password (OTP)</h2>"
-				+ "<p>Dear User,</p>"
-				+ "<p>Please use the following One-Time Password (OTP) to complete your verification. "
-				+ "This OTP is valid for <strong>" + OTP_EXPIRY_MINUTES + " minutes</strong> and should not be shared with anyone.</p>"
-				+ "<p style='font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #2980b9;'>"
-				+ "<strong>" + otp + "</strong></p>"
-				+ "<p>If you did not request this OTP, please ignore this email or contact your society administrator immediately.</p>"
-				+ "<br/><p style='color: #7f8c8d; font-size: 12px;'>This is an automated message. Please do not reply to this email.</p>"
-				+ "</div>";
 	}
 
 }
