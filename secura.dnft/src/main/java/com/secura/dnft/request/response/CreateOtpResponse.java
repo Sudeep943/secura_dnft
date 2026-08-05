@@ -1,11 +1,13 @@
 package com.secura.dnft.request.response;
 
+import java.util.List;
+
 public class CreateOtpResponse {
 
 	private String message;
 	private String messageCode;
 	private String otpId;
-	private String mailId;
+	private List<String> mailIds;
 
 	public String getMessage() {
 		return message;
@@ -31,11 +33,11 @@ public class CreateOtpResponse {
 		this.otpId = otpId;
 	}
 
-	public String getMailId() {
-		return mailId;
+	public List<String> getMailIds() {
+		return mailIds;
 	}
 
-	public void setMailId(String mailId) {
-		this.mailId = mailId;
+	public void setMailIds(List<String> mailIds) {
+		this.mailIds = mailIds;
 	}
 }
