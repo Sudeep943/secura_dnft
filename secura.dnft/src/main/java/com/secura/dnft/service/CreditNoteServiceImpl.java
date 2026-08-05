@@ -171,7 +171,29 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 		LOGGER.info("creditNoteAvailable :: Start for flatId: {}", request != null ? request.getFlatId() : null);
 		CreditNoteAvailableResponse response = new CreditNoteAvailableResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		// TODO: Implement credit note availability check logic
+
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId() : null;
+		String flatId = request != null ? request.getFlatId() : null;
+
+		Optional<CreditNoteEntity> entityOpt = creditNoteRepository.findByApartmentIdAndFlatId(apartmentId, flatId);
+		if (entityOpt.isPresent()) {
+			CreditNoteEntity entity = entityOpt.get();
+			BigDecimal remaining = entity.getRemainingAmount();
+			if (remaining != null && remaining.compareTo(BigDecimal.ZERO) > 0) {
+				LOGGER.info("creditNoteAvailable :: Credit note available for flatId: {}", flatId);
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_60);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_60);
+			} else {
+				LOGGER.warn("creditNoteAvailable :: No remaining balance for flatId: {}", flatId);
+				response.setMessage(ErrorMessage.ERR_MESSAGE_64);
+				response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_64);
+			}
+		} else {
+			LOGGER.warn("creditNoteAvailable :: No credit note found for flatId: {}", flatId);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_61);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_61);
+		}
 		return response;
 	}
 }
