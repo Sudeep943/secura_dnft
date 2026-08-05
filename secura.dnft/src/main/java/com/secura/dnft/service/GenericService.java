@@ -363,65 +363,76 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Generates a 6-digit OTP, hashes it, persists it in secura_otp, and sends it
-	 * to the email address associated with the given userId.
+	 * Generates a single 6-digit OTP, hashes it, persists one OTP record per userId,
+	 * and sends the same OTP to the email address associated with each userId in the list.
 	 *
-	 * @param sessionId the current session identifier
-	 * @param userId    the profile/user identifier
-	 * @throws BusinessException if the resend limit (3) has been reached
+	 * @param sessionId  the current session identifier
+	 * @param userIdList the list of profile/user identifiers to send the OTP to
+	 * @throws BusinessException if the resend limit (3) has been reached for any userId
 	 */
-	public CreateOtpResponse createOTP(String sessionId, String userId, boolean sendMobile, boolean sendMail) throws BusinessException {
-		logger.info("createOTP: initiated for userId={}, sessionId={}", userId, sessionId);
-
-		List<SecuraOtp> existingOtps = otpRepository.findByUserId(userId);
-		long activeOtpCount = existingOtps.stream()
-				.filter(o -> o.getExpiryAt().isAfter(LocalDateTime.now()))
-				.count();
-		if (activeOtpCount >= OTP_MAX_RESEND_LIMIT) {
-			logger.warn("createOTP: resend limit reached for userId={}", userId);
-			throw new BusinessException(ErrorMessage.ERR_MESSAGE_57, ErrorMessageCode.ERR_MESSAGE_57);
-		}
+	public CreateOtpResponse createOTP(String sessionId, List<String> userIdList, boolean sendMobile, boolean sendMail) throws BusinessException {
+		logger.info("createOTP: initiated for userIdList={}, sessionId={}", userIdList, sessionId);
 
 		String rawOtp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
 		String hashedOtp = hashOtp(rawOtp);
-
 		LocalDateTime now = LocalDateTime.now();
-		SecuraOtp otpEntry = new SecuraOtp();
-		otpEntry.setOtpId(UUID.randomUUID().toString());
-		otpEntry.setSessionId(sessionId);
-		otpEntry.setUserId(userId);
-		otpEntry.setOtpHash(hashedOtp);
-		otpEntry.setAttempts(0);
-		otpEntry.setCreatedAt(now);
-		otpEntry.setExpiryAt(now.plusMinutes(OTP_EXPIRY_MINUTES));
-		otpRepository.save(otpEntry);
-		logger.info("createOTP: OTP record saved for userId={}, otpId={}", userId, otpEntry.getOtpId());
 
-		CreateOtpResponse response = new CreateOtpResponse();
-		response.setOtpId(otpEntry.getOtpId());
+		String lastOtpId = null;
+		List<String> maskedMailIds = new ArrayList<>();
 
-		if (sendMail) {
-			Profile profile = getProfileEntity(userId);
-			String emailId = profile.getPrflEmailAdrss();
-			if (emailId == null || emailId.isBlank()) {
-				logger.error("createOTP: no email address found for userId={}", userId);
-				otpRepository.delete(otpEntry);
-				throw new BusinessException("No email address registered for this user. Please contact your society administrator.",
-						ErrorMessageCode.ERR_MESSAGE_28);
+		for (String userId : userIdList) {
+			if (userId == null || userId.isBlank()) {
+				continue;
 			}
-			try {
-				sendOtpEmail(emailId, rawOtp);
-				logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
-				String maskedEmailId = maskEmail(emailId);
-				response.setMailId(maskedEmailId);
-				response.setMessage("Please Enter OTP send to Email id: " + maskedEmailId);
-			} catch (Exception e) {
-				logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
-				otpRepository.delete(otpEntry);
-				throw new BusinessException("Failed to send OTP email. Please try again.", ErrorMessageCode.ERR_MESSAGE_33);
+
+			List<SecuraOtp> existingOtps = otpRepository.findByUserId(userId);
+			long activeOtpCount = existingOtps.stream()
+					.filter(o -> o.getExpiryAt().isAfter(LocalDateTime.now()))
+					.count();
+			if (activeOtpCount >= OTP_MAX_RESEND_LIMIT) {
+				logger.warn("createOTP: resend limit reached for userId={}", userId);
+				throw new BusinessException(ErrorMessage.ERR_MESSAGE_57, ErrorMessageCode.ERR_MESSAGE_57);
+			}
+
+			SecuraOtp otpEntry = new SecuraOtp();
+			otpEntry.setOtpId(UUID.randomUUID().toString());
+			otpEntry.setSessionId(sessionId);
+			otpEntry.setUserId(userId);
+			otpEntry.setOtpHash(hashedOtp);
+			otpEntry.setAttempts(0);
+			otpEntry.setCreatedAt(now);
+			otpEntry.setExpiryAt(now.plusMinutes(OTP_EXPIRY_MINUTES));
+			otpRepository.save(otpEntry);
+			lastOtpId = otpEntry.getOtpId();
+			logger.info("createOTP: OTP record saved for userId={}, otpId={}", userId, otpEntry.getOtpId());
+
+			if (sendMail) {
+				Profile profile = getProfileEntity(userId);
+				String emailId = profile.getPrflEmailAdrss();
+				if (emailId == null || emailId.isBlank()) {
+					logger.error("createOTP: no email address found for userId={}", userId);
+					otpRepository.delete(otpEntry);
+					throw new BusinessException("No email address registered for this user. Please contact your society administrator.",
+							ErrorMessageCode.ERR_MESSAGE_28);
+				}
+				try {
+					sendOtpEmail(emailId, rawOtp);
+					logger.info("createOTP: OTP email dispatched to {} for userId={}", maskEmail(emailId), userId);
+					maskedMailIds.add(maskEmail(emailId));
+				} catch (Exception e) {
+					logger.error("createOTP: email dispatch failed for userId={}, rolling back OTP record", userId, e);
+					otpRepository.delete(otpEntry);
+					throw new BusinessException("Failed to send OTP email. Please try again.", ErrorMessageCode.ERR_MESSAGE_33);
+				}
 			}
 		}
 
+		CreateOtpResponse response = new CreateOtpResponse();
+		response.setOtpId(lastOtpId);
+		if (!maskedMailIds.isEmpty()) {
+			response.setMailIds(maskedMailIds);
+			response.setMessage("Please Enter OTP sent to Email id(s): " + String.join(", ", maskedMailIds));
+		}
 		return response;
 	}
 

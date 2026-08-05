@@ -360,21 +360,12 @@ public class PublicApisController {
 		}
 		try {
 			String sessionId = httpRequest.getSession(true).getId();
+			CreateOtpResponse otpResponse = genericService.createOTP(sessionId, request.getUserIds(), false, true);
+			publicResponse.setOtpId(otpResponse.getOtpId());
 			List<String> maskedEmails = new ArrayList<>();
-			String lastOtpId = null;
-			for (String userId : request.getUserIds()) {
-				if (!org.springframework.util.StringUtils.hasText(userId)) {
-					continue;
-				}
-				CreateOtpResponse otpResponse = genericService.createOTP(sessionId, userId.trim(), false, true);
-				if (otpResponse.getOtpId() != null) {
-					lastOtpId = otpResponse.getOtpId();
-				}
-				if (otpResponse.getMailId() != null) {
-					maskedEmails.add(otpResponse.getMailId());
-				}
+			if (otpResponse.getMailIds() != null) {
+				maskedEmails.addAll(otpResponse.getMailIds());
 			}
-			publicResponse.setOtpId(lastOtpId);
 			publicResponse.setEmails(maskedEmails);
 			publicResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_61);
 		} catch (BusinessException e) {
