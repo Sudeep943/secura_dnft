@@ -1,6 +1,8 @@
 package com.secura.dnft.service;
 
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -59,16 +61,18 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 			return response;
 		}
 		incomingDetails.setCreditNoteNo(creditNoteUtiltyService.generateCreditNoteNo(request.getFlatId()));
+		String issuedBy = request.getGenericHeader() != null ? request.getGenericHeader().getProfileName() : null;
+		Date issueDate = Date.valueOf(LocalDate.now());
 		Optional<CreditNoteEntity> existingEntityOpt = creditNoteRepository.findByApartmentIdAndFlatId(apartmentId, flatId);
 
 		CreditNoteEntity entity;
 		if (existingEntityOpt.isPresent()) {
 			LOGGER.info("issueCreditNote :: Existing record found, appending credit note for flatId: {}", flatId);
 			entity = existingEntityOpt.get();
-			entity = appendCreditNoteToExisting(entity, incomingDetails);
+			entity = appendCreditNoteToExisting(entity, incomingDetails, issuedBy, issueDate);
 		} else {
 			LOGGER.info("issueCreditNote :: No existing record, creating new credit note for flatId: {}", flatId);
-			entity = createNewCreditNoteEntity(apartmentId, flatId, incomingDetails);
+			entity = createNewCreditNoteEntity(apartmentId, flatId, incomingDetails, issuedBy, issueDate);
 		}
 
 		creditNoteRepository.save(entity);
@@ -79,7 +83,11 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 		return response;
 	}
 
-	private CreditNoteEntity appendCreditNoteToExisting(CreditNoteEntity entity, CreditNoteDetails incomingDetails) {
+	private CreditNoteEntity appendCreditNoteToExisting(CreditNoteEntity entity, CreditNoteDetails incomingDetails,
+			String issuedBy, Date issueDate) {
+		LOGGER.info("appendCreditNoteToExisting :: Setting issuedBy={} and issueDate={} on credit note details", issuedBy, issueDate);
+		incomingDetails.setCreditNoteIssuedBy(issuedBy);
+		incomingDetails.setCreditNoteIssueDate(issueDate);
 		List<CreditNoteDetails> detailsList = entity.getCreditNoteDetails();
 		if (detailsList == null) {
 			detailsList = new ArrayList<>();
@@ -92,11 +100,15 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 
 		entity.setTotalAmount(totalAmount);
 		entity.setRemainingAmount(totalAmount.subtract(usedAmount));
+		LOGGER.info("appendCreditNoteToExisting :: Updated totalAmount={}, usedAmount={}, remainingAmount={}", totalAmount, usedAmount, entity.getRemainingAmount());
 		return entity;
 	}
 
 	private CreditNoteEntity createNewCreditNoteEntity(String apartmentId, String flatId,
-			CreditNoteDetails incomingDetails) {
+			CreditNoteDetails incomingDetails, String issuedBy, Date issueDate) {
+		LOGGER.info("createNewCreditNoteEntity :: Setting issuedBy={} and issueDate={} on credit note details", issuedBy, issueDate);
+		incomingDetails.setCreditNoteIssuedBy(issuedBy);
+		incomingDetails.setCreditNoteIssueDate(issueDate);
 		CreditNoteEntity entity = new CreditNoteEntity();
 		entity.setApartmentId(apartmentId);
 		entity.setFlatId(flatId);
@@ -111,6 +123,7 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 		entity.setTotalAmount(totalAmount);
 		entity.setUsedAmount(BigDecimal.ZERO);
 		entity.setRemainingAmount(totalAmount);
+		LOGGER.info("createNewCreditNoteEntity :: New entity created with totalAmount={} for flatId={}", totalAmount, flatId);
 		return entity;
 	}
 
@@ -142,7 +155,45 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 		LOGGER.info("reedemCreditNote :: Start for flatId: {}", request != null ? request.getFlatId() : null);
 		ReedemCreditNoteResponse response = new ReedemCreditNoteResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		// TODO: Implement credit note redemption logic
+
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId() : null;
+		String flatId = request != null ? request.getFlatId() : null;
+		BigDecimal amount = request != null ? request.getAmount() : null;
+
+		if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+			LOGGER.warn("reedemCreditNote :: Invalid amount {} for flatId: {}", amount, flatId);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_62);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_62);
+			return response;
+		}
+
+		Optional<CreditNoteEntity> entityOpt = creditNoteRepository.findByApartmentIdAndFlatId(apartmentId, flatId);
+		if (!entityOpt.isPresent()) {
+			LOGGER.warn("reedemCreditNote :: Credit note not found for apartmentId={}, flatId={}", apartmentId, flatId);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_61);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_61);
+			return response;
+		}
+
+		CreditNoteEntity entity = entityOpt.get();
+		BigDecimal usedAmount = entity.getUsedAmount() != null ? entity.getUsedAmount() : BigDecimal.ZERO;
+		BigDecimal remainingAmount = entity.getRemainingAmount() != null ? entity.getRemainingAmount() : BigDecimal.ZERO;
+
+		BigDecimal newUsedAmount = usedAmount.add(amount);
+		BigDecimal newRemainingAmount = remainingAmount.subtract(amount);
+
+		LOGGER.info("reedemCreditNote :: Redeeming amount={} for flatId={}. usedAmount: {} -> {}, remainingAmount: {} -> {}",
+				amount, flatId, usedAmount, newUsedAmount, remainingAmount, newRemainingAmount);
+
+		entity.setUsedAmount(newUsedAmount);
+		entity.setRemainingAmount(newRemainingAmount);
+		creditNoteRepository.save(entity);
+
+		LOGGER.info("reedemCreditNote :: Credit note redeemed and saved for flatId: {}", flatId);
+		response.setBalanceAmount(newRemainingAmount);
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_63);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_63);
 		return response;
 	}
 
@@ -151,7 +202,30 @@ public class CreditNoteServiceImpl implements CreditNoteInterface {
 		LOGGER.info("viewCreditNoteDetails :: Start for flatId: {}", request != null ? request.getFlatId() : null);
 		ViewCreditNoteDetailsResponse response = new ViewCreditNoteDetailsResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
-		// TODO: Implement credit note details fetch logic
+
+		String apartmentId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId() : null;
+		String flatId = request != null ? request.getFlatId() : null;
+		response.setFlatId(flatId);
+
+		Optional<CreditNoteEntity> entityOpt = creditNoteRepository.findByApartmentIdAndFlatId(apartmentId, flatId);
+		if (!entityOpt.isPresent()) {
+			LOGGER.warn("viewCreditNoteDetails :: Credit note not found for apartmentId={}, flatId={}", apartmentId, flatId);
+			response.setMessage(ErrorMessage.ERR_MESSAGE_61);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_61);
+			return response;
+		}
+
+		CreditNoteEntity entity = entityOpt.get();
+		LOGGER.info("viewCreditNoteDetails :: Credit note found for flatId={}, totalAmount={}, usedAmount={}, remainingAmount={}",
+				flatId, entity.getTotalAmount(), entity.getUsedAmount(), entity.getRemainingAmount());
+
+		response.setCreditNoteDetails(entity.getCreditNoteDetails());
+		response.setTotalAmount(entity.getTotalAmount());
+		response.setUsedAmount(entity.getUsedAmount());
+		response.setRemainingAmount(entity.getRemainingAmount());
+		response.setMessage(SuccessMessage.SUCC_MESSAGE_58);
+		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_58);
 		return response;
 	}
 

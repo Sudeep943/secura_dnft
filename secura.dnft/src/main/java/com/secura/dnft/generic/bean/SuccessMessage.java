@@ -62,6 +62,7 @@ public interface SuccessMessage {
 	public final String SUCC_MESSAGE_60="Credit Note Available" ;
 	public final String SUCC_MESSAGE_61="OTP sent successfully" ;
 	public final String SUCC_MESSAGE_62="OTP validated successfully" ;
+	public final String SUCC_MESSAGE_63="Credit Note Redeemed Successfully" ;
 
 
 

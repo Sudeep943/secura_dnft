@@ -73,6 +73,7 @@ import com.secura.dnft.generic.bean.PaymentCauseCode;
 import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
+import com.secura.dnft.interfaceservice.CreditNoteInterface;
 import com.secura.dnft.interfaceservice.PaymentInterface;
 import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.ActionQRPaymentRequest;
@@ -97,6 +98,7 @@ import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.OtpDetails;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
+import com.secura.dnft.request.response.ReedemCreditNoteRequest;
 import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
@@ -180,6 +182,9 @@ public class PaymentServices implements PaymentInterface {
 
 	@Autowired
 	CreditNoteRepository creditNoteRepository;
+
+	@Autowired
+	CreditNoteInterface creditNoteInterface;
 
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -707,6 +712,7 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
+	@Transactional
 	@Override
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
@@ -725,6 +731,14 @@ public class PaymentServices implements PaymentInterface {
 				if (tender != null && "CREDIT_NOTE".equalsIgnoreCase(tender.getTenderName())) {
 					LOGGER.info("payDues: CREDIT_NOTE tender detected, initiating OTP and credit note validation for apartmentId={}, flatId={}", apartmentId, flatId);
 					validateCreditNoteTender(tender, request.getOtpDetails(), apartmentId, flatId);
+					BigDecimal tenderAmount = parseNumeric(tender.getAmountPaid());
+					LOGGER.info("payDues: Redeeming credit note amount={} for apartmentId={}, flatId={}", tenderAmount, apartmentId, flatId);
+					ReedemCreditNoteRequest reedemRequest = new ReedemCreditNoteRequest();
+					reedemRequest.setGenericHeader(request.getGenericHeader());
+					reedemRequest.setFlatId(flatId);
+					reedemRequest.setAmount(tenderAmount);
+					creditNoteInterface.reedemCreditNote(reedemRequest);
+					LOGGER.info("payDues: Credit note redeemed successfully for apartmentId={}, flatId={}", apartmentId, flatId);
 				}
 			}
 		}
