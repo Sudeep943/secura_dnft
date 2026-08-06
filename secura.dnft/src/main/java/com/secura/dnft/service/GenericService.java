@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.slf4j.Logger;
@@ -380,7 +379,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 
 		// A single shared otpId is generated for this OTP request so that all
 		// recipients receive – and can reference – the same identifier.
-		String sharedOtpId = UUID.randomUUID().toString();
+		String sharedOtpId = generateAlphanumericId(6);
 		List<String> maskedMailIds = new ArrayList<>();
 
 		for (String userId : userIdList) {
@@ -456,7 +455,7 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 	public boolean validateOTP(String sessionId, String otpId, String otp) throws BusinessException {
 		logger.info("validateOTP: initiated for sessionId={}, otpId={}", sessionId, otpId);
 
-		List<SecuraOtp> otpEntries = otpRepository.findByOtpIdAndSessionIdOrderByCreatedAtDesc(otpId, sessionId);
+		List<SecuraOtp> otpEntries = otpRepository.findByOtpIdOrderByCreatedAtDesc(otpId);
 		if (otpEntries == null || otpEntries.isEmpty()) {
 			logger.warn("validateOTP: no OTP record found for sessionId={}, otpId={}", sessionId, otpId);
 			throw new BusinessException("No active OTP found for this session. Please request a new OTP.",
@@ -510,6 +509,16 @@ public LocalDateTime getCorrectLocalDateForInputDate( Date inputDate) {
 			logger.error("deleteExpiredOTP: error during cleanup", e);
 		}
 		logger.info("deleteExpiredOTP: scheduled cleanup completed");
+	}
+
+	private static final String ALPHANUMERIC_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+	private String generateAlphanumericId(int length) {
+		StringBuilder sb = new StringBuilder(length);
+		for (int i = 0; i < length; i++) {
+			sb.append(ALPHANUMERIC_CHARS.charAt(SECURE_RANDOM.nextInt(ALPHANUMERIC_CHARS.length())));
+		}
+		return sb.toString();
 	}
 
 	private String hashOtp(String otp) {
