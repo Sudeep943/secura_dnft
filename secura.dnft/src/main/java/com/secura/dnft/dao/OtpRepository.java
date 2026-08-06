@@ -15,5 +15,7 @@ public interface OtpRepository extends JpaRepository<SecuraOtp, String> {
 
     List<SecuraOtp> findByOtpIdAndSessionIdOrderByCreatedAtDesc(String otpId, String sessionId);
 
+    List<SecuraOtp> findByOtpIdOrderByCreatedAtDesc(String otpId);
+
     List<SecuraOtp> findByExpiryAtBefore(LocalDateTime cutoff);
 }
