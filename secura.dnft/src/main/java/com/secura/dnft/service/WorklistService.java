@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -33,12 +34,13 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
+import com.secura.dnft.request.response.CreditNoteDetails;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GenericResponse;
-import com.secura.dnft.request.response.GetDueAmountForFlatRequest;
-import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.GetWorkListsRequest;
 import com.secura.dnft.request.response.GetWorkListsResponse;
+import com.secura.dnft.request.response.IssueCreditNoteRequest;
+import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.security.BusinessException;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -78,6 +80,9 @@ public class WorklistService {
 	
 	@Autowired
 	private PaymentRepository paymentRepository;
+	
+	@Autowired
+	CreditNoteServiceImpl creditNoteServiceImpl;
 
 	@Autowired
 	private TransDueDetailsRepository transDueDetailsRepository;
@@ -126,6 +131,17 @@ public class WorklistService {
 		}
 		return response;
 	}
+	
+	private <T> List<T> parseList(String json, TypeReference<List<T>> typeReference) {
+		if (json == null || json.isBlank()) {
+			return new ArrayList<>();
+		}
+		try {
+			return genericService.fromJson(json, typeReference);
+		} catch (Exception e) {
+			return new ArrayList<>();
+		}
+	}
 
 	public GenericResponse actionTransactionReviewWorkList(ActionTransactionReviewWorkListRequest request) {
 		GenericResponse response = new GenericResponse();
@@ -152,6 +168,24 @@ public class WorklistService {
 			transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_SUCCESS);
 		} else if (SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action)) {
 			transaction.setTrnsStatus(SecuraConstants.TRANSACTION_STATUS_FAILED);
+			List<PaymentTenderData> trnsTender=parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {});
+			Optional<PaymentTenderData> tender=trnsTender.stream().filter(ten->ten.getTenderName().equalsIgnoreCase("CREDIT_NOTE") || ten.getTenderName().equalsIgnoreCase("CREDITNOTE")).findFirst();
+			if(tender.isPresent()) {
+			IssueCreditNoteRequest issueCreditNoteRequest = new IssueCreditNoteRequest();
+			issueCreditNoteRequest.setGenericHeader(request.getGenericHeader());
+			issueCreditNoteRequest.setFlatId(transaction.getFlatId());
+			CreditNoteDetails creditNoteDetails = new CreditNoteDetails();
+			creditNoteDetails.setCreditNoteAmount(new BigDecimal(tender.get().getAmountPaid()));
+			creditNoteDetails.setCreditNoteCause("TRANSACTION WORKLIST REJECTED");
+			creditNoteDetails.setCreditNoteDetails("CREDIT NOTE ISSUED AS TRANSACTION WORKLIST REJECETD. TRANS ID: "+ transaction.getTrnscId());
+			creditNoteDetails.setCreditNoteIssuedBy("AUTO");
+			issueCreditNoteRequest.setCreditNoteDetails(creditNoteDetails);
+			try {
+				creditNoteServiceImpl.issueCreditNote(issueCreditNoteRequest);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			}
 		} else {
 			throw new IllegalArgumentException("Invalid action");
 		}

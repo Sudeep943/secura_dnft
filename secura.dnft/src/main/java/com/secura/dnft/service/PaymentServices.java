@@ -801,7 +801,7 @@ public class PaymentServices implements PaymentInterface {
 		if (otpDetails == null
 				|| !hasText(otpDetails.getOtp())
 				|| !hasText(otpDetails.getOtpId())
-				|| !hasText(otpDetails.getSessionId())) {
+				) {
 			LOGGER.warn("validateCreditNoteTender: OTP details missing for CREDIT_NOTE tender, apartmentId={}, flatId={}", apartmentId, flatId);
 			throw new BusinessException(ErrorMessage.ERR_MESSAGE_63, ErrorMessageCode.ERR_MESSAGE_63);
 		}

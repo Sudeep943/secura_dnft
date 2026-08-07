@@ -16,6 +16,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
+import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -147,7 +148,12 @@ public class PublicApisController {
 		}
 		try {
 			return paymentServices.payDues(request);
-		} catch (Exception e) {
+		} 
+		catch (BusinessException be) {
+			response.setMessage(be.getErrorMessage());
+			response.setMessageCode(be.getErrorMessageCode());
+		}
+		catch (Exception e) {
 			e.printStackTrace();
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
@@ -181,6 +187,7 @@ public class PublicApisController {
 		try {
 			return resolvePaymentGatewayService(request != null ? request.getPaymentGateway() : null).createOrder(request);
 		} catch (Exception e) {
+			e.printStackTrace();
 			PaymentGayewayOrderResponse response = new PaymentGayewayOrderResponse();
 			response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
@@ -361,21 +368,26 @@ public class PublicApisController {
 	@CrossOrigin(origins = "*")
 	public CreateOtpResponsePublicAPI createOTP(@RequestBody CreateOtpRequest request, HttpServletRequest httpRequest) {
 		CreateOtpResponsePublicAPI publicResponse = new CreateOtpResponsePublicAPI();
-		if (request == null || request.getUserIds() == null || request.getUserIds().isEmpty()) {
-			publicResponse.setMessage(ErrorMessage.ERR_MESSAGE_60);
-			publicResponse.setMessageCode(ErrorMessageCode.ERR_MESSAGE_60);
-			return publicResponse;
-		}
+			Optional<Flat> flatDetails=flatRepository.findByAprmntIdAndFlatNo( request.getGenericHeader().getApartmentId().trim(),  request.getGenericHeader().getFlatNo().trim());
 		try {
+			if(flatDetails.isPresent()) {
+				List<String> ownerProfiles=genericService.fromJson(flatDetails.get().getFlatOwnerList(), new TypeReference<List<String>>() {
+      			});
+				
 			String sessionId = httpRequest.getSession(true).getId();
-			CreateOtpResponse otpResponse = genericService.createOTP(sessionId, request.getUserIds(), false, true);
+			CreateOtpResponse otpResponse = genericService.createOTP(sessionId, ownerProfiles, false, true);
 			publicResponse.setOtpId(otpResponse.getOtpId());
 			List<String> maskedEmails = new ArrayList<>();
 			if (otpResponse.getMailIds() != null) {
 				maskedEmails.addAll(otpResponse.getMailIds());
 			}
 			publicResponse.setEmails(maskedEmails);
+			publicResponse.setMessage(SuccessMessage.SUCC_MESSAGE_61);
 			publicResponse.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_61);
+			}
+			else {
+				throw new BusinessException("NO FLAT", "NO FLAT");
+			}
 		} catch (BusinessException e) {
 			publicResponse.setMessage(e.getErrorMessage());
 			publicResponse.setMessageCode(e.getErrorMessageCode());

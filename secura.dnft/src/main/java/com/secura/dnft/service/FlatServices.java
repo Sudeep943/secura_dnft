@@ -550,6 +550,8 @@ public class FlatServices implements FlatInterface {
 				}
 			}
 		}
+		
+		
 		for (DueAmountDetailsEntity dueEntity : dueEntities) {
 			if (dueEntity == null) {
 				continue;
@@ -559,6 +561,8 @@ public class FlatServices implements FlatInterface {
 				applyCalculatedDueAmount(dueEntity, recalculatedDue);
 			}
 		}
+		
+		
 		return dueEntities;
 	}
 

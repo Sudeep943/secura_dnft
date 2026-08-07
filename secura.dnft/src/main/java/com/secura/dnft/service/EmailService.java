@@ -147,7 +147,7 @@ public class EmailService implements EmailInterface {
 
     @Override
    // @Scheduled(cron = "0 0 16 * * *", zone = "Asia/Kolkata")
-    @Scheduled(cron = "0 00 17 * * *")
+   // @Scheduled(cron = "0 00 17 * * *")
     public void sendPaymentEmail() {
         logger.info("Payment EmailService.sendEmail() started");
         try {
@@ -164,7 +164,7 @@ public class EmailService implements EmailInterface {
 
     
     @Override
-   @Scheduled(cron = "0 */30 * * * *")
+   @Scheduled(cron = "0 */1 * * * *")
     public void sendTransactionEmail() {
         logger.info("Transaction EmailService.sendEmail() started");
         try {
