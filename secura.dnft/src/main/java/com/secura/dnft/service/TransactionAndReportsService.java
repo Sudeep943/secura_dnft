@@ -1128,12 +1128,9 @@ public class TransactionAndReportsService {
 	    List<Transaction> transactions;
 
 	    if (flatId == null || flatId.isBlank()) {
-	        transactions = transactionRepository.findByTrnsStatus("PENDING");
+	        transactions = transactionRepository.findAll();
 	    } else {
-	        transactions = transactionRepository.findByTrnsStatusAndFlatId(
-	                "PENDING",
-	                flatId
-	        );
+	        transactions = transactionRepository.findByFlatId(flatId);
 	    }
 
 	    if (transactions == null || transactions.isEmpty()) {

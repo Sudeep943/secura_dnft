@@ -47,4 +47,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
     List<Transaction> findByTrnsStatus(String trnsStatus);
 
     List<Transaction> findByTrnsStatusAndFlatId(String trnsStatus, String flatId);
+    List<Transaction> findByFlatId(String flatId);
+    
+    
 }
