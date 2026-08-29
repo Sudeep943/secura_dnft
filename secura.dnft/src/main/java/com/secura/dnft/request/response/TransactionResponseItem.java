@@ -33,7 +33,9 @@ public class TransactionResponseItem {
 	private LocalDateTime lstUpdtTs;
 	private String lstUpdtUsrId;
 	private String paymentName;
-
+	private String externalTransactionReferenceNumber;
+	private List<String> ownersName;
+	
 	public String getAprmntId() {
 		return aprmntId;
 	}
@@ -263,6 +265,22 @@ public class TransactionResponseItem {
 
 	public void setPaymentName(String paymentName) {
 		this.paymentName = paymentName;
+	}
+
+	public String getExternalTransactionReferenceNumber() {
+		return externalTransactionReferenceNumber;
+	}
+
+	public void setExternalTransactionReferenceNumber(String externalTransactionReferenceNumber) {
+		this.externalTransactionReferenceNumber = externalTransactionReferenceNumber;
+	}
+
+	public List<String> getOwnersName() {
+		return ownersName;
+	}
+
+	public void setOwnersName(List<String> ownersName) {
+		this.ownersName = ownersName;
 	}
 	
 	

@@ -2,9 +2,11 @@ package com.secura.dnft.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.generic.bean.ErrorMessage;
@@ -86,5 +88,29 @@ public class TransactionAndReportsController {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
 		return response;
+	}
+	
+	@GetMapping("/uploadDocToDrive")
+	@CrossOrigin(origins = "*")
+	public String uploadDocToDrive(@RequestParam(required = false) String flatId) {
+		try {
+			transactionAndReportsService.uploadTransactionFilesToDrive(flatId);
+			return "Process Completed";
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "Process Failed";
+	}
+	
+	@GetMapping("/downloadAllTransactionFiles")
+	@CrossOrigin(origins = "*")
+	public String downloadAllTransactionFiles() {
+		try {
+			transactionAndReportsService.downloadTransactionFilesToLocal();
+			return "Process Completed";
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "Process Failed";
 	}
 }

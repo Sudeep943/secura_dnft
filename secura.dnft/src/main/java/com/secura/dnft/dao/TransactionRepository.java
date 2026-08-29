@@ -42,4 +42,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
 	List<Transaction> findByAprmntIdAndPymntId(String aprmntId, String pymntId);
 
 	List<Transaction> findByAprmntIdAndPymntIdAndFlatId(String aprmntId, String pymntId, String flatId);
+	
+
+    List<Transaction> findByTrnsStatus(String trnsStatus);
+
+    List<Transaction> findByTrnsStatusAndFlatId(String trnsStatus, String flatId);
 }

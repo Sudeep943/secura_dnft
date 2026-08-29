@@ -7,11 +7,6 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
-import com.secura.dnft.security.AuthCryptoProperties;
-import com.secura.dnft.security.AuthCryptoUtil;
-
 public class TestMain {
 
 
@@ -29,6 +24,7 @@ public class TestMain {
 		
 		
 	}
+	
 	
 	
 	public static String encrypt(String plainText) {

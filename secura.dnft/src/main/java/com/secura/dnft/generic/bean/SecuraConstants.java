@@ -107,7 +107,12 @@ public interface SecuraConstants {
 	public final String ADD_TENANT="ADD_TENANT" ;
 	public final String REMOVE_TENANT="REMOVE_OWNER" ;
 	public final String REMOVE_OWNER="REMOVE_TENANT" ;
-
+	
+	public final String FILE_TYPE_NOTICE="NOTICE" ;
+	public final String FILE_TYPE_TRANSACTION="TRANSACTION" ;
+	
+	public final String PAYMENT_COLLECTION_MODE_PRE="PRE" ;
+	public final String PAYMENT_COLLECTION_MODE_POST="POST" ;
 
 
 

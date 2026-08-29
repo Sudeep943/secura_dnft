@@ -17,6 +17,7 @@ public class PaymentDetail {
 	private String paymentName;
 	private String bankId;
 	private String paymentGateway;
+	private String paymentCause;
 
 	public String getPaymentId() {
 		return paymentId;
@@ -48,6 +49,14 @@ public class PaymentDetail {
 
 	public void setPaymentGateway(String paymentGateway) {
 		this.paymentGateway = paymentGateway;
+	}
+
+	public String getPaymentCause() {
+		return paymentCause;
+	}
+
+	public void setPaymentCause(String paymentCause) {
+		this.paymentCause = paymentCause;
 	}
 
 	@Override

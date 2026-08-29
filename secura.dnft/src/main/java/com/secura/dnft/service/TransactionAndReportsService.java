@@ -1,12 +1,18 @@
 package com.secura.dnft.service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -30,6 +36,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.bean.BankAccountDetails;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
@@ -54,8 +61,12 @@ import com.secura.dnft.request.response.Defaulter;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
+import com.secura.dnft.request.response.GetBankDetailsRequest;
+import com.secura.dnft.request.response.GetBankDetailsResponse;
 import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
+import com.secura.dnft.request.response.GetOwnerRequest;
+import com.secura.dnft.request.response.GetOwnerResponse;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsRequest;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
 import com.secura.dnft.request.response.GetTransactionByPageRequest;
@@ -99,6 +110,15 @@ public class TransactionAndReportsService {
 
 	@Autowired
 	PaymentUtilService paymentUtilService;
+	
+	@Autowired
+	GoogleDriveService googleDriveService;
+	
+	 @Autowired
+	 private ProfileServices profileServices;
+	 
+	 @Autowired
+	 ApartmentService apartmentService;
 
 	@Value("${transaction.chunk}")
 	private Integer transactionChunkSize;
@@ -120,7 +140,7 @@ public class TransactionAndReportsService {
 		}
 
 		//List<TransactionResponseItem> transactionList = new ArrayList<>();
-		List<TransactionResponseItem> transactionList = transactions.stream().map(trns->toResponseItem(trns)).collect(Collectors.toList());
+		List<TransactionResponseItem> transactionList = transactions.stream().map(trns->toResponseItem(trns,request.getGenericHeader())).collect(Collectors.toList());
 
 //		for (Transaction transaction : transactions) {
 //			transactionList.add(toResponseItem(transaction));
@@ -782,7 +802,7 @@ public class TransactionAndReportsService {
 		return value.setScale(0, RoundingMode.CEILING);
 	}
 
-	private TransactionResponseItem toResponseItem(Transaction transaction) {
+	private TransactionResponseItem toResponseItem(Transaction transaction,GenericHeader genericHeader) {
 		TransactionResponseItem item = new TransactionResponseItem();
 		item.setAprmntId(transaction.getAprmntId());
 		item.setTrnscId(transaction.getTrnscId());
@@ -791,7 +811,7 @@ public class TransactionAndReportsService {
 		item.setTrnsTender(parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {}));
 		item.setTrnsType(transaction.getTrnsType());
 		item.setTrnsShrtDesc(transaction.getTrnsShrtDesc());
-		item.setTrnsFiles(parseList(transaction.getTrnsFiles(), new TypeReference<List<String>>() {}));
+		item.setTrnsFiles(parseList(transaction.getTrnsFiles(), new TypeReference<List<String>>() {}).stream().map(file->googleDriveService.getFileFromDrive(file)).collect(Collectors.toList()));
 		item.setTrnsBnkAccnt(transaction.getTrnsBnkAccnt());
 		item.setTrnsAmt(transaction.getTrnsAmt());
 		item.setTrnsCurrency(transaction.getTrnsCurrency());
@@ -818,9 +838,30 @@ public class TransactionAndReportsService {
 		if(!payment.isEmpty()&& payment!=null) {
 			item.setPaymentName(payment.get(0).getPaymentName());
 		}
+		GetOwnerRequest request = new GetOwnerRequest();
+		request.setGenericHeader(genericHeader);
+		request.setFlatId(transaction.getFlatId());
+		GetOwnerResponse getOwnerResponse=profileServices.getOwner(request);
+		item.setOwnersName(getOwnerResponse.getProfile().stream().map(prfl->genericService.fromJson(prfl.getPrflName(), Name.class).toString()).collect(Collectors.toList()));		
+		GetBankDetailsRequest getBankDetailsRequest = new GetBankDetailsRequest();
+		getBankDetailsRequest.setGenericHeader(genericHeader);
+		getBankDetailsRequest.setBankDetailsID(transaction.getTrnsBnkAccnt());
+		GetBankDetailsResponse getBankDetailsResponse=apartmentService.getBankDetails(getBankDetailsRequest);
+		if(!getBankDetailsResponse.getBankAccountDetails().isEmpty()) {
+			BankAccountDetails bankAccountDetails= getBankDetailsResponse.getBankAccountDetails().get(0);
+			String bankName=bankAccountDetails.getBankName().toUpperCase();
+			String accountNumber=bankAccountDetails.getAccountNumber();
+			if (bankName != null && bankName.length() >= 4
+			        && accountNumber != null && accountNumber.length() >= 4) {
+				item.setTrnsBnkAccnt(bankName.substring(0, 4)+ "XXXX"+ accountNumber.substring(accountNumber.length() - 4));
+			}
+			
+		}
+		
+		
 		return item;
 	}
-
+	
 	private <T> List<T> parseList(String json, TypeReference<List<T>> typeReference) {
 		if (json == null || json.isBlank()) {
 			return new ArrayList<>();
@@ -867,9 +908,9 @@ public class TransactionAndReportsService {
 		Pageable pageable = PageRequest.of(pageFrom, 50, Sort.by("creatTs").descending());
 		Page<Transaction> page = transactionRepository.findAll(spec, pageable);
 
-		List<TransactionResponseItem> transactionList = page.getContent().stream()
-				.map(this::toResponseItem)
-				.collect(Collectors.toList());
+		List<TransactionResponseItem> transactionList =null;// page.getContent().stream()
+				//.map(this,request.getGenericHeader()::toResponseItem)
+				//.collect(Collectors.toList());
 
 		BigDecimal totalCredit = calculateTotalAmount(spec, TRNS_TYPE_CREDIT);
 		BigDecimal totalDebit = calculateTotalAmount(spec, TRNS_TYPE_DEBIT);
@@ -1079,5 +1120,252 @@ public class TransactionAndReportsService {
 				lastDueDate = dueDate;
 			}
 		}
+	}
+	
+	
+	public void uploadTransactionFilesToDrive(String flatId) {
+
+	    List<Transaction> transactions;
+
+	    if (flatId == null || flatId.isBlank()) {
+	        transactions = transactionRepository.findByTrnsStatus("PENDING");
+	    } else {
+	        transactions = transactionRepository.findByTrnsStatusAndFlatId(
+	                "PENDING",
+	                flatId
+	        );
+	    }
+
+	    if (transactions == null || transactions.isEmpty()) {
+	        return;
+	    }
+
+
+	    for (Transaction transaction : transactions) {
+
+	        try {
+
+	            String trnsFilesJson = transaction.getTrnsFiles();
+
+	            // No files associated with this transaction
+	            if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
+	                continue;
+	            }
+
+	            // Convert JSON string -> List<String>
+	            List<String> trnsFiles =genericService.fromJson(trnsFilesJson, new TypeReference<List<String>>() {
+      			});
+
+	            if (trnsFiles == null || trnsFiles.isEmpty()) {
+	                continue;
+	            }
+
+	            List<String> uploadedFiles = new ArrayList<>();
+	            String fileType= SecuraConstants.FILE_TYPE_TRANSACTION;
+	            String apartmentId=transaction.getAprmntId();
+                    if(trnsFiles.size()>1) {
+                    	for (String fileData : trnsFiles) {
+                    		int i=1;
+        	                if (fileData == null || fileData.isBlank()) {
+        	                    continue;
+        	                }
+        	                String uniqueId=transaction.getTrnscId() + "_"+i;
+        	              try {
+            	              String drivePath =googleDriveService.uploadDataToDrive(fileData,fileType,uniqueId,apartmentId,flatId);
+            	              if (drivePath != null && !drivePath.isBlank()) {
+          	                    uploadedFiles.add(drivePath);
+          	                }
+        	              }
+        	              catch(Exception e) {
+        	            	  System.out.println("Data Couldn't Uploaded for "+flatId);
+        	              }
+
+        	               
+        	                i++;
+        	            }
+                          }
+                    else {
+                    	String uniqueId=transaction.getTrnscId();
+                    	try {
+      	              String drivePath =googleDriveService.uploadDataToDrive(trnsFiles.get(0),fileType,uniqueId,apartmentId,flatId);
+
+      	                if (drivePath != null && !drivePath.isBlank()) {
+      	                    uploadedFiles.add(drivePath);
+      	                } }
+      	              catch(Exception e) {
+    	            	  System.out.println("Data Couldn't Uploaded for "+flatId);
+    	              }
+                    }
+	            // Upload every file to Google Drive
+	            
+
+	            // Convert List<String> -> JSON
+	            String updatedTrnsFiles =
+	                    genericService.toJson(uploadedFiles);
+
+	            // Update transaction
+	            transaction.setTrnsFiles(updatedTrnsFiles);
+
+	            // Save transaction
+	            transactionRepository.save(transaction);
+
+	        } catch (Exception e) {
+
+	            // Log transaction information and continue with next transaction
+	            e.printStackTrace();
+	        }
+	    }
+	}
+	
+	
+	public void downloadTransactionFilesToLocal() {
+
+	    String rootPath =
+	            "C:\\Users\\user\\Desktop\\DNFT\\Transaction_File_prod_secura";
+
+	    List<Transaction> transactions =  transactionRepository.findByTrnsStatus("SUCCESS");;
+
+	    if (transactions == null || transactions.isEmpty()) {
+	        return;
+	    }
+
+	    TypeReference<List<String>> typeReference =
+	            new TypeReference<List<String>>() {
+	            };
+
+	    for (Transaction transaction : transactions) {
+
+	        try {
+
+	            String flatId = transaction.getFlatId();
+	            String trnsFilesJson = transaction.getTrnsFiles();
+
+	            // Validate flat ID
+	            if (flatId == null || flatId.isBlank()) {
+	                continue;
+	            }
+
+	            // Validate transaction files
+	            if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
+	                continue;
+	            }
+
+	            // Convert JSON -> List<String>
+	            List<String> trnsFiles =
+	                    genericService.fromJson(
+	                            trnsFilesJson,
+	                            typeReference
+	                    );
+
+	            if (trnsFiles == null || trnsFiles.isEmpty()) {
+	                continue;
+	            }
+
+	            // Create flat folder
+	            Path flatFolder =
+	                    Paths.get(rootPath, flatId);
+
+	            Files.createDirectories(flatFolder);
+
+	            int fileNumber = 1;
+
+	            for (String base64Data : trnsFiles) {
+
+	                if (base64Data == null || base64Data.isBlank()) {
+	                    continue;
+	                }
+
+	                try {
+
+	                    // Handle data URL format:
+	                    // data:image/png;base64,XXXXXXXX
+	                    String imageData = base64Data;
+
+	                    String extension = ".jpg";
+
+	                    if (base64Data.startsWith("data:")) {
+
+	                        int commaIndex = base64Data.indexOf(",");
+
+	                        if (commaIndex != -1) {
+
+	                            String metadata =
+	                                    base64Data.substring(0, commaIndex);
+
+	                            imageData =
+	                                    base64Data.substring(commaIndex + 1);
+
+	                            if (metadata.contains("image/png")) {
+	                                extension = ".png";
+	                            } else if (metadata.contains("image/jpeg")) {
+	                                extension = ".jpg";
+	                            } else if (metadata.contains("image/jpg")) {
+	                                extension = ".jpg";
+	                            } else if (metadata.contains("image/gif")) {
+	                                extension = ".gif";
+	                            } else if (metadata.contains("image/webp")) {
+	                                extension = ".webp";
+	                            }
+	                        }
+	                    }
+
+	                    // Remove possible whitespace/new lines
+	                    imageData = imageData.replaceAll("\\s+", "");
+
+	                    // Decode Base64
+	                    byte[] imageBytes =
+	                            Base64.getDecoder().decode(imageData);
+
+	                    // Create filename
+	                    String fileName =
+	                            "transaction_" + transaction.getTrnscId()
+	                            + "_" + fileNumber
+	                            + extension;
+
+	                    Path filePath =
+	                            flatFolder.resolve(fileName);
+
+	                    // Write image
+	                    Files.write(
+	                            filePath,
+	                            imageBytes,
+	                            StandardOpenOption.CREATE,
+	                            StandardOpenOption.TRUNCATE_EXISTING
+	                    );
+
+	                    fileNumber++;
+
+	                    System.out.println(
+	                            "File created: " + filePath
+	                    );
+
+	                } catch (IllegalArgumentException e) {
+
+	                    System.err.println(
+	                            "Invalid Base64 data for transaction ID: "
+	                            + transaction.getTrnscId()
+	                    );
+
+	                } catch (IOException e) {
+
+	                    System.err.println(
+	                            "Error writing file for transaction ID: "
+	                            + transaction.getTrnscId()
+	                    );
+
+	                    e.printStackTrace();
+	                }
+	            }
+
+	        } catch (Exception e) {
+
+	            System.err.println(
+	                    "Error processing transaction ID: "
+	                    + transaction.getTrnscId()
+	            );
+
+	            e.printStackTrace();
+	        }
+	    }
 	}
 }

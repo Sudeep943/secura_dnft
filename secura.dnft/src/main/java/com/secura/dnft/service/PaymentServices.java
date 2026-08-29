@@ -186,6 +186,11 @@ public class PaymentServices implements PaymentInterface {
 	@Autowired
 	CreditNoteInterface creditNoteInterface;
 
+
+	@Autowired
+	GoogleDriveService googleDriveService;
+	
+	
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
 		DuePaymentAmountDetailsResponse response = new DuePaymentAmountDetailsResponse();
@@ -1145,7 +1150,13 @@ public class PaymentServices implements PaymentInterface {
 				resolvedTenderDataList == null ? null : genericService.toJson(resolvedTenderDataList));
 		transaction.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		transaction.setTrnsShrtDesc("");
-		transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
+		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
+		if(request.getFiles() != null) {
+			List<String>transUploadedFiles=request.getFiles().stream().map(file->googleDriveService.uploadDataToDrive(file, SecuraConstants.FILE_TYPE_TRANSACTION, transaction.getTrnscId(), transaction.getAprmntId(), transaction.getFlatId())).collect(Collectors.toList());
+			transaction.setTrnsFiles(genericService.toJson(transUploadedFiles != null ? transUploadedFiles : List.of()));
+		}
+		
+//		transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
 		transaction.setTrnsBnkAccnt(paymentEntity.getBankAccountId());
 		transaction.setTrnsAmt(request.getAmount());
 		transaction.setTrnsCurrency(SecuraConstants.PAYMENT_CURRENCY);
@@ -1161,7 +1172,7 @@ public class PaymentServices implements PaymentInterface {
 				request.getBankInstrumentTenderDetails()));
 		transaction.setCreatTs(currentTimestamp);
 		transaction.setCreatUsrId(request.getGenericHeader() != null ? request.getGenericHeader().getUserId() : null);
-		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
+		
 		transaction.setLstUpdtTs(null);
 		transaction.setLstUpdtUsrId(null);
 		transaction.setEmailSentflag(EMAIL_SENT_FLAG_NO);
