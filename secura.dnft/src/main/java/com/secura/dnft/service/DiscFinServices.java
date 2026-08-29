@@ -265,6 +265,9 @@ public class DiscFinServices implements DiscFinInterface {
 				if (paymentEntityList != null && !paymentEntityList.isEmpty()) {
 					PaymentEntity paymentEntity=paymentEntityList.get(0);
 					String discFinJson = paymentEntity.getDiscFin();
+					if (null==discFinJson || discFinJson.isBlank()) {
+						discFinJson="[]";
+					}
 					List<Map<String, Object>> entries =getUpdatedDisFinjson(discFinJson,addRequest.getDiscFnType(),addResponse.getDiscFnId());
 					if(null!=entries && !entries.isEmpty()) {
 						String discFinUpdatedJson=genericService.toJson(entries);

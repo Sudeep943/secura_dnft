@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.bean.WorkListAssignment;
 import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
@@ -680,16 +682,94 @@ public class DueDetailsService {
 				return new PenaltyCalculationResult(null, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 			}
 		}
-		return new PenaltyCalculationResult(applicableDiscFin, calculatePenalty(applicableDiscFin, baseAmount, due));
+		return new PenaltyCalculationResult(applicableDiscFin, calculatePenalty(applicableDiscFin, baseAmount, due,paymentEntity));
 	}
+	
+	public LocalDate getBufferTimeDate(DiscFin fineDiscFin, LocalDate dueDate) {
 
-	private BigDecimal calculatePenalty(DiscFin fineDiscFin, BigDecimal baseAmount, DueAmountDetails due) {
+	    int bufferTime = Integer.parseInt(fineDiscFin.getBufferTime());
+	    String bufferTimeUnit = fineDiscFin.getBufferTimeUnit();
+
+	    if (bufferTimeUnit.equalsIgnoreCase("DAYS")) {
+	        return dueDate.plusDays(bufferTime);
+	    }
+
+	    if (bufferTimeUnit.equalsIgnoreCase("MONTH")) {
+	        return dueDate.plusMonths(bufferTime);
+	    }
+
+	    if (bufferTimeUnit.equalsIgnoreCase("QUATER")
+	            || bufferTimeUnit.equalsIgnoreCase("QUARTER")) {
+	        return dueDate.plusMonths(bufferTime * 3L);
+	    }
+
+	    throw new IllegalArgumentException(
+	        "Invalid buffer time unit: " + bufferTimeUnit
+	    );
+	}
+	
+	public String getTheFinalParentCycle( List<String> paymentCycles,String cycle) {
+		String requiredCycle;
+
+		do {
+		    requiredCycle = getTheParentCycle(paymentCycles, cycle);
+
+		    if (requiredCycle == null || requiredCycle.isBlank()) {
+		        requiredCycle = cycle;
+		        break;
+		    }
+
+		    cycle = requiredCycle;
+
+		} while (true);
+		
+		return requiredCycle;
+	}
+	
+	public String getTheParentCycle(List<String> paymentCycles, String cycle) {
+		String parentCycle= "";
+			if(cycle.equals("HALF YEARLY") && paymentCycles.contains("YEARLY")) {
+				return "YEARLY";
+			}
+			else if(cycle.equals("QUATERLY") &&paymentCycles.contains("HALF YEARLY")) {
+				return "HALF YEARLY";
+			}
+			else if(cycle.equals("MONTHLY") &&paymentCycles.contains("QUATERLY")) {
+				return "QUATERLY";
+			}
+		return parentCycle;
+	}
+	
+	
+	public DueAmountDetailsEntity getTheHighestDueForTheCurrectDue(PaymentEntity paymentEntity,DueAmountDetails currentdue) {
+		List<String> paymentCycles = genericService.fromJson(paymentEntity.getPaymentCollectionCycle(),
+				new TypeReference<List<String>>() {
+				});
+		String finalParentCycle=getTheFinalParentCycle(paymentCycles,currentdue.getCollectionCycle());
+		List<DueAmountDetailsEntity>dues=dueAmountDetailsRepository.findByPaymentId(paymentEntity.getPaymentId()).stream().filter(due->due.getCollectionCycle().equalsIgnoreCase(finalParentCycle)).collect(Collectors.toList());
+		if(dues.size()>1) {
+			DueAmountDetailsEntity matchingDue = dues.stream()
+			        .filter(due -> !currentdue.getDueDate().isBefore(due.getDueStartDate())
+			                   && !currentdue.getDueDate().isAfter(due.getDueEndDate()))
+			        .findFirst()
+			        .orElse(null);
+			return matchingDue;
+		}
+		return dues.get(0);
+	}
+	
+	private BigDecimal calculatePenalty(DiscFin fineDiscFin, BigDecimal baseAmount, DueAmountDetails due,PaymentEntity paymentEntity) {
 		LOGGER.debug("calculatePenalty: fineDiscFin={}, baseAmount={}, dueDate={}",
 				fineDiscFin != null ? fineDiscFin.getDiscFnId() : null, baseAmount, due != null ? due.getDueDate() : null);
 		if (fineDiscFin == null || due == null || baseAmount == null || baseAmount.compareTo(BigDecimal.ZERO) <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 		LocalDate dueDate = due.getDueDate();
+		if(paymentEntity.getPaymentCollectionMode().equalsIgnoreCase(SecuraConstants.PAYMENT_COLLECTION_MODE_POST)) {
+			DueAmountDetailsEntity matchingDue=getTheHighestDueForTheCurrectDue(paymentEntity,due);
+			 dueDate=matchingDue.getDueDate();
+		}
+		
 		LocalDate today = LocalDate.now();
 		LocalDate fineStart = Boolean.TRUE.equals(fineDiscFin.getDueDateAsStartDateFlag()) && dueDate != null ? dueDate
 				: fineDiscFin.getDiscFnStrtDt();
@@ -700,7 +780,10 @@ public class DueDetailsService {
 		if (fineEnd != null && today.isAfter(fineEnd)) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
-
+        LocalDate bufferTimeInDays=getBufferTimeDate(fineDiscFin,dueDate);
+        if (bufferTimeInDays != null && today.isBefore(bufferTimeInDays)) {
+			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+		}
 		BigDecimal outstanding = baseAmount.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
 		if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -763,7 +846,7 @@ public class DueDetailsService {
 		}
 
 		if (cursor.isBefore(today) && outstanding.compareTo(BigDecimal.ZERO) > 0) {
-			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, today, cycleMonths,
+			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, dueDate, today, cycleMonths,
 					partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()));
 			totalPenalty = totalPenalty.add(segmentPenalty);
 		}

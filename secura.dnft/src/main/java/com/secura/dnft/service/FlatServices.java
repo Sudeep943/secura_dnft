@@ -3,6 +3,7 @@ package com.secura.dnft.service;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -41,6 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.access.Access;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.BankEntityRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
@@ -497,7 +500,66 @@ public class FlatServices implements FlatInterface {
 			return Integer.MAX_VALUE;
 		}
 	}
+	
+	public String getTheChildCycle( List<String> paymentCycles,  String cycle) {
+		String requiredCycle= "";
+		if(cycle.equals("YEARLY") && paymentCycles.contains("HALF YEARLY")) {
+			return "HALF YEARLY";
+		}
+		else if(cycle.equals("HALF YEARLY") &&paymentCycles.contains("QUATERLY")) {
+			return "QUATERLY";
+		}
+		else if(cycle.equals("QUATERLY") &&paymentCycles.contains("MONTHLY")) {
+			return "MONTHLY";
+		}
+		else if(cycle.equals("MONTHLY") &&paymentCycles.contains("MONTHLY")) {
+			return "MONTHLY";
+		}
+		return requiredCycle;
+	}
+	
+	public List<DueAmountDetailsEntity> getChildDuesOfCurrectDue(PaymentEntity paymentEntity,DueAmountDetailsEntity currentdue) {
+		List<String> paymentCycles = genericService.fromJson(paymentEntity.getPaymentCollectionCycle(),
+				new TypeReference<List<String>>() {
+				});
+		String childCycle=getTheChildCycle(paymentCycles,currentdue.getCollectionCycle());
+		if(childCycle.isBlank()) {
+			return null;
+		}
+		List<DueAmountDetailsEntity> matchingDues = new ArrayList<>();
+		List<DueAmountDetailsEntity>dues=dueAmountDetailsRepository.findByPaymentId(paymentEntity.getPaymentId()).stream().filter(due->due.getCollectionCycle().equalsIgnoreCase(childCycle)).collect(Collectors.toList());
+		if(dues.size()>1) {
+			matchingDues = dues.stream()
+			        .filter(due -> !due.getDueDate().isBefore(currentdue.getDueStartDate()))
+			        .filter(due -> !due.getDueDate().isAfter(currentdue.getDueEndDate()))
+			        .collect(Collectors.toList());
+			return matchingDues;
+		}
+		matchingDues.add(dues.get(0));
+		return matchingDues;
+	}
 
+	public void updatePenaltyAmountInDue(
+	        List<DueAmountDetailsEntity> finalDueAmount,
+	        BigDecimal penaltyAmount,
+	        String lowestCycle) {
+	    finalDueAmount.stream()
+	            .filter(due -> !lowestCycle.equalsIgnoreCase(due.getCollectionCycle()))
+	            .forEach(due -> {
+	                BigDecimal totalAmount = new BigDecimal(due.getTotalAmount());
+	                BigDecimal fineAmount = new BigDecimal(due.getFineAmount());
+	                totalAmount = totalAmount
+	                        .subtract(fineAmount)
+	                        .add(penaltyAmount);
+	                BigDecimal roundedTotal = totalAmount.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
+	        		BigDecimal roundUpAmount = roundedTotal.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
+	                due.setFineAmount(penaltyAmount.toString());
+	                due.setTotalAmount(roundedTotal.toString());
+	                due.setRoundUpAmount(roundUpAmount.toString());
+	            });
+	    
+	    
+	}
 	private Map<PaymentDetail, List<DueAmountDetailsEntity>> buildDueDetails(
 			Map<String, List<DueAmountDetailsEntity>> finalPaymentMap, String apartmentId) {
 		Map<PaymentDetail, List<DueAmountDetailsEntity>> dueDetails = new LinkedHashMap<>();
@@ -508,16 +570,51 @@ public class FlatServices implements FlatInterface {
 			Optional<PaymentEntity> paymentEntity = paymentRepository.findFirstByPaymentId(entry.getKey());
 			String bankId = paymentEntity.map(PaymentEntity::getBankAccountId).orElse(null);
 			List<DueAmountDetailsEntity> finalDueAmount = calculateFinaDueAmount(entry.getKey(), entry.getValue());
+			 if(paymentEntity.get().getPaymentCollectionMode().equalsIgnoreCase(SecuraConstants.PAYMENT_COLLECTION_MODE_PRE)) {
+				//List<DueAmountDetailsEntity> actualPenalisedDue=finalDueAmount.stream().map(getChildDuesOfCurrectDue(paymentEntity.get(),due)).collect(Collectors.toList());
+//				List<DueAmountDetailsEntity> actualPenalisedDue = finalDueAmount.stream()
+//				        .flatMap(due -> getChildDuesOfCurrectDue(paymentEntity.get(), due).stream())
+//				        .collect(Collectors.toList());
+				for(DueAmountDetailsEntity due:finalDueAmount) {
+					List<DueAmountDetailsEntity> actualPenalisedChildDue=getChildDuesOfCurrectDue(paymentEntity.get(), due);
+					if(actualPenalisedChildDue!=null){
+					BigDecimal totalFineAmount = actualPenalisedChildDue.stream()
+					        .filter(Objects::nonNull)
+					        .map(DueAmountDetailsEntity::getFineAmount)
+					        .filter(Objects::nonNull)
+					        .map(BigDecimal::new)
+					        .reduce(BigDecimal.ZERO, BigDecimal::add);
+					BigDecimal totalAmount = new BigDecimal(due.getTotalAmount());
+	                BigDecimal fineAmount = new BigDecimal(due.getFineAmount());
+	                totalAmount = totalAmount
+	                        .subtract(fineAmount)
+	                        .add(totalFineAmount);
+	                BigDecimal roundedTotal = totalAmount.setScale(0, RoundingMode.HALF_UP).setScale(2, RoundingMode.HALF_UP);
+	        		BigDecimal roundUpAmount = roundedTotal.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
+	        		due.setFineAmount(totalFineAmount.toString());
+	                due.setTotalAmount(roundedTotal.toString());
+	                due.setRoundUpAmount(roundUpAmount.toString());
+				}
+				}
+			 }
+			 
+//				BigDecimal totalFineAmount = actualPenalisedDue.stream()
+//				        .filter(Objects::nonNull)
+//				        .map(DueAmountDetailsEntity::getFineAmount)
+//				        .filter(Objects::nonNull)
+//				        .map(BigDecimal::new)
+//				        .reduce(BigDecimal.ZERO, BigDecimal::add);
+//				//updatePenaltyAmountInDue(finalDueAmount,totalFineAmount,requiredCycle);
 			PaymentDetail paymentDetail = new PaymentDetail();
 			paymentDetail.setPaymentId(entry.getKey());
 			paymentDetail.setPaymentName(resolvePaymentName(paymentEntity, finalDueAmount));
 			paymentDetail.setBankId(bankId);
 			paymentDetail.setPaymentGateway(resolvePaymentGateway(apartmentId, bankId));
+			paymentDetail.setPaymentCause(paymentEntity.get().getCauseId());
 			dueDetails.put(paymentDetail, finalDueAmount);
 		}
 		return dueDetails;
 	}
-
 	private List<DueAmountDetailsEntity> calculateFinaDueAmount(String paymentId, List<DueAmountDetailsEntity> dueEntities) {
 		if (!hasText(paymentId) || dueEntities == null || dueEntities.isEmpty()) {
 			return dueEntities;
