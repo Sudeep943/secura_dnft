@@ -72,6 +72,9 @@ public class DiscFin {
 
 	@Column(name = "disc_fn_value")
 	private String discFinValue;
+	
+	@Column(name = "simpl_fn_cycle")
+	private String simpleFineCycle;
 
 	private Boolean partOfCycleAsFull;
 
@@ -232,4 +235,14 @@ public class DiscFin {
 	public void setMinimumPaymentAmount(String minimumPaymentAmount) {
 		this.minimumPaymentAmount = minimumPaymentAmount;
 	}
+
+	public String getSimpleFineCycle() {
+		return simpleFineCycle;
+	}
+
+	public void setSimpleFineCycle(String simpleFineCycle) {
+		this.simpleFineCycle = simpleFineCycle;
+	}
+	
+	
 }

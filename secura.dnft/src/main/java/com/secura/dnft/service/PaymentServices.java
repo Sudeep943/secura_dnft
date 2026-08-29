@@ -1156,7 +1156,7 @@ public class PaymentServices implements PaymentInterface {
 			transaction.setTrnsFiles(genericService.toJson(transUploadedFiles != null ? transUploadedFiles : List.of()));
 		}
 		
-//		transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
+	//	transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
 		transaction.setTrnsBnkAccnt(paymentEntity.getBankAccountId());
 		transaction.setTrnsAmt(request.getAmount());
 		transaction.setTrnsCurrency(SecuraConstants.PAYMENT_CURRENCY);

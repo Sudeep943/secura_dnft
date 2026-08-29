@@ -19,6 +19,7 @@ public class AddDiscfinRequest {
 	private Boolean partOfCycleAsFull;
 	private String bufferTime;
 	private String bufferTimeUnit;
+	private String simpleFineCycle;
 
 
 	public GenericHeader getGenericHeader() {
@@ -133,4 +134,13 @@ public class AddDiscfinRequest {
 		this.bufferTimeUnit = bufferTimeUnit;
 	}
 
+	public String getSimpleFineCycle() {
+		return simpleFineCycle;
+	}
+
+	public void setSimpleFineCycle(String simpleFineCycle) {
+		this.simpleFineCycle = simpleFineCycle;
+	}
+
+	
 }

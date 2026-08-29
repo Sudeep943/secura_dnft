@@ -105,6 +105,7 @@ public class DiscFinServices implements DiscFinInterface {
 		entity.setPartOfCycleAsFull(request.getPartOfCycleAsFull());
 		entity.setBufferTime(request.getBufferTime());
 		entity.setBufferTimeUnit(request.getBufferTimeUnit());
+		entity.setSimpleFineCycle(request.getSimpleFineCycle());
 		return entity;
 	}
 
@@ -299,6 +300,7 @@ public class DiscFinServices implements DiscFinInterface {
 			addRequest.setPartOfCycleAsFull(data.getPartOfCycleAsFull());
 			addRequest.setBufferTime(data.getBufferTime());
 			addRequest.setBufferTimeUnit(data.getBufferTimeUnit());
+			addRequest.setSimpleFineCycle(data.getSimpleFineCycle());
 		}
 		return addRequest;
 	}

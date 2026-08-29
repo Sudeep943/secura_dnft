@@ -829,7 +829,7 @@ public class DueDetailsService {
 			LocalDate segmentEnd = paymentDate.isAfter(today) ? today : paymentDate;
 			if (segmentEnd.isAfter(cursor)) {
 				BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, segmentEnd, cycleMonths,
-						partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()));
+						partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()),fineDiscFin.getSimpleFineCycle());
 				totalPenalty = totalPenalty.add(segmentPenalty);
 				if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
 					outstanding = outstanding.add(segmentPenalty);
@@ -847,12 +847,62 @@ public class DueDetailsService {
 
 		if (cursor.isBefore(today) && outstanding.compareTo(BigDecimal.ZERO) > 0) {
 			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, dueDate, today, cycleMonths,
-					partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()));
+					partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()),fineDiscFin.getSimpleFineCycle());
 			totalPenalty = totalPenalty.add(segmentPenalty);
 		}
 		return totalPenalty.setScale(2, RoundingMode.HALF_UP);
 	}
 
+	
+	public BigDecimal calculateFineCycleUnits(
+	        BigDecimal cycleUnits,
+	        String fineCycle,
+	        boolean partCycleAsFull) {
+
+	    if (cycleUnits == null) {
+	        return BigDecimal.ZERO;
+	    }
+
+	    if (fineCycle == null || fineCycle.isBlank()) {
+	        throw new IllegalArgumentException("Fine cycle cannot be null or blank");
+	    }
+
+	    BigDecimal divisor;
+
+	    switch (fineCycle.trim().toUpperCase()) {
+	        case "MONTHLY":
+	            divisor = BigDecimal.ONE;
+	            break;
+	        case "QUATERLY":
+	        case "QUARTERLY":
+	            divisor = new BigDecimal("3");
+	            break;
+	        case "HALF YEARLY":
+	        case "HALFYEARLY":
+	            divisor = new BigDecimal("6");
+	            break;
+	        case "YEARLY":
+	            divisor = BigDecimal.ONE;
+	            break;
+	        default:
+	            throw new IllegalArgumentException(
+	                    "Unsupported fine cycle: " + fineCycle);
+	    }
+
+	    BigDecimal result = cycleUnits.divide(
+	            divisor,
+	            2,
+	            RoundingMode.HALF_UP
+	    );
+
+	    if (partCycleAsFull && result.stripTrailingZeros().scale() > 0) {
+	        result = result.setScale(0, RoundingMode.CEILING);
+	    }
+
+	    return result;
+	}
+	
+	
 	private boolean isCumulativeFine(String fnCalculationType) {
 		if (fnCalculationType == null) {
 			return false;
@@ -966,7 +1016,7 @@ public class DueDetailsService {
 	}
 
 	private BigDecimal calculateSegmentPenalty(BigDecimal outstanding, BigDecimal rate, LocalDate start, LocalDate end,
-			int cycleMonths, boolean partCycleAsFull, boolean cumulative) {
+			int cycleMonths, boolean partCycleAsFull, boolean cumulative,String simpleFineCalculationCycle) {
 		BigDecimal cycleUnits = calculateCycleUnits(start, end, cycleMonths, partCycleAsFull);
 		if (cycleUnits.compareTo(BigDecimal.ZERO) <= 0 || outstanding.compareTo(BigDecimal.ZERO) <= 0) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -975,6 +1025,9 @@ public class DueDetailsService {
 			double exponent = cycleUnits.doubleValue();
 			double factor = Math.pow(BigDecimal.ONE.add(rate).doubleValue(), exponent) - 1.0d;
 			return outstanding.multiply(BigDecimal.valueOf(factor), MathContext.DECIMAL64).setScale(2, RoundingMode.HALF_UP);
+		}
+		if(null!=simpleFineCalculationCycle) {
+		cycleUnits=calculateFineCycleUnits(cycleUnits,simpleFineCalculationCycle,partCycleAsFull);
 		}
 		return outstanding.multiply(rate, MathContext.DECIMAL64).multiply(cycleUnits, MathContext.DECIMAL64)
 				.setScale(2, RoundingMode.HALF_UP);

@@ -18,6 +18,7 @@ public class DiscfinRequestData {
 	private Boolean partOfCycleAsFull;
 	private String bufferTime;
 	private String bufferTimeUnit;
+	private String simpleFineCycle;
 
 	public String getDiscFnType() {
 		return discFnType;
@@ -121,5 +122,13 @@ public class DiscfinRequestData {
 
 	public void setBufferTimeUnit(String bufferTimeUnit) {
 		this.bufferTimeUnit = bufferTimeUnit;
+	}
+
+	public String getSimpleFineCycle() {
+		return simpleFineCycle;
+	}
+
+	public void setSimpleFineCycle(String simpleFineCycle) {
+		this.simpleFineCycle = simpleFineCycle;
 	}
 }

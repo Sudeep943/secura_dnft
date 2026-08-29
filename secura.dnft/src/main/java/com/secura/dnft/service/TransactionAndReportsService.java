@@ -1126,7 +1126,6 @@ public class TransactionAndReportsService {
 	public void uploadTransactionFilesToDrive(String flatId) {
 
 	    List<Transaction> transactions;
-
 	    if (flatId == null || flatId.isBlank()) {
 	        transactions = transactionRepository.findAll();
 	    } else {
@@ -1143,7 +1142,7 @@ public class TransactionAndReportsService {
 	        try {
 
 	            String trnsFilesJson = transaction.getTrnsFiles();
-
+	            flatId=transaction.getFlatId();
 	            // No files associated with this transaction
 	            if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
 	                continue;
@@ -1154,6 +1153,7 @@ public class TransactionAndReportsService {
       			});
 
 	            if (trnsFiles == null || trnsFiles.isEmpty()) {
+	            	  LOGGER.info("No Transaction File Available For TransctionID {}",transaction.getTrnscId());
 	                continue;
 	            }
 
@@ -1169,12 +1169,14 @@ public class TransactionAndReportsService {
         	                String uniqueId=transaction.getTrnscId() + "_"+i;
         	              try {
             	              String drivePath =googleDriveService.uploadDataToDrive(fileData,fileType,uniqueId,apartmentId,flatId);
+            	              LOGGER.info("Transaction File Uploaded For Flat {} and Transaction Id:{}",flatId,uniqueId);
+            	              
             	              if (drivePath != null && !drivePath.isBlank()) {
           	                    uploadedFiles.add(drivePath);
           	                }
         	              }
         	              catch(Exception e) {
-        	            	  System.out.println("Data Couldn't Uploaded for "+flatId);
+        	            	  LOGGER.error("Data Couldn't Uploaded for Flat ID {} and Transaction Id:{} Cause:{}",flatId,uniqueId,e.getMessage(),e);
         	              }
 
         	               
@@ -1185,18 +1187,15 @@ public class TransactionAndReportsService {
                     	String uniqueId=transaction.getTrnscId();
                     	try {
       	              String drivePath =googleDriveService.uploadDataToDrive(trnsFiles.get(0),fileType,uniqueId,apartmentId,flatId);
-
+      	            LOGGER.info("Transaction File Uploaded For Flat {} and Transaction Id:{}",flatId,uniqueId);
       	                if (drivePath != null && !drivePath.isBlank()) {
       	                    uploadedFiles.add(drivePath);
       	                } }
       	              catch(Exception e) {
-    	            	  System.out.println("Data Couldn't Uploaded for "+flatId);
+      	            	  LOGGER.error("Data Couldn't Uploaded for Flat ID {} and Transaction Id:{} Cause:{}",flatId,uniqueId,e.getMessage(),e);
     	              }
                     }
-	            // Upload every file to Google Drive
-	            
-
-	            // Convert List<String> -> JSON
+                if(!uploadedFiles.isEmpty()) {
 	            String updatedTrnsFiles =
 	                    genericService.toJson(uploadedFiles);
 
@@ -1205,6 +1204,7 @@ public class TransactionAndReportsService {
 
 	            // Save transaction
 	            transactionRepository.save(transaction);
+                    }
 
 	        } catch (Exception e) {
 
