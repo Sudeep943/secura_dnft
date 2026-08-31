@@ -1660,7 +1660,7 @@ public class TransactionAndReportsService {
 		if (transaction == null || !hasText(transaction.getDueDetails())) {
 			return null;
 		}
-		String dueId = extractDueIdFromDueDetails(transaction.getDueDetails());
+		String dueId =transaction.getDueDetails();
 		if (!hasText(dueId)) {
 			LOGGER.debug("buildCompletedPaymentDetails: could not extract dueId from dueDetails={}",
 					transaction.getDueDetails());
@@ -1681,7 +1681,7 @@ public class TransactionAndReportsService {
 		List<String> tenderList = parseList(transaction.getTrnsTender(),
 				new TypeReference<List<PaymentTenderData>>() {})
 				.stream()
-				.map(PaymentTenderData::getTenderName)
+				.map(tndr->getTederDetailsForCompletedPayment(tndr))
 				.filter(Objects::nonNull)
 				.collect(Collectors.toList());
 
@@ -1700,22 +1700,22 @@ public class TransactionAndReportsService {
 		detail.setTransactionAmount(transaction.getTrnsAmt());
 		detail.setThirdPartyTransactionNumber(transaction.getThirdPartyTrnsRef());
 		return detail;
+		
 	}
+	
+	
 
 	/**
 	 * Extracts the dueId from the composite dueDetails key stored in the transaction.
 	 * Expected format: "<dueId>_<collectionCycle>_<flatArea>_<dueDate>" where dueId is the
 	 * prefix before the first underscore character.
 	 */
-	private String extractDueIdFromDueDetails(String dueDetails) {
-		if (!hasText(dueDetails)) {
-			return null;
-		}
-		String normalized = dueDetails.trim();
-		int firstSeparatorIndex = normalized.indexOf('_');
-		if (firstSeparatorIndex <= 0) {
-			return null;
-		}
-		return normalized.substring(0, firstSeparatorIndex).trim();
+	private String getTederDetailsForCompletedPayment(PaymentTenderData paymentTenderData) {
+		StringBuilder tenderData =new StringBuilder();
+		tenderData=tenderData.append(paymentTenderData.getTenderName().replace("_"," "));
+		tenderData=tenderData.append(" ");
+		tenderData=tenderData.append("₹");
+		tenderData=tenderData.append(paymentTenderData.getAmountPaid());
+		return tenderData.toString();
 	}
 }
