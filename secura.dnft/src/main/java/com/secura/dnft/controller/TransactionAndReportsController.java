@@ -22,6 +22,8 @@ import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.UpdateTransactionRefRequest;
 import com.secura.dnft.request.response.UpdateTransactionRefResponse;
+import com.secura.dnft.request.response.GetPaymentDetailsRequest;
+import com.secura.dnft.request.response.GetPaymentDetailsResponse;
 import com.secura.dnft.service.TransactionAndReportsService;
 
 import jakarta.validation.Valid;
@@ -152,6 +154,21 @@ public class TransactionAndReportsController {
 		e.printStackTrace();
 	}
 	return null;
+	}
+
+	@PostMapping("/getPaymentDetailsData")
+	@CrossOrigin(origins = "*")
+	public GetPaymentDetailsResponse getPaymentDetailsData(@RequestBody GetPaymentDetailsRequest request) {
+		GetPaymentDetailsResponse response = new GetPaymentDetailsResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+		try {
+			return transactionAndReportsService.getPaymentDetailsData(request);
+		} catch (Exception e) {
+			e.printStackTrace();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+		}
+		return response;
 	}
 	
 }

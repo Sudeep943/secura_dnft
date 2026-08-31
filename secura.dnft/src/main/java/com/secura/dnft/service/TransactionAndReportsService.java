@@ -51,12 +51,14 @@ import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
 import com.secura.dnft.dao.TransactionRepository;
+import com.secura.dnft.dao.TransDueDetailsRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.entity.TransDueDetailsEntity;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.Name;
@@ -85,6 +87,9 @@ import com.secura.dnft.request.response.ReportPaymentData;
 import com.secura.dnft.request.response.TransactionResponseItem;
 import com.secura.dnft.request.response.UpdateTransactionRefRequest;
 import com.secura.dnft.request.response.UpdateTransactionRefResponse;
+import com.secura.dnft.request.response.CompletedPaymentDetails;
+import com.secura.dnft.request.response.GetPaymentDetailsRequest;
+import com.secura.dnft.request.response.GetPaymentDetailsResponse;
 import com.secura.dnft.security.BusinessException;
 
 import net.sourceforge.tess4j.Tesseract;
@@ -133,6 +138,9 @@ public class TransactionAndReportsService {
 	 
 	 @Autowired
 	 ApartmentService apartmentService;
+
+	 @Autowired
+	 TransDueDetailsRepository transDueDetailsRepository;
 
 	@Value("${transaction.chunk}")
 	private Integer transactionChunkSize;
@@ -1552,4 +1560,162 @@ public class TransactionAndReportsService {
             return new UpdateTransactionRefResponse("Internal server error during update", "ERR_500");
         }
     }
+
+	public GetPaymentDetailsResponse getPaymentDetailsData(GetPaymentDetailsRequest request) {
+		LOGGER.info("getPaymentDetailsData called");
+		GetPaymentDetailsResponse response = new GetPaymentDetailsResponse();
+		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+
+		String aprmntId = request != null && request.getGenericHeader() != null
+				? request.getGenericHeader().getApartmentId()
+				: null;
+
+		if (!hasText(aprmntId)) {
+			LOGGER.warn("getPaymentDetailsData: apartmentId is missing in request");
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+
+		String paymentId = request != null ? request.getPaymentId() : null;
+		String paymentName = request != null ? request.getPaymentName() : null;
+
+		List<Transaction> transactions = new ArrayList<>();
+		List<TransDueDetailsEntity> transDueDetailsList = new ArrayList<>();
+
+		if (hasText(paymentId)) {
+			LOGGER.info("getPaymentDetailsData: fetching by paymentId={}, aprmntId={}", paymentId, aprmntId);
+			transactions = transactionRepository.findByAprmntIdAndPymntIdAndTrnsStatus(aprmntId, paymentId,
+					TRNS_STATUS_SUCCESS);
+			transDueDetailsList = transDueDetailsRepository.findByPaymentIdAndAprmntId(paymentId, aprmntId);
+		} else if (hasText(paymentName)) {
+			LOGGER.info("getPaymentDetailsData: fetching by paymentName={}, aprmntId={}", paymentName, aprmntId);
+			List<String> paymentIds = transDueDetailsRepository
+					.findDistinctPaymentIdsByPaymentNameAndAprmntId(paymentName, aprmntId);
+			if (paymentIds == null || paymentIds.isEmpty()) {
+				LOGGER.info("getPaymentDetailsData: no paymentIds found for paymentName={}", paymentName);
+				response.setCompletedPaymentDetails(new ArrayList<>());
+				response.setTotalCollection(BigDecimal.ZERO);
+				response.setMessage(SuccessMessage.SUCC_MESSAGE_65);
+				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_65);
+				return response;
+			}
+			transactions = transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus(aprmntId, paymentIds,
+					TRNS_STATUS_SUCCESS);
+			transDueDetailsList = transDueDetailsRepository.findByPaymentIdInAndAprmntId(paymentIds, aprmntId);
+		} else {
+			LOGGER.warn("getPaymentDetailsData: neither paymentId nor paymentName provided");
+			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
+			return response;
+		}
+
+		List<CompletedPaymentDetails> completedPaymentDetailsList = new ArrayList<>();
+		for (Transaction transaction : transactions) {
+			try {
+				CompletedPaymentDetails detail = buildCompletedPaymentDetails(transaction, transDueDetailsList);
+				if (detail != null) {
+					completedPaymentDetailsList.add(detail);
+				}
+			} catch (Exception e) {
+				LOGGER.error("getPaymentDetailsData: error building details for transactionId={}",
+						transaction.getTrnscId(), e);
+			}
+		}
+
+		BigDecimal totalCollection = completedPaymentDetailsList.stream()
+				.map(d -> {
+					try {
+						return new BigDecimal(d.getTransactionAmount());
+					} catch (Exception e) {
+						return BigDecimal.ZERO;
+					}
+				})
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		completedPaymentDetailsList.sort((a, b) -> {
+			String flatA = a.getFlatId() != null ? a.getFlatId() : "";
+			String flatB = b.getFlatId() != null ? b.getFlatId() : "";
+			return flatA.compareToIgnoreCase(flatB);
+		});
+
+		response.setCompletedPaymentDetails(completedPaymentDetailsList);
+		response.setTotalCollection(totalCollection);
+
+		if (completedPaymentDetailsList.isEmpty()) {
+			LOGGER.info("getPaymentDetailsData: no completed payment details found");
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_65);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_65);
+		} else {
+			LOGGER.info("getPaymentDetailsData: returning {} records, totalCollection={}",
+					completedPaymentDetailsList.size(), totalCollection);
+			response.setMessage(SuccessMessage.SUCC_MESSAGE_64);
+			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_64);
+		}
+		return response;
+	}
+
+	private CompletedPaymentDetails buildCompletedPaymentDetails(Transaction transaction,
+			List<TransDueDetailsEntity> transDueDetailsList) {
+		if (transaction == null || !hasText(transaction.getDueDetails())) {
+			return null;
+		}
+		String dueId = extractDueIdFromDueDetails(transaction.getDueDetails());
+		if (!hasText(dueId)) {
+			LOGGER.debug("buildCompletedPaymentDetails: could not extract dueId from dueDetails={}",
+					transaction.getDueDetails());
+			return null;
+		}
+		TransDueDetailsEntity matchedDue = transDueDetailsList.stream()
+				.filter(d -> dueId.equals(d.getDueId())
+						&& transaction.getTrnscId() != null
+						&& transaction.getTrnscId().equals(d.getTransactionId()))
+				.findFirst()
+				.orElse(null);
+		if (matchedDue == null) {
+			LOGGER.debug("buildCompletedPaymentDetails: no matching TransDueDetailsEntity for transactionId={}, dueId={}",
+					transaction.getTrnscId(), dueId);
+			return null;
+		}
+
+		List<String> tenderList = parseList(transaction.getTrnsTender(),
+				new TypeReference<List<PaymentTenderData>>() {})
+				.stream()
+				.map(PaymentTenderData::getTenderName)
+				.filter(Objects::nonNull)
+				.collect(Collectors.toList());
+
+		CompletedPaymentDetails detail = new CompletedPaymentDetails();
+		detail.setPaymentId(matchedDue.getPaymentId());
+		detail.setPaymentName(matchedDue.getPaymentName());
+		detail.setTransactionId(transaction.getTrnscId());
+		detail.setFlatId(transaction.getFlatId());
+		detail.setTenderList(tenderList);
+		detail.setTransactionDate(transaction.getTrnsDate());
+		detail.setCycleOfPayment(matchedDue.getCollectionCycle());
+		detail.setDueAmount(matchedDue.getAmount());
+		detail.setDiscount(matchedDue.getDiscountedAmount());
+		detail.setPenalty(matchedDue.getFineAmount());
+		detail.setRoundUpAmount(matchedDue.getRoundUpAmount());
+		detail.setTransactionAmount(transaction.getTrnsAmt());
+		detail.setThirdPartyTransactionNumber(transaction.getThirdPartyTrnsRef());
+		return detail;
+	}
+
+	/**
+	 * Extracts the dueId from the composite dueDetails key stored in the transaction.
+	 * Expected format: "<dueId>_<collectionCycle>_<flatArea>_<dueDate>" where dueId is the
+	 * prefix before the first underscore character.
+	 */
+	private String extractDueIdFromDueDetails(String dueDetails) {
+		if (!hasText(dueDetails)) {
+			return null;
+		}
+		String normalized = dueDetails.trim();
+		int firstSeparatorIndex = normalized.indexOf('_');
+		if (firstSeparatorIndex <= 0) {
+			return null;
+		}
+		return normalized.substring(0, firstSeparatorIndex).trim();
+	}
 }
