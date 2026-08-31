@@ -1,9 +1,9 @@
 package com.secura.dnft.service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,8 +14,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -50,8 +50,10 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.bean.ExternalTransactionDetails;
 import com.secura.dnft.dao.CreditNoteRepository;
 import com.secura.dnft.dao.DocumentRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
@@ -75,39 +77,39 @@ import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.CreditNoteInterface;
 import com.secura.dnft.interfaceservice.PaymentInterface;
-import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.ActionQRPaymentRequest;
 import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.ActionTransactionReviewWorkListRequest;
+import com.secura.dnft.request.response.AddedCharges;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
-import com.secura.dnft.request.response.CreateReceiptRequest;
-import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
 import com.secura.dnft.request.response.CreatePaymentResponse;
+import com.secura.dnft.request.response.CreateReceiptRequest;
+import com.secura.dnft.request.response.CreateReceiptResponse;
 import com.secura.dnft.request.response.DiscFinReceipt;
 import com.secura.dnft.request.response.DueAmountDetails;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsRequest;
 import com.secura.dnft.request.response.DuePaymentAmountDetailsResponse;
-import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GenericResponse;
-import com.secura.dnft.request.response.Items;
+import com.secura.dnft.request.response.GetDuePaymentAmountDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentRequest;
 import com.secura.dnft.request.response.GetPaymentResponse;
+import com.secura.dnft.request.response.Items;
 import com.secura.dnft.request.response.LedgerEntryRequest;
 import com.secura.dnft.request.response.LedgerEntryResponse;
 import com.secura.dnft.request.response.OtpDetails;
 import com.secura.dnft.request.response.PayDueRequest;
 import com.secura.dnft.request.response.PayDueResponse;
-import com.secura.dnft.request.response.ReedemCreditNoteRequest;
 import com.secura.dnft.request.response.PaymentEntityModel;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.ReconcileQRPaymentRequest;
 import com.secura.dnft.request.response.ReconcileQRPaymentResponse;
-import com.secura.dnft.request.response.UploadPastDueRequest;
-import com.secura.dnft.request.response.UploadPastDueResponse;
+import com.secura.dnft.request.response.ReedemCreditNoteRequest;
 import com.secura.dnft.request.response.RemovePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentRequest;
 import com.secura.dnft.request.response.UpdatePaymentResponse;
+import com.secura.dnft.request.response.UploadPastDueRequest;
+import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 import com.secura.dnft.security.BusinessException;
 
@@ -190,6 +192,8 @@ public class PaymentServices implements PaymentInterface {
 	@Autowired
 	GoogleDriveService googleDriveService;
 	
+	@Autowired
+	TransactionAndReportsService transactionAndReportsService;
 	
 	@Override
 	public DuePaymentAmountDetailsResponse getDuePaymentAmountDetails(DuePaymentAmountDetailsRequest request) {
@@ -1154,8 +1158,15 @@ public class PaymentServices implements PaymentInterface {
 		if(request.getFiles() != null) {
 			List<String>transUploadedFiles=request.getFiles().stream().map(file->googleDriveService.uploadDataToDrive(file, SecuraConstants.FILE_TYPE_TRANSACTION, transaction.getTrnscId(), transaction.getAprmntId(), transaction.getFlatId())).collect(Collectors.toList());
 			transaction.setTrnsFiles(genericService.toJson(transUploadedFiles != null ? transUploadedFiles : List.of()));
+			ExternalTransactionDetails externalTransactionDetails=transactionAndReportsService.extractTransactionIdFromBase64(request.getFiles().get(0));
+			if (StringUtils.hasText(externalTransactionDetails.getUtr())) {
+                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getUtr());
+            } else if (StringUtils.hasText(externalTransactionDetails.getTransactionId())) {
+                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getTransactionId());
+            } else if (StringUtils.hasText(externalTransactionDetails.getReferenceNumber())) {
+                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getReferenceNumber());
+            }
 		}
-		
 	//	transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
 		transaction.setTrnsBnkAccnt(paymentEntity.getBankAccountId());
 		transaction.setTrnsAmt(request.getAmount());
@@ -1163,7 +1174,7 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setPymntId(request.getPaymentId());
 		transaction.setTrnsStatus(resolveTransactionStatus(primaryTender, request.getTransactionStatus()));
 		transaction.setNoOfPerson(request.getNoOfPersons());
-		transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
+		//transaction.setThirdPartyTrnsRef(request.getThirdPartyTransactionId());
 		transaction.setThirdPartyName(resolveThirdPartyName(primaryTender));
 		transaction.setDueDetails(createFlatPendingDueId(dueId, paymentCycle, flatArea, dueDate, request.getPaymentId(),
 				paymentEntity.getPaymentCapita()));

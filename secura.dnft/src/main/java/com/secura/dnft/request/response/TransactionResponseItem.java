@@ -35,6 +35,7 @@ public class TransactionResponseItem {
 	private String paymentName;
 	private String externalTransactionReferenceNumber;
 	private List<String> ownersName;
+	private String noOfHeads;
 	
 	public String getAprmntId() {
 		return aprmntId;
@@ -281,6 +282,14 @@ public class TransactionResponseItem {
 
 	public void setOwnersName(List<String> ownersName) {
 		this.ownersName = ownersName;
+	}
+
+	public String getNoOfHeads() {
+		return noOfHeads;
+	}
+
+	public void setNoOfHeads(String noOfHeads) {
+		this.noOfHeads = noOfHeads;
 	}
 	
 	

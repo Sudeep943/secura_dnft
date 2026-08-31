@@ -1,6 +1,7 @@
 package com.secura.dnft.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.secura.dnft.bean.ExternalTransactionDetails;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
@@ -18,6 +20,8 @@ import com.secura.dnft.request.response.GetDefaulterResponse;
 import com.secura.dnft.request.response.GetTransactionByPageRequest;
 import com.secura.dnft.request.response.GetTransactionRequest;
 import com.secura.dnft.request.response.GetTransactionResponse;
+import com.secura.dnft.request.response.UpdateTransactionRefRequest;
+import com.secura.dnft.request.response.UpdateTransactionRefResponse;
 import com.secura.dnft.service.TransactionAndReportsService;
 
 import jakarta.validation.Valid;
@@ -113,4 +117,41 @@ public class TransactionAndReportsController {
 		}
 		return "Process Failed";
 	}
+	
+	@GetMapping("/getExternalTrasnactionrefno")
+	@CrossOrigin(origins = "*")
+	public ExternalTransactionDetails getExternalTrasnactionrefno(@RequestParam(required = false) String path) {
+		try {
+			ExternalTransactionDetails UTR=transactionAndReportsService.extractTransactionIdFromBase64(path);
+			return UTR;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	@GetMapping("/updatetExternalTrasnactionrefno")
+	@CrossOrigin(origins = "*")
+	public String updatetExternalTrasnactionrefno(@RequestParam(required = false) String flatId) {
+		try {
+			transactionAndReportsService.updateExternalTransactionIdIntransaction(flatId);
+			return "Process Completed";
+		} catch (Exception e) {
+			e.printStackTrace();
+			return e.getMessage();
+		}
+	}
+	
+	@PostMapping("/updateReference")
+    public UpdateTransactionRefResponse updateTransactionReference(@RequestBody UpdateTransactionRefRequest request) {
+		try {
+        UpdateTransactionRefResponse response = transactionAndReportsService.updateExternalTransactionRef(request);
+        return response;
+    }
+	 catch (Exception e) {
+		e.printStackTrace();
+	}
+	return null;
+	}
+	
 }

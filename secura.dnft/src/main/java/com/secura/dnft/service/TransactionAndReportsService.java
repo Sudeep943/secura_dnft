@@ -1,5 +1,7 @@
 package com.secura.dnft.service;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -22,7 +24,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import javax.imageio.ImageIO;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,9 +40,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.BankAccountDetails;
+import com.secura.dnft.bean.ExternalTransactionDetails;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
 import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
@@ -75,6 +83,12 @@ import com.secura.dnft.request.response.GetTransactionResponse;
 import com.secura.dnft.request.response.PaymentTenderData;
 import com.secura.dnft.request.response.ReportPaymentData;
 import com.secura.dnft.request.response.TransactionResponseItem;
+import com.secura.dnft.request.response.UpdateTransactionRefRequest;
+import com.secura.dnft.request.response.UpdateTransactionRefResponse;
+import com.secura.dnft.security.BusinessException;
+
+import net.sourceforge.tess4j.Tesseract;
+import net.sourceforge.tess4j.TesseractException;
 
 @Service
 public class TransactionAndReportsService {
@@ -122,6 +136,9 @@ public class TransactionAndReportsService {
 
 	@Value("${transaction.chunk}")
 	private Integer transactionChunkSize;
+	
+    Logger logger = LoggerFactory.getLogger(this.getClass());
+
 
 	public GetTransactionResponse getTransaction(GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
@@ -811,7 +828,10 @@ public class TransactionAndReportsService {
 		item.setTrnsTender(parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {}));
 		item.setTrnsType(transaction.getTrnsType());
 		item.setTrnsShrtDesc(transaction.getTrnsShrtDesc());
+		try {
 		item.setTrnsFiles(parseList(transaction.getTrnsFiles(), new TypeReference<List<String>>() {}).stream().map(file->googleDriveService.getFileFromDrive(file)).collect(Collectors.toList()));
+		}
+		catch(Exception e){e.printStackTrace();}
 		item.setTrnsBnkAccnt(transaction.getTrnsBnkAccnt());
 		item.setTrnsAmt(transaction.getTrnsAmt());
 		item.setTrnsCurrency(transaction.getTrnsCurrency());
@@ -857,8 +877,8 @@ public class TransactionAndReportsService {
 			}
 			
 		}
-		
-		
+		item.setNoOfHeads(transaction.getNoOfPerson());
+		item.setExternalTransactionReferenceNumber(transaction.getThirdPartyTrnsRef());
 		return item;
 	}
 	
@@ -1220,7 +1240,7 @@ public class TransactionAndReportsService {
 	    String rootPath =
 	            "C:\\Users\\user\\Desktop\\DNFT\\Transaction_File_prod_secura";
 
-	    List<Transaction> transactions =  transactionRepository.findByTrnsStatus("SUCCESS");;
+	    List<Transaction> transactions = transactionRepository.findAll();//  transactionRepository.findByTrnsStatus("SUCCESS");;
 
 	    if (transactions == null || transactions.isEmpty()) {
 	        return;
@@ -1365,4 +1385,171 @@ public class TransactionAndReportsService {
 	        }
 	    }
 	}
+	
+	@Autowired
+    Tesseract tesseract;
+
+	public ExternalTransactionDetails extractTransactionIdFromBase64(String base64String) {
+	//	base64String=googleDriveService.getFileFromDrive(base64String);
+        // 1. Strip MIME-type prefix if sent from a web frontend (e.g., "data:image/jpeg;base64,")
+	  String TXN_REGEX = "(?i)(?:UTR|Ref\\.?\\s*No|Tr\\.?\\s*ID|Transaction\\s*ID)[\\s:]*([A-Z0-9]+)";
+	 Pattern UTR_PATTERN = Pattern.compile("(?i)UTR[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+	 Pattern TXN_PATTERN = Pattern.compile("(?i)Transaction\\s*ID[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+	 Pattern REF_PATTERN = Pattern.compile("(?i)(?:Ref\\.?\\s*No|Tr\\.?\\s*ID)[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+	  
+	  Pattern PATTERN = Pattern.compile(TXN_REGEX);
+	    
+	  ExternalTransactionDetails details = new ExternalTransactionDetails();
+	  if (base64String != null && base64String.contains(",")) {
+          base64String = base64String.split(",")[1];
+      }
+
+      try {
+          byte[] imageBytes = Base64.getDecoder().decode(base64String);
+          ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+          BufferedImage image = ImageIO.read(bais);
+
+          if (image == null) {
+              details.setRawText("Error: Could not decode Base64 string.");
+              return details;
+          }
+
+          // Perform OCR
+          String extractedText = tesseract.doOCR(image);
+          details.setRawText(extractedText);
+
+          // 2. Extract UTR independently
+          Matcher utrMatcher = UTR_PATTERN.matcher(extractedText);
+          if (utrMatcher.find()) {
+              details.setUtr(utrMatcher.group(1));
+          }
+
+          // 3. Extract Transaction ID independently
+          Matcher txnMatcher = TXN_PATTERN.matcher(extractedText);
+          if (txnMatcher.find()) {
+              details.setTransactionId(txnMatcher.group(1));
+          }
+
+          // 4. Extract Reference/Tr. ID independently
+          Matcher refMatcher = REF_PATTERN.matcher(extractedText);
+          if (refMatcher.find()) {
+              details.setReferenceNumber(refMatcher.group(1));
+          }
+
+      } catch (IllegalArgumentException | IOException e) {
+          details.setRawText("Error processing image stream: " + e.getMessage());
+      } catch (TesseractException e) {
+          details.setRawText("OCR Error: " + e.getMessage());
+      }
+
+      return details;
+  }
+
+	public void updateExternalTransactionIdIntransaction(String flatId) {
+	    List<Transaction> transactions;
+
+	    // 1. Fetch transactions based on flatId presence
+	    if (flatId != null) {
+	        logger.info("Fetching transactions for Flat ID: {}", flatId);
+	        transactions = transactionRepository.findByFlatId(flatId);
+	    } else {
+	        logger.info("No Flat ID provided. Fetching all transactions.");
+	        transactions = transactionRepository.findAll();
+	    }
+
+	    // 2. Iterate through the transactions
+	    for (Transaction transaction : transactions) {
+	        try {
+	            // Assuming the JSON string is a property of the transaction entity
+	            String trnsFilesJson = transaction.getTrnsFiles(); 
+	            String thirdPartyTrnsRef= transaction.getThirdPartyTrnsRef();
+	            if(StringUtils.hasText(thirdPartyTrnsRef)) {
+	            	 logger.info("ThirdPartyTrnsRef Already Availble for Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),transaction.getFlatId());
+		                continue;
+	            }
+	            if (!StringUtils.hasText(trnsFilesJson)) {
+	                logger.info("No transaction files JSON found for Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),transaction.getFlatId());
+	                continue;
+	            }
+
+	            List<String> trnsFiles = genericService.fromJson(trnsFilesJson, new TypeReference<List<String>>() {});
+
+	            if (trnsFiles != null && !trnsFiles.isEmpty()) {
+	                boolean isUpdated = false;
+
+	                // 3. Iterate through each file in the transaction
+	                for (String trnsFile : trnsFiles) {
+	                    try {
+	                        logger.info("Processing file: {} for Transaction ID: {}, Flat Id:{}", trnsFile, transaction.getTrnscId(),transaction.getFlatId());
+
+	                        // Fetch Base64 from Google Drive
+	                        String base64String = googleDriveService.getFileFromDrive(trnsFile);
+	                        
+	                        if (!StringUtils.hasText(base64String)) {
+	                            logger.warn("Received empty base64 string from Google Drive for file: {}", trnsFile);
+	                            continue;
+	                        }
+
+	                        // Extract OCR details
+	                        ExternalTransactionDetails details = extractTransactionIdFromBase64(base64String);
+
+	                        // 4. Check priority constraints (UTR > Transaction ID > Reference Number)
+	                        if (StringUtils.hasText(details.getUtr())) {
+	                            transaction.setThirdPartyTrnsRef(details.getUtr());
+	                            isUpdated = true;
+	                        } else if (StringUtils.hasText(details.getTransactionId())) {
+	                            transaction.setThirdPartyTrnsRef(details.getTransactionId());
+	                            isUpdated = true;
+	                        } else if (StringUtils.hasText(details.getReferenceNumber())) {
+	                            transaction.setThirdPartyTrnsRef(details.getReferenceNumber());
+	                            isUpdated = true;
+	                        }
+
+	                        // 5. Save and break if successfully found
+	                        if (isUpdated) {
+	                            transactionRepository.save(transaction);
+	                            logger.info("Successfully updated Transaction ID: {} , Flat Id:{} with ThirdPartyTrnsRef: {}", 
+	                                    transaction.getTrnscId(),transaction.getFlatId(), transaction.getThirdPartyTrnsRef());
+	                            break; // Stop checking further files for this specific transaction
+	                        } else {
+	                            logger.info("No matching external reference found in file: {} for Transaction ID: {} , Flat Id:{}", 
+	                                    trnsFile, transaction.getTrnscId(),transaction.getFlatId());
+	                        }
+
+	                    } catch (Exception e) {
+	                        logger.error("Error processing file: {} for Transaction ID: {} , Flat Id:{}", trnsFile, transaction.getTrnscId(),transaction.getFlatId(), e);
+	                    }
+	                }
+	            }
+	        } catch (Exception e) {
+	            logger.error("Error processing Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),transaction.getFlatId(), e);
+	        }
+	    }
+	    logger.info("Completed updateExternalTransactionIdIntransaction job.");
+	}
+	
+	
+	public UpdateTransactionRefResponse updateExternalTransactionRef(UpdateTransactionRefRequest updateTransactionRefRequest) {
+        try {
+            List<Transaction> transactions = transactionRepository.findByAprmntIdAndTrnscId(updateTransactionRefRequest.getGenericHeader().getApartmentId(),updateTransactionRefRequest.getTransactionId());
+          if(transactions.size()>1) {
+	    throw new BusinessException(ErrorMessage.ERR_MESSAGE_33, ErrorMessageCode.ERR_MESSAGE_33);
+            }
+            if (!transactions.isEmpty()) {
+                Transaction transaction = transactions.get(0);
+                transaction.setThirdPartyTrnsRef(updateTransactionRefRequest.getThirdPartyTrnsRef());
+                
+                transactionRepository.save(transaction);
+                logger.info("Successfully updated ThirdPartyTrnsRef for Transaction ID: {}", updateTransactionRefRequest.getTransactionId());
+                
+                return new UpdateTransactionRefResponse("Transaction reference updated successfully", "SUCCESS_200");
+            } else {
+                logger.warn("Transaction ID: {} not found", updateTransactionRefRequest.getTransactionId());
+                return new UpdateTransactionRefResponse("Transaction not found", "ERR_404");
+            }
+        } catch (Exception e) {
+            logger.error("Error updating transaction reference for Transaction ID: {}", updateTransactionRefRequest.getTransactionId(), e);
+            return new UpdateTransactionRefResponse("Internal server error during update", "ERR_500");
+        }
+    }
 }

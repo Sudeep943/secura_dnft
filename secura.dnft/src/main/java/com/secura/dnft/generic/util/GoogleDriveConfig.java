@@ -15,6 +15,7 @@ import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
+import com.google.api.services.drive.model.About;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 
@@ -27,6 +28,45 @@ public class GoogleDriveConfig {
     private static final String SERVICE_ACCOUNT_FILE =
             "securadnft-68d6dbb43f8a.json";
 
+    private static final String DELEGATED_USER = "contact@dnfaoa.org";
+
+//    @Bean
+//    public Drive driveService()
+//            throws IOException, GeneralSecurityException {
+//
+//        // Cloud Run runtime Service Account A
+//        GoogleCredentials credentials =
+//                GoogleCredentials.getApplicationDefault()
+//                        .createScoped(
+//                                Collections.singleton(DriveScopes.DRIVE));
+//
+//        // Domain-Wide Delegation:
+//        // Service Account A impersonates the Workspace user
+//        credentials = credentials.createDelegated(DELEGATED_USER);
+//
+//        HttpRequestInitializer requestInitializer =
+//                new HttpCredentialsAdapter(credentials);
+//       
+//        Drive drive = new Drive.Builder(
+//                GoogleNetHttpTransport.newTrustedTransport(),
+//                GsonFactory.getDefaultInstance(),
+//                requestInitializer)
+//                .setApplicationName(APPLICATION_NAME)
+//                .build();
+//        
+//        About about = drive.about()
+//                .get()
+//                .setFields("user")
+//                .execute();
+//
+//        System.out.println(
+//                "Google Drive authenticated user: "
+//                + about.getUser().getEmailAddress()
+//        );
+//        
+//        return drive;
+//    }
+//    
     
     @Bean
     public Drive driveService()
@@ -59,12 +99,23 @@ public class GoogleDriveConfig {
         HttpRequestInitializer requestInitializer =
                 new HttpCredentialsAdapter(credentials);
 
+        Drive drive = new Drive.Builder(
+              GoogleNetHttpTransport.newTrustedTransport(),
+              GsonFactory.getDefaultInstance(),
+              requestInitializer)
+              .setApplicationName(APPLICATION_NAME)
+              .build();
+      About about = drive.about()
+      .get()
+      .setFields("user")
+      .execute();
+
+System.out.println(
+      "Google Drive authenticated user: "
+      + about.getUser().getEmailAddress()
+);
+
         // Create authenticated Google Drive client
-        return new Drive.Builder(
-                GoogleNetHttpTransport.newTrustedTransport(),
-                GsonFactory.getDefaultInstance(),
-                requestInitializer)
-                .setApplicationName(APPLICATION_NAME)
-                .build();
+        return drive;
     }
 }
