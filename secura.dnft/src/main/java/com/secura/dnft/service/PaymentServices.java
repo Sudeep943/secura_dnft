@@ -48,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -114,6 +115,21 @@ import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
 import com.secura.dnft.security.BusinessException;
 
 import jakarta.persistence.EntityNotFoundException;
+import com.google.cloud.vision.v1.AnnotateImageRequest;
+import com.google.cloud.vision.v1.AnnotateImageResponse;
+import com.google.cloud.vision.v1.BatchAnnotateImagesResponse;
+import com.google.cloud.vision.v1.Feature;
+import com.google.cloud.vision.v1.Image;
+import com.google.cloud.vision.v1.ImageAnnotatorClient;
+import com.google.protobuf.ByteString;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class PaymentServices implements PaymentInterface {
@@ -774,6 +790,7 @@ public class PaymentServices implements PaymentInterface {
 					request != null ? request.getGenericHeader() : null);
 			transaction.setWorkListId(worklist.getWorklistId());
 			transactionRepository.save(transaction);
+			updatetransFileAndBankreferene(request,transaction);
 		} else if (successfulTransaction) {
 			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
 			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
@@ -1132,6 +1149,26 @@ public class PaymentServices implements PaymentInterface {
 		}
 	}
 
+	@Async
+	private void updatetransFileAndBankreferene(PayDueRequest request,Transaction transaction) {
+		if(request.getFiles() != null) {
+			List<String>transUploadedFiles=request.getFiles().stream().map(file->googleDriveService.uploadDataToDrive(file, SecuraConstants.FILE_TYPE_TRANSACTION, transaction.getTrnscId(), transaction.getAprmntId(), transaction.getFlatId())).collect(Collectors.toList());
+			transaction.setTrnsFiles(genericService.toJson(transUploadedFiles != null ? transUploadedFiles : List.of()));
+			try {
+			ExternalTransactionDetails externalTransactionDetails=extractTransactionIdFromBase64GoogleVison(request.getFiles().get(0));
+			if (StringUtils.hasText(externalTransactionDetails.getUtr())) {
+                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getUtr());
+            } else if (StringUtils.hasText(externalTransactionDetails.getTransactionId())) {
+                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getTransactionId());
+            } else if (StringUtils.hasText(externalTransactionDetails.getReferenceNumber())) {
+                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getReferenceNumber());
+            }
+			}catch (Exception e) {
+				LOGGER.error("Bankreferene couldn't Get Updated. Cause: ", e);
+			}
+			transactionRepository.save(transaction);
+		}
+	}
 	private Transaction buildTransaction(PayDueRequest request, String flatArea, PaymentEntity paymentEntity,
 			List<PaymentTenderData> paymentTenderDataList) {
 //		PaymentEntity paymentEntity = paymentRepository.findFirstByPaymentId(request.getPaymentId())
@@ -1155,18 +1192,19 @@ public class PaymentServices implements PaymentInterface {
 		transaction.setTrnsType(SecuraConstants.TRANSACTION_TYPE_CREDIT);
 		transaction.setTrnsShrtDesc("");
 		transaction.setFlatId(request.getGenericHeader() != null ? request.getGenericHeader().getFlatNo() : null);
-		if(request.getFiles() != null) {
-			List<String>transUploadedFiles=request.getFiles().stream().map(file->googleDriveService.uploadDataToDrive(file, SecuraConstants.FILE_TYPE_TRANSACTION, transaction.getTrnscId(), transaction.getAprmntId(), transaction.getFlatId())).collect(Collectors.toList());
-			transaction.setTrnsFiles(genericService.toJson(transUploadedFiles != null ? transUploadedFiles : List.of()));
-			ExternalTransactionDetails externalTransactionDetails=transactionAndReportsService.extractTransactionIdFromBase64(request.getFiles().get(0));
-			if (StringUtils.hasText(externalTransactionDetails.getUtr())) {
-                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getUtr());
-            } else if (StringUtils.hasText(externalTransactionDetails.getTransactionId())) {
-                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getTransactionId());
-            } else if (StringUtils.hasText(externalTransactionDetails.getReferenceNumber())) {
-                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getReferenceNumber());
-            }
-		}
+		
+//		if(request.getFiles() != null) {
+//			List<String>transUploadedFiles=request.getFiles().stream().map(file->googleDriveService.uploadDataToDrive(file, SecuraConstants.FILE_TYPE_TRANSACTION, transaction.getTrnscId(), transaction.getAprmntId(), transaction.getFlatId())).collect(Collectors.toList());
+//			transaction.setTrnsFiles(genericService.toJson(transUploadedFiles != null ? transUploadedFiles : List.of()));
+//			ExternalTransactionDetails externalTransactionDetails=extractTransactionIdFromBase64GoogleVison(request.getFiles().get(0));
+//			if (StringUtils.hasText(externalTransactionDetails.getUtr())) {
+//                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getUtr());
+//            } else if (StringUtils.hasText(externalTransactionDetails.getTransactionId())) {
+//                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getTransactionId());
+//            } else if (StringUtils.hasText(externalTransactionDetails.getReferenceNumber())) {
+//                transaction.setThirdPartyTrnsRef(externalTransactionDetails.getReferenceNumber());
+//            }
+//		}
 	//	transaction.setTrnsFiles(genericService.toJson(request.getFiles() != null ? request.getFiles() : List.of()));
 		transaction.setTrnsBnkAccnt(paymentEntity.getBankAccountId());
 		transaction.setTrnsAmt(request.getAmount());
@@ -2822,4 +2860,71 @@ public class PaymentServices implements PaymentInterface {
 		return false;
 	}
 
+	
+	public ExternalTransactionDetails extractTransactionIdFromBase64GoogleVison(String base64String) {
+	 Pattern UTR_PATTERN = Pattern.compile("(?i)(?:UTR|UPI\\s*transaction\\s*ID)[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+	  Pattern TXN_PATTERN = Pattern.compile("(?i)Transaction\\s*ID[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+	  Pattern REF_PATTERN = Pattern.compile("(?i)(?:Ref\\.?\\s*No|Tr\\.?\\s*ID)[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+		ExternalTransactionDetails details = new ExternalTransactionDetails();
+
+        // 1. Strip MIME-type prefix if sent from a web frontend
+        if (base64String != null && base64String.contains(",")) {
+            base64String = base64String.split(",")[1];
+        }
+
+        try {
+            // 2. Decode Base64 to ByteString for Google Vision
+            byte[] imageBytes = Base64.getDecoder().decode(base64String);
+            ByteString imgBytes = ByteString.copyFrom(imageBytes);
+
+            // 3. Build the Image and Feature requests
+            Image img = Image.newBuilder().setContent(imgBytes).build();
+            Feature feat = Feature.newBuilder().setType(Feature.Type.TEXT_DETECTION).build();
+            AnnotateImageRequest request = AnnotateImageRequest.newBuilder().addFeatures(feat).setImage(img).build();
+            
+            List<AnnotateImageRequest> requests = new ArrayList<>();
+            requests.add(request);
+
+            // 4. Call Google Cloud Vision API
+            String extractedText = "";
+            try (ImageAnnotatorClient client = ImageAnnotatorClient.create()) {
+                BatchAnnotateImagesResponse response = client.batchAnnotateImages(requests);
+                List<AnnotateImageResponse> responses = response.getResponsesList();
+
+                for (AnnotateImageResponse res : responses) {
+                    if (res.hasError()) {
+                        details.setRawText("Vision API Error: " + res.getError().getMessage());
+                        return details;
+                    }
+                    // Get the full extracted text
+                    extractedText = res.getTextAnnotationsList().get(0).getDescription();
+                }
+            }
+
+            details.setRawText(extractedText);
+
+            // 5. Apply your Regex logic to the extracted text
+            Matcher utrMatcher = UTR_PATTERN.matcher(extractedText);
+            if (utrMatcher.find()) {
+                details.setUtr(utrMatcher.group(1));
+            }
+
+            Matcher txnMatcher = TXN_PATTERN.matcher(extractedText);
+            if (txnMatcher.find()) {
+                details.setTransactionId(txnMatcher.group(1));
+            }
+
+            Matcher refMatcher = REF_PATTERN.matcher(extractedText);
+            if (refMatcher.find()) {
+                details.setReferenceNumber(refMatcher.group(1));
+            }
+
+        } catch (IllegalArgumentException e) {
+            details.setRawText("Error decoding Base64 string: " + e.getMessage());
+        } catch (Exception e) {
+            details.setRawText("Error calling Cloud Vision API: " + e.getMessage());
+        }
+
+        return details;
+    }
 }
