@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.bean.WorkListAssignment;
 import com.secura.dnft.dao.DiscFinRepository;
 import com.secura.dnft.dao.DueAmountDetailsRepository;
@@ -219,6 +220,17 @@ public class DueDetailsService {
 		return flatNos;
 	}
 
+	private boolean validatePerheadOnceCollection(PaymentEntity paymentEntity){
+		if(paymentEntity.getPaymentCapita().equalsIgnoreCase(SecuraConstants.PAYMENT_CAPITA_PER_HEAD)) {
+			List<String> collectionCycles=genericService.fromJson(
+					paymentEntity.getPaymentCollectionCycle(),
+ 		                new TypeReference<List<String>>() {}); 
+			if(collectionCycles.size()==1 &&collectionCycles.get(0).equals(SecuraConstants.PAYMENT_CYCLE_ONCE)) {
+				return true;
+			}
+		}
+		return false;
+	}
 	private DueAmountDetails buildDueDetails(PaymentEntity paymentEntity, String dueId, String flatTypeKey,
 			BigDecimal areaMultiplier, LocalDate intervalStart, LocalDate intervalEnd, String paymentCycle,
 			boolean applyDiscFin) {
@@ -232,7 +244,8 @@ public class DueDetailsService {
 				paymentEntity.getPaymentCollectionMode()));
 		due.setDueEndDate(intervalEnd);
 
-		BigDecimal amount = calculateAmount(paymentEntity, intervalStart, intervalEnd, areaMultiplier, paymentCycle);
+		BigDecimal amount = validatePerheadOnceCollection(paymentEntity)? 
+				 new BigDecimal(paymentEntity.getPaymentAmount()):calculateAmount(paymentEntity, intervalStart, intervalEnd, areaMultiplier, paymentCycle) ;
 		DiscFinReference discFinReference = applyDiscFin ? extractDiscFinReference(paymentEntity.getDiscFin())
 				: new DiscFinReference(null, null);
 		DiscFin discountDiscFin = applyDiscFin ? resolveDiscFin(discFinReference.discountCode(), paymentCycle) : null;

@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import com.secura.dnft.entity.TransDueDetailsEntity;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.TransactionId;
 
@@ -48,6 +49,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
 
     List<Transaction> findByTrnsStatusAndFlatId(String trnsStatus, String flatId);
     List<Transaction> findByFlatId(String flatId);
+	List<Transaction> findByPymntIdAndAprmntIdAndDueDetails(String paymentId, String aprmntI,String dueId);
+
     
     
 }

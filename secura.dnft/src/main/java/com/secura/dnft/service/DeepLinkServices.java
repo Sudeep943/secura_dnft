@@ -57,7 +57,7 @@ public class DeepLinkServices implements ThirdPartyPaymentGayeway {
 		String bankId=(String)requestMap.get("bankId");
 		Optional<BankEntity> bankEntityOptional = bankRepository.findByAprmntIdAndBankDetailsID(apartmentId, bankId);
 		BankEntity bankEntity = bankEntityOptional.get();
-		String upiId = "f058m00301@indianbk";// ;decryptNullable(bankEntity.getUpiId());
+		String upiId = decryptNullable(bankEntity.getUpiId());//"f058m00301@indianbk";// ;;
 		double amountInRupee=Double.valueOf(amountInPaisa)/100;
 		StringBuilder upiUrl= new StringBuilder("upi://pay?pa=");
 		upiUrl.append(upiId+"&");

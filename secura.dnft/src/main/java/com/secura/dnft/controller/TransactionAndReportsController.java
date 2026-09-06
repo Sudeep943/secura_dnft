@@ -83,7 +83,7 @@ public class TransactionAndReportsController {
 
 	@PostMapping("/getTransctionByPage")
 	@CrossOrigin(origins = "*")
-	public GetTransactionResponse getTransactionByPage(@Valid @RequestBody GetTransactionByPageRequest request) {
+	public GetTransactionResponse getTransactionByPage(@Valid @RequestBody GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 		try {

@@ -18,6 +18,7 @@ public class CompletedPaymentDetails {
 	private String roundUpAmount;
 	private String transactionAmount;
 	private String thirdPartyTransactionNumber;
+	private String noOfHead;
 
 	public String getPaymentId() {
 		return paymentId;
@@ -122,4 +123,14 @@ public class CompletedPaymentDetails {
 	public void setThirdPartyTransactionNumber(String thirdPartyTransactionNumber) {
 		this.thirdPartyTransactionNumber = thirdPartyTransactionNumber;
 	}
+
+	public String getNoOfHead() {
+		return noOfHead;
+	}
+
+	public void setNoOfHead(String noOfHead) {
+		this.noOfHead = noOfHead;
+	}
+	
+	
 }

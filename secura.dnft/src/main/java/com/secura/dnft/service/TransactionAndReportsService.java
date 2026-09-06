@@ -50,15 +50,15 @@ import com.secura.dnft.dao.FlatRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.PaymentRepository;
 import com.secura.dnft.dao.ProfileRepository;
-import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.dao.TransDueDetailsRepository;
+import com.secura.dnft.dao.TransactionRepository;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
-import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.entity.TransDueDetailsEntity;
+import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.generic.bean.Name;
@@ -66,6 +66,7 @@ import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.generic.bean.SuccessMessage;
 import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.request.response.BankInstrumentTenderDetails;
+import com.secura.dnft.request.response.CompletedPaymentDetails;
 import com.secura.dnft.request.response.DefaultPayment;
 import com.secura.dnft.request.response.Defaulter;
 import com.secura.dnft.request.response.GenericHeader;
@@ -77,6 +78,8 @@ import com.secura.dnft.request.response.GetDefaulterRequest;
 import com.secura.dnft.request.response.GetDefaulterResponse;
 import com.secura.dnft.request.response.GetOwnerRequest;
 import com.secura.dnft.request.response.GetOwnerResponse;
+import com.secura.dnft.request.response.GetPaymentDetailsRequest;
+import com.secura.dnft.request.response.GetPaymentDetailsResponse;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsRequest;
 import com.secura.dnft.request.response.GetPaymentUtilDetailsResponse;
 import com.secura.dnft.request.response.GetTransactionByPageRequest;
@@ -87,9 +90,6 @@ import com.secura.dnft.request.response.ReportPaymentData;
 import com.secura.dnft.request.response.TransactionResponseItem;
 import com.secura.dnft.request.response.UpdateTransactionRefRequest;
 import com.secura.dnft.request.response.UpdateTransactionRefResponse;
-import com.secura.dnft.request.response.CompletedPaymentDetails;
-import com.secura.dnft.request.response.GetPaymentDetailsRequest;
-import com.secura.dnft.request.response.GetPaymentDetailsResponse;
 import com.secura.dnft.security.BusinessException;
 
 import net.sourceforge.tess4j.Tesseract;
@@ -129,24 +129,23 @@ public class TransactionAndReportsService {
 
 	@Autowired
 	PaymentUtilService paymentUtilService;
-	
+
 	@Autowired
 	GoogleDriveService googleDriveService;
-	
-	 @Autowired
-	 private ProfileServices profileServices;
-	 
-	 @Autowired
-	 ApartmentService apartmentService;
 
-	 @Autowired
-	 TransDueDetailsRepository transDueDetailsRepository;
+	@Autowired
+	private ProfileServices profileServices;
+
+	@Autowired
+	ApartmentService apartmentService;
+
+	@Autowired
+	TransDueDetailsRepository transDueDetailsRepository;
 
 	@Value("${transaction.chunk}")
 	private Integer transactionChunkSize;
-	
-    Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public GetTransactionResponse getTransaction(GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
@@ -164,8 +163,9 @@ public class TransactionAndReportsService {
 			transactions = transactionRepository.findByAprmntId(aprmntId);
 		}
 
-		//List<TransactionResponseItem> transactionList = new ArrayList<>();
-		List<TransactionResponseItem> transactionList = transactions.stream().map(trns->toResponseItem(trns,request.getGenericHeader())).collect(Collectors.toList());
+		// List<TransactionResponseItem> transactionList = new ArrayList<>();
+		List<TransactionResponseItem> transactionList = transactions.stream()
+				.map(trns -> toResponseItem(trns, request.getGenericHeader())).collect(Collectors.toList());
 
 //		for (Transaction transaction : transactions) {
 //			transactionList.add(toResponseItem(transaction));
@@ -187,7 +187,8 @@ public class TransactionAndReportsService {
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 
 		LocalDate toDate = (request != null && request.getToDate() != null) ? request.getToDate() : LocalDate.now();
-		LocalDate fromDate = (request != null && request.getFromDate() != null) ? request.getFromDate() : toDate.minusYears(1);
+		LocalDate fromDate = (request != null && request.getFromDate() != null) ? request.getFromDate()
+				: toDate.minusYears(1);
 		response.setFromDate(fromDate);
 		response.setToDate(toDate);
 
@@ -239,15 +240,13 @@ public class TransactionAndReportsService {
 
 			String paymentCapita = resolvePaymentCapita(paymentEntities);
 			List<DueAmountDetailsEntity> overdueDues = dueAmountDetailsRepository.findByPaymentId(paymentId).stream()
-					.filter(Objects::nonNull)
-					.filter(this::isOverdueDue)
-					.collect(Collectors.toList());
+					.filter(Objects::nonNull).filter(this::isOverdueDue).collect(Collectors.toList());
 			if (isPerSqftCapita(paymentCapita)) {
-				processPerSqftDues(apartmentId, paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap, flatCache,
-						flatAreaCache);
+				processPerSqftDues(apartmentId, paymentId, paymentEntities, paymentCapita, overdueDues, defaulterMap,
+						flatCache, flatAreaCache);
 			} else {
-				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, overdueDues,
-						overdueDues, defaulterMap);
+				processSelectedCycleDues(paymentId, paymentEntities, paymentCapita, overdueDues, overdueDues,
+						defaulterMap);
 			}
 		}
 
@@ -257,7 +256,8 @@ public class TransactionAndReportsService {
 			for (DefaultPaymentAccumulator paymentAccumulator : accumulator.defaultPaymentMap().values()) {
 				BigDecimal totalDue = resolveTotalDue(apartmentId, paymentAccumulator.paymentId(), accumulator.flatId(),
 						paymentAccumulator.totalDue(), totalDueCache);
-				BigDecimal amountPaid = resolveAmountPaid(paymentAccumulator.paymentId(), accumulator.flatId(), amountPaidCache);
+				BigDecimal amountPaid = resolveAmountPaid(paymentAccumulator.paymentId(), accumulator.flatId(),
+						amountPaidCache);
 				BigDecimal amountToBePaid = totalDue.subtract(amountPaid);
 				if (amountToBePaid.compareTo(BigDecimal.ZERO) <= 0) {
 					continue;
@@ -277,7 +277,8 @@ public class TransactionAndReportsService {
 				continue;
 			}
 
-			List<Profile> ownerProfiles = resolveOwnerProfiles(apartmentId, accumulator.flatId(), flatCache, ownerCache, profileCache);
+			List<Profile> ownerProfiles = resolveOwnerProfiles(apartmentId, accumulator.flatId(), flatCache, ownerCache,
+					profileCache);
 			Defaulter defaulter = new Defaulter();
 			defaulter.setFlatId(accumulator.flatId());
 			defaulter.setBuiltUpArea(resolveFlatAreaTypeDisplay(apartmentId, accumulator.flatId(), flatCache));
@@ -327,8 +328,10 @@ public class TransactionAndReportsService {
 				: new ArrayList<>();
 
 		// Accumulate per-row sums. Keys are prefixed to distinguish grouping type:
-		// "P:<paymentId>" for payment-based, "C:<cause>" for cause-based, "O:Others" for fallback.
-		// index: 0=totalAddedCharges, 1=totalAmountExcludingTax, 2=totalAmountIncludingTax, 3=taxCollected
+		// "P:<paymentId>" for payment-based, "C:<cause>" for cause-based, "O:Others"
+		// for fallback.
+		// index: 0=totalAddedCharges, 1=totalAmountExcludingTax,
+		// 2=totalAmountIncludingTax, 3=taxCollected
 		Map<String, BigDecimal[]> accumulator = new LinkedHashMap<>();
 
 		for (Transaction trns : creditTrns) {
@@ -343,7 +346,8 @@ public class TransactionAndReportsService {
 
 			BigDecimal trnsAmt = parseBigDecimal(trns.getTrnsAmt());
 
-			// TODO: restore totalAddedCharges and gstAmount from DueAmountDetails on reimplementation
+			// TODO: restore totalAddedCharges and gstAmount from DueAmountDetails on
+			// reimplementation
 			BigDecimal totalAddedCharges = BigDecimal.ZERO;
 			BigDecimal gstAmount = BigDecimal.ZERO;
 
@@ -351,8 +355,8 @@ public class TransactionAndReportsService {
 			BigDecimal totalAmountExcludingTax = trnsAmt.subtract(totalAddedCharges).subtract(gstAmount);
 			BigDecimal taxCollected = totalAddedCharges.add(gstAmount);
 
-			BigDecimal[] sums = accumulator.computeIfAbsent(effectiveKey, k -> new BigDecimal[]{
-					BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+			BigDecimal[] sums = accumulator.computeIfAbsent(effectiveKey,
+					k -> new BigDecimal[] { BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO });
 			sums[0] = sums[0].add(totalAddedCharges);
 			sums[1] = sums[1].add(totalAmountExcludingTax);
 			sums[2] = sums[2].add(totalAmountIncludingTax);
@@ -405,7 +409,8 @@ public class TransactionAndReportsService {
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_45);
 	}
 
-	private void updateDefaulterTotals(GetDefaulterResponse response, String apartmentId, List<String> requestedPaymentIds) {
+	private void updateDefaulterTotals(GetDefaulterResponse response, String apartmentId,
+			List<String> requestedPaymentIds) {
 		if (response == null) {
 			return;
 		}
@@ -433,8 +438,8 @@ public class TransactionAndReportsService {
 		if (!hasText(apartmentId) || requestedPaymentIds == null || requestedPaymentIds.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
-		List<Transaction> transactions = transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus(
-				apartmentId, requestedPaymentIds, TRNS_STATUS_SUCCESS);
+		List<Transaction> transactions = transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus(apartmentId,
+				requestedPaymentIds, TRNS_STATUS_SUCCESS);
 		if (transactions == null || transactions.isEmpty()) {
 			return BigDecimal.ZERO;
 		}
@@ -456,13 +461,14 @@ public class TransactionAndReportsService {
 	}
 
 	private boolean isActiveMandatoryPayment(List<PaymentEntity> paymentEntities) {
-		boolean active = paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getStatus).filter(this::hasText)
+		boolean active = paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getStatus)
+				.filter(this::hasText)
 				.anyMatch(status -> SecuraConstants.PAYMENT_STATUS_ACTIVE.equalsIgnoreCase(status.trim()));
 		if (!active) {
 			return false;
 		}
-		return paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentType).filter(this::hasText)
-				.anyMatch(type -> PAYMENT_TYPE_MANDATORY.equalsIgnoreCase(type.trim()));
+		return paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentType)
+				.filter(this::hasText).anyMatch(type -> PAYMENT_TYPE_MANDATORY.equalsIgnoreCase(type.trim()));
 	}
 
 	private boolean isOverdueDue(DueAmountDetailsEntity due) {
@@ -483,8 +489,8 @@ public class TransactionAndReportsService {
 
 	private String resolvePaymentName(List<PaymentEntity> paymentEntities, DueAmountDetailsEntity due) {
 		String paymentName = paymentEntities == null ? null
-				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentName).filter(this::hasText)
-						.findFirst().orElse(null);
+				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentName)
+						.filter(this::hasText).findFirst().orElse(null);
 		if (hasText(paymentName)) {
 			return paymentName;
 		}
@@ -493,25 +499,30 @@ public class TransactionAndReportsService {
 
 	private String resolvePaymentCapita(List<PaymentEntity> paymentEntities) {
 		return paymentEntities == null ? null
-				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentCapita).filter(this::hasText)
-						.findFirst().orElse(null);
+				: paymentEntities.stream().filter(Objects::nonNull).map(PaymentEntity::getPaymentCapita)
+						.filter(this::hasText).findFirst().orElse(null);
 	}
 
-	private void processPerSqftDues(String apartmentId, String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
-			List<DueAmountDetailsEntity> overdueDues, Map<String, DefaulterAccumulator> defaulterMap,
-			Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
+	private void processPerSqftDues(String apartmentId, String paymentId, List<PaymentEntity> paymentEntities,
+			String paymentCapita, List<DueAmountDetailsEntity> overdueDues,
+			Map<String, DefaulterAccumulator> defaulterMap, Map<String, Optional<Flat>> flatCache,
+			Map<String, String> flatAreaCache) {
 		List<String> pendingFlatIds = overdueDues.stream().flatMap(due -> findPendingFlatIds(due).stream()).distinct()
 				.collect(Collectors.toList());
 		for (String flatId : pendingFlatIds) {
 			String flatArea = resolveFlatArea(apartmentId, flatId, flatCache, flatAreaCache);
 			List<DueAmountDetailsEntity> areaMatchedDues = overdueDues.stream()
 					.filter(due -> matchesFlatArea(due, flatArea)).collect(Collectors.toList());
-			//areaMatchedDues=areaMatchedDues.stream().filter(amd-> amd.getApplicableFlats().contains(flatId)).collect(Collectors.toList());
-			//areaMatchedDues=areaMatchedDues.stream().filter(amd->{if(amd.getPaidFlats()!=null && !amd.getPaidFlats().isEmpty() &&  !amd.getPaidFlats().contains(flatId)) { return true;} else return false;}).collect(Collectors.toList());
-			areaMatchedDues=filterPaidFlats(areaMatchedDues,flatId);
+			// areaMatchedDues=areaMatchedDues.stream().filter(amd->
+			// amd.getApplicableFlats().contains(flatId)).collect(Collectors.toList());
+			// areaMatchedDues=areaMatchedDues.stream().filter(amd->{if(amd.getPaidFlats()!=null
+			// && !amd.getPaidFlats().isEmpty() && !amd.getPaidFlats().contains(flatId)) {
+			// return true;} else return false;}).collect(Collectors.toList());
+			areaMatchedDues = filterPaidFlats(areaMatchedDues, flatId);
 			List<DueAmountDetailsEntity> selectedDues = selectHighestPriorityDues(areaMatchedDues);
 			List<DueAmountDetailsEntity> selectedDuesForFlat = selectedDues.stream()
-					.filter(due -> findPendingFlatIds(due).stream().anyMatch(pendingFlat -> pendingFlat.equalsIgnoreCase(flatId)))
+					.filter(due -> findPendingFlatIds(due).stream()
+							.anyMatch(pendingFlat -> pendingFlat.equalsIgnoreCase(flatId)))
 					.collect(Collectors.toList());
 			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat,
 					resolveLatestDueDate(findPendingDuesForFlat(areaMatchedDues, flatId)), defaulterMap);
@@ -537,35 +548,35 @@ public class TransactionAndReportsService {
 				.orElse(null);
 	}
 
-	private List<DueAmountDetailsEntity>  filterPaidFlats(List<DueAmountDetailsEntity> areaMatchedDues, String flatId) {
+	private List<DueAmountDetailsEntity> filterPaidFlats(List<DueAmountDetailsEntity> areaMatchedDues, String flatId) {
 		List<DueAmountDetailsEntity> newList = new ArrayList<>();
-		for(DueAmountDetailsEntity due: areaMatchedDues) {
-			if(null!=due.getApplicableFlats() && !due.getApplicableFlats().isEmpty()) {
-				if(due.getApplicableFlats().contains(flatId)) {
-					if(null!=due.getPaidFlats() && !due.getPaidFlats().isEmpty()) {
-						if(!due.getPaidFlats().contains(flatId)) {
+		for (DueAmountDetailsEntity due : areaMatchedDues) {
+			if (null != due.getApplicableFlats() && !due.getApplicableFlats().isEmpty()) {
+				if (due.getApplicableFlats().contains(flatId)) {
+					if (null != due.getPaidFlats() && !due.getPaidFlats().isEmpty()) {
+						if (!due.getPaidFlats().contains(flatId)) {
 							newList.add(due);
 						}
-					}
-					else {
+					} else {
 						newList.add(due);
 					}
 				}
 			}
-			
+
 		}
 		return newList;
 	}
+
 	private void processSelectedCycleDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
 			List<DueAmountDetailsEntity> overdueDues, List<DueAmountDetailsEntity> selectedDues,
 			Map<String, DefaulterAccumulator> defaulterMap) {
-		
+
 		List<String> pendingFlatIds = selectedDues.stream().flatMap(due -> findPendingFlatIds(due).stream()).distinct()
 				.collect(Collectors.toList());
 		for (String flatId : pendingFlatIds) {
-			selectedDues=filterPaidFlats(selectedDues,flatId);
-			if(!selectedDues.get(0).getCollectionCycle().equals(SecuraConstants.PAYMENT_CYCLE_ONCE)) {
-				selectedDues=selectHighestPriorityDues(selectedDues);
+			selectedDues = filterPaidFlats(selectedDues, flatId);
+			if (!selectedDues.get(0).getCollectionCycle().equals(SecuraConstants.PAYMENT_CYCLE_ONCE)) {
+				selectedDues = selectHighestPriorityDues(selectedDues);
 			}
 			List<DueAmountDetailsEntity> selectedDuesForFlat = findPendingDuesForFlat(selectedDues, flatId);
 			addSelectedDues(paymentId, paymentEntities, paymentCapita, flatId, selectedDuesForFlat,
@@ -573,15 +584,16 @@ public class TransactionAndReportsService {
 		}
 	}
 
-	private void addSelectedDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita, String flatId,
-			List<DueAmountDetailsEntity> dues, LocalDate latestDueDate, Map<String, DefaulterAccumulator> defaulterMap) {
+	private void addSelectedDues(String paymentId, List<PaymentEntity> paymentEntities, String paymentCapita,
+			String flatId, List<DueAmountDetailsEntity> dues, LocalDate latestDueDate,
+			Map<String, DefaulterAccumulator> defaulterMap) {
 		if (dues == null || dues.isEmpty()) {
 			return;
 		}
 		DefaulterAccumulator defaulter = defaulterMap.computeIfAbsent(flatId, DefaulterAccumulator::new);
-		DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap()
-				.computeIfAbsent(paymentId, ignored -> new DefaultPaymentAccumulator(paymentId,
-						resolvePaymentName(paymentEntities, dues.get(0)), paymentCapita));
+		DefaultPaymentAccumulator defaultPayment = defaulter.defaultPaymentMap().computeIfAbsent(paymentId,
+				ignored -> new DefaultPaymentAccumulator(paymentId, resolvePaymentName(paymentEntities, dues.get(0)),
+						paymentCapita));
 		dues.forEach(defaultPayment::addDue);
 		defaultPayment.trackLastDueDate(latestDueDate);
 	}
@@ -595,18 +607,21 @@ public class TransactionAndReportsService {
 		if (highestPriority <= 0) {
 			return Collections.emptyList();
 		}
-		return dues.stream().filter(Objects::nonNull)
-				.filter(due -> DefaultPaymentAccumulator.resolveCyclePriority(due.getCollectionCycle()) == highestPriority)
+		return dues.stream().filter(Objects::nonNull).filter(
+				due -> DefaultPaymentAccumulator.resolveCyclePriority(due.getCollectionCycle()) == highestPriority)
 				.collect(Collectors.toList());
 	}
 
-	private String resolveFlatArea(String apartmentId, String flatId, Map<String, Optional<Flat>> flatCache, Map<String, String> flatAreaCache) {
+	private String resolveFlatArea(String apartmentId, String flatId, Map<String, Optional<Flat>> flatCache,
+			Map<String, String> flatAreaCache) {
 		if (!hasText(apartmentId) || !hasText(flatId)) {
 			return null;
 		}
 		String cacheKey = buildFlatCacheKey(apartmentId, flatId);
-		return flatAreaCache.computeIfAbsent(cacheKey, ignored -> flatCache.computeIfAbsent(cacheKey,
-				key -> flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId)).map(Flat::getFlatArea).orElse(null));
+		return flatAreaCache.computeIfAbsent(cacheKey,
+				ignored -> flatCache
+						.computeIfAbsent(cacheKey, key -> flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId))
+						.map(Flat::getFlatArea).orElse(null));
 	}
 
 	private boolean isPerSqftCapita(String paymentCapita) {
@@ -634,13 +649,13 @@ public class TransactionAndReportsService {
 	private BigDecimal resolveAmountPaid(String paymentId, String flatId, Map<String, BigDecimal> amountPaidCache) {
 		String cacheKey = paymentId + "::" + flatId;
 		return amountPaidCache.computeIfAbsent(cacheKey, ignored -> {
-			List<Transaction> transactions = transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus(paymentId, flatId,
-					TRNS_STATUS_SUCCESS);
+			List<Transaction> transactions = transactionRepository.findByPymntIdAndFlatIdAndTrnsStatus(paymentId,
+					flatId, TRNS_STATUS_SUCCESS);
 			if (transactions == null || transactions.isEmpty()) {
 				return BigDecimal.ZERO;
 			}
-			return transactions.stream().filter(Objects::nonNull).map(Transaction::getTrnsAmt).map(this::parseBigDecimal)
-					.reduce(BigDecimal.ZERO, BigDecimal::add);
+			return transactions.stream().filter(Objects::nonNull).map(Transaction::getTrnsAmt)
+					.map(this::parseBigDecimal).reduce(BigDecimal.ZERO, BigDecimal::add);
 		});
 	}
 
@@ -666,7 +681,8 @@ public class TransactionAndReportsService {
 					return parseBigDecimal(response.getExpectedCollection());
 				}
 			} catch (RuntimeException exception) {
-				LOGGER.warn("Failed to resolve defaulter total due from PaymentUtilService for apartmentId={}, paymentId={}, flatId={}",
+				LOGGER.warn(
+						"Failed to resolve defaulter total due from PaymentUtilService for apartmentId={}, paymentId={}, flatId={}",
 						apartmentId, paymentId, flatId, exception);
 				return defaultTotalDue(fallbackTotalDue);
 			}
@@ -705,7 +721,8 @@ public class TransactionAndReportsService {
 		return profiles;
 	}
 
-	private String resolveFlatAreaTypeDisplay(String apartmentId, String flatId, Map<String, Optional<Flat>> flatCache) {
+	private String resolveFlatAreaTypeDisplay(String apartmentId, String flatId,
+			Map<String, Optional<Flat>> flatCache) {
 		String cacheKey = buildFlatCacheKey(apartmentId, flatId);
 		Optional<Flat> flat = flatCache.computeIfAbsent(cacheKey,
 				ignored -> flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatId));
@@ -720,7 +737,8 @@ public class TransactionAndReportsService {
 		if (profiles == null || profiles.isEmpty()) {
 			return new ArrayList<>();
 		}
-		return profiles.stream().map(this::resolveOwnerName).filter(this::hasText).distinct().collect(Collectors.toList());
+		return profiles.stream().map(this::resolveOwnerName).filter(this::hasText).distinct()
+				.collect(Collectors.toList());
 	}
 
 	private String resolveOwnerName(Profile profile) {
@@ -764,8 +782,8 @@ public class TransactionAndReportsService {
 		if (profiles == null || profiles.isEmpty()) {
 			return null;
 		}
-		List<String> phoneNumbers = profiles.stream().filter(Objects::nonNull).map(Profile::getPrflPhoneNo).filter(this::hasText)
-				.map(String::trim).distinct().collect(Collectors.toList());
+		List<String> phoneNumbers = profiles.stream().filter(Objects::nonNull).map(Profile::getPrflPhoneNo)
+				.filter(this::hasText).map(String::trim).distinct().collect(Collectors.toList());
 		return phoneNumbers.isEmpty() ? null : String.join(", ", phoneNumbers);
 	}
 
@@ -788,7 +806,8 @@ public class TransactionAndReportsService {
 			if (values == null) {
 				return new ArrayList<>();
 			}
-			return values.stream().filter(this::hasText).map(String::trim).collect(Collectors.toCollection(ArrayList::new));
+			return values.stream().filter(this::hasText).map(String::trim)
+					.collect(Collectors.toCollection(ArrayList::new));
 		} catch (RuntimeException exception) {
 			return new ArrayList<>();
 		}
@@ -826,20 +845,85 @@ public class TransactionAndReportsService {
 	private BigDecimal roundUp(BigDecimal value) {
 		return value.setScale(0, RoundingMode.CEILING);
 	}
-
-	private TransactionResponseItem toResponseItem(Transaction transaction,GenericHeader genericHeader) {
+	
+	private TransactionResponseItem toResponseItemForPageTransction(Transaction transaction, GenericHeader genericHeader,GetBankDetailsResponse getBankDetailsResponse) {
 		TransactionResponseItem item = new TransactionResponseItem();
 		item.setAprmntId(transaction.getAprmntId());
 		item.setTrnscId(transaction.getTrnscId());
 		item.setTrnsDate(transaction.getTrnsDate());
 		item.setTrnsBy(transaction.getTrnsBy());
-		item.setTrnsTender(parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {}));
+		item.setTrnsTender(parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {
+		}));
+		item.setTrnsType(transaction.getTrnsType());
+		item.setTrnsShrtDesc(transaction.getTrnsShrtDesc());
+		item.setTrnsBnkAccnt(transaction.getTrnsBnkAccnt());
+		item.setTrnsAmt(transaction.getTrnsAmt());
+		item.setTrnsCurrency(transaction.getTrnsCurrency());
+		item.setPymntId(transaction.getPymntId());
+		item.setTrnsStatus(transaction.getTrnsStatus());
+		item.setNoOfPerson(transaction.getNoOfPerson());
+		item.setThirdPartyTrnsRef(transaction.getThirdPartyTrnsRef());
+		item.setThirdPartyName(transaction.getThirdPartyName());
+		item.setDueDetails(null); // TODO: restore from DueAmountDetails on reimplementation
+		item.setCause(transaction.getCause().replace("_", " "));
+		item.setBankInstrumentTenderDetails(parseList(transaction.getBankInstrumentTenderDetails(),
+				new TypeReference<List<BankInstrumentTenderDetails>>() {
+				}));
+		item.setFlatId(transaction.getFlatId());
+		item.setWorkListId(transaction.getWorkListId());
+		item.setReceiptNumber(
+				TRNS_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus()) ? transaction.getReceiptNumber()
+						: null);
+		item.setCreatTs(transaction.getCreatTs());
+		item.setCreatUsrId(transaction.getCreatUsrId());
+		item.setLstUpdtTs(transaction.getLstUpdtTs());
+		item.setLstUpdtUsrId(transaction.getLstUpdtUsrId());
+//		List<PaymentEntity> payment = paymentRepository.findByPaymentIdAndAprmtId(transaction.getPymntId(),
+//				transaction.getAprmntId());
+//		if (!payment.isEmpty() && payment != null) {
+//			item.setPaymentName(payment.get(0).getPaymentName());
+//		}
+		GetOwnerRequest request = new GetOwnerRequest();
+		request.setGenericHeader(genericHeader);
+		request.setFlatId(transaction.getFlatId());
+//		GetOwnerResponse getOwnerResponse = profileServices.getOwner(request);
+//		item.setOwnersName(getOwnerResponse.getProfile().stream()
+//				.map(prfl -> genericService.fromJson(prfl.getPrflName(), Name.class).toString())
+//				.collect(Collectors.toList()));
+		
+		if (!getBankDetailsResponse.getBankAccountDetails().isEmpty()) {
+			Optional<BankAccountDetails> bankAccountDetails = getBankDetailsResponse.getBankAccountDetails().stream().filter(bnkaccount->transaction.getTrnsBnkAccnt().equals(bnkaccount.getBankDetailsID())).findFirst();
+			if(bankAccountDetails.isPresent()) {
+			String bankName = bankAccountDetails.get().getBankName().toUpperCase();
+			String accountNumber = bankAccountDetails.get().getAccountNumber();
+			if (bankName != null && bankName.length() >= 4 && accountNumber != null && accountNumber.length() >= 4) {
+				item.setTrnsBnkAccnt(
+						bankName.substring(0, 4) + "XXXX" + accountNumber.substring(accountNumber.length() - 4));
+			}
+
+		}
+		}
+		item.setNoOfHeads(transaction.getNoOfPerson());
+		item.setExternalTransactionReferenceNumber(transaction.getThirdPartyTrnsRef());
+		return item;
+	}
+
+	private TransactionResponseItem toResponseItem(Transaction transaction, GenericHeader genericHeader) {
+		TransactionResponseItem item = new TransactionResponseItem();
+		item.setAprmntId(transaction.getAprmntId());
+		item.setTrnscId(transaction.getTrnscId());
+		item.setTrnsDate(transaction.getTrnsDate());
+		item.setTrnsBy(transaction.getTrnsBy());
+		item.setTrnsTender(parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {
+		}));
 		item.setTrnsType(transaction.getTrnsType());
 		item.setTrnsShrtDesc(transaction.getTrnsShrtDesc());
 		try {
-		item.setTrnsFiles(parseList(transaction.getTrnsFiles(), new TypeReference<List<String>>() {}).stream().map(file->googleDriveService.getFileFromDrive(file)).collect(Collectors.toList()));
+			item.setTrnsFiles(parseList(transaction.getTrnsFiles(), new TypeReference<List<String>>() {
+			}).stream().map(file -> googleDriveService.getFileFromDrive(file)).collect(Collectors.toList()));
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
-		catch(Exception e){e.printStackTrace();}
 		item.setTrnsBnkAccnt(transaction.getTrnsBnkAccnt());
 		item.setTrnsAmt(transaction.getTrnsAmt());
 		item.setTrnsCurrency(transaction.getTrnsCurrency());
@@ -850,46 +934,49 @@ public class TransactionAndReportsService {
 		item.setThirdPartyName(transaction.getThirdPartyName());
 		item.setDueDetails(null); // TODO: restore from DueAmountDetails on reimplementation
 		item.setCause(transaction.getCause());
-		item.setBankInstrumentTenderDetails(
-				parseList(transaction.getBankInstrumentTenderDetails(),
-						new TypeReference<List<BankInstrumentTenderDetails>>() {}));
+		item.setBankInstrumentTenderDetails(parseList(transaction.getBankInstrumentTenderDetails(),
+				new TypeReference<List<BankInstrumentTenderDetails>>() {
+				}));
 		item.setFlatId(transaction.getFlatId());
 		item.setWorkListId(transaction.getWorkListId());
-		item.setReceiptNumber(TRNS_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus())
-				? transaction.getReceiptNumber()
-				: null);
+		item.setReceiptNumber(
+				TRNS_STATUS_SUCCESS.equalsIgnoreCase(transaction.getTrnsStatus()) ? transaction.getReceiptNumber()
+						: null);
 		item.setCreatTs(transaction.getCreatTs());
 		item.setCreatUsrId(transaction.getCreatUsrId());
 		item.setLstUpdtTs(transaction.getLstUpdtTs());
 		item.setLstUpdtUsrId(transaction.getLstUpdtUsrId());
-		List<PaymentEntity> payment=paymentRepository.findByPaymentIdAndAprmtId(transaction.getPymntId(),transaction.getAprmntId());
-		if(!payment.isEmpty()&& payment!=null) {
+		List<PaymentEntity> payment = paymentRepository.findByPaymentIdAndAprmtId(transaction.getPymntId(),
+				transaction.getAprmntId());
+		if (!payment.isEmpty() && payment != null) {
 			item.setPaymentName(payment.get(0).getPaymentName());
 		}
 		GetOwnerRequest request = new GetOwnerRequest();
 		request.setGenericHeader(genericHeader);
 		request.setFlatId(transaction.getFlatId());
-		GetOwnerResponse getOwnerResponse=profileServices.getOwner(request);
-		item.setOwnersName(getOwnerResponse.getProfile().stream().map(prfl->genericService.fromJson(prfl.getPrflName(), Name.class).toString()).collect(Collectors.toList()));		
+		GetOwnerResponse getOwnerResponse = profileServices.getOwner(request);
+		item.setOwnersName(getOwnerResponse.getProfile().stream()
+				.map(prfl -> genericService.fromJson(prfl.getPrflName(), Name.class).toString())
+				.collect(Collectors.toList()));
 		GetBankDetailsRequest getBankDetailsRequest = new GetBankDetailsRequest();
 		getBankDetailsRequest.setGenericHeader(genericHeader);
 		getBankDetailsRequest.setBankDetailsID(transaction.getTrnsBnkAccnt());
-		GetBankDetailsResponse getBankDetailsResponse=apartmentService.getBankDetails(getBankDetailsRequest);
-		if(!getBankDetailsResponse.getBankAccountDetails().isEmpty()) {
-			BankAccountDetails bankAccountDetails= getBankDetailsResponse.getBankAccountDetails().get(0);
-			String bankName=bankAccountDetails.getBankName().toUpperCase();
-			String accountNumber=bankAccountDetails.getAccountNumber();
-			if (bankName != null && bankName.length() >= 4
-			        && accountNumber != null && accountNumber.length() >= 4) {
-				item.setTrnsBnkAccnt(bankName.substring(0, 4)+ "XXXX"+ accountNumber.substring(accountNumber.length() - 4));
+		GetBankDetailsResponse getBankDetailsResponse = apartmentService.getBankDetails(getBankDetailsRequest);
+		if (!getBankDetailsResponse.getBankAccountDetails().isEmpty()) {
+			BankAccountDetails bankAccountDetails = getBankDetailsResponse.getBankAccountDetails().get(0);
+			String bankName = bankAccountDetails.getBankName().toUpperCase();
+			String accountNumber = bankAccountDetails.getAccountNumber();
+			if (bankName != null && bankName.length() >= 4 && accountNumber != null && accountNumber.length() >= 4) {
+				item.setTrnsBnkAccnt(
+						bankName.substring(0, 4) + "XXXX" + accountNumber.substring(accountNumber.length() - 4));
 			}
-			
+
 		}
 		item.setNoOfHeads(transaction.getNoOfPerson());
 		item.setExternalTransactionReferenceNumber(transaction.getThirdPartyTrnsRef());
 		return item;
 	}
-	
+
 	private <T> List<T> parseList(String json, TypeReference<List<T>> typeReference) {
 		if (json == null || json.isBlank()) {
 			return new ArrayList<>();
@@ -901,54 +988,34 @@ public class TransactionAndReportsService {
 		}
 	}
 
-	public GetTransactionResponse getTransactionByPage(GetTransactionByPageRequest request) {
-		LOGGER.info("getTransactionByPage called");
+	public GetTransactionResponse getTransactionByPage(GetTransactionRequest request) {
 		GetTransactionResponse response = new GetTransactionResponse();
 		response.setGenericHeader(request != null ? request.getGenericHeader() : null);
 
+		List<Transaction> transactions = new ArrayList<>();
+		String transactionId = request != null ? request.getTransactionId() : null;
 		String aprmntId = request != null && request.getGenericHeader() != null
 				? request.getGenericHeader().getApartmentId()
 				: null;
 
-		if (!hasText(aprmntId)) {
-			LOGGER.warn("getTransactionByPage: apartmentId is missing");
-			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
-			return response;
+		if (transactionId != null && !transactionId.isBlank()) {
+			transactions = transactionRepository.findByAprmntIdAndTrnscId(aprmntId, transactionId);
+		} else if (aprmntId != null && !aprmntId.isBlank()) {
+			transactions = transactionRepository.findByAprmntId(aprmntId);
 		}
+		GetBankDetailsRequest getBankDetailsRequest = new GetBankDetailsRequest();
+		getBankDetailsRequest.setGenericHeader(request.getGenericHeader());
+		GetBankDetailsResponse getBankDetailsResponse = apartmentService.getBankDetails(getBankDetailsRequest);
 
-		Specification<Transaction> spec = buildTransactionSpecification(request, aprmntId);
+		// List<TransactionResponseItem> transactionList = new ArrayList<>();
+		List<TransactionResponseItem> transactionList = transactions.stream()
+				.map(trns -> toResponseItemForPageTransction(trns, request.getGenericHeader(),getBankDetailsResponse)).collect(Collectors.toList());
 
-		long totalTransaction = transactionRepository.count(spec);
-		LOGGER.info("getTransactionByPage: totalTransaction={}", totalTransaction);
-
-		int chunkSize = transactionChunkSize != null && transactionChunkSize > 0 ? transactionChunkSize : 50;
-		int totalPage = (int) Math.ceil((double) totalTransaction / chunkSize);
-		
-		if(request.getPageFrom() >totalPage || request.getPageTo() >totalPage) {
-			LOGGER.warn("getTransactionByPage: apartmentId is missing");
-			response.setMessage(ErrorMessage.ERR_MESSAGE_05);
-			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_05);
-			return response;
-			}
-		int pageFrom = request.getPageFrom() != null ? request.getPageFrom() : 0;
-		//int pageSize = (request.getPageTo() - pageFrom + 1) * chunkSize;
-		Pageable pageable = PageRequest.of(pageFrom, 50, Sort.by("creatTs").descending());
-		Page<Transaction> page = transactionRepository.findAll(spec, pageable);
-
-		List<TransactionResponseItem> transactionList =null;// page.getContent().stream()
-				//.map(this,request.getGenericHeader()::toResponseItem)
-				//.collect(Collectors.toList());
-
-		BigDecimal totalCredit = calculateTotalAmount(spec, TRNS_TYPE_CREDIT);
-		BigDecimal totalDebit = calculateTotalAmount(spec, TRNS_TYPE_DEBIT);
+//	for (Transaction transaction : transactions) {
+//		transactionList.add(toResponseItem(transaction));
+//	}
 
 		response.setTransactionList(transactionList);
-		response.setTotalTransaction(totalTransaction);
-		response.setTotalPage(totalPage);
-		response.setTotalCredit(totalCredit);
-		response.setTotalDebit(totalDebit);
-
 		if (transactionList.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_42);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_42);
@@ -956,8 +1023,6 @@ public class TransactionAndReportsService {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_41);
 			response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_41);
 		}
-
-		LOGGER.info("getTransactionByPage: returned {} records, totalPage={}", transactionList.size(), totalPage);
 		return response;
 	}
 
@@ -977,14 +1042,14 @@ public class TransactionAndReportsService {
 			}
 
 			if (request.getFromDate() != null) {
-				LocalDateTime fromDateTime = request.getFromDate().toInstant()
-						.atZone(ZoneId.systemDefault()).toLocalDateTime();
+				LocalDateTime fromDateTime = request.getFromDate().toInstant().atZone(ZoneId.systemDefault())
+						.toLocalDateTime();
 				predicates.add(cb.greaterThanOrEqualTo(root.get("creatTs"), fromDateTime));
 			}
 
 			if (request.getToDate() != null) {
-				LocalDateTime toDateTime = request.getToDate().toInstant()
-						.atZone(ZoneId.systemDefault()).toLocalDateTime().with(LocalTime.MAX);
+				LocalDateTime toDateTime = request.getToDate().toInstant().atZone(ZoneId.systemDefault())
+						.toLocalDateTime().with(LocalTime.MAX);
 				predicates.add(cb.lessThanOrEqualTo(root.get("creatTs"), toDateTime));
 			}
 
@@ -1018,18 +1083,16 @@ public class TransactionAndReportsService {
 				.and((root, query, cb) -> cb.equal(root.get("trnsType"), trnsType));
 
 		List<Transaction> transactions = transactionRepository.findAll(amtSpec);
-		return transactions.stream()
-				.map(t -> {
-					if (t.getTrnsAmt() == null || t.getTrnsAmt().isBlank()) {
-						return BigDecimal.ZERO;
-					}
-					try {
-						return new BigDecimal(t.getTrnsAmt().trim());
-					} catch (NumberFormatException e) {
-						return BigDecimal.ZERO;
-					}
-				})
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		return transactions.stream().map(t -> {
+			if (t.getTrnsAmt() == null || t.getTrnsAmt().isBlank()) {
+				return BigDecimal.ZERO;
+			}
+			try {
+				return new BigDecimal(t.getTrnsAmt().trim());
+			} catch (NumberFormatException e) {
+				return BigDecimal.ZERO;
+			}
+		}).reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	private record DefaulterAccumulator(String flatId, Map<String, DefaultPaymentAccumulator> defaultPaymentMap) {
@@ -1149,417 +1212,412 @@ public class TransactionAndReportsService {
 			}
 		}
 	}
-	
-	
+
 	public void uploadTransactionFilesToDrive(String flatId) {
 
-	    List<Transaction> transactions;
-	    if (flatId == null || flatId.isBlank()) {
-	        transactions = transactionRepository.findAll();
-	    } else {
-	        transactions = transactionRepository.findByFlatId(flatId);
-	    }
+		List<Transaction> transactions;
+		if (flatId == null || flatId.isBlank()) {
+			transactions = transactionRepository.findAll();
+		} else {
+			transactions = transactionRepository.findByFlatId(flatId);
+		}
 
-	    if (transactions == null || transactions.isEmpty()) {
-	        return;
-	    }
+		if (transactions == null || transactions.isEmpty()) {
+			return;
+		}
 
+		for (Transaction transaction : transactions) {
 
-	    for (Transaction transaction : transactions) {
+			try {
 
-	        try {
+				String trnsFilesJson = transaction.getTrnsFiles();
+				flatId = transaction.getFlatId();
+				// No files associated with this transaction
+				if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
+					continue;
+				}
 
-	            String trnsFilesJson = transaction.getTrnsFiles();
-	            flatId=transaction.getFlatId();
-	            // No files associated with this transaction
-	            if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
-	                continue;
-	            }
+				// Convert JSON string -> List<String>
+				List<String> trnsFiles = genericService.fromJson(trnsFilesJson, new TypeReference<List<String>>() {
+				});
 
-	            // Convert JSON string -> List<String>
-	            List<String> trnsFiles =genericService.fromJson(trnsFilesJson, new TypeReference<List<String>>() {
-      			});
+				if (trnsFiles == null || trnsFiles.isEmpty()) {
+					LOGGER.info("No Transaction File Available For TransctionID {}", transaction.getTrnscId());
+					continue;
+				}
 
-	            if (trnsFiles == null || trnsFiles.isEmpty()) {
-	            	  LOGGER.info("No Transaction File Available For TransctionID {}",transaction.getTrnscId());
-	                continue;
-	            }
+				List<String> uploadedFiles = new ArrayList<>();
+				String fileType = SecuraConstants.FILE_TYPE_TRANSACTION;
+				String apartmentId = transaction.getAprmntId();
+				if (trnsFiles.size() > 1) {
+					for (String fileData : trnsFiles) {
+						int i = 1;
+						if (fileData == null || fileData.isBlank()) {
+							continue;
+						}
+						String uniqueId = transaction.getTrnscId() + "_" + i;
+						try {
+							String drivePath = googleDriveService.uploadDataToDrive(fileData, fileType, uniqueId,
+									apartmentId, flatId);
+							LOGGER.info("Transaction File Uploaded For Flat {} and Transaction Id:{}", flatId,
+									uniqueId);
 
-	            List<String> uploadedFiles = new ArrayList<>();
-	            String fileType= SecuraConstants.FILE_TYPE_TRANSACTION;
-	            String apartmentId=transaction.getAprmntId();
-                    if(trnsFiles.size()>1) {
-                    	for (String fileData : trnsFiles) {
-                    		int i=1;
-        	                if (fileData == null || fileData.isBlank()) {
-        	                    continue;
-        	                }
-        	                String uniqueId=transaction.getTrnscId() + "_"+i;
-        	              try {
-            	              String drivePath =googleDriveService.uploadDataToDrive(fileData,fileType,uniqueId,apartmentId,flatId);
-            	              LOGGER.info("Transaction File Uploaded For Flat {} and Transaction Id:{}",flatId,uniqueId);
-            	              
-            	              if (drivePath != null && !drivePath.isBlank()) {
-          	                    uploadedFiles.add(drivePath);
-          	                }
-        	              }
-        	              catch(Exception e) {
-        	            	  LOGGER.error("Data Couldn't Uploaded for Flat ID {} and Transaction Id:{} Cause:{}",flatId,uniqueId,e.getMessage(),e);
-        	              }
+							if (drivePath != null && !drivePath.isBlank()) {
+								uploadedFiles.add(drivePath);
+							}
+						} catch (Exception e) {
+							LOGGER.error("Data Couldn't Uploaded for Flat ID {} and Transaction Id:{} Cause:{}", flatId,
+									uniqueId, e.getMessage(), e);
+						}
 
-        	               
-        	                i++;
-        	            }
-                          }
-                    else {
-                    	String uniqueId=transaction.getTrnscId();
-                    	try {
-      	              String drivePath =googleDriveService.uploadDataToDrive(trnsFiles.get(0),fileType,uniqueId,apartmentId,flatId);
-      	            LOGGER.info("Transaction File Uploaded For Flat {} and Transaction Id:{}",flatId,uniqueId);
-      	                if (drivePath != null && !drivePath.isBlank()) {
-      	                    uploadedFiles.add(drivePath);
-      	                } }
-      	              catch(Exception e) {
-      	            	  LOGGER.error("Data Couldn't Uploaded for Flat ID {} and Transaction Id:{} Cause:{}",flatId,uniqueId,e.getMessage(),e);
-    	              }
-                    }
-                if(!uploadedFiles.isEmpty()) {
-	            String updatedTrnsFiles =
-	                    genericService.toJson(uploadedFiles);
+						i++;
+					}
+				} else {
+					String uniqueId = transaction.getTrnscId();
+					try {
+						String drivePath = googleDriveService.uploadDataToDrive(trnsFiles.get(0), fileType, uniqueId,
+								apartmentId, flatId);
+						LOGGER.info("Transaction File Uploaded For Flat {} and Transaction Id:{}", flatId, uniqueId);
+						if (drivePath != null && !drivePath.isBlank()) {
+							uploadedFiles.add(drivePath);
+						}
+					} catch (Exception e) {
+						LOGGER.error("Data Couldn't Uploaded for Flat ID {} and Transaction Id:{} Cause:{}", flatId,
+								uniqueId, e.getMessage(), e);
+					}
+				}
+				if (!uploadedFiles.isEmpty()) {
+					String updatedTrnsFiles = genericService.toJson(uploadedFiles);
 
-	            // Update transaction
-	            transaction.setTrnsFiles(updatedTrnsFiles);
+					// Update transaction
+					transaction.setTrnsFiles(updatedTrnsFiles);
 
-	            // Save transaction
-	            transactionRepository.save(transaction);
-                    }
+					// Save transaction
+					transactionRepository.save(transaction);
+				}
 
-	        } catch (Exception e) {
+			} catch (Exception e) {
 
-	            // Log transaction information and continue with next transaction
-	            e.printStackTrace();
-	        }
-	    }
+				// Log transaction information and continue with next transaction
+				e.printStackTrace();
+			}
+		}
 	}
-	
-	
+
 	public void downloadTransactionFilesToLocal() {
 
-	    String rootPath =
-	            "C:\\Users\\user\\Desktop\\DNFT\\Transaction_File_prod_secura";
+		String rootPath = "C:\\Users\\user\\Desktop\\DNFT\\Transaction_File_prod_secura";
 
-	    List<Transaction> transactions = transactionRepository.findAll();//  transactionRepository.findByTrnsStatus("SUCCESS");;
+		List<Transaction> transactions = transactionRepository.findAll();// transactionRepository.findByTrnsStatus("SUCCESS");;
 
-	    if (transactions == null || transactions.isEmpty()) {
-	        return;
-	    }
+		if (transactions == null || transactions.isEmpty()) {
+			return;
+		}
 
-	    TypeReference<List<String>> typeReference =
-	            new TypeReference<List<String>>() {
-	            };
+		TypeReference<List<String>> typeReference = new TypeReference<List<String>>() {
+		};
 
-	    for (Transaction transaction : transactions) {
+		for (Transaction transaction : transactions) {
 
-	        try {
+			try {
 
-	            String flatId = transaction.getFlatId();
-	            String trnsFilesJson = transaction.getTrnsFiles();
+				String flatId = transaction.getFlatId();
+				String trnsFilesJson = transaction.getTrnsFiles();
 
-	            // Validate flat ID
-	            if (flatId == null || flatId.isBlank()) {
-	                continue;
-	            }
+				// Validate flat ID
+				if (flatId == null || flatId.isBlank()) {
+					continue;
+				}
 
-	            // Validate transaction files
-	            if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
-	                continue;
-	            }
+				// Validate transaction files
+				if (trnsFilesJson == null || trnsFilesJson.isBlank()) {
+					continue;
+				}
 
-	            // Convert JSON -> List<String>
-	            List<String> trnsFiles =
-	                    genericService.fromJson(
-	                            trnsFilesJson,
-	                            typeReference
-	                    );
+				// Convert JSON -> List<String>
+				List<String> trnsFiles = genericService.fromJson(trnsFilesJson, typeReference);
 
-	            if (trnsFiles == null || trnsFiles.isEmpty()) {
-	                continue;
-	            }
+				if (trnsFiles == null || trnsFiles.isEmpty()) {
+					continue;
+				}
 
-	            // Create flat folder
-	            Path flatFolder =
-	                    Paths.get(rootPath, flatId);
+				// Create flat folder
+				Path flatFolder = Paths.get(rootPath, flatId);
 
-	            Files.createDirectories(flatFolder);
+				Files.createDirectories(flatFolder);
 
-	            int fileNumber = 1;
+				int fileNumber = 1;
 
-	            for (String base64Data : trnsFiles) {
+				for (String base64Data : trnsFiles) {
 
-	                if (base64Data == null || base64Data.isBlank()) {
-	                    continue;
-	                }
+					if (base64Data == null || base64Data.isBlank()) {
+						continue;
+					}
 
-	                try {
+					try {
 
-	                    // Handle data URL format:
-	                    // data:image/png;base64,XXXXXXXX
-	                    String imageData = base64Data;
+						// Handle data URL format:
+						// data:image/png;base64,XXXXXXXX
+						String imageData = base64Data;
 
-	                    String extension = ".jpg";
+						String extension = ".jpg";
 
-	                    if (base64Data.startsWith("data:")) {
+						if (base64Data.startsWith("data:")) {
 
-	                        int commaIndex = base64Data.indexOf(",");
+							int commaIndex = base64Data.indexOf(",");
 
-	                        if (commaIndex != -1) {
+							if (commaIndex != -1) {
 
-	                            String metadata =
-	                                    base64Data.substring(0, commaIndex);
+								String metadata = base64Data.substring(0, commaIndex);
 
-	                            imageData =
-	                                    base64Data.substring(commaIndex + 1);
+								imageData = base64Data.substring(commaIndex + 1);
 
-	                            if (metadata.contains("image/png")) {
-	                                extension = ".png";
-	                            } else if (metadata.contains("image/jpeg")) {
-	                                extension = ".jpg";
-	                            } else if (metadata.contains("image/jpg")) {
-	                                extension = ".jpg";
-	                            } else if (metadata.contains("image/gif")) {
-	                                extension = ".gif";
-	                            } else if (metadata.contains("image/webp")) {
-	                                extension = ".webp";
-	                            }
-	                        }
-	                    }
+								if (metadata.contains("image/png")) {
+									extension = ".png";
+								} else if (metadata.contains("image/jpeg")) {
+									extension = ".jpg";
+								} else if (metadata.contains("image/jpg")) {
+									extension = ".jpg";
+								} else if (metadata.contains("image/gif")) {
+									extension = ".gif";
+								} else if (metadata.contains("image/webp")) {
+									extension = ".webp";
+								}
+							}
+						}
 
-	                    // Remove possible whitespace/new lines
-	                    imageData = imageData.replaceAll("\\s+", "");
+						// Remove possible whitespace/new lines
+						imageData = imageData.replaceAll("\\s+", "");
 
-	                    // Decode Base64
-	                    byte[] imageBytes =
-	                            Base64.getDecoder().decode(imageData);
+						// Decode Base64
+						byte[] imageBytes = Base64.getDecoder().decode(imageData);
 
-	                    // Create filename
-	                    String fileName =
-	                            "transaction_" + transaction.getTrnscId()
-	                            + "_" + fileNumber
-	                            + extension;
+						// Create filename
+						String fileName = "transaction_" + transaction.getTrnscId() + "_" + fileNumber + extension;
 
-	                    Path filePath =
-	                            flatFolder.resolve(fileName);
+						Path filePath = flatFolder.resolve(fileName);
 
-	                    // Write image
-	                    Files.write(
-	                            filePath,
-	                            imageBytes,
-	                            StandardOpenOption.CREATE,
-	                            StandardOpenOption.TRUNCATE_EXISTING
-	                    );
+						// Write image
+						Files.write(filePath, imageBytes, StandardOpenOption.CREATE,
+								StandardOpenOption.TRUNCATE_EXISTING);
 
-	                    fileNumber++;
+						fileNumber++;
 
-	                    System.out.println(
-	                            "File created: " + filePath
-	                    );
+						System.out.println("File created: " + filePath);
 
-	                } catch (IllegalArgumentException e) {
+					} catch (IllegalArgumentException e) {
 
-	                    System.err.println(
-	                            "Invalid Base64 data for transaction ID: "
-	                            + transaction.getTrnscId()
-	                    );
+						System.err.println("Invalid Base64 data for transaction ID: " + transaction.getTrnscId());
 
-	                } catch (IOException e) {
+					} catch (IOException e) {
 
-	                    System.err.println(
-	                            "Error writing file for transaction ID: "
-	                            + transaction.getTrnscId()
-	                    );
+						System.err.println("Error writing file for transaction ID: " + transaction.getTrnscId());
 
-	                    e.printStackTrace();
-	                }
-	            }
+						e.printStackTrace();
+					}
+				}
 
-	        } catch (Exception e) {
+			} catch (Exception e) {
 
-	            System.err.println(
-	                    "Error processing transaction ID: "
-	                    + transaction.getTrnscId()
-	            );
+				System.err.println("Error processing transaction ID: " + transaction.getTrnscId());
 
-	            e.printStackTrace();
-	        }
-	    }
+				e.printStackTrace();
+			}
+		}
 	}
-	
+
 	@Autowired
-    Tesseract tesseract;
+	Tesseract tesseract;
 
 	public ExternalTransactionDetails extractTransactionIdFromBase64(String base64String) {
-	//	base64String=googleDriveService.getFileFromDrive(base64String);
-        // 1. Strip MIME-type prefix if sent from a web frontend (e.g., "data:image/jpeg;base64,")
-	  String TXN_REGEX = "(?i)(?:UTR|Ref\\.?\\s*No|Tr\\.?\\s*ID|Transaction\\s*ID)[\\s:]*([A-Z0-9]+)";
-	 Pattern UTR_PATTERN = Pattern.compile("(?i)UTR[^a-zA-Z0-9]*([A-Z0-9]{8,})");
-	 Pattern TXN_PATTERN = Pattern.compile("(?i)Transaction\\s*ID[^a-zA-Z0-9]*([A-Z0-9]{8,})");
-	 Pattern REF_PATTERN = Pattern.compile("(?i)(?:Ref\\.?\\s*No|Tr\\.?\\s*ID)[^a-zA-Z0-9]*([A-Z0-9]{8,})");
-	  
-	  Pattern PATTERN = Pattern.compile(TXN_REGEX);
-	    
-	  ExternalTransactionDetails details = new ExternalTransactionDetails();
-	  if (base64String != null && base64String.contains(",")) {
-          base64String = base64String.split(",")[1];
-      }
+		// base64String=googleDriveService.getFileFromDrive(base64String);
+		// 1. Strip MIME-type prefix if sent from a web frontend (e.g.,
+		// "data:image/jpeg;base64,")
+		String TXN_REGEX = "(?i)(?:UTR|Ref\\.?\\s*No|Tr\\.?\\s*ID|Transaction\\s*ID)[\\s:]*([A-Z0-9]+)";
+		Pattern UTR_PATTERN = Pattern.compile("(?i)UTR[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+		Pattern TXN_PATTERN = Pattern.compile("(?i)Transaction\\s*ID[^a-zA-Z0-9]*([A-Z0-9]{8,})");
+		Pattern REF_PATTERN = Pattern.compile("(?i)(?:Ref\\.?\\s*No|Tr\\.?\\s*ID)[^a-zA-Z0-9]*([A-Z0-9]{8,})");
 
-      try {
-          byte[] imageBytes = Base64.getDecoder().decode(base64String);
-          ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-          BufferedImage image = ImageIO.read(bais);
+		Pattern PATTERN = Pattern.compile(TXN_REGEX);
 
-          if (image == null) {
-              details.setRawText("Error: Could not decode Base64 string.");
-              return details;
-          }
+		ExternalTransactionDetails details = new ExternalTransactionDetails();
+		if (base64String != null && base64String.contains(",")) {
+			base64String = base64String.split(",")[1];
+		}
 
-          // Perform OCR
-          String extractedText = tesseract.doOCR(image);
-          details.setRawText(extractedText);
+		try {
+			byte[] imageBytes = Base64.getDecoder().decode(base64String);
+			ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+			BufferedImage image = ImageIO.read(bais);
 
-          // 2. Extract UTR independently
-          Matcher utrMatcher = UTR_PATTERN.matcher(extractedText);
-          if (utrMatcher.find()) {
-              details.setUtr(utrMatcher.group(1));
-          }
+			if (image == null) {
+				details.setRawText("Error: Could not decode Base64 string.");
+				return details;
+			}
 
-          // 3. Extract Transaction ID independently
-          Matcher txnMatcher = TXN_PATTERN.matcher(extractedText);
-          if (txnMatcher.find()) {
-              details.setTransactionId(txnMatcher.group(1));
-          }
+			// Perform OCR
+			String extractedText = tesseract.doOCR(image);
+			details.setRawText(extractedText);
 
-          // 4. Extract Reference/Tr. ID independently
-          Matcher refMatcher = REF_PATTERN.matcher(extractedText);
-          if (refMatcher.find()) {
-              details.setReferenceNumber(refMatcher.group(1));
-          }
+			// 2. Extract UTR independently
+			Matcher utrMatcher = UTR_PATTERN.matcher(extractedText);
+			if (utrMatcher.find()) {
+				details.setUtr(utrMatcher.group(1));
+			}
 
-      } catch (IllegalArgumentException | IOException e) {
-          details.setRawText("Error processing image stream: " + e.getMessage());
-      } catch (TesseractException e) {
-          details.setRawText("OCR Error: " + e.getMessage());
-      }
+			// 3. Extract Transaction ID independently
+			Matcher txnMatcher = TXN_PATTERN.matcher(extractedText);
+			if (txnMatcher.find()) {
+				details.setTransactionId(txnMatcher.group(1));
+			}
 
-      return details;
-  }
+			// 4. Extract Reference/Tr. ID independently
+			Matcher refMatcher = REF_PATTERN.matcher(extractedText);
+			if (refMatcher.find()) {
+				details.setReferenceNumber(refMatcher.group(1));
+			}
+
+		} catch (IllegalArgumentException | IOException e) {
+			details.setRawText("Error processing image stream: " + e.getMessage());
+		} catch (TesseractException e) {
+			details.setRawText("OCR Error: " + e.getMessage());
+		}
+
+		return details;
+	}
 
 	public void updateExternalTransactionIdIntransaction(String flatId) {
-	    List<Transaction> transactions;
+		List<Transaction> transactions;
 
-	    // 1. Fetch transactions based on flatId presence
-	    if (flatId != null) {
-	        logger.info("Fetching transactions for Flat ID: {}", flatId);
-	        transactions = transactionRepository.findByFlatId(flatId);
-	    } else {
-	        logger.info("No Flat ID provided. Fetching all transactions.");
-	        transactions = transactionRepository.findAll();
-	    }
+		// 1. Fetch transactions based on flatId presence
+		if (flatId != null) {
+			logger.info("Fetching transactions for Flat ID: {}", flatId);
+			transactions = transactionRepository.findByFlatId(flatId);
+		} else {
+			logger.info("No Flat ID provided. Fetching all transactions.");
+			transactions = transactionRepository.findAll();
+		}
+		
+		logger.info("Total Trasnctions: {}", transactions.size());
+		LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+		LocalDateTime now = LocalDateTime.now();
 
-	    // 2. Iterate through the transactions
-	    for (Transaction transaction : transactions) {
-	        try {
-	            // Assuming the JSON string is a property of the transaction entity
-	            String trnsFilesJson = transaction.getTrnsFiles(); 
-	            String thirdPartyTrnsRef= transaction.getThirdPartyTrnsRef();
-	            if(StringUtils.hasText(thirdPartyTrnsRef)) {
-	            	 logger.info("ThirdPartyTrnsRef Already Availble for Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),transaction.getFlatId());
-		                continue;
-	            }
-	            if (!StringUtils.hasText(trnsFilesJson)) {
-	                logger.info("No transaction files JSON found for Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),transaction.getFlatId());
-	                continue;
-	            }
+		 transactions = transactions.stream()
+		        .filter(transaction ->
+		                transaction.getCreatTs() != null
+		                && !transaction.getCreatTs().isBefore(sevenDaysAgo)
+		                && !transaction.getCreatTs().isAfter(now)
+		        )
+		        .collect(Collectors.toList());
+		 logger.info("Filtered Trasnctions: {}", transactions.size());
+		// 2. Iterate through the transactions
+		for (Transaction transaction : transactions) {
+			try {
+				// Assuming the JSON string is a property of the transaction entity
+				String trnsFilesJson = transaction.getTrnsFiles();
+				String thirdPartyTrnsRef = transaction.getThirdPartyTrnsRef();
+				if (StringUtils.hasText(thirdPartyTrnsRef)) {
+					logger.info("ThirdPartyTrnsRef Already Availble for Transaction ID: {}, Flat Id:{}",
+							transaction.getTrnscId(), transaction.getFlatId());
+					continue;
+				}
+				if (!StringUtils.hasText(trnsFilesJson)) {
+					logger.info("No transaction files JSON found for Transaction ID: {}, Flat Id:{}",
+							transaction.getTrnscId(), transaction.getFlatId());
+					continue;
+				}
 
-	            List<String> trnsFiles = genericService.fromJson(trnsFilesJson, new TypeReference<List<String>>() {});
+				List<String> trnsFiles = genericService.fromJson(trnsFilesJson, new TypeReference<List<String>>() {
+				});
 
-	            if (trnsFiles != null && !trnsFiles.isEmpty()) {
-	                boolean isUpdated = false;
+				if (trnsFiles != null && !trnsFiles.isEmpty()) {
+					boolean isUpdated = false;
 
-	                // 3. Iterate through each file in the transaction
-	                for (String trnsFile : trnsFiles) {
-	                    try {
-	                        logger.info("Processing file: {} for Transaction ID: {}, Flat Id:{}", trnsFile, transaction.getTrnscId(),transaction.getFlatId());
+					// 3. Iterate through each file in the transaction
+					for (String trnsFile : trnsFiles) {
+						try {
+							logger.info("Processing file: {} for Transaction ID: {}, Flat Id:{}", trnsFile,
+									transaction.getTrnscId(), transaction.getFlatId());
 
-	                        // Fetch Base64 from Google Drive
-	                        String base64String = googleDriveService.getFileFromDrive(trnsFile);
-	                        
-	                        if (!StringUtils.hasText(base64String)) {
-	                            logger.warn("Received empty base64 string from Google Drive for file: {}", trnsFile);
-	                            continue;
-	                        }
+							// Fetch Base64 from Google Drive
+							String base64String = googleDriveService.getFileFromDrive(trnsFile);
 
-	                        // Extract OCR details
-	                        ExternalTransactionDetails details = extractTransactionIdFromBase64(base64String);
+							if (!StringUtils.hasText(base64String)) {
+								logger.warn("Received empty base64 string from Google Drive for file: {}", trnsFile);
+								continue;
+							}
 
-	                        // 4. Check priority constraints (UTR > Transaction ID > Reference Number)
-	                        if (StringUtils.hasText(details.getUtr())) {
-	                            transaction.setThirdPartyTrnsRef(details.getUtr());
-	                            isUpdated = true;
-	                        } else if (StringUtils.hasText(details.getTransactionId())) {
-	                            transaction.setThirdPartyTrnsRef(details.getTransactionId());
-	                            isUpdated = true;
-	                        } else if (StringUtils.hasText(details.getReferenceNumber())) {
-	                            transaction.setThirdPartyTrnsRef(details.getReferenceNumber());
-	                            isUpdated = true;
-	                        }
+							// Extract OCR details
+							ExternalTransactionDetails details = extractTransactionIdFromBase64(base64String);
 
-	                        // 5. Save and break if successfully found
-	                        if (isUpdated) {
-	                            transactionRepository.save(transaction);
-	                            logger.info("Successfully updated Transaction ID: {} , Flat Id:{} with ThirdPartyTrnsRef: {}", 
-	                                    transaction.getTrnscId(),transaction.getFlatId(), transaction.getThirdPartyTrnsRef());
-	                            break; // Stop checking further files for this specific transaction
-	                        } else {
-	                            logger.info("No matching external reference found in file: {} for Transaction ID: {} , Flat Id:{}", 
-	                                    trnsFile, transaction.getTrnscId(),transaction.getFlatId());
-	                        }
+							// 4. Check priority constraints (UTR > Transaction ID > Reference Number)
+							if (StringUtils.hasText(details.getUtr())) {
+								transaction.setThirdPartyTrnsRef(details.getUtr());
+								isUpdated = true;
+							} else if (StringUtils.hasText(details.getTransactionId())) {
+								transaction.setThirdPartyTrnsRef(details.getTransactionId());
+								isUpdated = true;
+							} else if (StringUtils.hasText(details.getReferenceNumber())) {
+								transaction.setThirdPartyTrnsRef(details.getReferenceNumber());
+								isUpdated = true;
+							}
 
-	                    } catch (Exception e) {
-	                        logger.error("Error processing file: {} for Transaction ID: {} , Flat Id:{}", trnsFile, transaction.getTrnscId(),transaction.getFlatId(), e);
-	                    }
-	                }
-	            }
-	        } catch (Exception e) {
-	            logger.error("Error processing Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),transaction.getFlatId(), e);
-	        }
-	    }
-	    logger.info("Completed updateExternalTransactionIdIntransaction job.");
+							// 5. Save and break if successfully found
+							if (isUpdated) {
+								transactionRepository.save(transaction);
+								logger.info(
+										"Successfully updated Transaction ID: {} , Flat Id:{} with ThirdPartyTrnsRef: {}",
+										transaction.getTrnscId(), transaction.getFlatId(),
+										transaction.getThirdPartyTrnsRef());
+								break; // Stop checking further files for this specific transaction
+							} else {
+								logger.info(
+										"No matching external reference found in file: {} for Transaction ID: {} , Flat Id:{}",
+										trnsFile, transaction.getTrnscId(), transaction.getFlatId());
+							}
+
+						} catch (Exception e) {
+							logger.error("Error processing file: {} for Transaction ID: {} , Flat Id:{}", trnsFile,
+									transaction.getTrnscId(), transaction.getFlatId(), e);
+						}
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Error processing Transaction ID: {}, Flat Id:{}", transaction.getTrnscId(),
+						transaction.getFlatId(), e);
+			}
+		}
+		logger.info("Completed updateExternalTransactionIdIntransaction job.");
 	}
-	
-	
-	public UpdateTransactionRefResponse updateExternalTransactionRef(UpdateTransactionRefRequest updateTransactionRefRequest) {
-        try {
-            List<Transaction> transactions = transactionRepository.findByAprmntIdAndTrnscId(updateTransactionRefRequest.getGenericHeader().getApartmentId(),updateTransactionRefRequest.getTransactionId());
-          if(transactions.size()>1) {
-	    throw new BusinessException(ErrorMessage.ERR_MESSAGE_33, ErrorMessageCode.ERR_MESSAGE_33);
-            }
-            if (!transactions.isEmpty()) {
-                Transaction transaction = transactions.get(0);
-                transaction.setThirdPartyTrnsRef(updateTransactionRefRequest.getThirdPartyTrnsRef());
-                
-                transactionRepository.save(transaction);
-                logger.info("Successfully updated ThirdPartyTrnsRef for Transaction ID: {}", updateTransactionRefRequest.getTransactionId());
-                
-                return new UpdateTransactionRefResponse("Transaction reference updated successfully", "SUCCESS_200");
-            } else {
-                logger.warn("Transaction ID: {} not found", updateTransactionRefRequest.getTransactionId());
-                return new UpdateTransactionRefResponse("Transaction not found", "ERR_404");
-            }
-        } catch (Exception e) {
-            logger.error("Error updating transaction reference for Transaction ID: {}", updateTransactionRefRequest.getTransactionId(), e);
-            return new UpdateTransactionRefResponse("Internal server error during update", "ERR_500");
-        }
-    }
+
+	public UpdateTransactionRefResponse updateExternalTransactionRef(
+			UpdateTransactionRefRequest updateTransactionRefRequest) {
+		try {
+			List<Transaction> transactions = transactionRepository.findByAprmntIdAndTrnscId(
+					updateTransactionRefRequest.getGenericHeader().getApartmentId(),
+					updateTransactionRefRequest.getTransactionId());
+			if (transactions.size() > 1) {
+				throw new BusinessException(ErrorMessage.ERR_MESSAGE_33, ErrorMessageCode.ERR_MESSAGE_33);
+			}
+			if (!transactions.isEmpty()) {
+				Transaction transaction = transactions.get(0);
+				transaction.setThirdPartyTrnsRef(updateTransactionRefRequest.getThirdPartyTrnsRef());
+
+				transactionRepository.save(transaction);
+				logger.info("Successfully updated ThirdPartyTrnsRef for Transaction ID: {}",
+						updateTransactionRefRequest.getTransactionId());
+
+				return new UpdateTransactionRefResponse("Transaction reference updated successfully", "SUCCESS_200");
+			} else {
+				logger.warn("Transaction ID: {} not found", updateTransactionRefRequest.getTransactionId());
+				return new UpdateTransactionRefResponse("Transaction not found", "ERR_404");
+			}
+		} catch (Exception e) {
+			logger.error("Error updating transaction reference for Transaction ID: {}",
+					updateTransactionRefRequest.getTransactionId(), e);
+			return new UpdateTransactionRefResponse("Internal server error during update", "ERR_500");
+		}
+	}
 
 	public GetPaymentDetailsResponse getPaymentDetailsData(GetPaymentDetailsRequest request) {
 		LOGGER.info("getPaymentDetailsData called");
@@ -1588,6 +1646,8 @@ public class TransactionAndReportsService {
 			transactions = transactionRepository.findByAprmntIdAndPymntIdAndTrnsStatus(aprmntId, paymentId,
 					TRNS_STATUS_SUCCESS);
 			transDueDetailsList = transDueDetailsRepository.findByPaymentIdAndAprmntId(paymentId, aprmntId);
+			response.setPaymentDetail(paymentRepository
+					.findByPaymentIdAndAprmtId(paymentId, request.getGenericHeader().getApartmentId()).get(0));
 		} else if (hasText(paymentName)) {
 			LOGGER.info("getPaymentDetailsData: fetching by paymentName={}, aprmntId={}", paymentName, aprmntId);
 			List<String> paymentIds = transDueDetailsRepository
@@ -1599,6 +1659,11 @@ public class TransactionAndReportsService {
 				response.setMessage(SuccessMessage.SUCC_MESSAGE_65);
 				response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_65);
 				return response;
+			}
+			if (paymentIds.size() == 1) {
+				response.setPaymentDetail(paymentRepository
+						.findByPaymentIdAndAprmtId(paymentIds.get(0), request.getGenericHeader().getApartmentId())
+						.get(0));
 			}
 			transactions = transactionRepository.findByAprmntIdAndPymntIdInAndTrnsStatus(aprmntId, paymentIds,
 					TRNS_STATUS_SUCCESS);
@@ -1623,15 +1688,23 @@ public class TransactionAndReportsService {
 			}
 		}
 
-		BigDecimal totalCollection = completedPaymentDetailsList.stream()
-				.map(d -> {
-					try {
-						return new BigDecimal(d.getTransactionAmount());
-					} catch (Exception e) {
-						return BigDecimal.ZERO;
-					}
-				})
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		BigDecimal totalCollection = completedPaymentDetailsList.stream().map(d -> {
+			try {
+				return new BigDecimal(d.getTransactionAmount());
+			} catch (Exception e) {
+				return BigDecimal.ZERO;
+			}
+		}).reduce(BigDecimal.ZERO, BigDecimal::add);
+		BigDecimal totalNoOfHeads = completedPaymentDetailsList.stream().map(d -> {
+			try {
+				return new BigDecimal(d.getNoOfHead());
+			} catch (Exception e) {
+				return BigDecimal.ZERO;
+			}
+		}).reduce(BigDecimal.ZERO, BigDecimal::add);
+		if (totalNoOfHeads.compareTo(BigDecimal.ONE) > 0) {
+			completedPaymentDetailsList = updateCompletedPayment(completedPaymentDetailsList);
+		}
 
 		completedPaymentDetailsList.sort((a, b) -> {
 			String flatA = a.getFlatId() != null ? a.getFlatId() : "";
@@ -1641,6 +1714,7 @@ public class TransactionAndReportsService {
 
 		response.setCompletedPaymentDetails(completedPaymentDetailsList);
 		response.setTotalCollection(totalCollection);
+		response.setTotalNoOfPerson(totalNoOfHeads);
 
 		if (completedPaymentDetailsList.isEmpty()) {
 			LOGGER.info("getPaymentDetailsData: no completed payment details found");
@@ -1660,29 +1734,24 @@ public class TransactionAndReportsService {
 		if (transaction == null || !hasText(transaction.getDueDetails())) {
 			return null;
 		}
-		String dueId =transaction.getDueDetails();
+		String dueId = transaction.getDueDetails();
 		if (!hasText(dueId)) {
 			LOGGER.debug("buildCompletedPaymentDetails: could not extract dueId from dueDetails={}",
 					transaction.getDueDetails());
 			return null;
 		}
-		TransDueDetailsEntity matchedDue = transDueDetailsList.stream()
-				.filter(d -> dueId.equals(d.getDueId())
-						&& transaction.getTrnscId() != null
-						&& transaction.getTrnscId().equals(d.getTransactionId()))
-				.findFirst()
-				.orElse(null);
+		TransDueDetailsEntity matchedDue = transDueDetailsList.stream().filter(d -> dueId.equals(d.getDueId())
+				&& transaction.getTrnscId() != null && transaction.getTrnscId().equals(d.getTransactionId()))
+				.findFirst().orElse(null);
 		if (matchedDue == null) {
-			LOGGER.debug("buildCompletedPaymentDetails: no matching TransDueDetailsEntity for transactionId={}, dueId={}",
+			LOGGER.debug(
+					"buildCompletedPaymentDetails: no matching TransDueDetailsEntity for transactionId={}, dueId={}",
 					transaction.getTrnscId(), dueId);
 			return null;
 		}
 
-		List<String> tenderList = parseList(transaction.getTrnsTender(),
-				new TypeReference<List<PaymentTenderData>>() {})
-				.stream()
-				.map(tndr->getTederDetailsForCompletedPayment(tndr))
-				.filter(Objects::nonNull)
+		List<String> tenderList = parseList(transaction.getTrnsTender(), new TypeReference<List<PaymentTenderData>>() {
+		}).stream().map(tndr -> getTederDetailsForCompletedPayment(tndr)).filter(Objects::nonNull)
 				.collect(Collectors.toList());
 
 		CompletedPaymentDetails detail = new CompletedPaymentDetails();
@@ -1699,23 +1768,79 @@ public class TransactionAndReportsService {
 		detail.setRoundUpAmount(matchedDue.getRoundUpAmount());
 		detail.setTransactionAmount(transaction.getTrnsAmt());
 		detail.setThirdPartyTransactionNumber(transaction.getThirdPartyTrnsRef());
+		detail.setNoOfHead(transaction.getNoOfPerson());
 		return detail;
-		
+
 	}
-	
-	
+
+	private List<CompletedPaymentDetails> updateCompletedPayment(
+			List<CompletedPaymentDetails> completedPaymentDetailsList) {
+		Map<String, List<CompletedPaymentDetails>> groupedByFlat = completedPaymentDetailsList.stream()
+				.collect(Collectors.groupingBy(CompletedPaymentDetails::getFlatId));
+		List<CompletedPaymentDetails> noClubbingRequiredList = groupedByFlat.values().stream()
+				.filter(list -> list.size() == 1).flatMap(List::stream).collect(Collectors.toList());
+
+		List<CompletedPaymentDetails> result = groupedByFlat.values().stream()
+				// Only flats having more than one transaction
+				.filter(list -> list.size() > 1).map(list -> {
+
+					CompletedPaymentDetails first = list.get(0);
+
+					BigDecimal transactionAmount = list.stream().map(CompletedPaymentDetails::getTransactionAmount)
+							.filter(Objects::nonNull).map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+					BigDecimal discount = list.stream().map(CompletedPaymentDetails::getDiscount)
+							.filter(Objects::nonNull).map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+					BigDecimal penalty = list.stream().map(CompletedPaymentDetails::getPenalty).filter(Objects::nonNull)
+							.map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+					BigDecimal roundUpAmount = list.stream().map(CompletedPaymentDetails::getRoundUpAmount)
+							.filter(Objects::nonNull).map(BigDecimal::new).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+					int noOfHead = list.stream().map(CompletedPaymentDetails::getNoOfHead).filter(Objects::nonNull)
+							.mapToInt(Integer::parseInt).sum();
+
+					// Pick any transaction ID and append occurrence - 1
+					String transactionId = first.getTransactionId() + "+" + (list.size() - 1);
+
+					CompletedPaymentDetails aggregated = new CompletedPaymentDetails();
+
+					aggregated.setPaymentId(first.getPaymentId());
+					aggregated.setPaymentName(first.getPaymentName());
+					aggregated.setTransactionId(transactionId);
+					aggregated.setFlatId(first.getFlatId());
+					aggregated.setTenderList(first.getTenderList());
+					aggregated.setTransactionDate(first.getTransactionDate());
+					aggregated.setCycleOfPayment(first.getCycleOfPayment());
+					aggregated.setDueAmount(first.getDueAmount());
+					aggregated.setTransactionAmount(transactionAmount.toPlainString());
+					aggregated.setDiscount(discount.toPlainString());
+					aggregated.setPenalty(penalty.toPlainString());
+					aggregated.setRoundUpAmount(roundUpAmount.toPlainString());
+					aggregated.setNoOfHead(String.valueOf(noOfHead));
+
+					aggregated.setThirdPartyTransactionNumber(first.getThirdPartyTransactionNumber());
+
+					return aggregated;
+				}).collect(Collectors.toList());
+		result.addAll(noClubbingRequiredList);
+		return result;
+	}
 
 	/**
-	 * Extracts the dueId from the composite dueDetails key stored in the transaction.
-	 * Expected format: "<dueId>_<collectionCycle>_<flatArea>_<dueDate>" where dueId is the
-	 * prefix before the first underscore character.
+	 * Extracts the dueId from the composite dueDetails key stored in the
+	 * transaction. Expected format:
+	 * "<dueId>_<collectionCycle>_<flatArea>_<dueDate>" where dueId is the prefix
+	 * before the first underscore character.
 	 */
 	private String getTederDetailsForCompletedPayment(PaymentTenderData paymentTenderData) {
-		StringBuilder tenderData =new StringBuilder();
-		tenderData=tenderData.append(paymentTenderData.getTenderName().replace("_"," "));
-		tenderData=tenderData.append(" ");
-		tenderData=tenderData.append("₹");
-		tenderData=tenderData.append(paymentTenderData.getAmountPaid());
+		StringBuilder tenderData = new StringBuilder();
+		tenderData = tenderData.append(paymentTenderData.getTenderName().replace("_", " "));
+		tenderData = tenderData.append(" ");
+		tenderData = tenderData.append("₹");
+		tenderData = tenderData.append(paymentTenderData.getAmountPaid());
 		return tenderData.toString();
 	}
+
 }

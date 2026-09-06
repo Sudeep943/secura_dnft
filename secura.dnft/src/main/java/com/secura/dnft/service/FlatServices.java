@@ -39,6 +39,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -68,6 +70,7 @@ import com.secura.dnft.generic.bean.SuccessMessageCode;
 import com.secura.dnft.interfaceservice.FlatInterface;
 import com.secura.dnft.request.response.AddFlatDetailsRequest;
 import com.secura.dnft.request.response.DueAmountDetails;
+import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.AddFlatDetailsResponse;
 import com.secura.dnft.request.response.GetAllFlatsRequest;
 import com.secura.dnft.request.response.GetAllFlatsResponse;
@@ -85,6 +88,9 @@ import com.secura.dnft.validation.ProfileServiceValidation;
 
 @Service
 public class FlatServices implements FlatInterface {
+	
+	private static final Logger LOGGER = LoggerFactory.getLogger(FlatServices.class);
+
 
 	private static final String[] UPLOAD_HEADERS = { "Flat No", "Owner Name", "Owner Gender", "Tower", "Block",
 			"Possesion Date", "Owner Type", "Flat Area", "Owner DOB", "Owner Phone Number", "Owner Email Number" };
@@ -315,6 +321,7 @@ public class FlatServices implements FlatInterface {
 					List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueIdIn(dueIds);
 					List<DueAmountDetailsEntity> filteredDues = filterDueEntitiesByPendingKeys(dueEntities,
 							filteredPendingDueKeys);
+					filteredDues=removeOptionalClosedPaymentDueFromFlat(filteredDues,optionalFlat.get(),request.getGenericHeader(),pendingDueKeys);
 					Map<String, List<String>> paymentIdToDueIdsMap = groupDueIdsByPayment(filteredDues);
 					Map<String, List<DueAmountDetailsEntity>> finalPaymentMap = buildFinalPaymentMap(paymentIdToDueIdsMap,
 							filteredDues);
@@ -335,6 +342,37 @@ public class FlatServices implements FlatInterface {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_43);
 		}
 		return response;
+	}
+	
+	public List<DueAmountDetailsEntity> removeOptionalClosedPaymentDueFromFlat(List<DueAmountDetailsEntity> dues,Flat flat,GenericHeader genericHeader,List<String> pendingDueKeys) {
+		
+		List<DueAmountDetailsEntity> filteredDues= new ArrayList<>();
+		int initialSizeOfFlatpendingDueKeys=pendingDueKeys.size();
+		for(DueAmountDetailsEntity due:dues){
+			if(due.getPaymentType().equalsIgnoreCase(SecuraConstants.PAYMENT_TYPE_OPTIONAL)) {
+				PaymentEntity paymentEntity=  paymentRepository.findByPaymentIdAndAprmtId(due.getPaymentId(), genericHeader.getApartmentId()).get(0);
+				if(!paymentEntity.getCollectionEndDate().isBefore(LocalDate.now())) {
+					filteredDues.add(due);
+				}
+				else {
+					LOGGER.info("Due Needs to Remove From Flat: {} Of Apartment:{}, PaymentId:{} Payment Name :{}, Payment Collection End Date:{}, Payment Type:{}, Due Id: {}, Collection Cycle:{}"
+							,flat.getFlatNo(),genericHeader.getApartmentId(),paymentEntity.getPaymentId(),paymentEntity.getPaymentName(),paymentEntity.getCollectionEndDate(),paymentEntity.getPaymentType(),due.getDueId(),due.getCollectionCycle());
+					pendingDueKeys.remove(buildPendingDueEntityKey(due).replace("|", "_"));
+					
+				}
+			}else{
+				filteredDues.add(due);
+			}
+		}
+		
+		if(initialSizeOfFlatpendingDueKeys>pendingDueKeys.size()) {
+			flat.setFlatPndngPaymntLst(genericService.toJson(pendingDueKeys));
+			flatRepository.save(flat);
+			LOGGER.info("Due Removed From Flat Having Flat Id: {},Apartment Id:{}",
+					flat.getFlatNo(),genericHeader.getApartmentId());
+		}
+		return filteredDues;
+			
 	}
 
 	@Override
@@ -615,6 +653,8 @@ public class FlatServices implements FlatInterface {
 		}
 		return dueDetails;
 	}
+	
+
 	private List<DueAmountDetailsEntity> calculateFinaDueAmount(String paymentId, List<DueAmountDetailsEntity> dueEntities) {
 		if (!hasText(paymentId) || dueEntities == null || dueEntities.isEmpty()) {
 			return dueEntities;

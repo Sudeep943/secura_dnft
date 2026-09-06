@@ -97,7 +97,11 @@ public class WorklistService {
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_PENDING);
 		worklist.setReferenceId(transactionId);
 		worklist.setFlatNo(genericHeader != null ? genericHeader.getFlatNo() : null);
-		worklist.setCurrentAssignee(profileServices.getProfileEntity("dnadminusr").getPrflId());
+		if (transactionId.startsWith("EVNT")) {
+			worklist.setCurrentAssignee(profileServices.getProfileEntity("9658733181").getPrflId());
+		} else {
+			worklist.setCurrentAssignee(profileServices.getProfileEntity("dnadminusr").getPrflId());
+		}
 		worklist.setCreatUsrId(userId);
 		worklist.setCreatTs(now);
 		worklist.setLstUpdtTs(now);
@@ -198,7 +202,7 @@ public class WorklistService {
 //		GetDueAmountForFlatResponse getDueAmountForFlatResponse=flatServices.getDueAmountForFlat(getDueAmountForFlatRequest);
 		
 		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)) {
-			processApprovedTransactionDue(worklist, transaction);
+			processApprovedTransactionDue(worklist, transaction,request.getGenericHeader());
 		} else if (SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action)) {
 			deleteTransactionDueDetails(worklist, transaction);
 		}
@@ -241,6 +245,14 @@ public class WorklistService {
 		if (paidFlats.isEmpty()) {
 			return true;
 		}
+		Optional<Flat> flat= flatRepository.findByAprmntIdAndFlatNo(apartmentId, flatNo);
+		if(flat.isPresent()) {
+			List<String> flatDues = genericService.fromJson(flat.get().getFlatPndngPaymntLst(), new TypeReference<List<String>>() {
+			});
+			if(!flatDues.contains(transaction.getDueDetails())) {
+				return false;
+			}
+		}
 		return !containsFlatId(paidFlats, flatNo);
 	}
 
@@ -256,7 +268,7 @@ public class WorklistService {
 				new TransDueDetailsEntityId(transaction.getTrnscId(), apartmentId, transaction.getDueDetails()));
 	}
 
-	private void processApprovedTransactionDue(Worklist worklist, Transaction transaction) {
+	private void processApprovedTransactionDue(Worklist worklist, Transaction transaction,GenericHeader genericHeader) {
 		if (transaction == null || !hasText(transaction.getDueDetails())) {
 			return;
 		}
@@ -299,10 +311,30 @@ public class WorklistService {
 			return;
 		}
 		List<String> pendingDueList = removeCoveredDueKeysFromFlat(apartmentId, flatNo, coveredDues);
+		if(!isPerHeadCapita(dueEntity.getPaymentCapita())){
 		updateCoveredDuesForFlat(apartmentId, flatNo, coveredDues, dueEntity);
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatNo, paymentId, pendingDueList);
+		removeOtherPendingWorklistForSameDue(transaction,genericHeader);
+		}
+		
 	}
 
+	public void removeOtherPendingWorklistForSameDue(Transaction transaction, GenericHeader genericHeader) {
+		List<Transaction>tranasactionList=transactionRepository.findByPymntIdAndAprmntIdAndDueDetails(transaction.getPymntId(), transaction.getAprmntId(),transaction.getDueDetails());
+		List<String>worklistIds=tranasactionList.stream().filter(trn->trn.getTrnsStatus().equalsIgnoreCase(SecuraConstants.TRANSACTION_STATUS_PENDING)).map(trn->trn.getWorkListId()).collect(Collectors.toList());
+	    
+		for(String workList:worklistIds) {
+			ActionTransactionReviewWorkListRequest actionTransactionReviewWorkListRequest= new ActionTransactionReviewWorkListRequest();
+			actionTransactionReviewWorkListRequest.setAction(SecuraConstants.ACTION_REJECT);
+			actionTransactionReviewWorkListRequest.setWorklistId(workList);
+			actionTransactionReviewWorkListRequest.setGenericHeader(genericHeader);
+			actionTransactionReviewWorkList(actionTransactionReviewWorkListRequest);
+		    	
+		}
+		
+	
+	
+	}
 	
 	private String resolveFlatNo(Worklist worklist, Transaction transaction) {
 		if (worklist != null && hasText(worklist.getFlatNo())) {

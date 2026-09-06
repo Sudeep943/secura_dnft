@@ -548,7 +548,7 @@ public class PaymentServices implements PaymentInterface {
 		return response;
 	}
 
-	private List<PaymentEntityModel> buildPaymentEntityModels(List<PaymentEntity> paymentEntities) {
+	public List<PaymentEntityModel> buildPaymentEntityModels(List<PaymentEntity> paymentEntities) {
 		if (paymentEntities == null || paymentEntities.isEmpty()) {
 			return new ArrayList<>();
 		}
@@ -1609,8 +1609,10 @@ public class PaymentServices implements PaymentInterface {
 		Set<String> coveredDueKeys = coveredDues.stream().map(this::buildFlatPendingDueKey).filter(this::hasText)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
 		removeCoveredDueKeysFromFlat(apartmentId, flatId, coveredDues, coveredDueKeys);
+		if(!isPerHeadCapita(paidDue.getPaymentCapita())){
 		addFlatToCoveredDuePaidFlats(apartmentId, flatId, coveredDues, paidDue);
 		addFlatToPaymentPaidFlatsWhenNoDuesRemain(apartmentId, flatId, paymentId);
+		}
 	}
 
 	private PendingDueKey parsePendingDueKeyToEntityId(String pendingDueKey) {

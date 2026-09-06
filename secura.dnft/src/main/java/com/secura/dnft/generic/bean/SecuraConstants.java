@@ -67,7 +67,7 @@ public interface SecuraConstants {
 	public final String TRANSACTION_TENDER_OFFLINE_BANK_TRANSFER="OFFLINE_BANK_TRANSFER" ;
 	public final String TRANSACTION_THIRD_PARTY_RAZOR_PAY="RAZOR PAY" ;
 	public final String TRANSACTION_CAUSE_MAINTENANCE="MAINTENANCE" ;
-	public final String TRANSACTION_CAUSE_EVENT="EVENT" ;
+	public final String TRANSACTION_CAUSE_EVENT="FESTIVAL_FUND" ;
 	public final String TRANSACTION_CAUSE_OTHERS="OTHERS" ;
 	public final String ACTION_APPROVE="APPROVE" ;
 	public final String ACTION_REJECT="REJECT" ;
@@ -113,6 +113,10 @@ public interface SecuraConstants {
 	
 	public final String PAYMENT_COLLECTION_MODE_PRE="PRE" ;
 	public final String PAYMENT_COLLECTION_MODE_POST="POST" ;
+	
+	public final String PAYMENT_CAPITA_PER_HEAD="PER_HEAD" ;
+	public final String PAYMENT_TYPE_MANDATORY="MANDATORY" ;
+	public final String PAYMENT_TYPE_OPTIONAL="OPTIONAL" ;
 
 
 

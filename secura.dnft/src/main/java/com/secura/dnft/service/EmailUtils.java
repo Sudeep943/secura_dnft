@@ -23,6 +23,7 @@ import com.secura.dnft.entity.DiscFin;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.Flat;
 import com.secura.dnft.entity.Transaction;
+import com.secura.dnft.generic.bean.SecuraConstants;
 import com.secura.dnft.request.response.PaymentTenderData;
 
 @Service
@@ -156,7 +157,8 @@ return formattedDate.toUpperCase();
             List<DueAmountDetailsEntity> currentPaymentDues,
             String societyName,
             String payNowUrl,
-            Flat flat
+            Flat flat,
+            boolean isPerHead
             
             ) {	
 
@@ -195,9 +197,20 @@ return formattedDate.toUpperCase();
                 .append(safe(ownerName))
                 .append("</b>,</p>");
         html.append("<p style='margin:0;font-size:14px;color:#444;line-height:1.6;'>");
+        if(paymentType.equalsIgnoreCase(SecuraConstants.PAYMENT_TYPE_OPTIONAL)) {
+        	html.append("The AOA has initiated an optional payment collection for ");
+        }
+        else {
         html.append("The AOA has initiated a payment collection for ");
+        }
         html.append("<b style='color:#00A696;'>").append(safe(paymentName)).append("</b>.");
-        html.append(" Please review the details below and complete your payment at the earliest.");
+        if(paymentType.equalsIgnoreCase(SecuraConstants.PAYMENT_TYPE_OPTIONAL)) {
+            html.append(" Please review the details below and complete your payment at the earliest if intrested to join.");
+        }
+        else {
+            html.append(" Please review the details below and complete your payment at the earliest.");
+
+        }
         html.append("</p>");
         html.append("</td></tr>");
 
@@ -228,6 +241,9 @@ return formattedDate.toUpperCase();
         String amountDisplay = unitAmount;
         if (isPerSqft) {
             amountDisplay += " Per Sqft";
+        }
+        if(isPerHead) {
+        	amountDisplay += " Per Head";
         }
         addRow(html, "Amount", "₹ " + amountDisplay);
         addRow(html, "GST", gst + "%");
