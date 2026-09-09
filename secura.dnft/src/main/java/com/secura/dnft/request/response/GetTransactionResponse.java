@@ -13,6 +13,7 @@ public class GetTransactionResponse {
 	private Long totalTransaction;
 	private BigDecimal totalCredit;
 	private BigDecimal totalDebit;
+	private ExternalTransactionNoDetails externalTransactionNoDetails;
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
@@ -77,4 +78,14 @@ public class GetTransactionResponse {
 	public void setTotalDebit(BigDecimal totalDebit) {
 		this.totalDebit = totalDebit;
 	}
+
+	public ExternalTransactionNoDetails getExternalTransactionNoDetails() {
+		return externalTransactionNoDetails;
+	}
+
+	public void setExternalTransactionNoDetails(ExternalTransactionNoDetails externalTransactionNoDetails) {
+		this.externalTransactionNoDetails = externalTransactionNoDetails;
+	}
+	
+	
 }

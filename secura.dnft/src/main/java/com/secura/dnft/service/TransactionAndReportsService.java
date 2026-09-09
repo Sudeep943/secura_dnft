@@ -34,10 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -69,6 +65,7 @@ import com.secura.dnft.request.response.BankInstrumentTenderDetails;
 import com.secura.dnft.request.response.CompletedPaymentDetails;
 import com.secura.dnft.request.response.DefaultPayment;
 import com.secura.dnft.request.response.Defaulter;
+import com.secura.dnft.request.response.ExternalTransactionNoDetails;
 import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
@@ -170,7 +167,20 @@ public class TransactionAndReportsService {
 //		for (Transaction transaction : transactions) {
 //			transactionList.add(toResponseItem(transaction));
 //		}
-
+       if(request.getTransactionId() !=null && transactionList.size()==1) {
+    	   String externalTransactionNo=transactionList.get(0).getExternalTransactionReferenceNumber();
+    	   if(null!=externalTransactionNo) {
+    		   List<Transaction> duplicate=transactionRepository.findByAprmntIdAndThirdPartyTrnsRefAndTrnsStatus(request.getGenericHeader().getApartmentId(),externalTransactionNo,SecuraConstants.TRANSACTION_STATUS_SUCCESS);
+    		  if(!duplicate.isEmpty()) {
+    		   ExternalTransactionNoDetails externalTransactionNoDetails= new ExternalTransactionNoDetails();
+    		   externalTransactionNoDetails.setExternalTransactionReferenceNumber(externalTransactionNo);
+    		   externalTransactionNoDetails.setTrnsactions(duplicate);
+    		   externalTransactionNoDetails.setUsedInMultipleTransction(true);
+    		   response.setExternalTransactionNoDetails(externalTransactionNoDetails);
+    		  }
+    	   }
+    	   
+           }
 		response.setTransactionList(transactionList);
 		if (transactionList.isEmpty()) {
 			response.setMessage(SuccessMessage.SUCC_MESSAGE_42);
