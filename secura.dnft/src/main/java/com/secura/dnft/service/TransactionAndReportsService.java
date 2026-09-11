@@ -169,7 +169,7 @@ public class TransactionAndReportsService {
 //		}
        if(request.getTransactionId() !=null && transactionList.size()==1) {
     	   String externalTransactionNo=transactionList.get(0).getExternalTransactionReferenceNumber();
-    	   if(null!=externalTransactionNo) {
+    	   if(null!=externalTransactionNo && !externalTransactionNo.isBlank()) {
     		   List<Transaction> duplicate=transactionRepository.findByAprmntIdAndThirdPartyTrnsRefAndTrnsStatus(request.getGenericHeader().getApartmentId(),externalTransactionNo,SecuraConstants.TRANSACTION_STATUS_SUCCESS);
     		  if(!duplicate.isEmpty()) {
     		   ExternalTransactionNoDetails externalTransactionNoDetails= new ExternalTransactionNoDetails();
@@ -1779,6 +1779,7 @@ public class TransactionAndReportsService {
 		detail.setTransactionAmount(transaction.getTrnsAmt());
 		detail.setThirdPartyTransactionNumber(transaction.getThirdPartyTrnsRef());
 		detail.setNoOfHead(transaction.getNoOfPerson());
+		detail.setInvoiceNo(transaction.getReceiptNumber());
 		return detail;
 
 	}

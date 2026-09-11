@@ -18,4 +18,7 @@ public interface TransDueDetailsRepository extends JpaRepository<TransDueDetails
 	@Query("SELECT DISTINCT t.paymentId FROM TransDueDetailsEntity t WHERE t.paymentName = :paymentName AND t.aprmntId = :aprmntId")
 	List<String> findDistinctPaymentIdsByPaymentNameAndAprmntId(@Param("paymentName") String paymentName,
 			@Param("aprmntId") String aprmntId);
+	
+	 boolean existsByTransactionId(String transactionId);
+
 }

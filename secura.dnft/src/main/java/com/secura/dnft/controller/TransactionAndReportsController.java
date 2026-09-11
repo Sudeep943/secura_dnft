@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.secura.dnft.bean.ExternalTransactionDetails;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
+import com.secura.dnft.interfaceservice.TestUtil;
 import com.secura.dnft.request.response.GetBalanceSheetRequest;
 import com.secura.dnft.request.response.GetBalanceSheetResponse;
 import com.secura.dnft.request.response.GetDefaulterRequest;
@@ -35,6 +36,9 @@ public class TransactionAndReportsController {
 
 	@Autowired
 	TransactionAndReportsService transactionAndReportsService;
+	
+	@Autowired
+	TestUtil testUtil;
 
 	@PostMapping("/getTransaction")
 	@CrossOrigin(origins = "*")
@@ -169,6 +173,18 @@ public class TransactionAndReportsController {
 			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
 		}
 		return response;
+	}
+	
+	@GetMapping("/testUtil")
+	@CrossOrigin(origins = "*")
+	public String testUtil(@RequestParam(required = false) String transactionId) {
+		try {
+			testUtil.createMissingTransDueDetails(transactionId);
+			return "Process Completed";
+		} catch (Exception e) {
+			e.printStackTrace();
+			return e.getMessage();
+		}
 	}
 	
 }

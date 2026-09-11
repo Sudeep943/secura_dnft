@@ -204,7 +204,7 @@ public class WorklistService {
 		if (SecuraConstants.ACTION_APPROVE.equalsIgnoreCase(action)) {
 			processApprovedTransactionDue(worklist, transaction,request.getGenericHeader());
 		} else if (SecuraConstants.ACTION_REJECT.equalsIgnoreCase(action)) {
-			deleteTransactionDueDetails(worklist, transaction);
+			//deleteTransactionDueDetails(worklist, transaction);
 		}
 
 		worklist.setStatus(SecuraConstants.WORKLIST_STATUS_COMPLETE);
@@ -320,7 +320,7 @@ public class WorklistService {
 	}
 
 	public void removeOtherPendingWorklistForSameDue(Transaction transaction, GenericHeader genericHeader) {
-		List<Transaction>tranasactionList=transactionRepository.findByPymntIdAndAprmntIdAndDueDetails(transaction.getPymntId(), transaction.getAprmntId(),transaction.getDueDetails());
+		List<Transaction>tranasactionList=transactionRepository.findByPymntIdAndAprmntIdAndDueDetailsAndFlatId(transaction.getPymntId(), transaction.getAprmntId(),transaction.getDueDetails(),transaction.getFlatId());
 		List<String>worklistIds=tranasactionList.stream().filter(trn->trn.getTrnsStatus().equalsIgnoreCase(SecuraConstants.TRANSACTION_STATUS_PENDING)).map(trn->trn.getWorkListId()).collect(Collectors.toList());
 	    
 		for(String workList:worklistIds) {

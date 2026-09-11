@@ -49,7 +49,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
 
     List<Transaction> findByTrnsStatusAndFlatId(String trnsStatus, String flatId);
     List<Transaction> findByFlatId(String flatId);
-	List<Transaction> findByPymntIdAndAprmntIdAndDueDetails(String paymentId, String aprmntI,String dueId);
+	List<Transaction> findByPymntIdAndAprmntIdAndDueDetailsAndFlatId(String paymentId, String aprmntI,String dueId,String flatId);
 	
 	List<Transaction> findByAprmntIdAndThirdPartyTrnsRefAndTrnsStatus(
 	        String aprmntId,
@@ -57,5 +57,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Transa
 	        String trnsStatus);
 
     
+	
+	  List<Transaction> findByLstUpdtTsGreaterThanEqualAndLstUpdtTsLessThan(LocalDateTime startDate,LocalDateTime endDate);
     
 }

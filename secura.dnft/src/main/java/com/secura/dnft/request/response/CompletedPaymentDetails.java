@@ -19,6 +19,7 @@ public class CompletedPaymentDetails {
 	private String transactionAmount;
 	private String thirdPartyTransactionNumber;
 	private String noOfHead;
+	private String invoiceNo;
 
 	public String getPaymentId() {
 		return paymentId;
@@ -130,6 +131,14 @@ public class CompletedPaymentDetails {
 
 	public void setNoOfHead(String noOfHead) {
 		this.noOfHead = noOfHead;
+	}
+
+	public String getInvoiceNo() {
+		return invoiceNo;
+	}
+
+	public void setInvoiceNo(String invoiceNo) {
+		this.invoiceNo = invoiceNo;
 	}
 	
 	

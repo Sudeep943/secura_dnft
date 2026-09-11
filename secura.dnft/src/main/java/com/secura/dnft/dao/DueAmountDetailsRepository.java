@@ -23,4 +23,6 @@ public interface DueAmountDetailsRepository extends JpaRepository<DueAmountDetai
 
 	Optional<DueAmountDetailsEntity> findByAprmntIdAndDueIdAndCollectionCycleAndFlatAreaAndDueDate(
 			String aprmntId, String dueId, String collectionCycle, String flatArea, LocalDate dueDate);
+	
+	Optional<DueAmountDetailsEntity> findById(DueAmountDetailsEntityId dueAmountDetailsId);
 }
