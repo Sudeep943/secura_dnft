@@ -104,6 +104,19 @@ public class FlatController {
 		}
 	}
 
+	@PostMapping("/getDueDetailsAsTransactionDate")
+	@CrossOrigin(origins = "*")
+	public GetDueAmountForFlatResponse getDueDetailsAsTransactionDate(@RequestBody GetDueAmountForFlatRequest request) {
+		try {
+			return flatServices.getDueDetailsAsTransactionDate(request);
+		} catch (Exception e) {
+			GetDueAmountForFlatResponse response = new GetDueAmountForFlatResponse();
+			response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			return response;
+		}
+	}
+
 	@PostMapping("/getDueAmountForPerHeadCalculation")
 	@CrossOrigin(origins = "*")
 	public GetDueAmountForPerHeadCalculationResponse getDueAmountForPerHeadCalculation(
