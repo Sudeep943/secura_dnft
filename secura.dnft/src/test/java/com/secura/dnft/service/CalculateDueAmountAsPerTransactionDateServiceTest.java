@@ -156,7 +156,7 @@ class CalculateDueAmountAsPerTransactionDateServiceTest {
 				.getDueDetailsAsTransactionDate(buildRequest(LocalDate.of(2026, 8, 10)));
 
 		assertEquals("96", beforePaymentResponse.getTotalDue());
-		assertTrue(Double.parseDouble(afterPaymentResponse.getTotalDue()) < Double.parseDouble(firstDue(afterPaymentResponse).getTotalAmount()));
+		assertEquals("83", afterPaymentResponse.getTotalDue());
 	}
 
 	@Test

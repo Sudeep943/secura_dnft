@@ -619,7 +619,7 @@ public class CalculateDueAmountAsPerTransactionDateService {
 			}
 		}
 		if (cursor.isBefore(transactionDate) && outstanding.compareTo(BigDecimal.ZERO) > 0) {
-			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, dueDate, transactionDate, cycleMonths,
+			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, transactionDate, cycleMonths,
 					partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()), fineDiscFin.getSimpleFineCycle());
 			totalPenalty = totalPenalty.add(segmentPenalty);
 		}
