@@ -522,6 +522,7 @@ class FlatServicesTest {
 		header.setApartmentId("APRT001");
 		request.setGenericHeader(header);
 		request.setFlatId("A-101");
+		request.setTransactionDate(LocalDate.now().plusDays(30));
 
 		Flat flat = new Flat();
 		flat.setFlatNo("A-101");

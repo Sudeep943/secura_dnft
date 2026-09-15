@@ -28,6 +28,8 @@ public interface FlatInterface {
 
 	GetDueAmountForFlatResponse getDueAmountForFlat(GetDueAmountForFlatRequest request);
 
+	GetDueAmountForFlatResponse getDueDetailsAsTransactionDate(GetDueAmountForFlatRequest request);
+
 	GetDueAmountForPerHeadCalculationResponse getDueAmountForPerHeadCalculation(
 			GetDueAmountForPerHeadCalculationRequest request);
 }
