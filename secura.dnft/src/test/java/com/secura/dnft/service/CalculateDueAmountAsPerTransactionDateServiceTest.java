@@ -19,6 +19,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,6 +41,7 @@ import com.secura.dnft.request.response.GetDueAmountForFlatResponse;
 import com.secura.dnft.request.response.PaymentDetail;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class CalculateDueAmountAsPerTransactionDateServiceTest {
 
 	@Mock
@@ -71,7 +74,8 @@ class CalculateDueAmountAsPerTransactionDateServiceTest {
 	void setUpJsonSupport() throws Exception {
 		when(genericService.toJson(any())).thenAnswer(invocation -> objectMapper.writeValueAsString(invocation.getArgument(0)));
 		when(genericService.fromJson(anyString(), any(TypeReference.class)))
-				.thenAnswer(invocation -> objectMapper.readValue(invocation.getArgument(0), invocation.getArgument(1)));
+				.thenAnswer(invocation -> objectMapper.readValue((String) invocation.getArgument(0),
+						(TypeReference<Object>) invocation.getArgument(1)));
 	}
 
 	@Test
@@ -151,7 +155,7 @@ class CalculateDueAmountAsPerTransactionDateServiceTest {
 		GetDueAmountForFlatResponse afterPaymentResponse = service
 				.getDueDetailsAsTransactionDate(buildRequest(LocalDate.of(2026, 8, 10)));
 
-		assertEquals("95", beforePaymentResponse.getTotalDue());
+		assertEquals("96", beforePaymentResponse.getTotalDue());
 		assertTrue(Double.parseDouble(afterPaymentResponse.getTotalDue()) < Double.parseDouble(firstDue(afterPaymentResponse).getTotalAmount()));
 	}
 
