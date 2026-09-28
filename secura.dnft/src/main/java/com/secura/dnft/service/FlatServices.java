@@ -129,6 +129,10 @@ public class FlatServices implements FlatInterface {
 	private CalculateDueAmountAsPerTransactionDateService calculateDueAmountAsPerTransactionDateService;
 	
 	@Autowired
+	private DueAmountAsPerTransactionDateCalculatorService dueAmountAsPerTransactionDateCalculatorService;
+	
+	
+	@Autowired
 	ProfileServiceValidation profileValidation;
 
 	private final DataFormatter dataFormatter = new DataFormatter();
@@ -349,7 +353,8 @@ public class FlatServices implements FlatInterface {
 
 	@Override
 	public GetDueAmountForFlatResponse getDueDetailsAsTransactionDate(GetDueAmountForFlatRequest request) {
-		return calculateDueAmountAsPerTransactionDateService.getDueDetailsAsTransactionDate(request);
+		//return calculateDueAmountAsPerTransactionDateService.getDueDetailsAsTransactionDate(request);
+		return dueAmountAsPerTransactionDateCalculatorService.getDuesForFlatAsPerTransactionDate(request);
 	}
 	
 	public List<DueAmountDetailsEntity> removeOptionalClosedPaymentDueFromFlat(List<DueAmountDetailsEntity> dues,Flat flat,GenericHeader genericHeader,List<String> pendingDueKeys) {

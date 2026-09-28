@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.secura.dnft.entity.DueAmountDetailsEntity;
 import com.secura.dnft.entity.DueAmountDetailsEntityId;
@@ -25,4 +27,15 @@ public interface DueAmountDetailsRepository extends JpaRepository<DueAmountDetai
 			String aprmntId, String dueId, String collectionCycle, String flatArea, LocalDate dueDate);
 	
 	Optional<DueAmountDetailsEntity> findById(DueAmountDetailsEntityId dueAmountDetailsId);
+	
+	@Query("""
+		    SELECT d
+		    FROM DueAmountDetailsEntity d
+		    WHERE d.id.dueId IN :dueIds
+		      AND d.id.aprmntId = :aprmntId
+		""")
+		List<DueAmountDetailsEntity> findByDueIdsAndApartmentId(
+		        @Param("dueIds") List<String> dueIds,
+		        @Param("aprmntId") String aprmntId
+		);
 }

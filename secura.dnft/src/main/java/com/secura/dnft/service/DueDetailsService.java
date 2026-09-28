@@ -786,6 +786,9 @@ public class DueDetailsService {
 		LocalDate today = LocalDate.now();
 		LocalDate fineStart = Boolean.TRUE.equals(fineDiscFin.getDueDateAsStartDateFlag()) && dueDate != null ? dueDate
 				: fineDiscFin.getDiscFnStrtDt();
+		if(null!=fineDiscFin.getDiscFnStrtDt()) {
+			fineStart=fineDiscFin.getDiscFnStrtDt();
+		}
 		LocalDate fineEnd = fineDiscFin.getDiscFnEndDt();
 		if (fineStart != null && today.isBefore(fineStart)) {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -815,16 +818,16 @@ public class DueDetailsService {
 			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 		}
 
-		List<Transaction> transactions = getSuccessfulTransactionsAfterDueDate(due);
-		Map<LocalDate, BigDecimal> paymentByDate = aggregatePaymentsByDate(transactions, due);
-		for (Map.Entry<LocalDate, BigDecimal> entry : paymentByDate.entrySet()) {
-			if (!entry.getKey().isAfter(penaltyStart)) {
-				outstanding = outstanding.subtract(entry.getValue());
-			}
-		}
-		if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
-			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-		}
+//		List<Transaction> transactions = getSuccessfulTransactionsAfterDueDate(due);
+//		Map<LocalDate, BigDecimal> paymentByDate = aggregatePaymentsByDate(transactions, due);
+//		for (Map.Entry<LocalDate, BigDecimal> entry : paymentByDate.entrySet()) {
+//			if (!entry.getKey().isAfter(penaltyStart)) {
+//				outstanding = outstanding.subtract(entry.getValue());
+//			}
+//		}
+//		if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+//			return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+//		}
 
 		LocalDate cursor = penaltyStart;
 		BigDecimal totalPenalty = BigDecimal.ZERO;
@@ -834,29 +837,29 @@ public class DueDetailsService {
 		}
 		boolean partCycleAsFull = Boolean.TRUE.equals(fineDiscFin.getPartOfCycleAsFull());
 		BigDecimal rate = fineValue.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-		for (Map.Entry<LocalDate, BigDecimal> entry : paymentByDate.entrySet()) {
-			LocalDate paymentDate = entry.getKey();
-			if (!paymentDate.isAfter(cursor)) {
-				continue;
-			}
-			LocalDate segmentEnd = paymentDate.isAfter(today) ? today : paymentDate;
-			if (segmentEnd.isAfter(cursor)) {
-				BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, segmentEnd, cycleMonths,
-						partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()),fineDiscFin.getSimpleFineCycle());
-				totalPenalty = totalPenalty.add(segmentPenalty);
-				if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
-					outstanding = outstanding.add(segmentPenalty);
-				}
-			}
-			outstanding = outstanding.subtract(entry.getValue());
-			if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
-				return totalPenalty.setScale(2, RoundingMode.HALF_UP);
-			}
-			cursor = paymentDate;
-			if (!cursor.isBefore(today)) {
-				return totalPenalty.setScale(2, RoundingMode.HALF_UP);
-			}
-		}
+//		for (Map.Entry<LocalDate, BigDecimal> entry : paymentByDate.entrySet()) {
+//			LocalDate paymentDate = entry.getKey();
+//			if (!paymentDate.isAfter(cursor)) {
+//				continue;
+//			}
+//			LocalDate segmentEnd = paymentDate.isAfter(today) ? today : paymentDate;
+//			if (segmentEnd.isAfter(cursor)) {
+//				BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, cursor, segmentEnd, cycleMonths,
+//						partCycleAsFull, isCumulativeFine(fineDiscFin.getFnCalculationType()),fineDiscFin.getSimpleFineCycle());
+//				totalPenalty = totalPenalty.add(segmentPenalty);
+//				if (isCumulativeFine(fineDiscFin.getFnCalculationType())) {
+//					outstanding = outstanding.add(segmentPenalty);
+//				}
+//			}
+//			outstanding = outstanding.subtract(entry.getValue());
+//			if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+//				return totalPenalty.setScale(2, RoundingMode.HALF_UP);
+//			}
+//			cursor = paymentDate;
+//			if (!cursor.isBefore(today)) {
+//				return totalPenalty.setScale(2, RoundingMode.HALF_UP);
+//			}
+//		}
 
 		if (cursor.isBefore(today) && outstanding.compareTo(BigDecimal.ZERO) > 0) {
 			BigDecimal segmentPenalty = calculateSegmentPenalty(outstanding, rate, dueDate, today, cycleMonths,
