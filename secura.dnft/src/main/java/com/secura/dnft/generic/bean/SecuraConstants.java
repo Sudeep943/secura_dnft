@@ -115,9 +115,13 @@ public interface SecuraConstants {
 	public final String PAYMENT_COLLECTION_MODE_POST="POST" ;
 	
 	public final String PAYMENT_CAPITA_PER_HEAD="PER_HEAD" ;
+	public final String PAYMENT_CAPITA_PER_SQFT="PER_SQFT" ;
 	public final String PAYMENT_TYPE_MANDATORY="MANDATORY" ;
 	public final String PAYMENT_TYPE_OPTIONAL="OPTIONAL" ;
-
+	
+	public final String DUE_STATUS_OVERDUE="OVERDUE" ;
+	public final String DUE_STATUS_ACTIVE="ACTIVE" ;
+	public final String FLAT_AREA_ALL="All" ;
 
 
 

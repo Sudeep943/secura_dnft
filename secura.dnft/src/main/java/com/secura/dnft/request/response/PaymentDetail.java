@@ -18,6 +18,8 @@ public class PaymentDetail {
 	private String bankId;
 	private String paymentGateway;
 	private String paymentCause;
+	private String remainingDue;
+	private String paymentType;
 
 	public String getPaymentId() {
 		return paymentId;
@@ -57,6 +59,23 @@ public class PaymentDetail {
 
 	public void setPaymentCause(String paymentCause) {
 		this.paymentCause = paymentCause;
+	}
+
+	
+	public String getRemainingDue() {
+		return remainingDue;
+	}
+
+	public void setRemainingDue(String remainingDue) {
+		this.remainingDue = remainingDue;
+	}
+
+	public String getPaymentType() {
+		return paymentType;
+	}
+
+	public void setPaymentType(String paymentType) {
+		this.paymentType = paymentType;
 	}
 
 	@Override

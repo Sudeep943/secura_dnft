@@ -2,6 +2,7 @@ package com.secura.dnft.request.response;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.secura.dnft.entity.DueAmountDetailsEntity;
@@ -17,6 +18,16 @@ public class GetDueAmountForFlatResponse {
 	private Boolean penaltyAdded;
 	private String message;
 	private String messageCode;
+	private Map<String, Set<DueAmountDetailsEntity>> causeWiseCollectionAllPaybleDues;
+
+	public Map<String, Set<DueAmountDetailsEntity>> getCauseWiseCollectionAllPaybleDues() {
+		return causeWiseCollectionAllPaybleDues;
+	}
+
+	public void setCauseWiseCollectionAllPaybleDues(
+			Map<String, Set<DueAmountDetailsEntity>> causeWiseCollectionAllPaybleDues) {
+		this.causeWiseCollectionAllPaybleDues = causeWiseCollectionAllPaybleDues;
+	}
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;

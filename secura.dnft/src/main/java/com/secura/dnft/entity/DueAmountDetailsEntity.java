@@ -13,6 +13,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @IdClass(DueAmountDetailsEntityId.class)
@@ -155,6 +156,41 @@ public class DueAmountDetailsEntity {
 
 	@Column(name = "lst_updt_usr_id")
 	private String lstUpdtUsrId;
+	
+	@Transient
+	private String status;
+	
+	@Transient
+	private boolean paybleNow;
+	
+	@Transient
+	private boolean payAllDue;
+	
+	
+
+	public boolean isPaybleNow() {
+		return paybleNow;
+	}
+
+	public void setPaybleNow(boolean paybleNow) {
+		this.paybleNow = paybleNow;
+	}
+
+	public boolean isPayAllDue() {
+		return payAllDue;
+	}
+
+	public void setPayAllDue(boolean payAllDue) {
+		this.payAllDue = payAllDue;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
 
 	public String getAprmntId() {
 		return aprmntId;

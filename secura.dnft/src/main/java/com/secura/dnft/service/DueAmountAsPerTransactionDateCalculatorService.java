@@ -6,10 +6,13 @@ import java.time.LocalDate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -76,10 +79,12 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 				return null;
 			}
 			List<String> flatAllDues = getAllDuesForFlat(flat.get(), apartmentId);
+			List<String> pendingDueKeys = parseStringList(flat.get().getFlatPndngPaymntLst());
 			String flatArea=flat.get().getFlatArea();
 			if (!flatAllDues.isEmpty()) {
-				List<DueAmountDetailsEntity> dueEntities = dueAmountDetailsRepository.findByDueIdsAndApartmentId(flatAllDues,apartmentId);
-				dueEntities=dueEntities.stream().filter(due->due.getFlatArea().equals(flatArea)).collect(Collectors.toList());
+				List<DueAmountDetailsEntity> alldueEntities = dueAmountDetailsRepository.findByDueIdsAndApartmentId(flatAllDues,apartmentId);
+				List<DueAmountDetailsEntity> dueEntities=alldueEntities.stream().filter(due->due.getFlatArea().equals(flatArea)).collect(Collectors.toList());
+				dueEntities.addAll(alldueEntities.stream().filter(due->!due.getPaymentCapita().equals(SecuraConstants.PAYMENT_CAPITA_PER_SQFT)).collect(Collectors.toList()));
 				 List<String>paymentIds=dueEntities.stream().map(due->due.getPaymentId()).distinct().collect(Collectors.toList());
 				 List<PaymentEntity> allPaymentsEntities= paymentRepository.findByPaymentIdsAndAprmntId(paymentIds,apartmentId);
 				 finalDueEntity=dueEntities.stream().map(due->setDirectDueData(due,findDuePaymentDetails(due,allPaymentsEntities))).collect(Collectors.toList());
@@ -88,24 +93,182 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 				 
 				 //setPenaltyData
 				 finalDueEntity=finalDueEntity.stream().map(due->calculateAndSetPenalty(due,findDuePaymentDetails(due,allPaymentsEntities),request.getTransactionDate())).collect(Collectors.toList());
+				
 				 finalDueEntity=setPenlatyAsPerChildDue(finalDueEntity,allPaymentsEntities);
 					if(null!=request.getSpecificDue()) {
 						DueAmountDetailsEntity specificDue=request.getSpecificDue();
 						finalDueEntity=finalDueEntity.stream().filter(due->due.getDueId().equals(specificDue.getDueId()) && due.getPaymentId().equals(specificDue.getPaymentId()) && due.getAprmntId().equals(specificDue.getAprmntId()) && due.getDueStartDate().equals(specificDue.getDueStartDate()) && due.getDueEndDate().equals(specificDue.getDueEndDate()))
 								.collect(Collectors.toList());
 					}
+					else {
+						finalDueEntity = finalDueEntity.stream()
+							    .filter(due -> pendingDueKeys.contains(
+							        due.getDueId() + "_" +
+							        due.getCollectionCycle() + "_" +
+							        due.getFlatArea() + "_" +
+							        due.getDueDate()
+							    ))
+							    .toList();					}
 				 finalDueEntity=calculateDueTotalsAndRoundup(finalDueEntity);
-				 response.setDueDetails(createPaymentDetailsMap(finalDueEntity,allPaymentsEntities));
+				 Map<PaymentDetail, List<DueAmountDetailsEntity>> paymentDueDetailMap=createPaymentDetailsMap(finalDueEntity,allPaymentsEntities);
+				 paymentDueDetailMap=updatePaymentDueTotalDetails(paymentDueDetailMap);
+				 response.setDueDetails(paymentDueDetailMap);
+				 response=updateTotals(paymentDueDetailMap,response);
 				 return response;
 
 			}
 		} catch (Exception exp) {
-
+			LOGGER.error("Due Couldn't get Fecthed . Error : "+exp.getMessage(),exp);
 		}
 		return null;
 
 	}
+
+    public GetDueAmountForFlatResponse updateTotals(
+            Map<PaymentDetail, List<DueAmountDetailsEntity>> paymentDueDetailMap, GetDueAmountForFlatResponse response) {
+
+        BigDecimal totalMandatoryPayment = BigDecimal.ZERO;
+        BigDecimal totalOptionalPayment = BigDecimal.ZERO;
+
+        if (paymentDueDetailMap != null) {
+            for (PaymentDetail paymentDetail : paymentDueDetailMap.keySet()) {
+                if (paymentDetail == null) {
+                    continue;
+                }
+                Map<String, Set<DueAmountDetailsEntity>> causeWiseCollectionAllPaybleDues=response.getCauseWiseCollectionAllPaybleDues();
+                if(null==causeWiseCollectionAllPaybleDues) {
+                	causeWiseCollectionAllPaybleDues= new HashMap<>();
+                }
+                if(causeWiseCollectionAllPaybleDues.get(paymentDetail.getPaymentCause().toUpperCase())==null || causeWiseCollectionAllPaybleDues.get(paymentDetail.getPaymentCause().toUpperCase()).isEmpty()) {
+              	  causeWiseCollectionAllPaybleDues.put(paymentDetail.getPaymentCause().toUpperCase(), paymentDueDetailMap.get(paymentDetail).stream().filter(due->due.isPayAllDue()).collect(Collectors.toSet())); 
+                } 
+                else {
+                	causeWiseCollectionAllPaybleDues.get(paymentDetail.getPaymentCause().toUpperCase()).addAll(paymentDueDetailMap.get(paymentDetail).stream().filter(due->due.isPayAllDue()).collect(Collectors.toSet()));
+                }
+                BigDecimal remainingDue = parseAmount(
+                        paymentDetail.getRemainingDue());
+
+                String paymentType = paymentDetail.getPaymentType();
+
+                if ("MANDATORY".equalsIgnoreCase(paymentType)) {
+                    totalMandatoryPayment =
+                            totalMandatoryPayment.add(remainingDue);
+
+                } else if ("OPTIONAL".equalsIgnoreCase(paymentType)) {
+                    totalOptionalPayment =
+                            totalOptionalPayment.add(remainingDue);
+                }
+                response.setCauseWiseCollectionAllPaybleDues(causeWiseCollectionAllPaybleDues);
+            }
+        }
+
+        BigDecimal totalDue =
+                totalMandatoryPayment.add(totalOptionalPayment);
+
+        response.setDueDetails(paymentDueDetailMap);
+        response.setTotalMandatoryPayment(
+                totalMandatoryPayment.toPlainString());
+        response.setTotalOptionalPayment(
+                totalOptionalPayment.toPlainString());
+        response.setTotalDue(totalDue.toPlainString());
+
+        return response;
+    }
+
+    private BigDecimal parseAmount(String amount) {
+        if (amount == null || amount.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+
+        return new BigDecimal(amount.trim());
+    }
 	
+	
+	 public Map<PaymentDetail, List<DueAmountDetailsEntity>>
+     updatePaymentDueTotalDetails(
+             Map<PaymentDetail, List<DueAmountDetailsEntity>>
+                     paymentDueDetailMap) {
+		 
+		final  List<String> COLLECTION_CYCLE_PRIORITY =
+		            List.of( SecuraConstants.DISC_FN_CYCLE_YEARLY,SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY, SecuraConstants.DISC_FN_CYCLE_QUARTERLY_MISSPELLED,SecuraConstants.DISC_FN_CYCLE_QUARTERLY,SecuraConstants.DISC_FN_CYCLE_MONTHLY);
+
+ if (paymentDueDetailMap == null || paymentDueDetailMap.isEmpty()) {
+     return paymentDueDetailMap;
+ }
+
+ for (Map.Entry<PaymentDetail, List<DueAmountDetailsEntity>> entry
+         : paymentDueDetailMap.entrySet()) {
+
+     PaymentDetail paymentDetail = entry.getKey();
+     List<DueAmountDetailsEntity> dueDetails = entry.getValue();
+     updatePaybleNowFlag(dueDetails);
+     paymentDetail.setPaymentType(dueDetails.get(0).getPaymentType());
+     if (paymentDetail == null || dueDetails == null
+             || dueDetails.isEmpty()) {
+         continue;
+     }
+
+     // Priority 1: Once
+     List<DueAmountDetailsEntity> onceDetails = dueDetails.stream()
+             .filter(Objects::nonNull)
+             .filter(due -> SecuraConstants.PAYMENT_CYCLE_ONCE.equalsIgnoreCase(
+                     due.getCollectionCycle()))
+             .toList();
+
+     if (!onceDetails.isEmpty()) {
+
+         // Set totalAmount of every Once entry to remainingDue.
+         onceDetails.forEach(due ->
+         paymentDetail.setRemainingDue(due.getTotalAmount())
+         );
+         onceDetails.forEach(due ->
+         due.setPayAllDue(true)
+         );
+
+         continue;
+     }
+
+     
+     // Priority 2 onwards: Monthly, Quarterly, Half-Yearly, Yearly
+     for (String cycle : COLLECTION_CYCLE_PRIORITY) {
+
+         List<DueAmountDetailsEntity> highestDues =
+                 dueDetails.stream()
+                         .filter(Objects::nonNull)
+                         .filter(due -> cycle.equalsIgnoreCase(
+                                 due.getCollectionCycle()))
+                         .toList();
+          if(highestDues.isEmpty()) {
+	 continue;
+            }
+         List<DueAmountDetailsEntity> childDuesOfhighestDues=  highestDues.stream()
+                 .flatMap(due -> getChildDuesOfRequiredDue(due, dueDetails).stream())
+                 .toList();
+         List<DueAmountDetailsEntity> matchingDetails= new ArrayList<>(highestDues);;
+         matchingDetails.addAll(dueDetails.stream().filter(due->!childDuesOfhighestDues.contains(due) && !highestDues.contains(due)).collect(Collectors.toList()));
+         dueDetails.forEach(due ->
+         due.setPayAllDue(matchingDetails.contains(due))
+     );
+         if (!matchingDetails.isEmpty()) {
+
+             BigDecimal total = matchingDetails.stream()
+                     .map(DueAmountDetailsEntity::getTotalAmount)
+                     .filter(Objects::nonNull)
+                     .map(String::trim)
+                     .filter(amount -> !amount.isEmpty())
+                     .map(BigDecimal::new)
+                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+             paymentDetail.setRemainingDue(total.toPlainString());
+
+             // Stop after the first available cycle.
+             break;
+         }
+     }
+ }
+
+ return paymentDueDetailMap;
+}
 
 	public Map<PaymentDetail, List<DueAmountDetailsEntity>> createPaymentDetailsMap(
 	        List<DueAmountDetailsEntity> finalDueEntity,
@@ -160,6 +323,9 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 	
 	private DueAmountDetailsEntity getCalculatedPenaltyFromChildDue(List<DueAmountDetailsEntity> finalDueEntity, List<PaymentEntity> allPaymentsEntities,DueAmountDetailsEntity due) {
 		Optional<PaymentEntity> paymentEntity= allPaymentsEntities.stream().filter(pay->pay.getPaymentId().equals(due.getPaymentId())).findFirst();
+		if(paymentEntity.get().getPaymentCollectionCycle().contains(SecuraConstants.PAYMENT_CYCLE_ONCE)) {
+			return due;
+		}
 		String lowestCycle=getTheLowestCollectionCycle(paymentEntity.get());
 		if(lowestCycle.equalsIgnoreCase(due.getCollectionCycle())) {
 			return due;
@@ -269,6 +435,9 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 	        LocalDate transactionDate) {
 
 		DiscFin discFinData=null;
+		if(null==payment || null==payment.getDiscFin()) {
+			return due;
+		}
 		List<DiscFinTagEntry> discFinEntry = genericService.fromJson(payment.getDiscFin(),
 				new TypeReference<List<DiscFinTagEntry>>() {
 				});
@@ -366,6 +535,9 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 	        LocalDate transactionDate) {
 
 		DiscFin discFinData=null;
+		if(null==payment || null==payment.getDiscFin()) {
+			return due;
+		}
 		List<DiscFinTagEntry> discFinEntry = genericService.fromJson(payment.getDiscFin(),
 				new TypeReference<List<DiscFinTagEntry>>() {
 				});
@@ -574,10 +746,144 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 		 		BigDecimal roundUpAmount = roundedTotal.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
 		 		due.setTotalAmount(roundedTotal.toString());
 		 		due.setRoundUpAmount(roundUpAmount.toString());
+		 		if (due.getDueDate() != null
+		 		        && due.getDueDate().isBefore(LocalDate.now())) {
+		 			due.setStatus(SecuraConstants.DUE_STATUS_OVERDUE);
+		 		}
+		 		else{
+		 			due.setStatus(SecuraConstants.DUE_STATUS_ACTIVE);
+		 		}
 			return due;}).collect(Collectors.toList());
 		
 	}
 	
 	
 
+public void updatePaybleNowFlag(List<DueAmountDetailsEntity> dues) {
+
+    if (dues == null || dues.isEmpty()) {
+        return;
+    }
+
+    // Default all dues to not payable now.
+    dues.stream()
+            .filter(Objects::nonNull)
+            .forEach(due -> due.setPaybleNow(false));
+
+    // Get overdue dues.
+    List<DueAmountDetailsEntity> overdueDues = dues.stream()
+            .filter(Objects::nonNull)
+            .filter(due -> SecuraConstants.DUE_STATUS_OVERDUE.equalsIgnoreCase(due.getStatus()))
+            .toList();
+
+    // Get active dues.
+    List<DueAmountDetailsEntity> activeDues = dues.stream()
+            .filter(Objects::nonNull)
+            .filter(due ->  SecuraConstants.DUE_STATUS_ACTIVE.equalsIgnoreCase(due.getStatus()))
+            .toList();
+
+    // Prefer overdue dues; otherwise process active dues.
+    List<DueAmountDetailsEntity> eligibleDues =
+            !overdueDues.isEmpty() ? overdueDues : activeDues;
+
+    if (eligibleDues.isEmpty()) {
+        return;
+    }
+
+    // If Once exists, make the Once dues payable now.
+    List<DueAmountDetailsEntity> onceDues = eligibleDues.stream()
+            .filter(due -> SecuraConstants.PAYMENT_CYCLE_ONCE.equalsIgnoreCase(
+                    due.getCollectionCycle()))
+            .toList();
+
+    if (!onceDues.isEmpty()) {
+        onceDues.forEach(due -> due.setPaybleNow(true));
+        return;
+    }
+
+    // Find the oldest due by due date.
+    List<DueAmountDetailsEntity> oldestDues = eligibleDues.stream()
+            .filter(due -> due.getDueDate() != null)
+            .collect(Collectors.groupingBy(DueAmountDetailsEntity::getDueDate))
+            .entrySet()
+            .stream()
+            .min(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .orElse(Collections.emptyList());
+
+    List<String> cyclePriority =
+            List.of(SecuraConstants.DISC_FN_CYCLE_YEARLY, SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY, SecuraConstants.PAYMENT_CYCLE_QUATERLY, SecuraConstants.PAYMENT_CYCLE_MONTHLY);
+
+    String highestCycle = cyclePriority.stream()
+            .filter(cycle -> oldestDues.stream()
+                    .anyMatch(due -> cycle.equalsIgnoreCase(
+                            due.getCollectionCycle())))
+            .findFirst()
+            .orElse(null);
+
+    Comparator<DueAmountDetailsEntity> dueDateComparator =
+            Comparator.comparing(DueAmountDetailsEntity::getDueDate);
+    
+    DueAmountDetailsEntity highestCycleOldestDues = oldestDues.stream()
+            .filter(due -> highestCycle != null
+                    && highestCycle.equalsIgnoreCase(due.getCollectionCycle())).sorted(dueDateComparator)
+            .findFirst()
+            .orElse(null);
+
+    if (highestCycleOldestDues == null) {
+        return;
+    }
+
+    // Determine the lowest available collection cycle.
+    String lowestCycle = getLowestCollectionCycle(eligibleDues);
+
+    if (lowestCycle == null) {
+        return;
+    }
+
+    // Mark the oldest due as payable.
+    highestCycleOldestDues.setPaybleNow(true);
+
+    // Get child dues and mark them payable.
+    List<DueAmountDetailsEntity> childDues =
+    		getChildDuesOfRequiredDue(highestCycleOldestDues, eligibleDues);
+
+    if (childDues != null) {
+//        childDues.stream()
+//                .filter(Objects::nonNull)
+//                .forEach(due -> due.setPaybleNow(true));
+        childDues.stream()
+        .filter(childDue -> highestCycleOldestDues.getDueDate().equals(childDue.getDueDate()))
+        .forEach(childDue -> childDue.setPaybleNow(true));
+    }
+}
+
+public List<DueAmountDetailsEntity> getChildDuesOfRequiredDue(DueAmountDetailsEntity requiredDue,  List<DueAmountDetailsEntity> allDue){
+	 List<DueAmountDetailsEntity> childDues= new ArrayList<>();
+	 
+	 childDues=allDue.stream().filter(due->!due.getCollectionCycle().equals(requiredDue.getCollectionCycle()) &&
+			 !due.getDueStartDate().isBefore(requiredDue.getDueStartDate()) &&! due.getDueEndDate().isAfter(requiredDue.getDueEndDate())).collect(Collectors.toList());
+	 
+	 return childDues;
+}
+
+private String getLowestCollectionCycle(
+        List<DueAmountDetailsEntity> dues) {
+
+    List<String> cyclePriority =
+            List.of(SecuraConstants.PAYMENT_CYCLE_MONTHLY, SecuraConstants.PAYMENT_CYCLE_QUATERLY, SecuraConstants.DISC_FN_CYCLE_HALF_YEARLY, SecuraConstants.DISC_FN_CYCLE_YEARLY);
+
+    for (String cycle : cyclePriority) {
+        boolean exists = dues.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(due -> cycle.equalsIgnoreCase(
+                        due.getCollectionCycle()));
+
+        if (exists) {
+            return cycle;
+        }
+    }
+
+    return null;
+}
 }
