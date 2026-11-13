@@ -87,7 +87,13 @@ public class DueAmountAsPerTransactionDateCalculatorService extends DueAmountAsP
 				dueEntities.addAll(alldueEntities.stream().filter(due->!due.getPaymentCapita().equals(SecuraConstants.PAYMENT_CAPITA_PER_SQFT)).collect(Collectors.toList()));
 				 List<String>paymentIds=dueEntities.stream().map(due->due.getPaymentId()).distinct().collect(Collectors.toList());
 				 List<PaymentEntity> allPaymentsEntities= paymentRepository.findByPaymentIdsAndAprmntId(paymentIds,apartmentId);
-				 finalDueEntity=dueEntities.stream().map(due->setDirectDueData(due,findDuePaymentDetails(due,allPaymentsEntities))).collect(Collectors.toList());
+				 List<PaymentEntity> finaPaymentList = allPaymentsEntities.stream()
+						    .filter(pymnt ->
+						        !(pymnt.getPaymentType().equalsIgnoreCase(SecuraConstants.PAYMENT_TYPE_OPTIONAL)
+						          && LocalDate.now().isAfter(pymnt.getCollectionEndDate()))
+						    )
+						    .collect(Collectors.toList()).stream().filter(pymnt->pymnt!=null).collect(Collectors.toList());
+				 finalDueEntity=dueEntities.stream().map(due->setDirectDueData(due,findDuePaymentDetails(due,finaPaymentList))).collect(Collectors.toList()).stream().filter(pymnt->pymnt!=null).collect(Collectors.toList());;
 				 //setDiscountData
 				 finalDueEntity=finalDueEntity.stream().map(due->calculateAndSetDiscountAndFineData(due,findDuePaymentDetails(due,allPaymentsEntities),request.getTransactionDate())).collect(Collectors.toList());
 				 

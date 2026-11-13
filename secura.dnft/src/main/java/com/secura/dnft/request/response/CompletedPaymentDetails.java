@@ -1,5 +1,6 @@
 package com.secura.dnft.request.response;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,6 +21,25 @@ public class CompletedPaymentDetails {
 	private String thirdPartyTransactionNumber;
 	private String noOfHead;
 	private String invoiceNo;
+	private LocalDate dueStartDate;
+	private LocalDate dueEndDate;
+	
+	
+	public LocalDate getDueStartDate() {
+		return dueStartDate;
+	}
+
+	public void setDueStartDate(LocalDate dueStartDate) {
+		this.dueStartDate = dueStartDate;
+	}
+
+	public LocalDate getDueEndDate() {
+		return dueEndDate;
+	}
+
+	public void setDueEndDate(LocalDate dueEndDate) {
+		this.dueEndDate = dueEndDate;
+	}
 
 	public String getPaymentId() {
 		return paymentId;

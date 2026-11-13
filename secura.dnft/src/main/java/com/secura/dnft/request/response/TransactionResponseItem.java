@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.secura.dnft.entity.TransDueDetailsEntity;
+
 public class TransactionResponseItem {
 
 	private String aprmntId;
@@ -36,7 +38,17 @@ public class TransactionResponseItem {
 	private String externalTransactionReferenceNumber;
 	private List<String> ownersName;
 	private String noOfHeads;
+	private List<TransDueDetailsEntity> dueDeatilsListOfTransaction;
 	
+	
+	public List<TransDueDetailsEntity> getDueDeatilsListOfTransaction() {
+		return dueDeatilsListOfTransaction;
+	}
+
+	public void setDueDeatilsListOfTransaction(List<TransDueDetailsEntity> dueDeatilsListOfTransaction) {
+		this.dueDeatilsListOfTransaction = dueDeatilsListOfTransaction;
+	}
+
 	public String getAprmntId() {
 		return aprmntId;
 	}

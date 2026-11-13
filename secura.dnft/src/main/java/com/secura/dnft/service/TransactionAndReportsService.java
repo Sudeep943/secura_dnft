@@ -54,6 +54,7 @@ import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.PaymentEntity;
 import com.secura.dnft.entity.Profile;
 import com.secura.dnft.entity.TransDueDetailsEntity;
+import com.secura.dnft.entity.TransDueDetailsEntityId;
 import com.secura.dnft.entity.Transaction;
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
@@ -169,15 +170,24 @@ public class TransactionAndReportsService {
 //		}
        if(request.getTransactionId() !=null && transactionList.size()==1) {
     	   String externalTransactionNo=transactionList.get(0).getExternalTransactionReferenceNumber();
+    	   TransactionResponseItem requiredTransationDetails=transactionList.get(0);
     	   if(null!=externalTransactionNo && !externalTransactionNo.isBlank()) {
     		   List<Transaction> duplicate=transactionRepository.findByAprmntIdAndThirdPartyTrnsRefAndTrnsStatus(request.getGenericHeader().getApartmentId(),externalTransactionNo,SecuraConstants.TRANSACTION_STATUS_SUCCESS);
-    		  if(!duplicate.isEmpty()) {
+    		  
+    		   if(requiredTransationDetails.getTrnsStatus().equals(SecuraConstants.TRANSACTION_STATUS_PENDING) &&  !duplicate.isEmpty()) {
     		   ExternalTransactionNoDetails externalTransactionNoDetails= new ExternalTransactionNoDetails();
     		   externalTransactionNoDetails.setExternalTransactionReferenceNumber(externalTransactionNo);
     		   externalTransactionNoDetails.setTrnsactions(duplicate);
     		   externalTransactionNoDetails.setUsedInMultipleTransction(true);
     		   response.setExternalTransactionNoDetails(externalTransactionNoDetails);
     		  }
+    		   if(requiredTransationDetails.getTrnsStatus().equals(SecuraConstants.TRANSACTION_STATUS_SUCCESS) && duplicate.size()>1 ) {
+    			   ExternalTransactionNoDetails externalTransactionNoDetails= new ExternalTransactionNoDetails();
+        		   externalTransactionNoDetails.setExternalTransactionReferenceNumber(externalTransactionNo);
+        		   externalTransactionNoDetails.setTrnsactions(duplicate);
+        		   externalTransactionNoDetails.setUsedInMultipleTransction(true);
+        		   response.setExternalTransactionNoDetails(externalTransactionNoDetails);
+    		   }
     	   }
     	   
            }
@@ -984,8 +994,35 @@ public class TransactionAndReportsService {
 		}
 		item.setNoOfHeads(transaction.getNoOfPerson());
 		item.setExternalTransactionReferenceNumber(transaction.getThirdPartyTrnsRef());
+		item.setDueDeatilsListOfTransaction(createTransactionDueDetails(transaction.getTrnscId(),transaction.getAprmntId(),transaction.getDueDetails(),false));
 		return item;
 	}
+	
+	public List<TransDueDetailsEntity> createTransactionDueDetails(
+	        String transactionId,
+	        String apartmentId,
+	        String dueDetailsId,
+	        boolean multiTrans) {
+
+	    // For multiple transactions, return null
+	    if (multiTrans) {
+	        return null;
+	    }
+
+	    TransDueDetailsEntityId id = new TransDueDetailsEntityId();
+	    id.setTransactionId(transactionId);
+	    id.setAprmntId(apartmentId);
+	    id.setDueId(dueDetailsId);
+
+	    List<TransDueDetailsEntity> transDueDetailsList = new ArrayList<>();
+
+	    transDueDetailsRepository.findById(id)
+	            .ifPresent(transDueDetailsList::add);
+
+	    return transDueDetailsList;
+	}
+	
+	
 
 	private <T> List<T> parseList(String json, TypeReference<List<T>> typeReference) {
 		if (json == null || json.isBlank()) {
@@ -1509,7 +1546,7 @@ public class TransactionAndReportsService {
 		}
 		
 		logger.info("Total Trasnctions: {}", transactions.size());
-		LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+		LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(90);
 		LocalDateTime now = LocalDateTime.now();
 
 		 transactions = transactions.stream()
@@ -1780,6 +1817,8 @@ public class TransactionAndReportsService {
 		detail.setThirdPartyTransactionNumber(transaction.getThirdPartyTrnsRef());
 		detail.setNoOfHead(transaction.getNoOfPerson());
 		detail.setInvoiceNo(transaction.getReceiptNumber());
+		detail.setDueEndDate(matchedDue.getDueEndDate());
+		detail.setDueStartDate(matchedDue.getDueStartDate());
 		return detail;
 
 	}
