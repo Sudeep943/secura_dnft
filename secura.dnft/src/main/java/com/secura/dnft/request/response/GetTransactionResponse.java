@@ -14,6 +14,17 @@ public class GetTransactionResponse {
 	private BigDecimal totalCredit;
 	private BigDecimal totalDebit;
 	private ExternalTransactionNoDetails externalTransactionNoDetails;
+	private String receipt;
+	
+	
+
+	public String getReceipt() {
+		return receipt;
+	}
+
+	public void setReceipt(String receipt) {
+		this.receipt = receipt;
+	}
 
 	public GenericHeader getGenericHeader() {
 		return genericHeader;

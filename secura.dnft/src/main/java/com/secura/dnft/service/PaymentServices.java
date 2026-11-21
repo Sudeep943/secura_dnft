@@ -741,6 +741,8 @@ public class PaymentServices implements PaymentInterface {
 	@Override
 	public PayDueResponse payDues(PayDueRequest request) throws Exception {
 		PayDueResponse response = new PayDueResponse();
+		
+		
 		String apartmentId = request != null && request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null;
 		PaymentEntity paymentEntity = resolvePaymentEntity(request != null ? request.getPaymentId() : null, apartmentId)
 				.orElseThrow(() -> new EntityNotFoundException(ErrorMessage.ERR_MESSAGE_33));
@@ -750,6 +752,7 @@ public class PaymentServices implements PaymentInterface {
 		List<PaymentTenderData> paymentTenderDataList = normalizePaymentTenderDataList(
 				request != null ? request.getPaymentTenderDataList() : null);
 
+		
 		// Validate CREDIT_NOTE tender(s) before proceeding with payment
 		if (paymentTenderDataList != null) {
 			for (PaymentTenderData tender : paymentTenderDataList) {
@@ -769,38 +772,53 @@ public class PaymentServices implements PaymentInterface {
 		}
 
 		boolean onlinePayment = isOnlinePayment(paymentTenderDataList);
-		Transaction transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
+		boolean successfulTransaction =false;
+		Transaction transaction= new Transaction();
+         if(onlinePayment && null!=request.getTransactionId()) {
+        	 transaction=transactionRepository.findByAprmntIdAndTrnscId(request.getGenericHeader().getApartmentId(), request.getTransactionId()).get(0);
+        	 isSuccessfulTransaction(request.getTransactionStatus());
+        	 transaction.setTrnsStatus(request.getTransactionStatus());
+        	 transactionRepository.save(transaction);
+        	 }
+         else {
+		 transaction = buildTransaction(request, flatArea, paymentEntity, paymentTenderDataList);
 		if (isPendingValidationStatus(transaction.getTrnsStatus()) && isQrPaymentTransaction(transaction)) {
 			transaction.setQrIdentifier(generateUniqueQrIdentifier(apartmentId));
 			response.setQrIdentifier(transaction.getQrIdentifier());
 		}
-		boolean successfulTransaction = isSuccessfulTransaction(transaction.getTrnsStatus());
+		successfulTransaction= isSuccessfulTransaction(transaction.getTrnsStatus());
 		DueAmountDetailsEntity dueEntity = request != null ? request.getPaidDueDetails() : null;
 		if (dueEntity == null) {
 			dueEntity = resolveDueAmountDetailsEntity(request, flatArea, paymentEntity);
 		}
 		persistTransactionDueDetails(transaction.getTrnscId(), apartmentId, dueEntity);
+		
 		transactionRepository.save(transaction);
+		
 		CreateReceiptResponse receiptResponse = receiptServices
 				.createReceipt(buildReceiptRequest(request, transaction.getTrnscId(), dueEntity));
 		transaction.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
 		transactionRepository.save(transaction);
+		if (successfulTransaction) {
+			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
+			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
+		}
+         }
+         
 		if (!onlinePayment) {
 			Worklist worklist = worklistService.createTransactionReviewWorklist(transaction.getTrnscId(),
 					request != null ? request.getGenericHeader() : null);
 			transaction.setWorkListId(worklist.getWorklistId());
 			transactionRepository.save(transaction);
 			updatetransFileAndBankreferene(request,transaction);
-		} else if (successfulTransaction) {
-			response.setReceipt(receiptResponse != null ? receiptResponse.getReceipt() : null);
-			response.setReceiptNumber(receiptResponse != null ? receiptResponse.getReceiptNumber() : null);
-		}
+		} 
 		response.setMessage(SuccessMessage.SUCC_MESSAGE_33);
 		response.setMessageCode(SuccessMessageCode.SUCC_MESSAGE_33);
 		response.setTransactionId(transaction.getTrnscId());
 		if (onlinePayment && successfulTransaction) {
 			response.setReceiptNumber(transaction.getReceiptNumber());
 		}
+		
 		if (successfulTransaction) {
 			removeCoveredDuesAfterSuccessfulPayment(
 					request.getGenericHeader() != null ? request.getGenericHeader().getApartmentId() : null,
@@ -1933,7 +1951,7 @@ public class PaymentServices implements PaymentInterface {
 
 	private String resolveThirdPartyName(String tender) {
 		if (SecuraConstants.TENDER_ONLINE.equalsIgnoreCase(trimValue(tender))) {
-			return SecuraConstants.TRANSACTION_THIRD_PARTY_RAZOR_PAY;
+			return SecuraConstants.TRANSACTION_THIRD_PARTY_ATOMS;
 		}
 		return "";
 	}

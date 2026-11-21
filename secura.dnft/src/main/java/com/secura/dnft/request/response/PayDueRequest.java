@@ -35,7 +35,17 @@ public class PayDueRequest {
 	private List<String> files;
 	private DueAmountDetailsEntity paidDueDetails;
 	private OtpDetails otpDetails;
+	private String transactionId;
 
+	public String getTransactionId() {
+		return transactionId;
+	}
+
+	public void setTransactionId(String transactionId) {
+		this.transactionId = transactionId;
+	}
+
+	
 	public GenericHeader getGenericHeader() {
 		return genericHeader;
 	}

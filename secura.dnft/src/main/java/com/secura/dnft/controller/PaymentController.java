@@ -1,16 +1,21 @@
 package com.secura.dnft.controller;
 
+import java.net.URI;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.secura.dnft.generic.bean.ErrorMessage;
 import com.secura.dnft.generic.bean.ErrorMessageCode;
 import com.secura.dnft.interfaceservice.ThirdPartyPaymentGayeway;
-import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.request.response.ActionQRPaymentRequest;
 import com.secura.dnft.request.response.ActionQRPaymentResponse;
 import com.secura.dnft.request.response.CreatePaymentRequest;
@@ -41,6 +46,8 @@ import com.secura.dnft.request.response.RemovePaymentRequest;
 import com.secura.dnft.request.response.UploadPastDueRequest;
 import com.secura.dnft.request.response.UploadPastDueResponse;
 import com.secura.dnft.request.response.ValidatePriorDuePaymnentRequest;
+import com.secura.dnft.security.BusinessException;
+import com.secura.dnft.service.AtomEncryption;
 import com.secura.dnft.service.AtomsPaymentServices;
 import com.secura.dnft.service.DeepLinkServices;
 import com.secura.dnft.service.PaymentServices;
@@ -68,6 +75,8 @@ public class PaymentController {
 	@Autowired
 	PaymentUtilService paymentUtilService;
 	
+
+ 	
 	 @PostMapping("/payGatewayCreateOrder")
 	    @CrossOrigin(origins = "*")
 	    public PaymentGayewayOrderResponse createOrder(@RequestBody PaymentGayewayOrderRequest request) {
@@ -95,6 +104,40 @@ public class PaymentController {
 			 return response;
 		 }
 	            }
+	 
+	  @PostMapping( value = "/atom/return")	
+	  @CrossOrigin(origins = "*")
+	    public ResponseEntity<Void> atomReturn(   @RequestParam MultiValueMap<String, String> formData) {
+		 try {
+			 
+			 String merchId = formData.getFirst("merchId");
+			    String encData = formData.getFirst("encData");
+			    System.out.println(merchId + " "+ encData);
+			    
+//			 URI redirectUri = URI.create(
+//				        "https://dnfaoa.org/payment-confirmation?ref=" + "SKIMBNB"
+//				    );
+			 
+			 URI redirectUri = URI.create(
+				        "https://dnfaoa.org/"
+				    );
+
+			 
+			 return ResponseEntity
+			            .status(HttpStatus.SEE_OTHER) // HTTP 303
+			            .location(redirectUri)
+			            .build();
+			 
+			 
+		 } catch (Exception e) {
+			 PaymentGayewayOrderResponse response = new PaymentGayewayOrderResponse();
+		//	 response.setGenericHeader(request != null ? request.getGenericHeader() : null);
+			 response.setMessage(ErrorMessage.ERR_MESSAGE_33);
+			 response.setMessageCode(ErrorMessageCode.ERR_MESSAGE_33);
+			 return null;
+		 }
+	            }
+	 
 	 
 	 @PostMapping("/getPaymentDetails")
 	    @CrossOrigin(origins = "*")
