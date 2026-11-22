@@ -16,17 +16,23 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.secura.dnft.bean.ProfileAccountDetails;
 import com.secura.dnft.dao.ApartmentRepository;
 import com.secura.dnft.dao.OwnerRepository;
 import com.secura.dnft.dao.ProfileRepository;
+import com.secura.dnft.dao.ProfileAccountRepository;
 import com.secura.dnft.dao.TenantRepository;
 import com.secura.dnft.entity.ApartmentMaster;
 import com.secura.dnft.entity.Owner;
 import com.secura.dnft.entity.Profile;
+import com.secura.dnft.entity.ProfileAccount;
+import com.secura.dnft.entity.ProfileAccountId;
 import com.secura.dnft.entity.Tenant;
 import com.secura.dnft.generic.bean.Address;
 import com.secura.dnft.generic.bean.ErrorMessage;
@@ -45,6 +51,7 @@ import com.secura.dnft.request.response.GenericHeader;
 import com.secura.dnft.request.response.GetOwnerRequest;
 import com.secura.dnft.request.response.GetOwnerResponse;
 import com.secura.dnft.request.response.GetProfileRequest;
+import com.secura.dnft.request.response.GetProfileAccountRequest;
 import com.secura.dnft.request.response.GetProfileResponse;
 import com.secura.dnft.request.response.GetTenantRequest;
 import com.secura.dnft.request.response.GetTenantResponse;
@@ -57,13 +64,14 @@ import com.secura.dnft.request.response.RemoveOwnerTenantProfileResponse;
 import com.secura.dnft.request.response.SearchProfileRequest;
 import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
+import com.secura.dnft.request.response.UpdateProfileAccountRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
 import com.secura.dnft.security.BusinessException;
 import com.secura.dnft.security.LoginException;
 import com.secura.dnft.validation.ProfileServiceValidation;
 
 @Service
-public class ProfileServices {
+public class ProfileServices implements ProfileService {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ProfileServices.class);
 
 	@Autowired
@@ -71,6 +79,9 @@ public class ProfileServices {
 
 	@Autowired
 	ProfileRepository profileRepository;
+
+	@Autowired
+	ProfileAccountRepository profileAccountRepository;
 
 	@Autowired
 	ApartmentRepository apartmentRepository;
@@ -83,6 +94,33 @@ public class ProfileServices {
 
 	@Autowired
 	ProfileServiceValidation profileValidation;
+
+	@Override
+	@Transactional(readOnly = true)
+	public ProfileAccount getProfileAccountDetails(GetProfileAccountRequest request) {
+		return profileAccountRepository.findById(new ProfileAccountId(request.getProfileId(), request.getApartmentId()))
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile account not found"));
+	}
+
+	@Override
+	@Transactional
+	public ProfileAccount updateProfileAccountDetails(UpdateProfileAccountRequest request, String actor) {
+		ProfileAccountId id = new ProfileAccountId(request.getProfileId(), request.getApartmentId());
+		ProfileAccount account = profileAccountRepository.findById(id).orElseGet(() -> {
+			ProfileAccount newAccount = new ProfileAccount();
+			newAccount.setProfileId(request.getProfileId());
+			newAccount.setApartmentId(request.getApartmentId());
+			newAccount.setCreateBy(actor);
+			return newAccount;
+		});
+		account.setPosition(request.getPosition());
+		account.setRole(request.getRole());
+		account.setJobeposition(request.getJobeposition());
+		account.setFlatId(request.getFlatId());
+		account.setStatus(request.getStatus());
+		account.setLastUpdtBy(actor);
+		return profileAccountRepository.saveAndFlush(account);
+	}
 
 	public String createProfileId() {
 		StringBuffer profilId = new StringBuffer();
