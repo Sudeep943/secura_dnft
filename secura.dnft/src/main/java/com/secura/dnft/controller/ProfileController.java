@@ -34,7 +34,7 @@ import com.secura.dnft.request.response.SearchProfileRequest;
 import com.secura.dnft.request.response.SearchProfileResponse;
 import com.secura.dnft.request.response.UpdateProfileRequest;
 import com.secura.dnft.request.response.UpdateProfileResponse;
-import com.secura.dnft.service.ProfileServices;
+import com.secura.dnft.service.ProfileService;
 import com.secura.dnft.validation.ProfileServiceValidation;
 
 @CrossOrigin(origins = "*")
@@ -43,7 +43,7 @@ import com.secura.dnft.validation.ProfileServiceValidation;
 public class ProfileController {
 
 	 @Autowired
-	 private ProfileServices profileServices;
+	 private ProfileService profileServices;
 	 
 	 @Autowired
 	 private ProfileServiceValidation profileServiceValidation;
